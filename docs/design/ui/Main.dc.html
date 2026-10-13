@@ -1,0 +1,1224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DocBeam</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F6;text-rendering:optimizeLegibility;font-feature-settings:'ss02','tnum' 0;-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit}
+:focus-visible{outline:2px solid #2B59C3;outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.thead{font-size:11px !important;font-weight:600 !important;letter-spacing:.05em;text-transform:uppercase;color:#667085 !important;background:#F9FAFB !important}
+.btnsm{min-height:30px !important;padding:0 10px !important;font-size:13px !important;gap:6px !important}
+.ghost{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border:1px solid transparent;border-radius:3px;background:transparent;color:#1F45A0;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.ghost:hover{background:#EEF3FF;border-color:#D6E0F8}
+.modalhead{display:flex;align-items:flex-start;gap:12px;padding:18px 22px;border-bottom:1px solid #EAECF0}
+.modalfoot{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px;padding:14px 22px;border-top:1px solid #EAECF0;background:#FCFCFD}
+.stat{padding:10px 14px;border:1px solid #EAECF0;border-radius:4px;background:#fff}
+.statv{font-size:20px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.statl{font-size:12px;color:#475467}
+a{color:#2B59C3}a:hover{color:#1F45A0}
+*{box-sizing:border-box}
+.mono{font-family:'IBM Plex Mono',monospace}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 16px;border-radius:4px;border:1px solid #111827;background:#111827;letter-spacing:.01em;color:#fff;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.btn:hover{background:#1F2937;border-color:#1F2937}
+.btn:disabled{background:#D0D5DD;border-color:#D0D5DD;box-shadow:none;cursor:not-allowed}
+.btn2{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 14px;border-radius:4px;border:1px solid #D0D5DD;background:#fff;color:#101828;font:500 14px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.btn2:hover{background:#F9FAFB;border-color:#98A2B3}
+.btn2:disabled{color:#98A2B3;border-color:#EAECF0;background:#fff;cursor:not-allowed}
+.top{position:relative;min-height:60px;padding:0 4px;border:0;background:transparent;color:#475467;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.top:hover{color:#101828}
+.topon{color:#111827;box-shadow:inset 0 -2px 0 #111827}
+.link{border:0;background:transparent;padding:0;font:inherit;color:#2B59C3;cursor:pointer;text-align:left}
+.link:hover{text-decoration:underline}
+.pill{min-height:32px;padding:0 12px;border-radius:2px;border:1px solid #D0D5DD;background:#fff;color:#344054;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.pill:hover{border-color:#98A2B3}
+.pillon{background:#111827;border-color:#111827;color:#fff}
+.icon{width:34px;height:34px;border:0;border-radius:4px;background:transparent;color:#667085;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.icon:hover{background:#F2F4F7;color:#101828}
+.fseg{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 10px 0 11px;border:1px solid transparent;border-radius:3px;background:transparent;color:#475467;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.fseg:hover{color:#101828;background:rgba(255,255,255,.6)}
+.fsegon{background:#FFFFFF;border-color:#E4E7EC;color:#101828;font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.rsz{position:absolute;top:-10px;bottom:-10px;right:-8px;width:12px;cursor:col-resize;z-index:2;outline:none}
+.rsz::after{content:'';position:absolute;left:5px;top:22%;bottom:22%;width:1px;background:#D0D5DD}
+.rsz:hover::after,.rsz:focus-visible::after{left:4px;width:3px;background:#2B59C3}
+.hcell{position:relative;min-width:0;overflow:visible;white-space:nowrap}
+.icon:disabled{opacity:.35;cursor:not-allowed;background:transparent}
+.ck{width:28px;height:28px;border:0;background:transparent;padding:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ck:disabled{cursor:not-allowed}
+.exp{width:22px;height:22px;border:0;border-radius:3px;background:transparent;color:#667085;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0}
+.exp:hover{background:#F2F4F7;color:#101828}
+.field{width:100%;min-height:38px;padding:0 12px;border:1px solid #D0D5DD;border-radius:4px;font:400 14px 'IBM Plex Sans',sans-serif;color:#101828;background:#fff}
+.field:focus{outline:2px solid #2B59C3;outline-offset:1px}
+.card{background:#fff;border:1px solid #E3E6EA;border-radius:4px;box-shadow:none}
+.seg{min-height:32px;padding:0 12px;border:0;border-radius:3px;background:transparent;color:#344054;font:500 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.segon{background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.12);color:#101828;font-weight:600}
+.jcard{display:block;width:100%;text-align:left;border:1px solid #E4E7EC;border-radius:4px;background:#fff;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.jcard:hover{border-color:#B2C3EB}
+.jcardon{border-color:#2B59C3;box-shadow:0 0 0 3px #E3EAFB}
+.frow:hover{background:#FAFBFC}
+.trow:hover{background:#FAFBFC}
+.frow{display:grid;grid-template-columns:32px minmax(180px,1.6fr) minmax(170px,1.3fr) minmax(130px,1fr) 70px 76px;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #F2F4F7}
+.trow{display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(220px,2.1fr) minmax(110px,.9fr) minmax(80px,.6fr) minmax(230px,1.8fr);gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid #F2F4F7}
+.chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:2px 8px;border-radius:3px;background:#F2F4F7;color:#344054;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #101828; background: #F6F7F9; font-size: 14px">
+
+<sc-if value="{{signedOut}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-wrap: wrap">
+<div style="flex: 1 1 420px; background: #0F1F3D; color: #FFFFFF; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#2B59C3"></rect><path d="M8 19c2.5-5 11.5-5 14 0M8 19v3M22 19v3M15 12v10" stroke="#fff" stroke-width="2" stroke-linecap="round"></path></svg>DocBeam</div>
+<div style="max-width: 440px"><h1 style="margin: 0 0 14px; font-size: 34px; line-height: 1.2; font-weight: 600">One upload. Every binder that needs it.</h1><p style="margin: 0; font-size: 16px; line-height: 1.6; color: #C2CCDD">Send trial documents to many team folders at once, and know exactly which deliveries succeeded and why any did not.</p></div>
+<div style="font-size: 13px; color: #8F9DB5">Clinical trial document distribution</div>
+</div>
+<div style="flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: 48px 24px; background: #FFFFFF">
+<div style="width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px">
+<div><h2 style="margin: 0 0 4px; font-size: 24px; font-weight: 600">Sign in</h2><p style="margin: 0; color: #475467">Use your work account.</p></div>
+<sc-if value="{{loginAlert}}" hint-placeholder-val="{{ false }}"><div role="alert" style="background: #FEF3F2; color: #912018; border: 1px solid #FECDCA; border-radius: 4px; padding: 10px 12px; font-weight: 500">Email or password is incorrect.</div></sc-if>
+<div><label for="em" style="display: block; font-weight: 600; margin-bottom: 6px">Work email</label><input id="em" class="field" type="email" value="{{loginEmail}}" readonly></div>
+<div><label for="pw" style="display: block; font-weight: 600; margin-bottom: 6px">Password</label><input id="pw" class="field" type="password" value="{{pwValue}}" readonly></div>
+<button class="btn" type="button" onClick="{{signIn}}" style="min-height: 44px">Sign in</button>
+<div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px"><button class="link" type="button" onClick="{{wrongPw}}">Try a wrong password</button><span style="color: #475467">You stay signed in for 12 hours</span></div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}">
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px; padding: 0 24px; background: #FFFFFF; border-bottom: 1px solid #E4E7EC; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04); position: sticky; top: 0; z-index: 30">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px">
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#2B59C3"></rect><path d="M8 19c2.5-5 11.5-5 14 0M8 19v3M22 19v3M15 12v10" stroke="#fff" stroke-width="2" stroke-linecap="round"></path></svg>
+<span style="font-weight: 700; font-size: 17px">DocBeam</span>
+</div>
+<nav style="display: flex; gap: 22px; flex-wrap: wrap" aria-label="Main">
+<sc-for list="{{navTabs}}" as="n" hint-placeholder-count="3"><button class="{{n.cls}}" type="button" onClick="{{n.pick}}" aria-current="{{n.current}}">{{n.label}}<sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="min-width: 20px; padding: 1px 7px; border-radius: 2px; background: #E3EAFB; color: #1F45A0; font-size: 12px; text-align: center">{{n.badge}}</span></sc-if></button></sc-for>
+</nav>
+<div style="flex: 1"></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 2px; background: {{connBg}}; color: {{connColor}}; font-size: 12px; font-weight: 600"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{connDot}}"></span>{{connText}}</span>
+<button class="icon" type="button" onClick="{{toggleAct}}" aria-pressed="{{actOpen}}" aria-label="System activity" title="System activity"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 8h3l2-5 4 10 2-5h3"></path></svg></button>
+<span style="width: 1px; height: 24px; background: #E4E7EC"></span>
+<span style="width: 32px; height: 32px; border-radius: 50%; background: #E3EAFB; color: #1F45A0; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{userInitials}}</span>
+<div style="line-height: 1.2"><div style="font-weight: 600; font-size: 13px">{{userName}}</div><div style="font-size: 12px; color: #475467">{{userTeamsText}}</div></div>
+<button class="icon" type="button" onClick="{{signOut}}" aria-label="Sign out" title="Sign out"><svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 3H4v12h3M11 6l3 3-3 3M14 9H7"></path></svg></button>
+</div>
+</header>
+
+<sc-if value="{{tDist}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 22px 24px 20px">
+<div style="display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between">
+<div><h1 style="margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em">New distribution</h1><div style="color: #475467">Upload each file once, then send it to every folder that needs it.</div></div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: {{st.color}}"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid {{st.ring}}; background: {{st.bg}}; color: {{st.numColor}}; font-size: 11px; display: inline-flex; align-items: center; justify-content: center">{{st.mark}}</span>{{st.label}}</li></sc-for>
+</ol>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch">
+<section aria-label="Add files" style="flex: 1 1 250px; max-width: 300px; display: flex; flex-direction: column; gap: 14px; min-width: 0">
+<div class="card" style="padding: 16px">
+<div style="font-weight: 600; margin-bottom: 10px">Add files</div>
+<div style="border: 1.5px dashed #B2C3EB; border-radius: 4px; background: #F7F9FF; padding: 22px 14px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center">
+<span style="width: 40px; height: 40px; border-radius: 4px; background: #E3EAFB; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2B59C3" stroke-width="1.8" aria-hidden="true"><path d="M10 13V3M6 7l4-4 4 4M3 14v3h14v-3"></path></svg></span>
+<div style="color: #344054"><button class="link" type="button" onClick="{{browse}}" style="font-weight: 600">Click to browse</button> or drag files here</div>
+<div style="font-size: 12px; color: #667085">PDF, DOCX, XLSX, PNG, JPG. Up to 100 files, 1 GB each.</div>
+</div>
+<sc-if value="{{hasRejected}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="margin-top: 12px; background: #FEF3F2; border: 1px solid #FECDCA; border-radius: 4px; padding: 10px 12px; color: #912018; font-size: 13px; line-height: 1.5">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px"><span style="font-weight: 600">Not added</span><button class="icon" type="button" onClick="{{dismissRejected}}" aria-label="Dismiss all" title="Dismiss all" style="width: 24px; height: 24px; color: #912018"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button></div>
+<sc-for list="{{rejected}}" as="r" hint-placeholder-count="2"><div style="display: flex; align-items: flex-start; gap: 6px; padding: 2px 0"><div style="flex: 1; min-width: 0"><span class="mono" style="font-size: 12px; word-break: break-all">{{r.name}}</span>: {{r.reason}}</div><button class="icon" type="button" onClick="{{r.remove}}" aria-label="{{r.rmLabel}}" title="Dismiss" style="width: 22px; height: 22px; color: #912018"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button></div></sc-for>
+</div>
+</sc-if>
+</div>
+<div class="card" style="padding: 16px">
+<div style="font-weight: 600; margin-bottom: 12px">This distribution</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div><div style="font-size: 22px; font-weight: 700">{{fileCount}}</div><div style="font-size: 12px; color: #475467">files</div></div>
+<div><div style="font-size: 22px; font-weight: 700">{{destCount}}</div><div style="font-size: 12px; color: #475467">destinations</div></div>
+<div><div style="font-size: 22px; font-weight: 700; color: #2B59C3">{{taskCount}}</div><div style="font-size: 12px; color: #475467">deliveries</div></div>
+<div><div style="font-size: 22px; font-weight: 700">{{statSize}}</div><div style="font-size: 12px; color: #475467">uploaded once</div></div>
+</div>
+<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #F2F4F7; font-size: 12px; color: #475467; line-height: 1.5">Each file is stored once, however many folders it goes to. Each folder it reaches is one delivery.</div>
+</div>
+</section>
+
+<section aria-label="Documents" class="card" style="flex: 2 1 480px; min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #E4E7EC">
+<div style="display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 15px; font-weight: 600">Documents</h2><span style="padding: 1px 8px; border-radius: 2px; background: #F2F4F7; color: #344054; font-size: 12px; font-weight: 600">{{fileCountText}}</span></div>
+<div style="font-size: 13px; color: #475467">{{selHint}}</div>
+</div>
+<sc-if value="{{noFiles}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 64px 24px; color: #475467; text-align: center">
+<span style="width: 48px; height: 48px; border-radius: 6px; background: #F2F4F7; display: inline-flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="1.6" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5"></path></svg></span>
+<div style="font-weight: 600; color: #101828">No documents yet</div>
+<div>Add files on the left. They upload in the background while you choose destinations.</div>
+</div>
+</sc-if>
+<sc-if value="{{hasFiles}}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto"><div style="min-width: {{fMinW}}px">
+<div class="frow thead" style="padding-top: 8px; padding-bottom: 8px; grid-template-columns: {{fGrid}}">
+<button class="ck" type="button" role="checkbox" aria-checked="{{allAria}}" aria-label="Select all files" onClick="{{toggleAll}}"><span style="width: 16px; height: 16px; border-radius: 2px; border: 1.5px solid {{allBorder}}; background: {{allBg}}; display: inline-flex; align-items: center; justify-content: center"><sc-if value="{{allOn}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></sc-if><sc-if value="{{allMixed}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><path d="M3 6h6"></path></svg></sc-if></span></button>
+<sc-for list="{{fHeads}}" as="h" hint-placeholder-count="5"><div class="hcell" style="text-align: {{h.align}}">{{h.label}}<sc-if value="{{h.canResize}}" hint-placeholder-val="{{ true }}"><span class="rsz" role="separator" aria-orientation="vertical" aria-label="{{h.rsLabel}}" title="Drag to resize, double-click to reset" tabindex="0" onMouseDown="{{h.resize}}" onDoubleClick="{{h.reset}}" onKeyDown="{{h.key}}"></span></sc-if></div></sc-for>
+</div>
+<sc-for list="{{fileRows}}" as="f" hint-placeholder-count="4">
+<div class="frow" style="background: {{f.bg}}; grid-template-columns: {{f.grid}}">
+<sc-if value="{{f.selOpen}}" hint-placeholder-val="{{ true }}"><button class="ck" type="button" role="checkbox" aria-checked="{{f.selected}}" aria-label="{{f.selLabel}}" onClick="{{f.toggleSel}}"><span style="width: 16px; height: 16px; border-radius: 2px; border: 1.5px solid {{f.boxBorder}}; background: {{f.boxBg}}; display: inline-flex; align-items: center; justify-content: center"><sc-if value="{{f.selected}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></sc-if></span></button></sc-if><sc-if value="{{f.selLocked}}" hint-placeholder-val="{{ false }}"><span class="ck" role="img" aria-label="{{f.lockedLabel}}" title="Refused for malware: cannot be selected" style="cursor: not-allowed"><span style="width: 16px; height: 16px; border-radius: 2px; border: 1.5px solid #FECDCA; background: #FEF3F2; display: inline-flex; align-items: center; justify-content: center; color: #D92D20"><svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"></path></svg></span></span></sc-if>
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span style="width: 30px; height: 36px; border-radius: 3px; background: {{f.typeBg}}; color: {{f.typeFg}}; font-size: 9px; font-weight: 700; display: inline-flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; flex: none">{{f.type}}</span>
+<sc-if value="{{f.selOpen}}" hint-placeholder-val="{{ true }}"><button class="link" type="button" onClick="{{f.only}}" title="Map only this file" style="color: #101828; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.name}}</button></sc-if><sc-if value="{{f.selLocked}}" hint-placeholder-val="{{ false }}"><span style="color: #98A2B3; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: line-through">{{f.name}}</span></sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px; min-width: 0">
+<sc-if value="{{f.noDest}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 5px; color: #B54708; font-size: 12px; font-weight: 500"><span style="width: 6px; height: 6px; border-radius: 50%; background: #F79009"></span>No destination yet</span></sc-if>
+<sc-if value="{{f.blocked}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 5px; color: #B42318; font-size: 12px; font-weight: 500"><span style="width: 6px; height: 6px; border-radius: 50%; background: #F04438"></span>Will not be sent</span></sc-if><sc-for list="{{f.chips}}" as="c" hint-placeholder-count="2"><span class="chip" title="{{c.path}}">{{c.name}}</span></sc-for>
+<sc-if value="{{f.hasMore}}" hint-placeholder-val="{{ false }}"><span class="chip" style="background: #E3EAFB; color: #1F45A0">{{f.moreText}}</span></sc-if>
+</div>
+<div>
+<sc-if value="{{f.showBar}}" hint-placeholder-val="{{ true }}"><div style="height: 4px; border-radius: 2px; background: #EAECF0; overflow: hidden; margin-bottom: 5px"><div style="height: 4px; width: {{f.pct}}%; background: #2B59C3"></div></div></sc-if>
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: {{f.statusColor}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{f.statusDot}}"></span>{{f.status}}</span>
+</div>
+<div class="num" style="text-align: right; color: #475467; font-size: 13px">{{f.size}}</div>
+<div style="display: flex; justify-content: flex-end; gap: 2px">
+<sc-if value="{{f.canPreview}}" hint-placeholder-val="{{ true }}"><button class="icon" type="button" onClick="{{f.preview}}" aria-label="{{f.pvLabel}}" title="Preview"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z"></path><circle cx="10" cy="10" r="2.6"></circle></svg></button></sc-if>
+<sc-if value="{{f.canRetry}}" hint-placeholder-val="{{ false }}"><button class="icon" type="button" onClick="{{f.retry}}" aria-label="{{f.retryLabel}}" title="Retry upload" style="color: #B42318"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2v3h-3"></path></svg></button></sc-if>
+<sc-if value="{{f.noRetry}}" hint-placeholder-val="{{ true }}"><button class="icon" type="button" onClick="{{f.remove}}" aria-label="{{f.removeLabel}}" title="Remove"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button></sc-if>
+</div>
+</div>
+</sc-for>
+</div></div>
+</sc-if>
+</section>
+
+<div style="flex: 1.3 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<section aria-label="Destinations" class="card" style="min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #E4E7EC">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Destinations</h2>
+<div style="font-size: 13px; color: #475467">{{destCountText}}</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: {{scopeBg}}; border-bottom: 1px solid #E4E7EC">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="{{scopeIcon}}" stroke-width="1.7" aria-hidden="true"><path d="M2 4h12M2 8h8M2 12h5"></path></svg>
+<div style="flex: 1; font-size: 13px; color: #344054; line-height: 1.4">Ticking a folder sends <strong>{{scopeTitle}}</strong> there</div>
+<sc-if value="{{scopeIsSel}}" hint-placeholder-val="{{ false }}"><button class="link" type="button" onClick="{{scopeAll}}" style="font-size: 13px; font-weight: 600">Use all files</button></sc-if>
+</div>
+<div style="padding: 10px 16px 6px; position: relative">
+<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#667085" stroke-width="1.8" aria-hidden="true" style="position: absolute; left: 28px; top: 22px"><circle cx="7" cy="7" r="5"></circle><path d="M11 11l3.5 3.5"></path></svg>
+<label for="dq" style="position: absolute; left: -9999px">Filter destinations</label>
+<input id="dq" class="field" type="search" placeholder="Filter binders and folders" value="{{dq}}" onChange="{{onDq}}" style="padding-left: 34px">
+</div>
+<div style="padding: 4px 8px 10px; flex: 1">
+<sc-for list="{{tree}}" as="r" hint-placeholder-count="6">
+<div style="display: flex; align-items: center; gap: 6px; min-height: 36px; padding-left: {{r.pad}}px; padding-right: 8px; border-radius: 4px; background: {{r.bg}}">
+<sc-if value="{{r.hasKids}}" hint-placeholder-val="{{ true }}"><button class="exp" type="button" onClick="{{r.toggleOpen}}" aria-expanded="{{r.expanded}}" aria-label="{{r.expLabel}}"><sc-if value="{{r.expanded}}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 4.5l3 3 3-3"></path></svg></sc-if><sc-if value="{{r.collapsed}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4.5 3l3 3-3 3"></path></svg></sc-if></button></sc-if>
+<sc-if value="{{r.noKids}}" hint-placeholder-val="{{ false }}"><span style="width: 22px; flex: none"></span></sc-if>
+<sc-if value="{{r.isTeam}}" hint-placeholder-val="{{ true }}"><span style="width: 20px; height: 20px; border-radius: 3px; background: {{r.color}}; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin: 0 4px">{{r.initial}}</span><span style="font-weight: 600">{{r.name}}</span><span style="font-size: 12px; color: #667085; margin-left: 4px">team</span></sc-if>
+<sc-if value="{{r.selectable}}" hint-placeholder-val="{{ false }}">
+<button class="ck" type="button" role="checkbox" aria-checked="{{r.aria}}" aria-label="{{r.ckLabel}}" onClick="{{r.toggle}}" disabled="{{r.ckDisabled}}"><span style="width: 16px; height: 16px; border-radius: 2px; border: 1.5px solid {{r.boxBorder}}; background: {{r.boxBg}}; display: inline-flex; align-items: center; justify-content: center"><sc-if value="{{r.on}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg></sc-if><sc-if value="{{r.mixed}}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" aria-hidden="true"><path d="M3 6h6"></path></svg></sc-if></span></button>
+<sc-if value="{{r.isBinder}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#475467" stroke-width="1.5" aria-hidden="true"><rect x="3" y="2" width="10" height="12" rx="1.5"></rect><path d="M6 2v12"></path></svg></sc-if>
+<sc-if value="{{r.isFolder}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 20 20" fill="#F2C55C" aria-hidden="true"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h4l1.6 1.8h7.4A1.5 1.5 0 0 1 18 7.3v7.2a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 14.5z"></path></svg></sc-if>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.name}}</span>
+<sc-if value="{{r.showBadge}}" hint-placeholder-val="{{ false }}"><span style="flex: none; padding: 1px 8px; border-radius: 2px; background: #E3EAFB; color: #1F45A0; font-size: 12px; font-weight: 600">{{r.badge}}</span></sc-if>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{treeEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding: 24px 12px; color: #475467; text-align: center">No binders or folders match.</div></sc-if>
+</div>
+</section>
+</div>
+</div>
+<section aria-label="Review" class="card" style="min-width: 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #E4E7EC">
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 15px; font-weight: 600">Review</h2><span style="font-size: 13px; color: #475467">Every folder and the files going to it. Preview a file, or remove it with the cross.</span></div>
+<div class="num" style="font-size: 13px; color: #475467">{{sendToCount}}</div>
+</div>
+<sc-if value="{{noChosen}}" hint-placeholder-val="{{ false }}"><div style="padding: 22px 16px; color: #475467; text-align: center; font-size: 13px">Tick folders in Destinations. Each folder you choose appears here with the files going to it.</div></sc-if>
+<sc-if value="{{hasChosen}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 14px 16px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start">
+<sc-for list="{{reviewRows}}" as="r" hint-placeholder-count="3">
+<div style="border: 1px solid #EAECF0; border-radius: 3px; overflow: hidden; min-width: 0">
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px 6px 8px 12px; background: #FAFBFC; border-bottom: 1px solid #F2F4F7">
+<span style="width: 20px; height: 20px; border-radius: 2px; background: {{r.color}}; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none" title="{{r.team}}">{{r.initial}}</span>
+<div style="flex: 1; min-width: 0" title="{{r.path}}"><div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</div><div style="font-size: 12px; color: #667085; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.path}}</div></div>
+<span class="num" style="padding: 1px 7px; border-radius: 2px; background: #EEF3FF; color: #1F45A0; font-size: 12px; font-weight: 600; white-space: nowrap">{{r.count}}</span>
+<button class="icon" type="button" onClick="{{r.rmDest}}" aria-label="{{r.rmDestLabel}}" title="Remove this folder" style="width: 28px; height: 28px"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button>
+</div>
+<sc-for list="{{r.files}}" as="rf" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 42px; border-bottom: 1px solid #F7F8FA">
+<span style="min-width: 36px; padding: 1px 0; border-radius: 2px; background: {{rf.typeBg}}; color: {{rf.typeFg}}; font-size: 10px; font-weight: 700; text-align: center; flex: none">{{rf.type}}</span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" title="{{rf.name}}">{{rf.name}}</span>
+<span class="num" style="font-size: 12px; color: #667085; white-space: nowrap">{{rf.size}}</span>
+<button class="icon" type="button" onClick="{{rf.preview}}" aria-label="{{rf.pvLabel}}" title="Preview" style="width: 28px; height: 28px"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z"></path><circle cx="10" cy="10" r="2.6"></circle></svg></button>
+<button class="icon" type="button" onClick="{{rf.remove}}" aria-label="{{rf.rmLabel}}" title="Remove from this folder" style="width: 28px; height: 28px"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</div>
+
+<div style="position: sticky; bottom: 0; z-index: 10; background: rgba(255, 255, 255, 0.96); border-top: 1px solid #E4E7EC; box-shadow: 0 -6px 18px rgba(16, 24, 40, 0.05); padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="3"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 2px; background: {{c.bg}}; color: {{c.color}}; font-size: 12px; font-weight: 600"><sc-if value="{{c.ok}}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2.5 7.2l2.8 2.8L11.5 4"></path></svg></sc-if><sc-if value="{{c.notOk}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7" cy="7" r="5"></circle></svg></sc-if>{{c.label}}</span></sc-for>
+</div>
+<div style="flex: 1"></div>
+<div style="font-size: 13px; color: #475467">{{reviewSummary}}</div>
+<button class="btn2" type="button" onClick="{{clearAll}}" disabled="{{clearDisabled}}">Clear</button>
+<button class="btn" type="button" onClick="{{send}}" disabled="{{sendDisabled}}"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 10l14-7-5 14-2.5-5.5z"></path><path d="M9.5 11.5L17 3"></path></svg>{{sendLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{tStatus}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-wrap: wrap; gap: 18px; padding: 22px 24px 28px; align-items: flex-start">
+<aside style="flex: 1 1 260px; max-width: 330px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em">Distributions</h1>
+<div style="display: flex; gap: 2px; background: #EAECF0; border-radius: 4px; padding: 3px" role="group" aria-label="Whose distributions"><sc-for list="{{scopeTabs}}" as="t" hint-placeholder-count="2"><button class="{{t.cls}}" type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="flex: 1">{{t.label}}</button></sc-for></div>
+<div style="display: flex; gap: 6px"><label for="jid" style="position: absolute; left: -9999px">Open by ID</label><input id="jid" class="field mono" type="text" value="{{idInput}}" onChange="{{onIdInput}}" placeholder="JOB-0000"><button class="btn2" type="button" onClick="{{openById}}">Open</button></div>
+<sc-if value="{{noJobs}}" hint-placeholder-val="{{ false }}"><div class="card" style="padding: 16px; color: #475467">{{noJobsText}}</div></sc-if>
+<sc-for list="{{jobCards}}" as="j" hint-placeholder-count="4">
+<button class="{{j.cls}}" type="button" onClick="{{j.open}}">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px"><span class="mono" style="font-weight: 500">{{j.id}}</span><span style="flex: 1"></span><span style="padding: 2px 8px; border-radius: 2px; font-size: 11px; font-weight: 600; background: {{j.chipBg}}; color: {{j.chipFg}}">{{j.status}}</span></div>
+<div style="font-size: 12px; color: #475467; margin-bottom: 8px">{{j.byLine}}</div>
+<div style="display: flex; height: 5px; border-radius: 2px; overflow: hidden; background: #EAECF0"><div style="width: {{j.wDone}}%; background: #12B76A"></div><div style="width: {{j.wFail}}%; background: #F04438"></div><div style="width: {{j.wProg}}%; background: #2B59C3"></div></div>
+</button>
+</sc-for>
+</aside>
+<section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{vNotFound}}" hint-placeholder-val="{{ false }}">
+<div class="card" style="padding: 64px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<span style="width: 48px; height: 48px; border-radius: 6px; background: #F2F4F7; display: inline-flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M16 16l5 5M8 11h6"></path></svg></span>
+<h2 style="margin: 0; font-size: 18px; font-weight: 600">Distribution not found</h2>
+<p style="margin: 0; max-width: 440px; color: #475467; line-height: 1.6">It does not exist, or you do not have access to it. You can see a distribution if you sent it or share a team with the person who did.</p>
+</div>
+</sc-if>
+<sc-if value="{{vJob}}" hint-placeholder-val="{{ true }}">
+<div class="card" style="padding: 18px 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px">
+<div style="flex: 1; min-width: 240px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><h2 class="mono" style="margin: 0; font-size: 20px; font-weight: 500">{{jdId}}</h2><span style="padding: 3px 10px; border-radius: 2px; font-size: 12px; font-weight: 600; background: {{jdChipBg}}; color: {{jdChipFg}}">{{jdStatus}}</span></div>
+<div style="color: #475467; margin-top: 6px">{{jdMeta}}</div>
+<sc-if value="{{jdShared}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 6px; color: #1F45A0; font-weight: 500; font-size: 13px">{{jdSharedText}}</div></sc-if>
+</div>
+<sc-if value="{{canCancelJob}}" hint-placeholder-val="{{ false }}"><button class="btn2" type="button" onClick="{{cancelJob}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M5.5 5.5l5 5M10.5 5.5l-5 5"></path></svg>Cancel distribution</button></sc-if>
+<sc-if value="{{canRetryJob}}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" onClick="{{retryJob}}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2v3h-3"></path></svg>Retry failed deliveries</button></sc-if>
+</div>
+<sc-if value="{{canRetryJob}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; background: #FFFAEB; border: 1px solid #FEDF89; color: #93370D; border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.5">{{retryText}}</div></sc-if>
+<sc-if value="{{canCancelJob}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; font-size: 13px; color: #475467; line-height: 1.5">{{cancelHint}}</div></sc-if>
+<sc-if value="{{hasRetryNote}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; font-size: 13px; color: #475467; line-height: 1.5">{{retryNote}}</div></sc-if>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 16px; border: 1px solid #EAECF0; border-radius: 4px; overflow: hidden">
+<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Delivered</div><div style="font-size: 22px; font-weight: 700; color: #067647">{{nDone}}</div></div>
+<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Failed</div><div style="font-size: 22px; font-weight: 700; color: #B42318">{{nFail}}</div></div>
+<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">In progress</div><div style="font-size: 22px; font-weight: 700; color: #2B59C3">{{nProg}}</div></div>
+<div style="padding: 12px 14px"><div style="font-size: 12px; color: #475467">Waiting</div><div style="font-size: 22px; font-weight: 700; color: #344054">{{nPend}}</div></div>
+</div>
+<div style="display: flex; height: 6px; border-radius: 2px; overflow: hidden; background: #EAECF0; margin-top: 12px"><div style="width: {{pDone}}%; background: #12B76A"></div><div style="width: {{pFail}}%; background: #F04438"></div><div style="width: {{pProg}}%; background: #2B59C3"></div></div>
+</div>
+<sc-if value="{{hasDl}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: {{dlBg}}; border-radius: 4px; padding: 12px 16px">
+<div style="display: flex; align-items: center; gap: 10px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 2v10M5 8l4 4 4-4M3 15h12"></path></svg><span>{{dlText}}</span></div>
+<div style="display: flex; gap: 8px"><sc-if value="{{dlLive}}" hint-placeholder-val="{{ true }}"><button class="btn2" type="button" onClick="{{expireDl}}">Skip to expiry</button></sc-if><button class="btn2" type="button" onClick="{{closeDl}}">Dismiss</button></div>
+</div>
+</sc-if>
+<div class="card" style="overflow: hidden">
+<div style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 0 12px 0 16px; border-bottom: 1px solid #E4E7EC">
+<div style="display: flex; gap: 20px" role="tablist" aria-label="Distribution detail"><sc-for list="{{detailTabs}}" as="d" hint-placeholder-count="2"><button class="{{d.cls}}" type="button" role="tab" aria-selected="{{d.on}}" onClick="{{d.pick}}" style="min-height: 48px">{{d.label}}<span style="padding: 0 7px; border-radius: 2px; background: #F2F4F7; color: #344054; font-size: 12px">{{d.count}}</span></button></sc-for></div>
+<sc-if value="{{dtDeliveries}}" hint-placeholder-val="{{ true }}"><div style="display: flex; flex-wrap: wrap; gap: 2px; margin: 8px 0; padding: 3px; background: #F2F4F7; border: 1px solid #EAECF0; border-radius: 4px" role="group" aria-label="Filter deliveries by status"><sc-for list="{{taskFilters}}" as="f" hint-placeholder-count="5"><button class="{{f.cls}}" type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" aria-label="{{f.aria}}"><sc-if value="{{f.hasDot}}" hint-placeholder-val="{{ true }}"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{f.dot}}; flex: none"></span></sc-if>{{f.label}}<span class="num" style="min-width: 22px; padding: 1px 7px; border-radius: 2px; background: {{f.cBg}}; color: {{f.cFg}}; font-size: 11px; font-weight: 700; text-align: center; border: 1px solid #EAECF0">{{f.count}}</span></button></sc-for></div></sc-if>
+</div>
+<sc-if value="{{dtDeliveries}}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto"><div style="min-width: {{tMinW}}px">
+<div class="trow thead" style="padding-top: 9px; padding-bottom: 9px; grid-template-columns: {{tGrid}}"><sc-for list="{{tHeads}}" as="h" hint-placeholder-count="5"><div class="hcell" style="text-align: {{h.align}}">{{h.label}}<sc-if value="{{h.canResize}}" hint-placeholder-val="{{ true }}"><span class="rsz" role="separator" aria-orientation="vertical" aria-label="{{h.rsLabel}}" title="Drag to resize, double-click to reset" tabindex="0" onMouseDown="{{h.resize}}" onDoubleClick="{{h.reset}}" onKeyDown="{{h.key}}"></span></sc-if></div></sc-for></div>
+<sc-for list="{{taskRows}}" as="t" hint-placeholder-count="6">
+<div class="trow" style="grid-template-columns: {{t.grid}}">
+<div style="font-weight: 500">{{t.file}}</div>
+<div style="color: #344054">{{t.dest}}</div>
+<div><span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 2px; font-size: 12px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{t.dot}}"></span>{{t.label}}</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-width: 0" title="{{t.attTitle}}"><span style="display: inline-flex; gap: 2px; flex: none" aria-hidden="true"><sc-for list="{{t.attSegs}}" as="sg" hint-placeholder-count="5"><span style="width: 6px; height: 12px; border-radius: 1px; background: {{sg.bg}}"></span></sc-for></span><span class="num" style="font-size: 13px; color: {{t.attColor}}; white-space: nowrap">{{t.attempts}}</span><sc-if value="{{t.retriedTag}}" hint-placeholder-val="{{ false }}"><span style="padding: 0 5px; border: 1px solid #E4E7EC; border-radius: 2px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #475467">Retried</span></sc-if></div>
+<div style="font-size: 13px; line-height: 1.45">
+<sc-if value="{{t.hasCode}}" hint-placeholder-val="{{ false }}"><div class="mono" style="font-size: 12px; font-weight: 500; color: #B42318">{{t.code}}</div><div style="color: #344054">{{t.reason}}</div></sc-if>
+<sc-if value="{{t.canDl}}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-wrap: wrap; gap: 6px"><button class="btn2 btnsm" type="button" onClick="{{t.preview}}" aria-label="{{t.pvLabel}}"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z"></path><circle cx="10" cy="10" r="2.6"></circle></svg>Preview</button><button class="btn2 btnsm" type="button" onClick="{{t.download}}" aria-label="{{t.dlLabel}}"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 2v10M5 8l4 4 4-4M3 15h12"></path></svg>Download</button></div></sc-if>
+<sc-if value="{{t.waiting}}" hint-placeholder-val="{{ false }}"><span style="color: #475467">{{t.reason}}</span></sc-if>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{tasksEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding: 28px 16px; text-align: center; color: #475467">No deliveries with this status.</div></sc-if>
+</div></div>
+</sc-if>
+<sc-if value="{{dtAudit}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 6px 16px 14px">
+<sc-for list="{{jobAudit}}" as="a" hint-placeholder-count="4">
+<div style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F2F4F7">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: {{a.dot}}; margin-top: 6px; flex: none"></span>
+<div style="flex: 1; min-width: 0"><div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline"><span style="font-weight: 600; color: {{a.color}}">{{a.event}}</span><span style="font-size: 12px; color: #475467">{{a.who}}</span></div><div style="color: #344054; line-height: 1.5; margin-top: 2px">{{a.detail}}</div></div>
+<div class="mono" style="font-size: 12px; color: #475467; white-space: nowrap">{{a.day}} {{a.time}}</div>
+</div>
+</sc-for>
+<sc-if value="{{jobAuditEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding: 24px 0; text-align: center; color: #475467">No events recorded for this distribution yet.</div></sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{tAudit}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; padding: 22px 24px 28px; display: flex; flex-direction: column; gap: 14px; max-width: 1100px; width: 100%">
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between">
+<div><h1 style="margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em">Audit trail</h1><div style="color: #475467">The full history of every distribution you can see. Events are only ever added, never changed or deleted.</div></div>
+<div style="font-size: 13px; color: #475467">{{auditCountText}}</div>
+</div>
+<div class="card" style="padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center">
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span style="font-size: 12px; font-weight: 600; color: #475467; margin-right: 4px">Event</span><sc-for list="{{auditKinds}}" as="k" hint-placeholder-count="5"><button class="{{k.cls}}" type="button" onClick="{{k.pick}}" aria-pressed="{{k.on}}">{{k.label}}</button></sc-for></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span style="font-size: 12px; font-weight: 600; color: #475467; margin-right: 4px">Distribution</span><sc-for list="{{auditJobs}}" as="k" hint-placeholder-count="4"><button class="{{k.cls}}" type="button" onClick="{{k.pick}}" aria-pressed="{{k.on}}">{{k.label}}</button></sc-for></div>
+</div>
+<sc-if value="{{auditEmpty}}" hint-placeholder-val="{{ false }}"><div class="card" style="padding: 28px 16px; text-align: center; color: #475467">No events match these filters.</div></sc-if>
+<sc-for list="{{auditGroups}}" as="g" hint-placeholder-count="2">
+<div>
+<div style="font-size: 12px; font-weight: 700; letter-spacing: .06em; color: #475467; margin: 6px 0 8px">{{g.day}}</div>
+<div class="card" style="padding: 0 16px">
+<sc-for list="{{g.items}}" as="a" hint-placeholder-count="3">
+<div style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #F2F4F7; align-items: flex-start">
+<div class="mono" style="font-size: 12px; color: #475467; width: 64px; flex: none; padding-top: 2px">{{a.time}}</div>
+<span style="width: 28px; height: 28px; border-radius: 4px; background: {{a.iconBg}}; color: {{a.dot}}; display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 12px; font-weight: 700">{{a.glyph}}</span>
+<div style="flex: 1; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline"><span style="font-weight: 600; color: {{a.color}}">{{a.event}}</span><span style="font-size: 12px; color: #475467">by {{a.who}}</span></div>
+<div style="color: #344054; line-height: 1.5; margin-top: 2px">{{a.detail}}</div>
+</div>
+<sc-if value="{{a.hasJob}}" hint-placeholder-val="{{ true }}"><button class="link mono" type="button" onClick="{{a.openJob}}" style="font-size: 12px; flex: none; padding-top: 2px">{{a.job}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+
+
+<sc-if value="{{pv.open}}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; background: rgba(16, 24, 40, 0.6); z-index: 90"></div>
+<div role="dialog" aria-modal="true" aria-label="File preview" style="position: fixed; top: 32px; bottom: 32px; left: 16px; right: 16px; margin: 0 auto; max-width: 980px; display: flex; flex-direction: column; background: #FFFFFF; border-radius: 6px; z-index: 91; box-shadow: 0 24px 60px rgba(16, 24, 40, 0.35); overflow: hidden">
+<div class="modalhead" style="align-items: center">
+<span style="min-width: 44px; padding: 4px 0; border-radius: 3px; background: {{pv.typeBg}}; color: {{pv.typeFg}}; font-size: 11px; font-weight: 700; text-align: center; flex: none">{{pv.type}}</span>
+<div style="flex: 1; min-width: 0"><div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{pv.name}}</div><div style="font-size: 12px; color: #475467">{{pv.meta}}</div></div>
+<sc-if value="{{pv.hasPages}}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 4px"><button class="icon" type="button" onClick="{{pv.prev}}" disabled="{{pv.noPrev}}" aria-label="Previous page"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7.5 3l-3 3 3 3"></path></svg></button><span class="num" style="font-size: 13px; color: #344054; min-width: 78px; text-align: center">{{pv.pageText}}</span><button class="icon" type="button" onClick="{{pv.next}}" disabled="{{pv.noNext}}" aria-label="Next page"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4.5 3l3 3-3 3"></path></svg></button></div></sc-if>
+<sc-if value="{{pv.hasDl}}" hint-placeholder-val="{{ true }}"><button class="btn2 btnsm" type="button" onClick="{{pv.download}}"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 2v10M5 8l4 4 4-4M3 15h12"></path></svg>Download</button></sc-if>
+<button class="icon" type="button" onClick="{{pv.close}}" aria-label="Close preview"><svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button>
+</div>
+<div style="flex: 1; overflow: auto; background: #E9ECF1; padding: 28px 16px; display: flex; justify-content: center; align-items: flex-start">
+<sc-if value="{{pv.isDoc}}" hint-placeholder-val="{{ true }}">
+<div style="width: 100%; max-width: 620px; background: #fff; box-shadow: 0 2px 10px rgba(16, 24, 40, 0.12); padding: 56px 60px 64px; font-family: Georgia, 'Times New Roman', serif; color: #1D2939">
+<div style="display: flex; justify-content: space-between; font: 600 10px 'IBM Plex Sans', sans-serif; letter-spacing: .08em; color: #98A2B3; text-transform: uppercase; margin-bottom: 28px"><span>Sample document</span><span>Confidential</span></div>
+<h3 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; line-height: 1.3">{{pv.title}}</h3>
+<div style="font: 400 12px 'IBM Plex Sans', sans-serif; color: #667085; margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid #EAECF0">Controlled document. Approved copy for trial sites.</div>
+<sc-for list="{{pv.sections}}" as="sec" hint-placeholder-count="2"><div style="margin-bottom: 18px"><div style="font: 700 14px 'IBM Plex Sans', sans-serif; margin-bottom: 6px">{{sec.h}}</div><p style="margin: 0; font-size: 14px; line-height: 1.7">{{sec.t}}</p></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{pv.isSheet}}" hint-placeholder-val="{{ false }}">
+<div style="width: 100%; max-width: 860px; background: #fff; box-shadow: 0 2px 10px rgba(16, 24, 40, 0.12); overflow-x: auto">
+<table style="border-collapse: collapse; width: 100%; font-size: 13px">
+<thead><tr><th style="width: 40px; background: #F2F4F7; border: 1px solid #E4E7EC; color: #667085; font-weight: 500"></th><sc-for list="{{pv.cols}}" as="c" hint-placeholder-count="5"><th style="background: #F2F4F7; border: 1px solid #E4E7EC; padding: 6px 10px; text-align: left; font-weight: 600">{{c.v}}</th></sc-for></tr></thead>
+<tbody><sc-for list="{{pv.rows}}" as="row" hint-placeholder-count="5"><tr><td class="num" style="background: #F9FAFB; border: 1px solid #E4E7EC; color: #667085; text-align: center">{{row.n}}</td><sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="5"><td style="border: 1px solid #EAECF0; padding: 6px 10px; white-space: nowrap">{{cell.v}}</td></sc-for></tr></sc-for></tbody>
+</table>
+</div>
+</sc-if>
+<sc-if value="{{pv.isImage}}" hint-placeholder-val="{{ false }}">
+<div style="width: 100%; max-width: 520px; aspect-ratio: 1 / 1.414; background: linear-gradient(135deg, #DDE5F4, #F5F7FB); box-shadow: 0 2px 10px rgba(16, 24, 40, 0.12); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #475467"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 17l-5-5-9 8"></path></svg><span style="font-size: 13px">{{pv.imgText}}</span></div>
+</sc-if>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 10px 22px; border-top: 1px solid #EAECF0; font-size: 12px; color: #475467; background: #FCFCFD"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>{{pv.note}}</div>
+</div>
+</sc-if>
+
+<sc-if value="{{renewOpen}}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; background: rgba(16, 24, 40, 0.45); z-index: 80"></div>
+<div role="dialog" aria-modal="true" aria-label="Sign in again" style="position: fixed; top: 96px; left: 16px; right: 16px; margin: 0 auto; max-width: 440px; background: #FFFFFF; border-radius: 6px; z-index: 81; box-shadow: 0 24px 48px rgba(16, 24, 40, 0.25); padding: 22px">
+<h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700">{{renewTitle}}</h2>
+<div style="color: #475467; line-height: 1.5; margin-bottom: 14px">{{renewText}}</div>
+<label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px">Password for {{userEmail}}</label>
+<input type="password" value="correct-horse-battery" aria-label="Password" readonly style="width: 100%; box-sizing: border-box; min-height: 40px; border: 1px solid #D0D5DD; border-radius: 4px; padding: 0 12px; font: inherit">
+<div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px">
+<button class="btn2" type="button" onClick="{{signOut}}">Sign out</button>
+<button class="btn" type="button" onClick="{{renew}}">Sign in again</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{actOpen}}" hint-placeholder-val="{{ false }}">
+<aside aria-label="System activity" style="position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100%; background: #0F1F3D; color: #E3E8F0; z-index: 60; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(15, 31, 61, 0.35)">
+<div style="display: flex; align-items: center; gap: 8px; padding: 16px 18px; border-bottom: 1px solid #22355A">
+<div style="flex: 1"><div style="font-weight: 600; color: #fff">System activity</div><div style="font-size: 12px; color: #A4B1C7">What the system does behind each action. Newest first.</div></div>
+<button type="button" onClick="{{clearLog}}" style="min-height: 32px; padding: 0 10px; border-radius: 3px; border: 1px solid #33507F; background: transparent; color: #C5CEDD; font: 500 12px 'IBM Plex Sans', sans-serif; cursor: pointer">Clear</button>
+<button type="button" onClick="{{toggleAct}}" aria-label="Close system activity" style="width: 32px; height: 32px; border-radius: 3px; border: 0; background: transparent; color: #C5CEDD; cursor: pointer"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12"></path></svg></button>
+</div>
+<div style="flex: 1; overflow-y: auto; padding: 4px 18px 18px">
+<sc-if value="{{logEmpty}}" hint-placeholder-val="{{ false }}"><div style="padding: 16px 0; color: #A4B1C7; font-size: 13px">Nothing yet.</div></sc-if>
+<sc-for list="{{log}}" as="e" hint-placeholder-count="4">
+<div style="padding: 12px 0; border-bottom: 1px solid #22355A"><div class="mono" style="font-size: 12px; color: #8FB4FF; margin-bottom: 4px">{{e.route}}</div><div style="font-size: 13px; line-height: 1.55">{{e.text}}</div></div>
+</sc-for>
+</div>
+</aside>
+</sc-if>
+
+<div style="position: fixed; right: 16px; top: 72px; z-index: 70; display: flex; flex-direction: column; gap: 8px; max-width: 380px">
+<sc-for list="{{toasts}}" as="t" hint-placeholder-count="0">
+<div role="status" style="display: flex; align-items: center; gap: 10px; background: #101828; color: #fff; border-radius: 4px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(16, 24, 40, 0.3)"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{t.dot}}; flex: none"></span><span style="line-height: 1.45">{{t.text}}</span></div>
+</sc-for>
+</div>
+
+<div style="position: fixed; left: 16px; bottom: 76px; z-index: 40; width: 300px; max-width: calc(100% - 32px)">
+<sc-if value="{{demoOpen}}" hint-placeholder-val="{{ false }}">
+<div class="card" style="box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18); padding: 14px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 600">Demo controls</div>
+<div style="font-size: 12px; color: #475467">Signed in as</div>
+<div style="display: flex; gap: 2px; background: #EAECF0; border-radius: 4px; padding: 3px" role="group" aria-label="Signed in as"><sc-for list="{{viewers}}" as="v" hint-placeholder-count="3"><button class="{{v.cls}}" type="button" onClick="{{v.pick}}" aria-pressed="{{v.on}}" style="flex: 1">{{v.label}}</button></sc-for></div>
+<div style="font-size: 12px; color: #475467">{{viewerHint}}</div>
+<button class="btn2" type="button" onClick="{{sampleMap}}" style="justify-content: flex-start">Import sample files and mapping</button>
+<button class="btn2" type="button" onClick="{{removeOnc}}" disabled="{{removeDisabled}}" style="justify-content: flex-start">{{removeLabel}}</button>
+<button class="btn2" type="button" onClick="{{drop}}" style="justify-content: flex-start">Drop the live connection</button>
+<button class="btn2" type="button" onClick="{{nearRefresh}}" style="justify-content: flex-start">Skip to 1 minute before the token runs out</button>
+<button class="btn2" type="button" onClick="{{endSession}}" style="justify-content: flex-start">Skip to the end of the 12-hour sign-in</button>
+<button class="btn2" type="button" onClick="{{resetDemo}}" style="justify-content: flex-start">Reset the demo</button>
+</div>
+</sc-if>
+<button class="btn2" type="button" onClick="{{toggleDemo}}" aria-expanded="{{demoOpen}}" style="box-shadow: 0 4px 12px rgba(16, 24, 40, 0.12)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="8" cy="8" r="2.5"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>Demo controls</button>
+</div>
+</sc-if>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"startView":{"editor":"enum","options":["distribute","distribute-filled","status","audit","signin"],"default":"distribute-filled"},"$preview":{"width":1440,"height":900}}'>
+var TEAMS = {
+  cardio: { name: 'Cardio', initial: 'C', color: '#B5452B', binders: ['b1', 'b2'] },
+  onc: { name: 'Oncology', initial: 'O', color: '#6B4FA8', binders: ['b3', 'b4'] },
+  neuro: { name: 'Neuro', initial: 'N', color: '#1F7A6E', binders: ['b5'] }
+};
+var USERS = {
+  priya: { name: 'Priya Shah', short: 'Priya', email: 'priya.shah@example.com', initials: 'PS', teams: ['cardio', 'onc'] },
+  raj: { name: 'Raj Mehta', short: 'Raj', email: 'raj.mehta@example.com', initials: 'RM', teams: ['cardio'] },
+  sam: { name: 'Sam Ito', short: 'Sam', email: 'sam.ito@example.com', initials: 'SI', teams: ['neuro'] }
+};
+var NODES = {
+  b1: { name: 'CARDIO-301 Regulatory', team: 'cardio', parent: null, folders: ['f1', 'f2'] },
+  f1: { name: 'IRB approvals', team: 'cardio', parent: 'b1', folders: [] },
+  f2: { name: 'Protocol amendments', team: 'cardio', parent: 'b1', folders: ['f3'] },
+  f3: { name: '2026', team: 'cardio', parent: 'f2', folders: [] },
+  b2: { name: 'CARDIO-301 Site files', team: 'cardio', parent: null, folders: ['f4', 'f5'] },
+  f4: { name: 'Delegation logs', team: 'cardio', parent: 'b2', folders: [] },
+  f5: { name: 'Training records', team: 'cardio', parent: 'b2', folders: [] },
+  b3: { name: 'ONC-118 Regulatory', team: 'onc', parent: null, folders: ['f6', 'f7'] },
+  f6: { name: 'Ethics committee', team: 'onc', parent: 'b3', folders: [] },
+  f7: { name: 'Investigator CVs', team: 'onc', parent: 'b3', folders: [] },
+  b4: { name: 'ONC-118 Pharmacy', team: 'onc', parent: null, folders: ['f8'] },
+  f8: { name: 'Temperature logs', team: 'onc', parent: 'b4', folders: [] },
+  b5: { name: 'NEU-207 Regulatory', team: 'neuro', parent: null, folders: ['f9'] },
+  f9: { name: 'Site approvals', team: 'neuro', parent: 'b5', folders: [] }
+};
+var lightType = { PDF: ['#FEE4E2', '#B42318'], DOCX: ['#D1E0FF', '#1F45A0'], XLSX: ['#D1FADF', '#067647'], PNG: ['#EBE9FE', '#5925DC'], JPG: ['#EBE9FE', '#5925DC'] };
+var TYPE_BG = { PDF: '#B3401A', DOCX: '#2B59C3', XLSX: '#1E7A46', PNG: '#6B4FA8', JPG: '#6B4FA8' };
+var SAMPLE = [
+  { id: 'p1', name: 'Protocol_v4.2.pdf', type: 'PDF', size: '2.4 MB', speed: 26 },
+  { id: 'p2', name: 'IRB_Approval_Letter.pdf', type: 'PDF', size: '0.8 MB', speed: 45 },
+  { id: 'p3', name: 'Informed_Consent_v3.docx', type: 'DOCX', size: '1.1 MB', speed: 34 },
+  { id: 'p4', name: 'Site_Training_Log.xlsx', type: 'XLSX', size: '0.5 MB', speed: 40, failOnce: true },
+  { id: 'p5', name: 'Investigator_Brochure_v7.pdf', type: 'PDF', size: '340 MB', speed: 9, large: true }
+];
+var INFECTED = { id: 'p6', name: 'Vendor_Form_Macro.docx', type: 'DOCX', size: '0.3 MB', speed: 50, infected: true };
+var REJECTS = [{ name: 'setup_tool.exe', reason: 'file type not allowed' }, { name: 'Scan_Archive.pdf', reason: '1.3 GB is over the 1 GB limit' }];
+var SAMPLE_MAP = { p1: ['f1', 'f5', 'f6', 'b3'], p2: ['f1', 'f6'], p3: ['f1', 'f5', 'f6'], p4: ['f5', 'b3'], p5: ['f1', 'f6'], p6: ['f1'] };
+var REASON = {
+  checksum: ['CHECKSUM_MISMATCH', 'The file did not match its fingerprint on arrival. The platform discarded the copy.'],
+  retries: ['RETRIES_EXHAUSTED', 'The document platform did not respond after 5 attempts over about 17 minutes.'],
+  auth: ['NOT_AUTHORIZED_AT_DELIVERY', 'The sender is no longer a member of this team.'],
+  fanout: ['FANOUT_FAILED', 'The distribution could not be split into deliveries after 3 attempts.'],
+  unsupported: ['UNSUPPORTED_TYPE', 'The file’s contents do not match its declared type, so the platform refused it.'],
+  cancelled: ['CANCELLED', 'The sender cancelled the distribution before this delivery started.']
+};
+var DOC_SECTIONS = [
+  ['1. Purpose', 'This document sets out how the study team prepares, reviews and files essential records for the trial, so that every site works from the same approved version.'],
+  ['2. Scope', 'It applies to all participating sites, the sponsor study team and any vendor that handles trial documents on the sponsor\u2019s behalf.'],
+  ['3. Responsibilities', 'The principal investigator is accountable for site records. The study coordinator files each document within five working days and confirms receipt with the sponsor.'],
+  ['4. Procedure', 'Each new version is checked against the previous one, signed and dated, and filed in the regulatory binder. Superseded versions are kept and clearly marked.'],
+  ['5. Records', 'Records are kept for the period required by local regulation and the protocol, and are available for monitoring visits, audits and inspections.'],
+  ['6. Revision history', 'Version 1.0 first issue. Version 2.0 updated responsibilities. Current version updated the filing timelines and contact list.']
+];
+var SHEET = { cols: ['Site', 'Name', 'Role', 'Trained on', 'Status'], rows: [
+  ['101', 'A. Fernandes', 'Investigator', '02 Sep 2026', 'Complete'], ['101', 'L. Chen', 'Coordinator', '02 Sep 2026', 'Complete'], ['102', 'M. Okafor', 'Investigator', '05 Sep 2026', 'Complete'],
+  ['102', 'S. Patel', 'Pharmacist', '07 Sep 2026', 'Due'], ['103', 'J. Novak', 'Coordinator', '09 Sep 2026', 'Complete'], ['103', 'R. Silva', 'Investigator', 'Not yet', 'Not started'], ['104', 'K. Ito', 'Coordinator', '12 Sep 2026', 'Complete'] ] };
+function fileTitle(name) { return name.replace(/\.[^.]+$/, '').replace(/_/g, ' '); }
+function trail(id) { var out = []; var n = id; while (n) { out.unshift(n); n = NODES[n].parent; } return out; }
+function pathOf(id) { return TEAMS[NODES[id].team].name + ' / ' + trail(id).map(function (x) { return NODES[x].name; }).join(' / ') + (NODES[id].parent ? '' : ' (top level)'); }
+function makeTasks(pairs) {
+  return pairs.map(function (p, i) {
+    var start = 1 + Math.floor(i / 3) * 2;
+    var out = i === 4 ? 'retries' : (i === 7 ? 'checksum' : 'ok');
+    var end = start + (out === 'retries' ? 7 : 2 + (i % 3));
+    return { id: 't' + i, file: p[0], dest: p[1], start: start, end: end, out: out };
+  });
+}
+function oldTasks(n, fails, only) {
+  var files = ['Site_Contact_List.xlsx', 'Monitoring_Plan_v2.pdf', 'Lab_Normal_Ranges.pdf', 'Pharmacy_Manual.pdf'];
+  var dests = only || ['f1', 'f4', 'f5', 'f6', 'f7', 'f8', 'b1', 'b3', 'f2'];
+  var out = [];
+  for (var i = 0; i < n; i++) out.push({ id: 'o' + i, file: files[i % files.length], dest: dests[i % dests.length], start: -50, end: -40, out: fails[i] || 'ok' });
+  return out;
+}
+function samplePairs() { var p = []; SAMPLE.forEach(function (f) { SAMPLE_MAP[f.id].forEach(function (d) { p.push([f.name, d]); }); }); return p; }
+function seedJobs() {
+  return [
+    { id: 'JOB-2040', by: 'priya', when: 'Today 10:42', t0: 0, files: 5, dests: 4, tasks: makeTasks(samplePairs()) },
+    { id: 'JOB-2033', by: 'priya', when: '9 Oct 16:05', t0: 0, files: 4, dests: 2, tasks: oldTasks(8, {}) },
+    { id: 'JOB-2027', by: 'priya', when: '8 Oct 11:20', t0: 0, files: 3, dests: 3, tasks: oldTasks(9, { 3: 'retries', 6: 'checksum', 8: 'unsupported' }) },
+    { id: 'JOB-2019', by: 'priya', when: '6 Oct 09:12', t0: 0, files: 1, dests: 2, tasks: oldTasks(2, { 0: 'fanout', 1: 'fanout' }) },
+    { id: 'JOB-1988', by: 'priya', when: '2 Sep 10:15', t0: 0, files: 2, dests: 2, tasks: oldTasks(4, {}), expired: true },
+    { id: 'JOB-2044', by: 'raj', when: 'Today 09:58', t0: 0, files: 2, dests: 3, tasks: oldTasks(6, {}, ['f1', 'f4', 'f5']) }
+  ];
+}
+var KIND = { 'Preview link issued': 'download', 'Distribution sent': 'sent', 'Files registered': 'files', 'Delivery failed': 'delivery', 'Delivery refused': 'delivery', 'Distribution finished': 'delivery', 'Retry requested': 'retry', 'Download link issued': 'download', 'File refused': 'files', 'Distribution cancelled': 'cancel' };
+function ev(day, time, who, event, detail, job, bad, team) { return { id: day + time + event, day: day, time: time, who: who, event: event, detail: detail, job: job, kind: KIND[event], bad: !!bad, team: team || null }; }
+function seedAudit() {
+  var T = 'Today, 10 Oct';
+  return [
+    ev(T, '10:42:05', 'Priya Shah', 'Distribution sent', '5 files to 4 destinations, 13 deliveries.', 'JOB-2040'),
+    ev(T, '10:41:50', 'Priya Shah', 'Files registered', '5 file records created for upload.', null),
+    ev(T, '10:01:12', 'System', 'Distribution finished', '6 delivered.', 'JOB-2044'),
+    ev(T, '09:58:40', 'Raj Mehta', 'Distribution sent', '2 files to 3 destinations, 6 deliveries.', 'JOB-2044'),
+    ev('9 Oct 2026', '16:20:03', 'Raj Mehta', 'Download link issued', 'Monitoring_Plan_v2.pdf, delivered to Cardio. Valid 2 minutes.', 'JOB-2033', false, 'cardio'),
+    ev('9 Oct 2026', '16:07:42', 'System', 'Distribution finished', '8 delivered.', 'JOB-2033'),
+    ev('9 Oct 2026', '16:05:10', 'Priya Shah', 'Distribution sent', '4 files to 2 destinations, 8 deliveries.', 'JOB-2033'),
+    ev('8 Oct 2026', '11:39:05', 'System', 'Distribution finished', '6 delivered, 3 failed.', 'JOB-2027', true),
+    ev('8 Oct 2026', '11:39:02', 'System', 'Delivery failed', 'Site_Contact_List.xlsx to Oncology / ONC-118 Regulatory / Ethics committee. RETRIES_EXHAUSTED after 5 attempts.', 'JOB-2027', true, 'onc'),
+    ev('8 Oct 2026', '11:31:10', 'System', 'Delivery failed', 'Site_Contact_List.xlsx to Cardio / CARDIO-301 Regulatory / Protocol amendments. UNSUPPORTED_TYPE.', 'JOB-2027', true, 'cardio'),
+    ev('8 Oct 2026', '11:23:31', 'System', 'Delivery failed', 'Lab_Normal_Ranges.pdf to Cardio / CARDIO-301 Regulatory (top level). CHECKSUM_MISMATCH.', 'JOB-2027', true, 'cardio'),
+    ev('8 Oct 2026', '11:20:00', 'Priya Shah', 'Distribution sent', '3 files to 3 destinations, 9 deliveries.', 'JOB-2027'),
+    ev('6 Oct 2026', '09:12:44', 'System', 'Distribution finished', '0 delivered, 2 failed. The job could not be split into deliveries (FANOUT_FAILED).', 'JOB-2019', true),
+    ev('6 Oct 2026', '09:12:00', 'Priya Shah', 'Distribution sent', '1 file to 2 destinations, 2 deliveries.', 'JOB-2019'),
+    ev('2 Sep 2026', '14:02:18', 'Priya Shah', 'Download link issued', 'Site_Contact_List.xlsx. Valid 2 minutes.', 'JOB-1988'),
+    ev('2 Sep 2026', '10:16:30', 'System', 'Distribution finished', '4 delivered.', 'JOB-1988'),
+    ev('2 Sep 2026', '10:15:02', 'Priya Shah', 'Distribution sent', '2 files to 2 destinations, 4 deliveries.', 'JOB-1988')
+  ];
+}
+function hhmmss(clock) { var t = 10 * 3600 + 44 * 60 + clock; var h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60; return ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2) + ':' + ('0' + s).slice(-2); }
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.fresh(props.startView || 'distribute-filled');
+    this.timer = null;
+  }
+  fresh(start) {
+    var s = {
+      signedIn: start !== 'signin', loginError: false, viewer: 'priya', tab: 'distribute',
+      files: [], rejected: [], map: {}, sel: {}, open: { cardio: true, onc: true, neuro: true, b1: true, b2: true, b3: true, b5: true }, dq: '',
+      clock: 0, frozen: null, conn: 'live', removedAt: null, jobs: seedJobs(), nextId: 2041, jobId: 'JOB-2040', idInput: 'JOB-2040', taskFilter: 'all', dl: null, sending: false, scope: 'mine',
+      actOpen: false, demoOpen: false, toasts: [], logged: {}, log: [],
+      audit: seedAudit(), auditKind: 'all', auditJob: 'all', detailTab: 'deliveries', reviewOpen: false, colsF: [260, 220, 170, 80], colsT: [220, 300, 130, 130], preview: null, tokenLeft: 900, sessionLeft: 43200, loginFails: 0, loginPaused: false, pausedAlert: false, renewOpen: false
+    };
+    if (start === 'distribute-filled') this.applySample(s);
+    if (start === 'status') s.tab = 'status';
+    if (start === 'audit') s.tab = 'audit';
+    return s;
+  }
+  applySample(s) {
+    s.files = SAMPLE.concat([INFECTED]).map(function (f) { return Object.assign({ pct: 0, state: 'prep', failed: false }, f); });
+    s.rejected = REJECTS.slice();
+    s.map = JSON.parse(JSON.stringify(SAMPLE_MAP));
+    s.sel = {};
+  }
+  componentDidMount() {
+    var self = this;
+    this.timer = setInterval(function () { self.tick(); }, 1000);
+    this.add('GET /teams  200', 'API Gateway checked the token. The Document Platform returned only the teams Priya belongs to (Cardio and Oncology), which fill the Destinations tree. Each binder’s folders load the same way, with membership checked again.');
+  }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  add(route, text) { this.setState(function (s) { return { log: [{ id: String(Math.random()), route: route, text: text }].concat(s.log).slice(0, 40) }; }); }
+  audit(who, event, detail, bad, job, team) {
+    var m = /JOB-\d+/.exec(detail || '');
+    var jb = job || (m ? m[0] : null);
+    var clean = jb ? String(detail).replace(jb + ': ', '').replace(' from ' + jb, '') : detail;
+    this.setState(function (s) { return { audit: [ev('Today, 10 Oct', hhmmss(s.clock), who, event, clean, jb, bad, team)].concat(s.audit) }; });
+  }
+  toast(text, bad) { this.setState(function (s) { return { toasts: s.toasts.concat([{ id: String(Math.random()), text: text, dot: bad ? '#F08A5D' : '#5FD08F', until: s.clock + 5 }]) }; }); }
+  outcome(job, t, s) {
+    if (t.out === 'cancelled') return 'cancelled';
+    if (job.by === 'priya' && s.removedAt !== null && NODES[t.dest].team === 'onc' && t.start >= 0 && s.removedAt < job.t0 + t.end) return 'auth';
+    return t.out;
+  }
+  status(job, t, s, clock) {
+    var rel = clock - job.t0;
+    if (rel < t.start) return 'pend';
+    if (rel < t.end) return 'prog';
+    return this.outcome(job, t, s) === 'ok' ? 'done' : 'fail';
+  }
+  canSee(job, viewer) {
+    return this.visibleTasks(job, viewer).length > 0;
+  }
+  visibleTasks(job, viewer) {
+    if (job.by === viewer) return job.tasks;
+    var mine = USERS[viewer].teams;
+    return job.tasks.filter(function (t) { return mine.indexOf(NODES[t.dest].team) >= 0; });
+  }
+  tick() {
+    var self = this;
+    var s = this.state;
+    var clock = s.clock + 1;
+    var upd = { clock: clock };
+    var notes = [], toasts = [], audits = [], verifiedNote = false, infectedIds = [];
+    if (s.files.length) {
+      var files = JSON.parse(JSON.stringify(s.files));
+      var active = 0;
+      files.forEach(function (f) { if (f.state === 'up') active++; });
+      files.forEach(function (f) {
+        if (f.state === 'prep') { f.state = 'queued'; return; }
+        if (f.state === 'queued' && active < 4) { f.state = 'up'; active++; return; }
+        if (f.state === 'checking' && clock >= f.checkAt) {
+          if (f.infected) {
+            f.state = 'infected'; infectedIds.push(f.id);
+            notes.push(['ClamAV  threat found', f.name + ': the Upload Events Lambda scanned the file with ClamAV and found malware. It deleted the file from storage, set scan_status to infected and wrote a file.refused audit event. It can never be sent or downloaded. Remove it to carry on.']);
+            audits.push([USERS[s.viewer].name, 'File refused', f.name + ': malware found by the scan. The file was deleted from storage and cannot be sent.', true]);
+          } else {
+            f.state = 'done';
+            if (!s.logged['verified:' + s.viewer]) { verifiedNote = true; notes.push(['Upload Events Lambda', f.name + ' is stored. Its upload event reached the Upload Events Queue; the Lambda checked the stored size and fingerprint, scanned the file with ClamAV, tagged it scan-status=clean, and set uploaded_at and scan_status to clean. The page asks GET /files?ids= every 2 seconds and now shows it as Verified.']); }
+          }
+          return;
+        }
+        if (f.state !== 'up') return;
+        f.pct = Math.min(100, f.pct + f.speed);
+        if (f.failOnce && !f.failed && f.pct >= 60) { f.state = 'refused'; f.failed = true; f.pct = 60; notes.push(['Object Store  403', 'Storage refused ' + f.name + ': the bytes did not match the fingerprint in its upload link, so nothing was stored. The user can retry with a fresh link.']); }
+        else if (f.pct >= 100) { f.state = 'checking'; f.checkAt = clock + 2; if (f.large) notes.push(['Object Store  CompleteMultipartUpload', 'All parts of ' + f.name + ' are in. Storage joined them and checked the whole-file fingerprint.']); }
+      });
+      upd.files = files;
+      if (infectedIds.length) { var mp = JSON.parse(JSON.stringify(s.map)), sl = Object.assign({}, s.sel); infectedIds.forEach(function (id) { delete mp[id]; delete sl[id]; }); upd.map = mp; upd.sel = sl; }
+    }
+    if (s.signedIn) {
+      var sess = Math.max(0, s.sessionLeft - 1);
+      var left = Math.max(0, s.tokenLeft - 1);
+      upd.sessionLeft = sess; upd.tokenLeft = left;
+      if (sess === 0) {
+        if (!s.renewOpen) { upd.renewOpen = true; upd.tokenLeft = 0; notes.push(['POST /auth/refresh  401', 'The 12-hour sign-in is over, so the Auth Service refused the refresh token. The page asks for the password in a dialog instead of sending the user to the login page, so the uploads, mapping and open distribution stay as they are.']); }
+      } else if (left <= 60) {
+        upd.tokenLeft = Math.min(900, sess);
+        notes.push(['POST /auth/refresh  200', 'A minute before the token ran out, the page took the browser lock (so only one tab refreshes) and quietly swapped its refresh cookie for a new 15-minute token and a new refresh token. The old refresh token now works for nothing; if it ever came back, the whole sign-in would be cancelled. The live connection reconnects with the new token and is checked again.']);
+      }
+    }
+    var logged = Object.assign({}, s.logged);
+    if (s.conn === 'live') {
+      s.jobs.forEach(function (job) {
+        if (job.tasks[0].start < 0) return;
+        var seen = self.visibleTasks(job, s.viewer);
+        var ended = 0;
+        job.tasks.forEach(function (t) {
+          var st = self.status(job, t, s, clock);
+          if (st === 'done' || st === 'fail') ended++;
+          var key = job.id + ':' + t.id;
+          if ((st === 'done' || st === 'fail') && !logged[key] && job.t0 + t.end === clock) {
+            logged[key] = true;
+            var o = self.outcome(job, t, s);
+            var where = t.file + ' to ' + pathOf(t.dest);
+            var tm = NODES[t.dest].team;
+            var show = seen.indexOf(t) >= 0;
+            if (o === 'checksum') { if (show) notes.push(['Delivery Lambda  422', job.id + ': ' + where + '. The platform computed the fingerprint as the file arrived; it did not match, so it deleted the copy. Failed with CHECKSUM_MISMATCH.']); audits.push(['System', 'Delivery failed', job.id + ': ' + where + '. CHECKSUM_MISMATCH.', true, tm]); }
+            if (o === 'retries') { if (show) notes.push(['Task DLQ to DLQ Consumer', job.id + ': ' + where + '. The platform did not answer on any of 5 attempts (retried after 30 seconds, then 2, 5 and 10 minutes, with the task back to waiting in between), so the message moved to the Task DLQ. The DLQ Consumer marked it RETRIES_EXHAUSTED and pushed the update to the sender and to viewers in ' + TEAMS[tm].name + '.']); audits.push(['System', 'Delivery failed', job.id + ': ' + where + '. RETRIES_EXHAUSTED after 5 attempts.', true, tm]); }
+            if (o === 'auth') { if (show) notes.push(['Document Platform  403 NOT_A_MEMBER', job.id + ': ' + where + '. Membership is checked again at delivery; Priya is no longer in Oncology, so it was refused.']); audits.push(['System', 'Delivery refused', job.id + ': ' + where + '. NOT_AUTHORIZED_AT_DELIVERY.', true, tm]); }
+            if (o === 'ok' && show && !logged[job.id + ':first:' + s.viewer]) { logged[job.id + ':first:' + s.viewer] = true; notes.push(['Delivery Lambda  201', job.id + ': ' + where + '. Checksum checked in storage, file streamed to the Document Platform with a service token, membership, type and fingerprint checked again, saved once per task. The update was pushed to the sender and to viewers in ' + TEAMS[tm].name + ' only.']); }
+          }
+        });
+        if (ended === job.tasks.length && !logged[job.id + ':end'] && job.tasks.some(function (t) { return job.t0 + t.end === clock; })) {
+          logged[job.id + ':end'] = true;
+          var fails = job.tasks.filter(function (t) { return self.status(job, t, s, clock) === 'fail'; }).length;
+          var cxl = job.tasks.filter(function (t) { return t.out === 'cancelled'; }).length;
+          var msg = job.id + ' finished: ' + (job.tasks.length - fails) + ' delivered' + (fails - cxl ? ', ' + (fails - cxl) + ' failed' : '') + (cxl ? ', ' + cxl + ' cancelled' : '') + '.';
+          if (job.by === s.viewer) { notes.push(['Distribution finished', msg + ' The job row was locked, so the last two deliveries could not both miss the finish. Its first finish time was recorded; Retry stays open for 24 hours.']); toasts.push([msg, fails > 0]); }
+          audits.push(['System', 'Distribution finished', msg, fails > 0]);
+        }
+      });
+    }
+    if (verifiedNote) logged['verified:' + s.viewer] = true;
+    upd.logged = logged;
+    if (s.dl && s.dl.secs > 0) upd.dl = { file: s.dl.file, secs: s.dl.secs - 1 };
+    upd.toasts = s.toasts.filter(function (t) { return t.until > clock; });
+    this.setState(upd);
+    notes.forEach(function (n) { self.add(n[0], n[1]); });
+    toasts.forEach(function (t) { self.toast(t[0], t[1]); });
+    audits.forEach(function (a) { self.audit(a[0], a[1], a[2], a[3], null, a[4]); });
+  }
+  importSample(withMap) {
+    var st = Object.assign({}, this.state);
+    var keepMap = st.map;
+    this.applySample(st);
+    if (!withMap) st.map = {};
+    this.setState({ files: st.files, rejected: st.rejected, map: st.map, sel: {}, tab: 'distribute' });
+    var u = USERS[this.state.viewer];
+    this.add('(browser)', '8 files picked. 2 were refused in the browser before anything was sent: an .exe and a file over 1 GB. Fingerprints (SHA-256) are worked out in a background worker so the page stays responsive.');
+    this.add('POST /uploads  201', 'One request for 6 files: one link per file, not per destination. DocBeam API saved 6 file records and signed each link locally with its own AWS role. A link accepts only that file, size, type and fingerprint, for 15 minutes.');
+    this.add('POST /files/p5/multipart-uploads  201', 'Investigator_Brochure_v7.pdf is over 100 MB, so it uploads in parts. Bytes go straight from the browser to storage, 4 files at a time.');
+    this.audit(u.name, 'Files registered', '6 file records created for upload. Two more were refused by the browser and never sent.', false);
+  }
+  colHeads(kind, defs, defaults) {
+    var self = this; var w = this.state[kind];
+    return defs.map(function (d, i) {
+      var can = i < w.length;
+      function set(nw) { var a = self.state[kind].slice(); a[i] = Math.max(64, Math.min(700, Math.round(nw))); var o = {}; o[kind] = a; self.setState(o); }
+      return { label: d[0], align: d[1] || 'left', canResize: can, rsLabel: 'Resize the ' + d[0] + ' column',
+        resize: function (e) {
+          if (!can || !e) return; if (e.preventDefault) e.preventDefault();
+          var x0 = e.clientX, w0 = self.state[kind][i];
+          function mv(ev) { set(w0 + ev.clientX - x0); }
+          function up() { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+          window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+        },
+        reset: function () { if (can) set(defaults[i]); },
+        key: function (e) { if (!can || !e) return; if (e.key === 'ArrowLeft') { e.preventDefault(); set(self.state[kind][i] - 16); } if (e.key === 'ArrowRight') { e.preventDefault(); set(self.state[kind][i] + 16); } }
+      };
+    });
+  }
+  openLocalPreview(f) {
+    this.setState({ preview: { name: f.name, type: f.type, size: f.size, source: 'local', page: 0 } });
+    this.add('(browser) preview', f.name + ' opened from the copy already in the browser. No request was sent and nothing left this computer.');
+  }
+  openLinkPreview(job, t) {
+    var s = this.state; var user = USERS[s.viewer];
+    var f = null; SAMPLE.forEach(function (x) { if (x.name === t.file) f = x; });
+    var type = (t.file.split('.').pop() || 'pdf').toUpperCase(); if (!lightType[type]) type = 'PDF';
+    var size = f ? f.size : '1.2 MB';
+    if (job.expired) {
+      this.setState({ dl: { file: t.file, secs: 0, expired: true } });
+      this.add('POST /files/' + t.id + '/downloads (preview)  410', 'The uploaded file is more than 33 days old and storage has deleted it, so there is nothing to preview. DocBeam API answers FILE_EXPIRED.');
+      return;
+    }
+    var other = job.by !== s.viewer;
+    this.setState({ preview: { name: t.file, type: type, size: size, source: 'link', page: 0, job: job, task: t } });
+    this.add('POST /files/' + t.id + '/downloads (preview)  201', 'Same check as a download: ' + user.short + (other ? ' is in ' + TEAMS[NODES[t.dest].team].name + ', a team this file was delivered to' : ' sent this distribution') + '. DocBeam API signed a 2-minute link for this one file that opens inline instead of saving. ' + (type === 'DOCX' || type === 'XLSX' ? 'The page turns the ' + type + ' into a read-only view in the browser.' : 'The browser shows the ' + type + ' as it is.'));
+    this.audit(user.name, 'Preview link issued', t.file + ' from ' + job.id + (other ? ', delivered to ' + TEAMS[NODES[t.dest].team].name : '') + '. View only, valid 2 minutes.', false, job.id, other ? NODES[t.dest].team : null);
+  }
+  previewModel(s) {
+    var self = this; var p = s.preview;
+    var base = { open: false, name: '', type: 'PDF', typeBg: '#fff', typeFg: '#000', meta: '', note: '', isDoc: false, isSheet: false, isImage: false, title: '', pageText: '', sections: [], cols: [], rows: [], imgText: '', noPrev: true, noNext: true, hasPages: false, hasDl: false, prev: null, next: null, close: null, download: null, srcLocal: false, srcLink: false };
+    if (!p) return base;
+    var pages = p.type === 'PDF' ? 3 : (p.type === 'DOCX' ? 2 : 1);
+    var page = Math.min(p.page, pages - 1);
+    var per = Math.ceil(DOC_SECTIONS.length / pages);
+    return Object.assign(base, {
+      open: true, name: p.name, type: p.type, typeBg: lightType[p.type][0], typeFg: lightType[p.type][1],
+      meta: p.type + ', ' + p.size + (p.source === 'local' ? ', not sent yet' : ', ' + p.job.id),
+      note: p.source === 'local' ? 'Shown from the copy in your browser. Nothing has been sent yet.' : 'View only, opened with a 2-minute link. The file is shown here, not saved, and the preview is recorded in the audit trail.',
+      srcLocal: p.source === 'local', srcLink: p.source === 'link',
+      isDoc: p.type === 'PDF' || p.type === 'DOCX', isSheet: p.type === 'XLSX', isImage: p.type === 'PNG' || p.type === 'JPG',
+      title: fileTitle(p.name), sections: DOC_SECTIONS.slice(page * per, page * per + per).map(function (x) { return { h: x[0], t: x[1] }; }),
+      cols: SHEET.cols.map(function (c) { return { v: c }; }), rows: SHEET.rows.map(function (r, i) { return { n: String(i + 2), cells: r.map(function (c) { return { v: c }; }) }; }),
+      imgText: fileTitle(p.name) + ', 2480 x 3508 px',
+      hasPages: pages > 1, pageText: 'Page ' + (page + 1) + ' of ' + pages, noPrev: page === 0, noNext: page >= pages - 1,
+      prev: function () { var q = Object.assign({}, self.state.preview); q.page = Math.max(0, q.page - 1); self.setState({ preview: q }); },
+      next: function () { var q = Object.assign({}, self.state.preview); q.page = Math.min(pages - 1, q.page + 1); self.setState({ preview: q }); },
+      close: function () { self.setState({ preview: null }); },
+      hasDl: p.source === 'link',
+      download: function () { var q = self.state.preview; self.setState({ preview: null }); var v = self.renderVals(); var row = null; v.taskRows.forEach(function (r) { if (r.file === q.task.file && r.canDl && !row) row = r; }); if (row) row.download(); }
+    });
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var user = USERS[s.viewer];
+    var clock = s.conn === 'live' ? s.clock : s.frozen;
+    var myTeams = user.teams;
+    var fileIds = s.files.filter(function (f) { return f.state !== 'infected'; }).map(function (f) { return f.id; });
+    var selIds = fileIds.filter(function (id) { return s.sel[id]; });
+    var scope = selIds.length ? selIds : fileIds;
+    var distinct = {};
+    fileIds.forEach(function (id) { (s.map[id] || []).forEach(function (d) { distinct[d] = (distinct[d] || 0) + 1; }); });
+    var destIds = Object.keys(distinct);
+    var taskCount = 0;
+    fileIds.forEach(function (id) { taskCount += (s.map[id] || []).length; });
+
+    function destState(d) {
+      if (!scope.length) return 'off';
+      var n = scope.filter(function (id) { return (s.map[id] || []).indexOf(d) >= 0; }).length;
+      return n === 0 ? 'off' : (n === scope.length ? 'on' : 'mixed');
+    }
+    function toggleDest(d) {
+      var cur = self.state;
+      var ids = cur.files.filter(function (f) { return f.state !== 'infected'; }).map(function (f) { return f.id; });
+      var sids = ids.filter(function (id) { return cur.sel[id]; });
+      var sc = sids.length ? sids : ids;
+      var map = JSON.parse(JSON.stringify(cur.map));
+      var n = sc.filter(function (id) { return (map[id] || []).indexOf(d) >= 0; }).length;
+      if (n === sc.length) sc.forEach(function (id) { map[id] = (map[id] || []).filter(function (x) { return x !== d; }); });
+      else {
+        var used = {}; ids.forEach(function (id) { (map[id] || []).forEach(function (x) { used[x] = true; }); });
+        if (!used[d] && Object.keys(used).length >= 20) { self.toast('A distribution can have at most 20 destinations.', true); return; }
+        sc.forEach(function (id) { map[id] = map[id] || []; if (map[id].indexOf(d) < 0) map[id].push(d); });
+      }
+      self.setState({ map: map });
+    }
+
+    var q = s.dq.trim().toLowerCase();
+    function matches(id) { if (!q) return true; if (NODES[id].name.toLowerCase().indexOf(q) >= 0) return true; return NODES[id].folders.some(matches); }
+    var tree = [];
+    myTeams.forEach(function (tid) {
+      var t = TEAMS[tid];
+      var binders = t.binders.filter(matches);
+      if (q && !binders.length) return;
+      var topen = q ? true : !!s.open[tid];
+      tree.push({ isTeam: true, selectable: false, name: t.name, color: t.color, initial: t.initial, pad: 4, bg: 'transparent', hasKids: true, noKids: false, expanded: topen, collapsed: !topen, expLabel: (topen ? 'Collapse ' : 'Expand ') + t.name, toggleOpen: function () { var o = Object.assign({}, self.state.open); o[tid] = !o[tid]; self.setState({ open: o }); } });
+      if (!topen) return;
+      function walk(id, level) {
+        if (!matches(id)) return;
+        var n = NODES[id];
+        var kids = n.folders.length > 0;
+        var exp = q ? true : !!s.open[id];
+        var st = destState(id);
+        var count = distinct[id] || 0;
+        var disabled = scope.length === 0;
+        tree.push({
+          isTeam: false, selectable: true, isBinder: !n.parent, isFolder: !!n.parent, name: n.name, pad: 4 + level * 26,
+          bg: st === 'off' ? 'transparent' : '#F7F9FF', hasKids: kids, noKids: !kids, expanded: exp, collapsed: !exp,
+          expLabel: (exp ? 'Collapse ' : 'Expand ') + n.name,
+          toggleOpen: function () {
+            var o = Object.assign({}, self.state.open); var opening = !o[id]; o[id] = opening; self.setState({ open: o });
+            if (opening) self.add('GET /' + (n.parent ? 'folders/' : 'binders/') + id + '/contents  200', 'The Document Platform checked ' + user.short + ' still belongs to ' + TEAMS[n.team].name + ' and returned only the folders one level down.');
+          },
+          aria: st === 'on' ? 'true' : (st === 'mixed' ? 'mixed' : 'false'), on: st === 'on', mixed: st === 'mixed',
+          boxBg: st === 'off' ? '#FFFFFF' : '#2B59C3', boxBorder: disabled ? '#D6DCE3' : (st === 'off' ? '#9AA5B3' : '#2B59C3'),
+          ckDisabled: disabled, ckLabel: 'Send ' + (selIds.length ? 'selected files' : 'all files') + ' to ' + pathOf(id),
+          toggle: function () { toggleDest(id); },
+          showBadge: count > 0, badge: count + (count === 1 ? ' file' : ' files')
+        });
+        if (exp) n.folders.forEach(function (f) { walk(f, level + 1); });
+      }
+      binders.forEach(function (b) { walk(b, 1); });
+    });
+
+    var fGridV = '32px ' + s.colsF.map(function (w) { return w + 'px'; }).join(' ') + ' minmax(84px, 1fr)';
+    var tGridV = s.colsT.map(function (w) { return w + 'px'; }).join(' ') + ' minmax(230px, 1fr)';
+    var fileRows = s.files.map(function (f) {
+      var dests = s.map[f.id] || [];
+      var selected = !!s.sel[f.id];
+      var status = 'Preparing', color = '#5B6676', showBar = false;
+      if (f.state === 'queued') status = 'Waiting to upload';
+      if (f.state === 'up') { status = f.large ? 'Uploading parts ' + Math.round(f.pct * 0.68) + '/68' : 'Uploading ' + Math.round(f.pct) + '%'; showBar = true; }
+      if (f.state === 'checking') { status = 'Checking for malware'; color = '#B54708'; }
+      if (f.state === 'done') { status = 'Verified'; color = '#1E7A46'; }
+      if (f.state === 'refused') { status = 'Refused by storage'; color = '#B3401A'; }
+      if (f.state === 'infected') { status = 'Refused: malware found'; color = '#B42318'; }
+      var names = dests.map(function (d) { return NODES[d].name; });
+      var destText = names.length === 0 ? 'No destination' : (names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more');
+      return {
+        grid: fGridV, name: f.name, type: f.type, typeBg: lightType[f.type][0], size: f.size, pct: f.pct, showBar: showBar, status: status, statusColor: color,
+        chips: dests.slice(0, 2).map(function (d) { return { name: NODES[d].name, path: pathOf(d) }; }), hasMore: dests.length > 2, moreText: '+' + (dests.length - 2), noDest: dests.length === 0 && f.state !== 'infected', blocked: f.state === 'infected',
+        typeFg: lightType[f.type][1],
+        destText: (names.length ? names.length + (names.length === 1 ? ' destination: ' : ' destinations: ') : '') + destText, destColor: names.length ? '#3E4A5A' : '#9A5B00',
+        selected: selected, bg: selected ? '#F7F9FF' : '#FFFFFF', boxBg: selected ? '#2B59C3' : '#FFFFFF', boxBorder: selected ? '#2B59C3' : '#98A2B3', statusDot: f.state === 'done' ? '#12B76A' : (f.state === 'refused' || f.state === 'infected' ? '#F04438' : (f.state === 'up' ? '#2B59C3' : (f.state === 'checking' ? '#F79009' : '#98A2B3'))),
+        selLabel: 'Select ' + f.name,
+        selLocked: f.state === 'infected', selOpen: f.state !== 'infected', lockedLabel: f.name + ' was refused for malware and cannot be selected or sent',
+        toggleSel: function () { if (f.state === 'infected') return; var o = Object.assign({}, self.state.sel); o[f.id] = !o[f.id]; self.setState({ sel: o }); },
+        only: function () { if (f.state === 'infected') return; var o = {}; o[f.id] = true; self.setState({ sel: o }); },
+        canPreview: f.state !== 'infected', pvLabel: 'Preview ' + f.name,
+        preview: function () { self.openLocalPreview(f); },
+        canRetry: f.state === 'refused', noRetry: f.state !== 'refused', retryLabel: 'Retry ' + f.name,
+        retry: function () { var fs = JSON.parse(JSON.stringify(self.state.files)); fs.forEach(function (x) { if (x.id === f.id) { x.state = 'queued'; x.pct = 0; } }); self.setState({ files: fs }); self.add('POST /uploads  201', 'A fresh upload link was signed for ' + f.name + '. The retry starts from zero.'); },
+        removeLabel: 'Remove ' + f.name,
+        remove: function () { var m = Object.assign({}, self.state.map); delete m[f.id]; var o = Object.assign({}, self.state.sel); delete o[f.id]; self.setState({ files: self.state.files.filter(function (x) { return x.id !== f.id; }), map: m, sel: o }); }
+      };
+    });
+
+    var allUp = s.files.length > 0 && s.files.every(function (f) { return f.state === 'done'; });
+    var infectedN = s.files.filter(function (f) { return f.state === 'infected'; }).length;
+    var unmapped = s.files.filter(function (f) { return f.state !== 'infected' && !(s.map[f.id] || []).length; }).length;
+    var checks = [
+      { label: s.files.length ? s.files.length + ' files imported' : 'Import at least one file', ok: s.files.length > 0 },
+      { label: allUp ? 'All uploads verified' : (infectedN ? infectedN + (infectedN === 1 ? ' file was' : ' files were') + ' refused for malware: remove to continue' : 'Uploads in progress or being checked'), ok: allUp },
+      { label: unmapped ? unmapped + (unmapped === 1 ? ' file has' : ' files have') + ' no destination' : 'Every file has a destination', ok: s.files.length > 0 && unmapped === 0 }
+    ].map(function (c) { c.notOk = !c.ok; c.color = c.ok ? '#067647' : '#475467'; c.bg = c.ok ? '#ECFDF3' : '#F2F4F7'; return c; });
+    var ready = checks.every(function (c) { return c.ok; });
+
+    function counts(job, at) { var c = { done: 0, fail: 0, prog: 0, pend: 0 }; self.visibleTasks(job, s.viewer).forEach(function (t) { c[self.status(job, t, s, at === undefined ? clock : at)]++; }); return c; }
+    var listClock = clock - (clock % 30);
+    function statusOf(c, total, j) {
+      if (j && j.cancelled && c.prog === 0 && c.pend === 0) return ['Cancelled', '#F2F4F7', '#344054'];
+      if (c.done + c.fail === total) return c.fail ? ['Completed with errors', '#FEF3F2', '#B42318'] : ['Completed', '#ECFDF3', '#067647'];
+      if (c.pend === total) return ['Pending', '#F2F4F7', '#344054'];
+      return ['In progress', '#EEF3FF', '#1F45A0'];
+    }
+    var mine = s.jobs.filter(function (j) { return j.by === s.viewer; });
+    var running = 0;
+    mine.forEach(function (j) { var c = counts(j); if (c.done + c.fail < j.tasks.length) running++; });
+    var listed = s.scope === 'team' ? s.jobs.filter(function (j) { return j.by !== s.viewer && self.canSee(j, s.viewer); }) : mine;
+    var cards = listed.map(function (j) {
+      var c = counts(j, listClock), total = self.visibleTasks(j, s.viewer).length, st = statusOf(c, total, j);
+      return { id: j.id, byLine: (s.scope === 'team' ? USERS[j.by].name + ', ' : '') + j.when + ', ' + total + (s.scope === 'team' ? (total === 1 ? ' delivery' : ' deliveries') + ' to your teams' : ' deliveries'), status: st[0], chipBg: st[1], chipFg: st[2], wDone: c.done / total * 100, wFail: c.fail / total * 100, wProg: c.prog / total * 100,
+        cls: s.jobId === j.id ? 'jcard jcardon' : 'jcard',
+        open: function () { self.setState({ tab: 'status', jobId: j.id, idInput: j.id, taskFilter: 'all', detailTab: 'deliveries', dl: null }); self.add('subscribe ' + j.id + ', then GET tasks  200', 'The page subscribes to this distribution over the live connection first, so no update slips through, then loads its deliveries 100 at a time.'); } };
+    });
+
+    var job = null;
+    s.jobs.forEach(function (j) { if (j.id === s.jobId) job = j; });
+    var visible = job && this.canSee(job, s.viewer);
+    var jd = { vJob: !!visible, vNotFound: !visible, jdId: '', jdStatus: '', jdChipBg: '', jdChipFg: '', jdMeta: '', jdShared: false, jdSharedText: '', canRetryJob: false, retryText: '', hasRetryNote: false, retryNote: '', retryJob: null, canCancelJob: false, cancelJob: null, cancelHint: '', nDone: 0, nFail: 0, nProg: 0, nPend: 0, pDone: 0, pFail: 0, pProg: 0, taskRows: [], tasksEmpty: false };
+    if (visible) {
+      var seenTasks = self.visibleTasks(job, s.viewer);
+      var c = counts(job), total = seenTasks.length, st = statusOf(c, total, job);
+      var shared = []; seenTasks.forEach(function (t) { var tn = TEAMS[NODES[t.dest].team].name; if (shared.indexOf(tn) < 0) shared.push(tn); });
+      jd.jdId = job.id; jd.jdStatus = st[0]; jd.jdChipBg = st[1]; jd.jdChipFg = st[2];
+      jd.jdMeta = job.by === s.viewer ? 'Sent by you, ' + job.when + '. ' + job.files + ' files to ' + job.dests + ' destinations, ' + total + ' deliveries.' : 'Sent by ' + USERS[job.by].name + ', ' + job.when + '. You see ' + total + (total === 1 ? ' delivery' : ' deliveries') + ', the ones to ' + shared.join(' and ') + '.';
+      jd.jdShared = job.by !== s.viewer; jd.jdSharedText = 'You can see this because it has deliveries to ' + shared.join(' and ') + ', a team you are in. Deliveries to other teams are hidden from you, and so are their files.';
+      jd.nDone = c.done; jd.nFail = c.fail; jd.nProg = c.prog; jd.nPend = c.pend;
+      jd.pDone = c.done / total * 100; jd.pFail = c.fail / total * 100; jd.pProg = c.prog / total * 100;
+      seenTasks.forEach(function (t) {
+        var stt = self.status(job, t, s, clock);
+        if (s.taskFilter !== 'all' && s.taskFilter !== stt) return;
+        var o = self.outcome(job, t, s);
+        var look = { done: ['Delivered', '#ECFDF3', '#067647', '#12B76A'], fail: ['Failed', '#FEF3F2', '#B42318', '#F04438'], prog: ['In progress', '#EEF3FF', '#1F45A0', '#2B59C3'], pend: ['Waiting', '#F2F4F7', '#344054', '#98A2B3'] }[stt];
+        var rel = clock - job.t0;
+        var nAtt = stt === 'pend' ? 0 : (stt === 'prog' ? (t.out === 'retries' && o === 'retries' ? 1 + Math.min(4, Math.floor((rel - t.start) * 5 / 7)) : 1) : (o === 'retries' ? 5 : (o === 'fanout' || o === 'cancelled' ? 0 : 1)));
+        var segOn = { done: '#12B76A', fail: '#F04438', prog: '#2B59C3', pend: '#98A2B3' }[stt];
+        var att = nAtt + ' of 5';
+        var segs = [0, 1, 2, 3, 4].map(function (k) { return { bg: k < nAtt ? segOn : '#E4E7EC' }; });
+        jd.taskRows.push({ grid: tGridV, file: t.file, dest: pathOf(t.dest), label: look[0], bg: look[1], fg: look[2], dot: look[3], attempts: att, attSegs: segs, attTitle: nAtt === 0 ? 'Not attempted yet' : nAtt + (nAtt === 1 ? ' attempt' : ' attempts') + ' of the 5 allowed', attColor: nAtt === 0 ? '#98A2B3' : '#344054', retriedTag: !!t.retried,
+          hasCode: stt === 'fail', code: stt === 'fail' ? REASON[o][0] : '', reason: stt === 'fail' ? REASON[o][1] : (stt === 'prog' ? 'Delivering now' : 'In the queue'),
+          waiting: stt === 'prog' || stt === 'pend', canDl: stt === 'done', dlLabel: 'Download ' + t.file, pvLabel: 'Preview ' + t.file,
+          preview: function () { self.openLinkPreview(job, t); },
+          download: function () {
+            if (job.expired) {
+              self.setState({ dl: { file: t.file, secs: 0, expired: true } });
+              self.add('POST /files/' + t.id + '/downloads  410', 'The caller may see this distribution, but its uploaded file is more than 33 days old, so storage has already deleted it. DocBeam API answers FILE_EXPIRED instead of signing a link that would fail.');
+              return;
+            }
+            self.setState({ dl: { file: t.file, secs: 120 } });
+            self.add('POST /files/' + t.id + '/downloads  201', 'DocBeam API checked that ' + user.short + (job.by === s.viewer ? ' sent this distribution' : ' is in ' + TEAMS[NODES[t.dest].team].name + ', a team this file was delivered to') + ', then signed a link locally for this one file, valid 2 minutes, that saves it under its original name. The download goes straight from storage.');
+            self.audit(user.name, 'Download link issued', t.file + ' from ' + job.id + (job.by === s.viewer ? '' : ', delivered to ' + TEAMS[NODES[t.dest].team].name) + '. Valid 2 minutes.', false, job.id, job.by === s.viewer ? null : NODES[t.dest].team);
+          } });
+      });
+      jd.tasksEmpty = jd.taskRows.length === 0;
+      var retryable = seenTasks.filter(function (t) { var o = self.outcome(job, t, s); return self.status(job, t, s, clock) === 'fail' && (o === 'retries' || o === 'fanout'); });
+      var stuck = c.fail - retryable.length;
+      var isSender = job.by === s.viewer;
+      var inWindow = job.tasks[0].start >= 0;
+      jd.canRetryJob = isSender && inWindow && retryable.length > 0 && !job.cancelled;
+      jd.retryText = retryable.length + (retryable.length === 1 ? ' delivery' : ' deliveries') + ' failed for a reason a retry can fix (RETRIES_EXHAUSTED or FANOUT_FAILED).' + (stuck ? ' ' + stuck + ' failed for a reason a retry cannot fix and will stay failed.' : '') + ' Retry is open for 24 hours after the distribution first finishes, while its files are less than 2 days old.';
+      jd.hasRetryNote = retryable.length > 0 && !jd.canRetryJob;
+      jd.retryNote = job.cancelled && isSender ? 'This distribution was cancelled, so Retry is off (409 JOB_CANCELLED). To try again, send these files as a new distribution.' : !isSender ? 'Only ' + USERS[job.by].short + ', who sent this distribution, can retry its failed deliveries.' : 'The 24-hour retry window has passed. To try again, send these files as a new distribution.';
+      var waitingAll = job.tasks.filter(function (t) { return self.status(job, t, s, clock) === 'pend'; }).length;
+      jd.canCancelJob = isSender && inWindow && !job.cancelled && waitingAll > 0;
+      jd.cancelHint = 'Cancel distribution stops the ' + waitingAll + (waitingAll === 1 ? ' delivery' : ' deliveries') + ' still waiting. Deliveries already running finish.';
+      jd.cancelJob = function () {
+        var cur = self.state; var rel = cur.clock - job.t0; var n = 0;
+        var jobs = cur.jobs.map(function (j) {
+          if (j.id !== job.id) return j;
+          return Object.assign({}, j, { cancelled: true, tasks: j.tasks.map(function (t) {
+            if (self.status(j, t, cur, cur.clock) === 'pend') { n++; return Object.assign({}, t, { start: rel, end: rel, out: 'cancelled' }); }
+            return t;
+          }) });
+        });
+        self.setState({ jobs: jobs, taskFilter: 'all' });
+        self.add('POST /jobs/' + job.id + '/cancel  202', 'Sender confirmed. In one transaction that locked the job row, DocBeam API set cancelled_at, marked ' + n + (n === 1 ? ' waiting delivery' : ' waiting deliveries') + ' failed with CANCELLED and wrote an audit event. Deliveries already running finish; queued messages for cancelled deliveries stop at the claim. One job_update push told every open dashboard on this distribution to reload its deliveries.');
+        self.audit(user.name, 'Distribution cancelled', job.id + ': ' + n + (n === 1 ? ' waiting delivery' : ' waiting deliveries') + ' cancelled.', false);
+        self.toast(job.id + ': ' + n + (n === 1 ? ' delivery' : ' deliveries') + ' cancelled.', false);
+      };
+      jd.retryJob = function () {
+        var cur = self.state; var rel = cur.clock - job.t0; var k = 0; var lg = Object.assign({}, cur.logged); delete lg[job.id + ':end'];
+        var jobs = cur.jobs.map(function (j) {
+          if (j.id !== job.id) return j;
+          return Object.assign({}, j, { tasks: j.tasks.map(function (t) {
+            var o = self.outcome(j, t, cur);
+            if (self.status(j, t, cur, cur.clock) === 'fail' && (o === 'retries' || o === 'fanout')) { delete lg[j.id + ':' + t.id]; var st0 = rel + 1 + Math.floor(k / 3); k++; return Object.assign({}, t, { start: st0, end: st0 + 2 + (k % 2), out: 'ok', retried: true }); }
+            return t;
+          }) });
+        });
+        self.setState({ jobs: jobs, logged: lg, taskFilter: 'all' });
+        self.add('POST /jobs/' + job.id + '/retry  202', 'Sender confirmed. One conditional UPDATE set ' + k + (k === 1 ? ' failed delivery' : ' failed deliveries') + ' (RETRIES_EXHAUSTED or FANOUT_FAILED) back to pending and cleared their failure fields, set queued_at, cleared completed_at and fanned_out_at, and wrote an audit event in the same transaction. One job message went to the Job Queue; fan-out queues the pending deliveries as usual.');
+        self.audit(user.name, 'Retry requested', job.id + ': ' + k + (k === 1 ? ' failed delivery' : ' failed deliveries') + ' sent again.', false);
+        self.toast(job.id + ': ' + k + (k === 1 ? ' delivery' : ' deliveries') + ' queued again.', false);
+      };
+    }
+
+    // ---- extra view data ----
+    function mb(x) { var n = parseFloat(x); return x.indexOf('GB') >= 0 ? n * 1024 : (x.indexOf('KB') >= 0 ? n / 1024 : n); }
+    var totalMb = 0; s.files.forEach(function (f) { totalMb += mb(f.size); });
+    var statSize = totalMb >= 1024 ? (totalMb / 1024).toFixed(1) + ' GB' : (totalMb >= 10 ? Math.round(totalMb) + ' MB' : totalMb.toFixed(1) + ' MB');
+    var allSel = fileIds.length > 0 && selIds.length === fileIds.length;
+    var someSel = selIds.length > 0 && !allSel;
+    var mapped = fileIds.length > 0 && unmapped === 0;
+    var stepDefs = [['Add files', s.files.length > 0], ['Map destinations', mapped], ['Review and send', false]];
+    var curStep = !s.files.length ? 0 : (!mapped ? 1 : 2);
+    var steps = stepDefs.map(function (d, i) { var done = d[1] && i < curStep, cur = i === curStep; return { label: d[0], mark: done ? '\u2713' : String(i + 1), color: cur || done ? '#101828' : '#667085', ring: done ? '#2B59C3' : (cur ? '#2B59C3' : '#D0D5DD'), bg: done ? '#2B59C3' : '#FFFFFF', numColor: done ? '#FFFFFF' : (cur ? '#2B59C3' : '#667085') }; });
+    var chosen = destIds.map(function (d) { return { name: NODES[d].name, path: pathOf(d), count: distinct[d] + (distinct[d] === 1 ? ' file' : ' files'), removeLabel: 'Remove ' + pathOf(d),
+      remove: function () { var m = JSON.parse(JSON.stringify(self.state.map)); Object.keys(m).forEach(function (k) { m[k] = m[k].filter(function (x) { return x !== d; }); }); self.setState({ map: m }); } }; });
+    var reviewRows = destIds.map(function (d) { var t = TEAMS[NODES[d].team];
+      var fl = s.files.filter(function (f) { return (s.map[f.id] || []).indexOf(d) >= 0; }).map(function (f) { return { name: f.name, type: f.type, typeBg: lightType[f.type][0], typeFg: lightType[f.type][1], size: f.size, pvLabel: 'Preview ' + f.name, preview: function () { self.openLocalPreview(f); },
+        rmLabel: 'Remove ' + f.name + ' from ' + NODES[d].name,
+        remove: function () {
+          var cur = self.state; var m = JSON.parse(JSON.stringify(cur.map));
+          m[f.id] = (m[f.id] || []).filter(function (x) { return x !== d; });
+          var upd = { map: m };
+          var msg = f.name + ' will not go to ' + NODES[d].name + '.';
+          if (!m[f.id].length) { delete m[f.id]; upd.files = cur.files.filter(function (x) { return x.id !== f.id; }); var o = Object.assign({}, cur.sel); delete o[f.id]; upd.sel = o; msg = f.name + ' had no other destination, so it was removed from this distribution.'; }
+          var left = 0; Object.keys(m).forEach(function (k) { left += m[k].length; });
+          if (!left) upd.reviewOpen = false;
+          self.setState(upd);
+          self.toast(msg, false);
+          self.add('(browser) review', msg + ' Nothing has been sent yet, so this only changes the mapping in the page.');
+        } }; });
+      return { rmDestLabel: 'Remove ' + pathOf(d) + ' from this distribution', rmDest: function () { var m = JSON.parse(JSON.stringify(self.state.map)); Object.keys(m).forEach(function (k) { m[k] = m[k].filter(function (x) { return x !== d; }); }); self.setState({ map: m }); }, name: NODES[d].name, path: pathOf(d), color: t.color, initial: t.initial, team: t.name, count: distinct[d] + (distinct[d] === 1 ? ' file' : ' files'), files: fl }; });
+    var JOBWIDE = { sent: 'Distribution sent. Only the sender sees its full list of destinations.', retry: 'Failed deliveries were sent again.', cancel: 'The sender cancelled the deliveries that had not started.' };
+    var visibleEv = [];
+    s.audit.forEach(function (e) {
+      if (!e.job) { if (e.who === user.name) visibleEv.push(e); return; }
+      var jj = null; s.jobs.forEach(function (x) { if (x.id === e.job) jj = x; });
+      if (!jj || !self.canSee(jj, s.viewer)) return;
+      if (jj.by === s.viewer) { visibleEv.push(e); return; }
+      if (e.team) { if (myTeams.indexOf(e.team) >= 0) visibleEv.push(e); return; }
+      if (e.kind !== 'sent' && e.kind !== 'retry' && e.kind !== 'cancel') return;
+      visibleEv.push(Object.assign({}, e, { detail: JOBWIDE[e.kind] || e.detail, bad: false }));
+    });
+    var look = { sent: ['S', '#EEF3FF', '#2B59C3'], files: ['F', '#F2F4F7', '#475467'], delivery: ['D', '#ECFDF3', '#067647'], retry: ['R', '#FFFAEB', '#B54708'], cancel: ['X', '#F2F4F7', '#344054'], download: ['L', '#F4F3FF', '#5925DC'] };
+    function decorate(e) { var l = look[e.kind] || look.files; return Object.assign({}, e, { glyph: l[0], iconBg: e.bad ? '#FEF3F2' : l[1], dot: e.bad ? '#B42318' : l[2], color: e.bad ? '#B42318' : '#101828', hasJob: !!e.job, openJob: function () { self.setState({ tab: 'status', jobId: e.job, idInput: e.job, taskFilter: 'all', detailTab: 'deliveries', dl: null }); } }); }
+    var filtered = visibleEv.filter(function (e) { return (s.auditKind === 'all' || e.kind === s.auditKind) && (s.auditJob === 'all' || e.job === s.auditJob); });
+    var groups = [];
+    filtered.forEach(function (e) { var g = groups.length ? groups[groups.length - 1] : null; if (!g || g.key !== e.day) { g = { day: e.day.toUpperCase(), key: e.day, items: [] }; groups.push(g); } g.items.push(decorate(e)); });
+    var evJobs = []; visibleEv.forEach(function (e) { if (e.job && evJobs.indexOf(e.job) < 0) evJobs.push(e.job); });
+    var jobAudit = job ? visibleEv.filter(function (e) { return e.job === job.id; }).map(decorate) : [];
+    var dl = s.dl;
+    var mm = dl ? Math.floor(dl.secs / 60) + ':' + ('0' + (dl.secs % 60)).slice(-2) : '';
+    var tabsDef = [['distribute', 'Distribute'], ['status', 'Status'], ['audit', 'Audit trail']];
+    var hints = { priya: 'Cardio and Oncology. Sent JOB-2040.', raj: 'Cardio only. JOB-2040 opens, but he sees only its Cardio deliveries and files.', sam: 'Neuro only. No delivery in JOB-2040 goes to Neuro, so it is not found.' };
+
+    return Object.assign({
+      signedIn: s.signedIn, signedOut: !s.signedIn, loginError: s.loginError, loginAlert: s.loginError || s.pausedAlert, loginEmail: user.email, pwValue: s.loginError ? 'wrongpassword' : 'correct-horse-battery',
+      signIn: function () {
+        if (self.state.loginError) {
+          var nf = Math.min(5, self.state.loginFails + 1);
+          self.add('POST /auth/login  401', 'The Auth Service compared the password with the stored bcrypt hash: no match (' + nf + ' of 5 wrong in a row). ' + (nf >= 5 ? 'Sign-in for this account is now paused for 15 minutes, even with the right password. ' : 'After 5 in a row, sign-in for this account pauses for 15 minutes. ') + 'The message on screen is the same for an unknown email, a wrong password or a paused account, so nobody can probe for accounts. API Gateway also limits how fast anyone can try.');
+          self.setState({ loginError: false, loginFails: nf, loginPaused: nf >= 5, pausedAlert: false }); return;
+        }
+        if (self.state.loginPaused) {
+          self.add('POST /auth/login  401', 'The password is right, but sign-in for this account is paused for 15 minutes after 5 wrong passwords in a row, so the Auth Service answers 401 with the same message as always. (In this demo the pause ends now, so the next sign-in works.)');
+          self.setState({ loginPaused: false, loginFails: 0, pausedAlert: true }); return;
+        }
+        self.setState({ signedIn: true, tokenLeft: 900, sessionLeft: 43200, loginFails: 0, pausedAlert: false, renewOpen: false });
+        self.add('POST /auth/login  200', 'The Auth Service checked the password hash in Auth DB, signed a token valid for 15 minutes and set a refresh token in a secure cookie the page cannot read. The page renews the token quietly, so the sign-in lasts 12 hours. API Gateway rejects any request without a valid token.');
+      },
+      wrongPw: function () { self.setState({ loginError: true, pausedAlert: false }); },
+      signOut: function () { self.setState({ signedIn: false, actOpen: false, demoOpen: false, renewOpen: false, tokenLeft: 900, sessionLeft: 43200 }); self.add('POST /auth/logout  204', 'The Auth Service cancelled the refresh token in Auth DB, so this sign-in cannot be resumed from this or any other tab.'); },
+      renewOpen: s.renewOpen && s.signedIn,
+      renewTitle: 'Your sign-in has ended',
+      renewText: 'You have been signed in for 12 hours, so DocBeam needs your password again. Nothing on this page is lost: uploads, your mapping and open distributions stay as they are.',
+      renew: function () { self.setState({ renewOpen: false, tokenLeft: 900, sessionLeft: 43200 }); self.add('POST /auth/login  200', 'A new sign-in: a 15-minute token and a new refresh token for the next 12 hours. The live connection reconnects with the token and is checked again, so the viewer’s teams are read fresh.'); self.toast('Signed in again.', false); },
+      nearRefresh: function () { self.setState({ tokenLeft: 62 }); },
+      endSession: function () { self.setState({ sessionLeft: 2, tokenLeft: 2 }); },
+      userInitials: user.initials, userEmail: user.email, userTeamsText: myTeams.map(function (x) { return TEAMS[x].name; }).join(', '),
+      connText: s.conn === 'live' ? 'Live' : 'Reconnecting...', connColor: s.conn === 'live' ? '#067647' : '#B54708', connDot: s.conn === 'live' ? '#12B76A' : '#F79009',
+      actOpen: s.actOpen, toggleAct: function () { self.setState({ actOpen: !self.state.actOpen }); },
+      log: s.log, logEmpty: s.log.length === 0, clearLog: function () { self.setState({ log: [] }); },
+      navTabs: tabsDef.map(function (t) { var on = s.tab === t[0]; return { label: t[1], on: on, current: on ? 'page' : null, cls: on ? 'top topon' : 'top', hasBadge: t[0] === 'status' && running > 0, badge: running, pick: function () { self.setState({ tab: t[0] }); } }; }),
+      tDist: s.tab === 'distribute', tStatus: s.tab === 'status', tAudit: s.tab === 'audit',
+      scopeHint: selIds.length ? 'Ticking a folder sends the ' + selIds.length + ' selected ' + (selIds.length === 1 ? 'file' : 'files') + ' there' : (fileIds.length ? 'Ticking a folder sends all ' + fileIds.length + ' files there' : 'Import files, then tick folders to send them'),
+      browse: function () { self.importSample(false); },
+      userName: user.name, connBg: s.conn === 'live' ? '#ECFDF3' : '#FFFAEB',
+      steps: steps, statSize: statSize, hasFiles: s.files.length > 0,
+      selHint: selIds.length ? selIds.length + ' selected. Ticks on the right apply to these only.' : 'Select files to map them separately',
+      allAria: allSel ? 'true' : (someSel ? 'mixed' : 'false'), allOn: allSel, allMixed: someSel, allBg: allSel || someSel ? '#2B59C3' : '#FFFFFF', allBorder: allSel || someSel ? '#2B59C3' : '#98A2B3',
+      toggleAll: function () { if (allSel) { self.setState({ sel: {} }); return; } var o = {}; fileIds.forEach(function (id) { o[id] = true; }); self.setState({ sel: o }); },
+      scopeTitle: selIds.length ? (selIds.length === 1 ? 'the 1 selected file' : 'the ' + selIds.length + ' selected files') : (fileIds.length ? 'all ' + fileIds.length + ' files' : 'your files'),
+      scopeIsSel: selIds.length > 0, scopeBg: selIds.length ? '#FFFAEB' : '#F7F9FF', scopeIcon: selIds.length ? '#B54708' : '#2B59C3',
+      hasChosen: chosen.length > 0, chosen: chosen,
+      fHeads: self.colHeads('colsF', [['Name'], ['Destinations'], ['Status'], ['Size', 'right'], ['Actions', 'right']], [260, 220, 170, 80]),
+      tHeads: self.colHeads('colsT', [['File'], ['Destination'], ['Status'], ['Attempts'], ['Details and actions']], [220, 300, 130, 130]),
+      fGrid: fGridV, tGrid: tGridV,
+      fMinW: 32 + 84 + 28 + 50 + s.colsF.reduce(function (a, b) { return a + b; }, 0),
+      tMinW: 230 + 32 + 48 + s.colsT.reduce(function (a, b) { return a + b; }, 0),
+      reviewOpen: s.reviewOpen, reviewRows: reviewRows, noChosen: destIds.length === 0, sendToCount: destIds.length + (destIds.length === 1 ? ' destination, ' : ' destinations, ') + taskCount + (taskCount === 1 ? ' delivery' : ' deliveries'), rvFiles: s.files.length, rvDests: destIds.length, rvTasks: taskCount, rvTeams: (function () { var tn = []; destIds.forEach(function (d) { var n = TEAMS[NODES[d].team].name; if (tn.indexOf(n) < 0) tn.push(n); }); return tn.join(', '); })(),
+      pv: self.previewModel(s),
+      reviewSummary: s.files.length + (s.files.length === 1 ? ' file' : ' files') + ' to ' + destIds.length + (destIds.length === 1 ? ' destination' : ' destinations') + ', each uploaded once',
+      openReview: function () { if (ready) self.setState({ reviewOpen: true }); },
+      closeReview: function () { self.setState({ reviewOpen: false }); },
+      sending: !!s.sending,
+      detailTabs: [['deliveries', 'Deliveries', job ? job.tasks.length : 0], ['audit', 'Audit', jobAudit.length]].map(function (d) { var on = s.detailTab === d[0]; return { label: d[1], count: d[2], on: on, cls: on ? 'top topon' : 'top', pick: function () { self.setState({ detailTab: d[0] }); } }; }),
+      dtDeliveries: s.detailTab !== 'audit', dtAudit: s.detailTab === 'audit', jobAudit: jobAudit, jobAuditEmpty: jobAudit.length === 0,
+      auditGroups: groups, auditEmpty: groups.length === 0,
+      auditCountText: visibleEv.length ? filtered.length + ' of ' + visibleEv.length + ' events, back to ' + visibleEv[visibleEv.length - 1].day : 'No events yet',
+      auditKinds: [['all', 'All'], ['sent', 'Sent'], ['delivery', 'Deliveries'], ['retry', 'Retries'], ['cancel', 'Cancels'], ['download', 'Downloads'], ['files', 'Uploads']].map(function (k) { var on = s.auditKind === k[0]; return { label: k[1], on: on, cls: on ? 'pill pillon' : 'pill', pick: function () { self.setState({ auditKind: k[0] }); } }; }),
+      auditJobs: [['all', 'All']].concat(evJobs.slice(0, 7).map(function (x) { return [x, x]; })).map(function (k) { var on = s.auditJob === k[0]; return { label: k[1], on: on, cls: on ? 'pill pillon' : 'pill', pick: function () { self.setState({ auditJob: k[0] }); } }; }),
+      hasRejected: s.rejected.length > 0, rejected: s.rejected.map(function (r) { return { name: r.name, reason: r.reason, rmLabel: 'Dismiss ' + r.name, remove: function () { self.setState({ rejected: self.state.rejected.filter(function (x) { return x.name !== r.name; }) }); } }; }),
+      dismissRejected: function () { self.setState({ rejected: [] }); },
+      recent: cards.slice(0, 3), noRecent: cards.length === 0,
+      goStatus: function () { self.setState({ tab: 'status' }); },
+      fileCountText: s.files.length + ' of 100 files',
+      allChipCls: selIds.length ? 'chip' : 'chip chipon', scopeIsAll: selIds.length === 0,
+      scopeAll: function () { self.setState({ sel: {} }); },
+      scopeText: selIds.length ? selIds.length + ' selected. Destinations you tick apply to these only.' : 'or select files below to map them separately',
+      noFiles: s.files.length === 0, fileRows: fileRows,
+      destCountText: destIds.length + ' of 20 destinations',
+      dq: s.dq, onDq: function (e) { self.setState({ dq: e.target.value }); },
+      tree: tree, treeEmpty: tree.length === 0,
+      taskCount: taskCount, fileCount: s.files.length, destCount: destIds.length, checks: checks,
+      clearDisabled: s.files.length === 0,
+      clearAll: function () { self.setState({ files: [], rejected: [], map: {}, sel: {} }); },
+      sendDisabled: !ready || s.sending, sendLabel: s.sending ? 'Sending...' : 'Send ' + taskCount + ' deliveries',
+      send: function () {
+        if (!ready || self.state.sending) return;
+        self.setState({ sending: true });
+        setTimeout(function () {
+          var cur = self.state;
+          var pairs = [];
+          cur.files.forEach(function (f) { (cur.map[f.id] || []).forEach(function (d) { pairs.push([f.name, d]); }); });
+          var used = {}; pairs.forEach(function (p) { used[p[1]] = true; });
+          var teams = []; Object.keys(used).forEach(function (d) { var tn = TEAMS[NODES[d].team].name; if (teams.indexOf(tn) < 0) teams.push(tn); });
+          var id = 'JOB-' + cur.nextId;
+          var nj = { id: id, by: cur.viewer, when: 'Today ' + hhmmss(cur.clock).slice(0, 5), t0: cur.clock, files: cur.files.length, dests: Object.keys(used).length, tasks: makeTasks(pairs) };
+          self.setState({ sending: false, reviewOpen: false, detailTab: 'deliveries', jobs: [nj].concat(cur.jobs), nextId: cur.nextId + 1, tab: 'status', jobId: id, idInput: id, taskFilter: 'all', dl: null, files: [], rejected: [], map: {}, sel: {} });
+          self.add('POST /jobs  201  (184 ms)', 'Sent with the required Idempotency-Key, so a retry cannot create a second distribution. DocBeam API checked the batch limits, that the files are ' + USERS[nj.by].short + '’s, under 24 hours old, confirmed and scanned clean, in no other job and unchanged, then sent every destination to the Document Platform in one check: each binder exists, each folder is inside its binder, and the user is in that team (' + teams.join(', ') + '). One transaction saved ' + id + ', all ' + pairs.length + ' pending deliveries in one statement and the audit event; one message went to the Job Queue.');
+          self.add('Fan-out Lambda', id + ' was split into ' + pairs.length + ' task messages. If the job message had been lost, the Sweeper would re-send it within about 3 minutes.');
+          self.audit(USERS[nj.by].name, 'Distribution sent', id + ': ' + nj.files + ' files to ' + nj.dests + ' destinations, ' + pairs.length + ' deliveries.', false);
+          self.toast(id + ' sent. ' + pairs.length + ' deliveries queued.', false);
+        }, 700);
+      },
+      idInput: s.idInput, onIdInput: function (e) { self.setState({ idInput: e.target.value }); },
+      openById: function () {
+        var id = self.state.idInput.trim().toUpperCase();
+        var jj = null; self.state.jobs.forEach(function (x) { if (x.id === id) jj = x; });
+        self.setState({ jobId: id, taskFilter: 'all', dl: null });
+        if (jj && self.canSee(jj, self.state.viewer)) self.add('GET /jobs/' + id + '/tasks  200', (jj.by === self.state.viewer ? 'Sent by ' + user.short + '. Every delivery loaded.' : user.short + ' did not send this, so DocBeam API (and the WS Handler, for live updates) asked the Document Platform for ' + user.short + '’s teams. The distribution has deliveries to ' + user.teams.map(function (x) { return TEAMS[x].name; }).join(' and ') + ', so it opens with only those deliveries loaded.'));
+        else self.add('GET /jobs/' + id + '/tasks  404', 'Either it does not exist, or none of its deliveries go to ' + user.short + '’s teams. Both get the same 404, so nobody can probe for distributions.');
+      },
+      noJobs: cards.length === 0, jobCards: cards,
+      noJobsText: s.scope === 'team' ? 'Nobody else has sent a distribution to your teams.' : 'No distributions yet.',
+      scopeTabs: [['mine', 'Mine'], ['team', 'My teams']].map(function (t) { var on = s.scope === t[0]; return { label: t[1], on: on, cls: on ? 'seg segon' : 'seg', pick: function () {
+        self.setState({ scope: t[0] });
+        if (t[0] === 'team') self.add('GET /jobs?scope=team  200', 'DocBeam API asked the Document Platform for ' + user.short + '’s teams (GET /users/:id/teams, cached for 60 seconds), then listed other people’s distributions with at least one delivery to those teams, counting only those deliveries. The list refreshes every 30 seconds; live updates are for the open distribution only.');
+      } }; }),
+      taskFilters: [['all', 'All', jd.nDone + jd.nFail + jd.nProg + jd.nPend, '#344054', '#EAECF0', '#344054'], ['fail', 'Failed', jd.nFail, '#F04438', '#FEE4E2', '#B42318'], ['prog', 'In progress', jd.nProg, '#2B59C3', '#E3EAFB', '#1F45A0'], ['pend', 'Waiting', jd.nPend, '#98A2B3', '#EAECF0', '#344054'], ['done', 'Delivered', jd.nDone, '#12B76A', '#D1FADF', '#067647']].map(function (f) { var on = s.taskFilter === f[0]; return { label: f[1], on: on, cls: on ? 'fseg fsegon' : 'fseg', count: String(f[2]), dot: f[3], cBg: on ? f[4] : '#FFFFFF', cFg: f[5], hasDot: f[0] !== 'all', aria: f[1] + ', ' + f[2] + (f[2] === 1 ? ' delivery' : ' deliveries'), pick: function () { self.setState({ taskFilter: f[0] }); } }; }),
+      hasDl: !!dl, dlLive: !!dl && dl.secs > 0 && !dl.expired,
+      dlText: !dl ? '' : dl.expired ? dl.file + ' is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder.' : (dl.secs > 0 ? dl.file + ' is downloading. Its link works for this one file for another ' + mm + '.' : 'The link for ' + dl.file + ' has expired and storage now refuses it. Click Download for a fresh one.'),
+      dlBg: dl && dl.secs === 0 ? '#FEF3F2' : '#EEF3FF',
+      expireDl: function () { if (self.state.dl) self.setState({ dl: { file: self.state.dl.file, secs: 0 } }); self.add('Object Store  403', 'The 2 minutes are up. Storage checks each link’s signature and expiry and refuses it.'); },
+      closeDl: function () { self.setState({ dl: null }); },
+      toasts: s.toasts,
+      demoOpen: s.demoOpen, toggleDemo: function () { self.setState({ demoOpen: !self.state.demoOpen }); },
+      viewers: ['priya', 'raj', 'sam'].map(function (v) { var on = s.viewer === v; return { label: USERS[v].short, on: on, cls: on ? 'seg segon' : 'seg', pick: function () {
+        if (self.state.viewer === v) return;
+        self.setState({ viewer: v, files: [], rejected: [], map: {}, sel: {}, dl: null, dq: '', jobId: 'JOB-2040', idInput: 'JOB-2040' });
+        self.add('GET /teams  200 (' + USERS[v].short + ')', 'Signed in as ' + USERS[v].name + '. Destinations now show only ' + USERS[v].teams.map(function (x) { return TEAMS[x].name; }).join(' and ') + '.');
+      } }; }),
+      viewerHint: hints[s.viewer],
+      sampleMap: function () { self.importSample(true); },
+      removeDisabled: s.removedAt !== null,
+      removeLabel: s.removedAt === null ? 'Remove Priya from Oncology' : 'Priya was removed from Oncology',
+      removeOnc: function () { self.setState({ removedAt: self.state.clock }); self.add('(admin change)', 'Priya was removed from Oncology. Deliveries already done stay done. Each open Oncology delivery will be refused when it reaches the platform, which checks membership again then.'); self.toast('Priya was removed from Oncology.', true); },
+      drop: function () {
+        if (self.state.conn !== 'live') return;
+        self.setState({ conn: 'drop', frozen: self.state.clock });
+        self.add('Connection lost', 'The live connection dropped. Deliveries carry on in the background, but this page stops receiving updates.');
+        setTimeout(function () { self.setState({ conn: 'live', frozen: null }); self.add('Reconnected', 'The page reconnected with its token, subscribed again and reloaded the deliveries, catching up on everything it missed.'); }, 3000);
+      },
+      resetDemo: function () { var st = self.fresh('distribute-filled'); st.demoOpen = true; self.setState(st); }
+    }, jd);
+  }
+}
+</script>
+</body>
+</html>

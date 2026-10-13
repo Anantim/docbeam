@@ -1,0 +1,251 @@
+title Document Distribution Flow (Detailed)
+autoNumber nested
+
+// Actors
+User [icon: user]
+Web Client [icon: react, color: blue]
+Object Store [icon: aws-s3, color: orange]
+API Gateway [icon: aws-api-gateway, color: green]
+WebSocket API [icon: aws-api-gateway, color: green]
+Auth Service [icon: aws-ecs, color: green]
+Auth DB [icon: aws-rds, color: orange]
+DocBeam API [icon: aws-ecs, color: green]
+DocBeam DB [icon: aws-rds, color: orange]
+Job Queue [icon: aws-sqs, color: purple]
+Job DLQ [icon: aws-sqs, color: purple]
+"Fan-out Lambda" [icon: aws-lambda, color: green]
+Task Queue [icon: aws-sqs, color: purple]
+Task DLQ [icon: aws-sqs, color: purple]
+Delivery Lambda [icon: aws-lambda, color: green]
+DLQ Consumer [icon: aws-lambda, color: green]
+Sweeper Lambda [icon: aws-lambda, color: green]
+Upload Events Queue [icon: aws-sqs, color: purple]
+Upload DLQ [icon: aws-sqs, color: purple]
+Upload Events Lambda [icon: aws-lambda, color: green]
+Document Platform [icon: aws-ecs, color: green]
+Platform DB [icon: aws-rds, color: orange]
+Platform File Store [icon: aws-s3, color: orange]
+
+// Prepare files
+User > Web Client: Select files and destinations
+Web Client > Web Client: Compute SHA-256 of each file (and of each part for files over 100 MB)
+
+// Get upload URLs (up to 20 files per request)
+Web Client > API Gateway: Request upload URLs (name, size, type, SHA-256)
+API Gateway > DocBeam API: Validate JWT and forward
+DocBeam API > DocBeam DB: Create file records (no job yet)
+DocBeam API > DocBeam API: Sign one presigned POST per file (15 min)
+DocBeam API --> Web Client: File IDs and presigned POSTs (multipart flag for files over 100 MB)
+
+opt [label: file over 100 MB] {
+  Web Client > API Gateway: Start multipart upload (SHA-256 of each part)
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > Object Store: Create multipart upload (SHA-256 checksums)
+  DocBeam API > DocBeam DB: Save multipart upload ID
+  DocBeam API --> Web Client: One presigned URL per part, signed with its SHA-256 (re-signed if parts run past 15 min)
+}
+
+// Upload straight to storage
+Web Client > Object Store: Upload each file (or each part) with its presigned URL
+Object Store > Object Store: Check size, type and SHA-256 (of the file or the part)
+Object Store --> Web Client: Stored (with ETag), or 403 rejected
+
+opt [label: multipart upload] {
+  Web Client > API Gateway: Complete multipart upload (part numbers and ETags)
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > Object Store: List parts, check total size, complete upload
+  DocBeam API > DocBeam DB: Save the combined checksum (s3_checksum)
+  DocBeam API --> Web Client: 200, or 422 MULTIPART_INCOMPLETE if a part is missing or the size differs
+}
+
+// Confirm and scan each stored file (ADR-016)
+Object Store > Upload Events Queue: New object event
+
+loop [label: each new file, icon: repeat] {
+  Upload Events Queue > Upload Events Lambda: Trigger
+  Upload Events Lambda > Object Store: Read the file, check stored size and checksum
+  Upload Events Lambda > Upload Events Lambda: Scan with ClamAV
+  alt [label: clean] {
+    Upload Events Lambda > Object Store: Tag scan-status=clean
+    Upload Events Lambda > DocBeam DB: Set uploaded_at and scan_status clean (conditional, safe to repeat)
+  }
+  else [label: threat found] {
+    Upload Events Lambda > Object Store: Delete the file
+    Upload Events Lambda > DocBeam DB: scan_status infected, file.refused audit event
+  }
+}
+
+opt [label: an event fails 5 times] {
+  Upload Events Queue > Upload DLQ: Move message
+  Upload DLQ > DLQ Consumer: Trigger
+  DLQ Consumer > DocBeam DB: Mark the file failed (could not be checked)
+}
+
+loop [label: every 2 s while any file is being checked, icon: repeat] {
+  Web Client > API Gateway: GET /files?ids= with JWT
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > DocBeam DB: Read uploaded_at and scan_status
+  DocBeam API --> Web Client: Checking, Verified, or Refused with the reason
+}
+Web Client > Web Client: Turn on Send when every file is verified
+User > Web Client: Check the Review section under the files and destinations (every destination with the names of its files); preview any file from the copy in the browser (nothing sent) or remove it from a folder; press Send
+
+// Submit the job
+Web Client > API Gateway: Submit job (file IDs, SHA-256s, destinations, Idempotency-Key required, else 400)
+API Gateway > DocBeam API: Validate JWT and forward
+
+opt [label: Idempotency-Key already used, even by a request still running] {
+  DocBeam API > DocBeam DB: Find existing job
+  DocBeam API --> Web Client: 200 with the existing job
+}
+
+DocBeam API > DocBeam API: Check batch limits (100 files, 20 destinations, 2,000 deliveries, no duplicates)
+
+opt [label: batch breaks a limit] {
+  DocBeam API --> Web Client: 422 INVALID_BATCH, nothing is created
+}
+
+DocBeam API > DocBeam DB: Check files belong to user, are under 24 h old, are confirmed and clean, are in no other job, SHA-256 matches declared
+
+opt [label: a file check fails] {
+  DocBeam API --> Web Client: 422 FILE_TOO_OLD, 422 FILE_NOT_READY, 409 FILE_ALREADY_SUBMITTED or 422 CHECKSUM_MISMATCH, nothing is created
+}
+
+DocBeam API > Document Platform: Check all destinations (binderId, folderId, user), with the service token fetched at startup
+Document Platform > Platform DB: Binder exists, folder is in that binder, user is in the binder's team
+Document Platform --> DocBeam API: Team of each destination, or the list that failed
+
+opt [label: any destination missing or outside the user's teams] {
+  DocBeam API --> Web Client: 422 DESTINATION_NOT_FOUND, nothing is created
+}
+
+DocBeam API > DocBeam DB: One transaction: create job (queued_at), link files, insert all pending tasks in one statement, audit event
+DocBeam API > Job Queue: Send one fan-out message
+DocBeam API --> Web Client: 201 Job accepted (jobId, taskCount)
+
+opt [label: message lost after commit (ADR-014)] {
+  Sweeper Lambda > DocBeam DB: Every minute, find jobs not fanned out and not finished 2 min after queued_at
+  Sweeper Lambda > Job Queue: Re-send the fan-out message
+}
+
+// Fan-out
+Job Queue > "Fan-out Lambda": Trigger with jobId
+"Fan-out Lambda" > DocBeam DB: Set fanned_out_at
+"Fan-out Lambda" > DocBeam DB: Fetch pending task IDs
+"Fan-out Lambda" > Task Queue: Send one message per task (batches of 10)
+
+opt [label: fan-out fails 3 times] {
+  Job Queue > Job DLQ: Move job message
+  Job DLQ > DLQ Consumer: Trigger
+  DLQ Consumer > DocBeam DB: Lock job, mark pending tasks failed (FANOUT_FAILED), close job
+  DLQ Consumer > DocBeam DB: Find subscribers (sender and viewers in each task's team)
+  DLQ Consumer > WebSocket API: PostToConnection
+  WebSocket API > Web Client: Push live update
+}
+
+// Delivery, one task at a time (at most 50 at once)
+loop [label: each task message, icon: repeat] {
+  Task Queue > Delivery Lambda: Trigger with taskId
+  Delivery Lambda > DocBeam DB: Claim task (in_progress, attempt + 1)
+
+  opt [label: task already completed or failed (including CANCELLED)] {
+    Delivery Lambda > Task Queue: Acknowledge and stop
+  }
+
+  Delivery Lambda > Object Store: HEAD with checksum mode
+
+  alt [label: file present and checksum matches s3_checksum] {
+    opt [label: no cached service token (cold start)] {
+      Delivery Lambda > Auth Service: Request service token
+      Auth Service > Auth DB: Verify client secret hash
+      Auth Service --> Delivery Lambda: Service JWT
+    }
+    Delivery Lambda > Object Store: Read file
+    Delivery Lambda > Document Platform: Deliver file (taskId, on behalf of user, 100 s limit)
+    Document Platform > Platform DB: Check destination exists, user still in its team, task not already stored
+
+    alt [label: member, type and SHA-256 match on receipt] {
+      Document Platform > Platform File Store: Store file (new task only)
+      Document Platform > Platform DB: Insert document (once per taskId; a losing repeat deletes its copy)
+      Document Platform --> Delivery Lambda: 201 created, or 200 already delivered
+      Delivery Lambda > DocBeam DB: Lock job, mark completed, audit event (only if task still open)
+    }
+    else [label: binder or folder deleted since submit] {
+      Document Platform --> Delivery Lambda: 404 DESTINATION_NOT_FOUND
+      Delivery Lambda > DocBeam DB: Mark failed (DESTINATION_NOT_FOUND)
+    }
+    else [label: no longer a member] {
+      Document Platform --> Delivery Lambda: 403 NOT_A_MEMBER
+      Delivery Lambda > DocBeam DB: Mark failed (NOT_AUTHORIZED_AT_DELIVERY)
+    }
+    else [label: SHA-256 or file type wrong on receipt] {
+      Document Platform --> Delivery Lambda: 422
+      Delivery Lambda > DocBeam DB: Mark failed (CHECKSUM_MISMATCH or UNSUPPORTED_TYPE)
+    }
+    else [label: service token rejected (401)] {
+      Delivery Lambda > Auth Service: Get a new service token, try once more at once
+    }
+    else [label: anything else (5xx, 429, timeout, network)] {
+      Delivery Lambda > DocBeam DB: Set task back to pending with last_error (only if still in_progress)
+      Delivery Lambda > Task Queue: ChangeMessageVisibility by receive count (30 s, 2, 5, 10 min), report failed item
+    }
+  }
+  else [label: file missing or checksum mismatch in Object Store] {
+    Delivery Lambda > DocBeam DB: Mark failed (FILE_NOT_UPLOADED or CHECKSUM_MISMATCH)
+  }
+
+  opt [label: task is now completed or failed] {
+    Delivery Lambda > DocBeam DB: Close job if no open tasks remain (same transaction, job row locked)
+    Delivery Lambda > DocBeam DB: Find subscribers (sender and viewers in the task's team, token not expired)
+    Delivery Lambda > WebSocket API: PostToConnection (status, updatedAt, counts for each viewer)
+    WebSocket API > Web Client: Push live update
+    opt [label: connection gone (410)] {
+      Delivery Lambda > DocBeam DB: Delete connection row
+    }
+  }
+}
+
+// Retries used up
+opt [label: a task message fails 5 times (about 17 min)] {
+  Task Queue > Task DLQ: Move task message
+  Task DLQ > DLQ Consumer: Trigger
+  DLQ Consumer > DocBeam DB: Lock job, mark task failed (RETRIES_EXHAUSTED + last_error), close job if done
+  DLQ Consumer > DocBeam DB: Find subscribers (sender and viewers in the task's team)
+  DLQ Consumer > WebSocket API: PostToConnection
+  WebSocket API > Web Client: Push live update
+}
+
+// Sender retries failed deliveries
+opt [label: sender presses Retry failed deliveries] {
+  Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
+  API Gateway > DocBeam API: Validate JWT and forward
+  alt [label: sender, job running or within 24 h of first finish, files under 2 days old] {
+    DocBeam API > DocBeam DB: Lock job row; reset RETRIES_EXHAUSTED and FANOUT_FAILED tasks to pending, clear failure fields, set queued_at, clear completed_at and fanned_out_at, audit event
+    DocBeam API > Job Queue: Send one fan-out message
+    DocBeam API --> Web Client: 202 (number of deliveries retried)
+  }
+  else [label: not the sender] {
+    DocBeam API --> Web Client: 403 NOT_SENDER (404 if the job is not visible)
+  }
+  else [label: window closed, nothing to retry, or job cancelled] {
+    DocBeam API --> Web Client: 409 RETRY_WINDOW_CLOSED, NOTHING_TO_RETRY or JOB_CANCELLED
+  }
+}
+
+// Sender cancels the distribution
+opt [label: sender presses Cancel distribution] {
+  Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
+  API Gateway > DocBeam API: Validate JWT and forward
+  alt [label: sender, and some deliveries not started] {
+    DocBeam API > DocBeam DB: Lock job row; set cancelled_at; mark pending tasks failed (CANCELLED); close job if nothing is running; audit event
+    DocBeam API > DocBeam DB: Find the job's open dashboards
+    DocBeam API > WebSocket API: Push one job_update to each, with counts for what that viewer can see
+    DocBeam API --> Web Client: 202 (number of deliveries cancelled); running deliveries finish
+  }
+  else [label: not the sender] {
+    DocBeam API --> Web Client: 403 NOT_SENDER (404 if the job is not visible)
+  }
+  else [label: no delivery is still waiting] {
+    DocBeam API --> Web Client: 409 NOTHING_TO_CANCEL
+  }
+}

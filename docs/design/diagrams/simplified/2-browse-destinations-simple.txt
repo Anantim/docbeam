@@ -1,0 +1,28 @@
+title Browse Destinations (Simplified)
+autoNumber nested
+
+User [icon: user]
+Web Client [icon: react, color: blue]
+Auth Service [icon: aws-ecs, color: green]
+Document Platform [icon: aws-ecs, color: green]
+
+// Sign in
+User > Web Client: Enter email and password
+Web Client > Auth Service: Log in
+alt [label: details correct] {
+  Auth Service --> Web Client: 15-minute token and a 12-hour refresh cookie
+}
+else [label: wrong, or paused after 5 wrong tries] {
+  Auth Service --> Web Client: 401, same message every time
+}
+
+loop [label: a minute before the token expires, icon: repeat] {
+  Web Client > Auth Service: Refresh with the cookie
+  Auth Service --> Web Client: New token (after 12 hours: ask for the password)
+}
+
+// Browse
+User > Web Client: Open teams, binders and folders
+Web Client > Document Platform: Ask for one level at a time
+Document Platform --> Web Client: Only what the user's teams contain (404 otherwise)
+User > Web Client: Tick up to 20 destination folders

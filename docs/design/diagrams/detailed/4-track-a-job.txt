@@ -1,0 +1,142 @@
+title Track a Job (Detailed)
+autoNumber nested
+
+// Actors
+User [icon: user]
+Web Client [icon: react, color: blue]
+WebSocket API [icon: aws-api-gateway, color: green]
+WS Handlers [icon: aws-lambda, color: green]
+API Gateway [icon: aws-api-gateway, color: green]
+DocBeam API [icon: aws-ecs, color: green]
+DocBeam DB [icon: aws-rds, color: orange]
+Auth Service [icon: aws-ecs, color: green]
+Auth DB [icon: aws-rds, color: orange]
+Document Platform [icon: aws-ecs, color: green]
+Platform DB [icon: aws-rds, color: orange]
+Delivery Lambda [icon: aws-lambda, color: green]
+DLQ Consumer [icon: aws-lambda, color: green]
+
+// Open the dashboard and connect
+User > Web Client: Open job list
+Web Client > WebSocket API: Connect with JWT
+WebSocket API > WS Handlers: Invoke $connect
+WS Handlers > WS Handlers: Verify JWT against public keys
+
+alt [label: token valid] {
+  WS Handlers > DocBeam DB: Insert row in ws_connections with the token expiry
+}
+else [label: token invalid] {
+  WS Handlers --> Web Client: 401, no connection
+}
+
+// Job list (counts refresh every 30 s; no pushes for the list)
+Web Client > API Gateway: Request jobs with JWT
+API Gateway > DocBeam API: Validate JWT and forward
+opt [label: My teams view] {
+  DocBeam API > Document Platform: Which teams is this user in? (cached 60 s)
+  Document Platform > Platform DB: Read the user's teams
+  Document Platform --> DocBeam API: Team IDs
+}
+DocBeam API > DocBeam DB: Read jobs (the user's, or others' with a delivery to the user's teams) with task counts, one query per page
+DocBeam API --> Web Client: Job list (others' jobs show counts for the user's teams only)
+
+// Pick a job and subscribe before fetching
+User > Web Client: Select specific job
+Web Client > WebSocket API: Subscribe with jobId
+WebSocket API > WS Handlers: Invoke subscribe
+WS Handlers > DocBeam DB: Look up the job's sender
+
+opt [label: caller is not the sender] {
+  opt [label: no cached service token] {
+    WS Handlers > Auth Service: Request service token
+    Auth Service > Auth DB: Verify client secret hash
+    Auth Service --> WS Handlers: Service JWT
+  }
+  WS Handlers > Document Platform: Which teams is the caller in?
+  Document Platform > Platform DB: Read the caller's teams
+  Document Platform --> WS Handlers: Team IDs
+  WS Handlers > DocBeam DB: Does the job have a delivery to one of those teams?
+}
+
+alt [label: sender, or job has a delivery to the caller's team] {
+  WS Handlers > DocBeam DB: Set job_id and team_ids on the connection row
+}
+else [label: not allowed] {
+  WS Handlers --> Web Client: Subscription rejected
+}
+
+// Fetch the tasks
+Web Client > API Gateway: Request job tasks with JWT
+API Gateway > DocBeam API: Validate JWT and forward
+DocBeam API > DocBeam DB: Look up the job's sender
+
+opt [label: caller is not the sender] {
+  DocBeam API > Document Platform: Which teams is the caller in? (cached 60 s)
+  Document Platform --> DocBeam API: Team IDs
+}
+
+alt [label: sender] {
+  DocBeam API > DocBeam DB: Read all tasks (100 per page)
+  DocBeam API --> Web Client: Every delivery in the job
+}
+else [label: job has a delivery to the caller's team] {
+  DocBeam API > DocBeam DB: Read tasks for the caller's teams only (100 per page)
+  DocBeam API --> Web Client: Only the deliveries to the caller's teams
+}
+else [label: no delivery to the caller's teams] {
+  DocBeam API --> Web Client: 404 Not found
+}
+
+// Live updates
+loop [label: each task status change from Delivery Lambda, icon: repeat] {
+  Delivery Lambda > DocBeam DB: Update task status (job row locked)
+  Delivery Lambda > DocBeam DB: Find subscribers: the sender, and viewers whose team_ids include the task's team, token not expired
+  Delivery Lambda > WebSocket API: PostToConnection (status, updatedAt, counts for what each viewer can see)
+  WebSocket API --> Web Client: Live update (older than the row already shows: ignored)
+  opt [label: connection gone (410)] {
+    Delivery Lambda > DocBeam DB: Delete connection row
+  }
+}
+
+opt [label: task fails after 5 attempts or fan-out fails] {
+  DLQ Consumer > DocBeam DB: Mark task failed with reason
+  DLQ Consumer > DocBeam DB: Find subscribers (same rule)
+  DLQ Consumer > WebSocket API: PostToConnection
+  WebSocket API --> Web Client: Live update
+}
+
+opt [label: connection drops or token renewed (every 15 min, with the refresh cookie)] {
+  Web Client > WebSocket API: Reconnect with JWT, subscribe with jobId (checked again)
+  Web Client > API Gateway: Refetch job tasks
+}
+
+opt [label: user leaves the page] {
+  WebSocket API > WS Handlers: Invoke $disconnect
+  WS Handlers > DocBeam DB: Delete connection row
+}
+
+// Audit tab
+opt [label: user opens the Audit tab] {
+  Web Client > API Gateway: GET /audit?jobId= with JWT (full history, paged)
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > DocBeam DB: Same visibility check; others get job-wide events and their teams' events only
+  DocBeam API --> Web Client: Events, newest first
+}
+
+// Retry from the job page
+opt [label: sender presses Retry failed deliveries] {
+  Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, reset retryable failed tasks to pending, audit event
+  DocBeam API --> Web Client: 202, tasks show as waiting again (409 JOB_CANCELLED for a cancelled job)
+}
+
+// Cancel from the job page
+opt [label: sender presses Cancel distribution] {
+  Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, set cancelled_at, mark pending tasks failed (CANCELLED), close job if nothing is running, audit event
+  DocBeam API > DocBeam DB: Find the job's open dashboards
+  DocBeam API > WebSocket API: PostToConnection (job_update, counts for what each viewer can see)
+  WebSocket API --> Web Client: Reload the tasks; waiting deliveries show CANCELLED, running ones finish
+}

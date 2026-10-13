@@ -1,0 +1,124 @@
+title DocBeam File Distribution Architecture (Detailed)
+direction right
+
+// Groups and nodes
+Client [icon: monitor, color: blue] {
+  Web Client [icon: react]
+}
+
+Edge [icon: cloud, color: orange] {
+  CloudFront [icon: aws-cloudfront]
+  API Gateway [icon: aws-api-gateway]
+  WebSocket API [icon: aws-api-gateway]
+}
+
+Private network [icon: shield, color: green] {
+  Internal ALB [icon: aws-elastic-load-balancing]
+  Auth Service [icon: aws-ecs]
+  DocBeam API [icon: aws-ecs]
+  Document Platform [icon: aws-ecs]
+}
+
+Data [icon: database, color: purple, label: "Data (PostgreSQL is one Multi-AZ instance)"] {
+  Auth DB [icon: aws-rds]
+  DocBeam DB [icon: aws-rds]
+  Platform DB [icon: aws-rds]
+  RDS Proxy [icon: aws-rds]
+  Object Store [icon: aws-s3, label: "Object Store (33-day expiry, hands out clean files only)"]
+  Platform File Store [icon: aws-s3, label: "Platform File Store (versioned)"]
+}
+
+Async [icon: zap, color: red] {
+  Job Queue [icon: aws-sqs]
+  Job DLQ [icon: aws-sqs]
+  Fan-out Lambda [icon: aws-lambda]
+  Task Queue [icon: aws-sqs]
+  Task DLQ [icon: aws-sqs]
+  Delivery Lambda [icon: aws-lambda]
+  DLQ Consumer [icon: aws-lambda]
+  WS Handlers [icon: aws-lambda]
+  Scheduler [icon: aws-eventbridge, label: "EventBridge Scheduler"]
+  Sweeper Lambda [icon: aws-lambda]
+  Upload Events Queue [icon: aws-sqs]
+  Upload DLQ [icon: aws-sqs]
+  Upload Events Lambda [icon: aws-lambda, label: "Upload Events Lambda (ClamAV scan)"]
+  Alarms [icon: aws-cloudwatch, label: "CloudWatch alarms + SNS email"]
+}
+
+// Client and edge
+CloudFront > Web Client: serve SPA
+Web Client > API Gateway: API calls (15-min JWT, renewed 1 min before expiry with the refresh cookie)
+Web Client <> WebSocket API: live status
+Web Client --> Object Store: presigned POST/GET (file bytes)
+
+// Edge into the private network
+API Gateway > Internal ALB: VPC Link (explicit routes, no catch-all)
+API Gateway --> Auth Service: signing keys (OpenID configuration, JWKS)
+Internal ALB > Auth Service
+Internal ALB > DocBeam API
+Internal ALB > Document Platform
+
+// Each service owns its database (direct, no proxy)
+Auth Service > Auth DB: users (with sign-in pause), refresh tokens, service clients
+DocBeam API > DocBeam DB: files, jobs, tasks, audit_events
+Document Platform > Platform DB: teams, members, binders, folders, documents
+Document Platform > Platform File Store: delivered documents
+
+// Uploads larger than 100 MB
+DocBeam API > Object Store: start and complete multipart upload (part SHA-256s, files > 100 MB)
+
+// Confirm and scan each upload (ADR-016)
+Object Store > Upload Events Queue: new object in staging/
+Upload Events Queue > Upload Events Lambda: trigger
+Upload Events Queue --> Upload DLQ: after 5 failed attempts
+Upload Events Lambda > Object Store: check size and checksum, scan with ClamAV, tag clean or delete infected file
+
+// Service-to-service calls
+DocBeam API > Document Platform: destination check, user's teams
+DocBeam API > Auth Service: service token
+
+// Submission and fan-out
+DocBeam API > Job Queue: submit job
+DocBeam API > WebSocket API: push job update after a cancel
+Job Queue > Fan-out Lambda: trigger
+Job Queue --> Job DLQ: after 3 failed attempts
+Fan-out Lambda > Task Queue: batch send
+Task Queue --> Task DLQ: after 5 failed attempts (30 s, 2, 5, 10 min apart)
+Task Queue > Delivery Lambda: trigger (max 50 at a time)
+
+// Delivery
+Delivery Lambda > Object Store: HEAD checksum, stream file
+Delivery Lambda > Auth Service: service token
+Delivery Lambda > Document Platform: deliver (platform checks member, type, SHA-256)
+Delivery Lambda > WebSocket API: push update (sender and that team's viewers)
+
+// Failure handling
+Job DLQ > DLQ Consumer: trigger
+Task DLQ > DLQ Consumer: trigger
+Upload DLQ > DLQ Consumer: trigger
+DLQ Consumer > WebSocket API: push update (sender and that team's viewers)
+
+// Lost-message recovery (ADR-014)
+Scheduler > Sweeper Lambda: every minute (re-send), daily (cleanup)
+Sweeper Lambda > Job Queue: re-send jobs not fanned out 2 min after queued
+Sweeper Lambda > Object Store: delete files not submitted within 24 h (daily)
+
+// Live status connections
+WebSocket API > WS Handlers: invoke on connect / subscribe / disconnect
+WS Handlers > Auth Service: service token, JWKS
+WS Handlers > Document Platform: user's teams (visibility)
+
+// All Lambda database access goes through RDS Proxy
+Fan-out Lambda > RDS Proxy: read tasks, set fanned_out_at
+Delivery Lambda > RDS Proxy: lock job, update task, audit event, complete job, find subscribers
+DLQ Consumer > RDS Proxy: mark tasks or files failed, audit event, find live subscribers
+Upload Events Lambda > RDS Proxy: set uploaded_at and scan_status, audit event
+WS Handlers > RDS Proxy: ws_connections (token expiry, viewer's teams)
+Sweeper Lambda > RDS Proxy: find stuck jobs, unclaimed files
+RDS Proxy > DocBeam DB: pooled connections
+
+// Alerting
+Job DLQ --> Alarms: depth > 0 for 5 min
+Task DLQ --> Alarms: depth > 0 for 5 min
+Upload DLQ --> Alarms: depth > 0 for 5 min
+Delivery Lambda --> Alarms: error rate

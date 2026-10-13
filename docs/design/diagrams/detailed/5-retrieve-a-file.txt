@@ -1,0 +1,39 @@
+title Retrieve a File (Detailed)
+autoNumber nested
+
+// Actors
+User [icon: user]
+Web Client [icon: react, color: blue]
+API Gateway [icon: aws-api-gateway, color: green]
+DocBeam API [icon: aws-ecs, color: green]
+DocBeam DB [icon: aws-rds, color: orange]
+Document Platform [icon: aws-ecs, color: green]
+Platform DB [icon: aws-rds, color: orange]
+Object Store [icon: aws-s3, color: orange]
+
+User > Web Client: Open a job and click Preview or Download on a file
+Web Client > API Gateway: Request a link (mode: download or preview) with JWT
+API Gateway > DocBeam API: Validate JWT and forward
+DocBeam API > DocBeam DB: Look up file, its job, the sender and the teams it was delivered to
+
+opt [label: caller is not the sender] {
+  DocBeam API > Document Platform: Which teams is the caller in? (service token from startup, answer cached 60 s)
+  Document Platform > Platform DB: Read the caller's teams
+  Document Platform --> DocBeam API: Team IDs
+}
+
+alt [label: sender, or file delivered (completed) to the caller's team, within 33-day storage] {
+  DocBeam API > DocBeam DB: Write audit event (download or preview link issued; team recorded unless the caller is the sender)
+  DocBeam API > DocBeam API: Sign GET URL locally (one file, 2 min; saves under the original name, or opens inline for a preview)
+  DocBeam API --> Web Client: Return the URL
+  Web Client > Object Store: Fetch the file with the URL
+  Object Store > Object Store: Check signature, expiry and the clean scan tag
+  Object Store --> Web Client: File bytes
+  Web Client > Web Client: Save the file, or show it in the viewer (PDF and images as they are, DOCX and XLSX as a read-only page)
+}
+else [label: allowed, but the file is past its 33-day storage period] {
+  DocBeam API --> Web Client: 410 FILE_EXPIRED, no URL created
+}
+else [label: file missing or not delivered to the caller's teams] {
+  DocBeam API --> Web Client: 404 Not found, no URL created
+}

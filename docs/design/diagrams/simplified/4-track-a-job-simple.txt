@@ -1,0 +1,32 @@
+title Track a Job (Simplified)
+autoNumber nested
+
+User [icon: user]
+Web Client [icon: react, color: blue]
+WebSocket API [icon: aws-api-gateway, color: green]
+DocBeam API [icon: aws-ecs, color: green]
+Delivery Lambda [icon: aws-lambda, color: green]
+
+User > Web Client: Open the job list
+Web Client > DocBeam API: Mine, or my teams' distributions
+DocBeam API --> Web Client: Jobs with counts (refreshed every 30 s)
+
+User > Web Client: Open one job
+Web Client > WebSocket API: Subscribe first (checked: sender or same team)
+Web Client > DocBeam API: Load its deliveries
+DocBeam API --> Web Client: All deliveries for the sender, own team's for others
+
+loop [label: each delivery finishes, icon: repeat] {
+  Delivery Lambda > WebSocket API: New status
+  WebSocket API --> Web Client: Row and totals update live
+}
+
+opt [label: connection drops] {
+  Web Client > WebSocket API: Reconnect and subscribe again
+  Web Client > DocBeam API: Reload once to catch up
+}
+
+opt [label: sender presses Retry or Cancel] {
+  Web Client > DocBeam API: Retry failed, or cancel waiting deliveries
+  DocBeam API --> Web Client: Updated job
+}

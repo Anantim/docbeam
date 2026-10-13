@@ -1,0 +1,68 @@
+title DocBeam Architecture (Simplified)
+direction right
+
+Client [icon: monitor, color: blue] {
+  Web Client [icon: react]
+}
+
+Edge [icon: cloud, color: orange] {
+  API Gateway [icon: aws-api-gateway]
+  WebSocket API [icon: aws-api-gateway]
+}
+
+Services [icon: shield, color: green] {
+  Auth Service [icon: aws-ecs]
+  DocBeam API [icon: aws-ecs]
+  Document Platform [icon: aws-ecs]
+}
+
+Storage [icon: database, color: purple] {
+  Databases [icon: aws-rds, label: "PostgreSQL (Auth, DocBeam, Platform DBs)"]
+  Object Store [icon: aws-s3, label: "Object Store (uploads)"]
+  Platform File Store [icon: aws-s3, label: "Platform File Store (delivered)"]
+}
+
+Background [icon: zap, color: red] {
+  Upload Checks [icon: aws-lambda, label: "Upload Events Queue + Lambda (ClamAV scan)"]
+  Job Queue [icon: aws-sqs]
+  Fan-out Lambda [icon: aws-lambda]
+  Task Queue [icon: aws-sqs]
+  Delivery Lambda [icon: aws-lambda]
+  Failure Handling [icon: aws-lambda, label: "DLQs + DLQ Consumer"]
+  Sweeper [icon: aws-lambda, label: "Sweeper (scheduled)"]
+  Alarms [icon: aws-cloudwatch, label: "Email alarms"]
+}
+
+// Browser
+Web Client > API Gateway: API calls with token
+Web Client <> WebSocket API: live status
+Web Client --> Object Store: upload and download files directly
+
+// Services
+API Gateway > Auth Service: sign in, refresh, sign out
+API Gateway > DocBeam API: uploads, jobs, status, downloads
+API Gateway > Document Platform: browse teams and folders
+Auth Service > Databases
+DocBeam API > Databases
+Document Platform > Databases
+Document Platform > Platform File Store: store delivered files
+
+// Upload checks
+Object Store > Upload Checks: file stored
+Upload Checks > Object Store: scan, tag clean or delete infected file
+Upload Checks > Databases: mark file verified or refused
+
+// Sending
+DocBeam API > Job Queue: one message per job
+Job Queue > Fan-out Lambda
+Fan-out Lambda > Task Queue: one message per delivery
+Task Queue > Delivery Lambda
+Delivery Lambda > Document Platform: deliver file
+Delivery Lambda > WebSocket API: push status
+
+// Safety nets
+Job Queue --> Failure Handling: repeated failures
+Task Queue --> Failure Handling: repeated failures
+Upload Checks --> Failure Handling: repeated failures
+Sweeper > Job Queue: re-send stuck jobs
+Failure Handling --> Alarms

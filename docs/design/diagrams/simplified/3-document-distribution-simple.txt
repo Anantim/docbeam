@@ -1,0 +1,52 @@
+title Document Distribution (Simplified)
+autoNumber nested
+
+User [icon: user]
+Web Client [icon: react, color: blue]
+DocBeam API [icon: aws-ecs, color: green]
+Object Store [icon: aws-s3, color: orange]
+Upload Checks [icon: aws-lambda, color: green, label: "Upload checks (ClamAV)"]
+Queues [icon: aws-sqs, color: purple, label: "Job and Task Queues"]
+Delivery Lambda [icon: aws-lambda, color: green]
+Document Platform [icon: aws-ecs, color: green]
+
+// Upload
+User > Web Client: Pick files and map them to folders
+Web Client > DocBeam API: Ask for upload links
+DocBeam API --> Web Client: One link per file
+Web Client > Object Store: Upload each file once
+Object Store > Upload Checks: File stored
+Upload Checks > Upload Checks: Check size and fingerprint, scan for malware with ClamAV
+Upload Checks --> Web Client: Verified, or refused (malware file deleted)
+
+// Review and send
+User > Web Client: Check the Review section, preview or remove files, press Send
+Web Client > DocBeam API: Submit the job
+alt [label: all checks pass] {
+  DocBeam API > Queues: Save job and deliveries, queue the job
+  DocBeam API --> Web Client: Job accepted in under 500 ms
+}
+else [label: a check fails] {
+  DocBeam API --> Web Client: 4xx with the reason, nothing created
+}
+
+// Deliver
+loop [label: each delivery, icon: repeat] {
+  Queues > Delivery Lambda: One file to one folder
+  Delivery Lambda > Document Platform: Send the file
+  alt [label: accepted] {
+    Document Platform --> Delivery Lambda: Stored once
+  }
+  else [label: permanent problem] {
+    Document Platform --> Delivery Lambda: Refused, delivery fails with a reason
+  }
+  else [label: temporary problem] {
+    Delivery Lambda > Queues: Try again later (up to 5 times)
+  }
+  Delivery Lambda --> Web Client: Live status update
+}
+
+opt [label: sender acts on the job] {
+  User > Web Client: Retry failed deliveries, or cancel waiting ones
+  Web Client > DocBeam API: Retry or cancel
+}

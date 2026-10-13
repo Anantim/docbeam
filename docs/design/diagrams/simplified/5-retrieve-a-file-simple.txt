@@ -1,0 +1,24 @@
+title Retrieve a File (Simplified)
+autoNumber nested
+
+User [icon: user]
+Web Client [icon: react, color: blue]
+DocBeam API [icon: aws-ecs, color: green]
+Object Store [icon: aws-s3, color: orange]
+
+User > Web Client: Click Preview or Download
+Web Client > DocBeam API: Ask for a link
+DocBeam API > DocBeam API: Sender, or delivered to the user's team?
+
+alt [label: allowed] {
+  DocBeam API --> Web Client: 2-minute link for this one file (logged)
+  Web Client > Object Store: Fetch the file directly
+  Object Store --> Web Client: File (only if scanned clean)
+  Web Client > Web Client: Save it, or show it in the viewer
+}
+else [label: older than 33 days] {
+  DocBeam API --> Web Client: 410, file no longer available
+}
+else [label: not allowed or missing] {
+  DocBeam API --> Web Client: 404, no link created
+}

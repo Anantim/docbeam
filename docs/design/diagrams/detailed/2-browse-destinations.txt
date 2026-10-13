@@ -1,0 +1,78 @@
+title Browse Destinations (Detailed)
+autoNumber nested
+
+// Actors
+User [icon: user]
+Web Client [icon: react, color: blue]
+API Gateway [icon: aws-api-gateway, color: green]
+Auth Service [icon: aws-ecs, color: green]
+Auth DB [icon: aws-rds, color: orange]
+Document Platform [icon: aws-ecs, color: green]
+Platform DB [icon: aws-rds, color: orange]
+
+// Login
+User > Web Client: Log in with email and password
+Web Client > API Gateway: Login request
+API Gateway > Auth Service: Forward (login needs no JWT; tightly throttled)
+Auth Service > Auth DB: Look up user, check sign-in pause and password hash
+
+alt [label: credentials valid and sign-in not paused] {
+  Auth Service > Auth DB: Reset wrong-password count, store refresh token hash (new sign-in, ends in 12 h)
+  Auth Service > Auth Service: Sign 15-minute JWT
+  Auth Service --> Web Client: Return token, refresh token in a Secure HttpOnly cookie for /auth
+}
+else [label: credentials invalid or sign-in paused] {
+  Auth Service > Auth DB: Count the wrong password (5 in a row pause sign-in for 15 min)
+  Auth Service --> Web Client: 401, same message for any failure
+}
+
+// Stay signed in (ADR-015)
+loop [label: 1 min before the token expires, icon: repeat] {
+  Web Client > Web Client: Take the browser lock (one tab refreshes for all)
+  Web Client > API Gateway: POST /auth/refresh (refresh cookie, no JWT)
+  API Gateway > Auth Service: Forward (tightly throttled)
+  Auth Service > Auth DB: Look up the token hash
+  alt [label: token valid and unused] {
+    Auth Service > Auth DB: Mark it used, store the next one (same sign-in, same end time)
+    Auth Service --> Web Client: New 15-minute JWT and new refresh cookie
+  }
+  else [label: token already used] {
+    Auth Service > Auth DB: Revoke every token of this sign-in
+    Auth Service --> Web Client: 401, sign-in dialog
+  }
+  else [label: 12 hours are up] {
+    Auth Service --> Web Client: 401, sign-in dialog (the page stays as it is)
+  }
+}
+
+opt [label: user signs out] {
+  Web Client > API Gateway: POST /auth/logout (refresh cookie)
+  API Gateway > Auth Service: Forward
+  Auth Service > Auth DB: Revoke every token of this sign-in
+  Auth Service --> Web Client: 204, cookie cleared
+}
+
+// Teams
+User > Web Client: View teams
+Web Client > API Gateway: Request teams with JWT
+API Gateway > Document Platform: Validate JWT and forward
+Document Platform > Platform DB: Read teams the user belongs to
+Document Platform --> Web Client: Return team list
+
+loop [label: User expands a team, icon: repeat] {
+  User > Web Client: Expand team
+  Web Client > API Gateway: Request binders with JWT
+  API Gateway > Document Platform: Validate JWT and forward
+  Document Platform > Platform DB: Check membership, read binders
+  Document Platform --> Web Client: Return binders (404 if not a member)
+}
+
+loop [label: User expands a binder or folder, icon: repeat] {
+  User > Web Client: Expand binder or folder
+  Web Client > API Gateway: Request contents with JWT
+  API Gateway > Document Platform: Validate JWT and forward
+  Document Platform > Platform DB: Check membership, read one level
+  Document Platform --> Web Client: Return folders and documents (404 if not a member)
+}
+
+User > Web Client: Select destinations (up to 20)
