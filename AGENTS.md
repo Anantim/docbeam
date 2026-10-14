@@ -58,7 +58,14 @@ Write all code yourself from these documents. Do not copy code from any other re
    5. Tear down.
 4. **Run the testing round yourself** before reporting: everything in sections 1 to 3 of the testing document (ask before the AWS commands). Fix what fails and run it again. Record the evidence (command, short output, test names) in `docs/testing/M{n}-RESULTS.md`.
 5. **Final check.** Walk the milestone's prompt and the milestone's steps in the technical design line by line. Give every requirement YES or NO with evidence: a file and line, a test name, or a command with its output. **One unaddressed requirement means the milestone FAILS.** Fix it, or report it clearly as a NO with the reason; never hide it.
-6. **Hand over.** Update `docs/STATUS.md` (what is done, what was decided, known issues, how to run it, what the next milestone needs), commit, push the branch `m{n}` and open a pull request to `main` with `gh pr create`. Tell the person: what to check in the browser, which GitHub variable to switch on (if any), and the teardown command.
+6. **Walkthrough.** Write `docs/walkthrough/M{n}.md`: an explanation of what the milestone built, written to teach the person, in plain simple English, so they can explain the system to someone else after reading it. Keep it under about 4 pages. No code dumps; quote at most a few lines when a line itself is the point. Use this structure:
+   1. The big picture: what the milestone adds, in 5 sentences or fewer, and how it fits the whole of DocBeam.
+   2. One request, start to finish: trace one real action through the system step by step. For each step give what happens, why it is built this way (naming the ADR or decision ID), in the code (exact files and functions, with paths), and on AWS (what to open in the console in Sydney and what should be there).
+   3. The parts that matter most: the 2 to 4 pieces where a mistake would cause real harm (security, lost data, cost). For each: what could go wrong, how the code prevents it, and which test proves it.
+   4. What can safely be ignored for now: the standard plumbing that needs no deep reading.
+   5. Things the person should be able to answer: 8 to 10 questions a reviewer might ask, each with a short answer and the file to look at.
+   6. Words used: a short glossary of every technical term in the document, one line each.
+7. **Hand over.** Update `docs/STATUS.md` (what is done, what was decided, known issues, how to run it, what the next milestone needs), commit (the walkthrough included), push the branch `m{n}` and open a pull request to `main` with `gh pr create`. Tell the person: what to check in the browser, which GitHub variable to switch on (if any), the teardown command, and the walkthrough file to read.
 
 ## Style
 
