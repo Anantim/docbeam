@@ -105,10 +105,14 @@ Outputs:
 - Upload Events Lambda as a container image with ClamAV (sizes, timeout, queue visibility and concurrency as Step 2.1 says), the clean tag, the conditional update, the file.refused event; the daily image rebuild wired to it.
 - POST /jobs with every check, the single transaction, the Job Queue message after commit.
 - Job Queue, Task Queue and their DLQs in Terraform with the exact limits; Fan-out, Delivery (claim, checksum, service token, permanent and temporary errors, retry gaps, job row lock, pushes), DLQ Consumer and Sweeper (every minute plus the daily cleanup) Lambdas; Delivery capped at 50 and Upload Events at 10 by trigger maximum concurrency.
-- Web app part 2: file picker with the allow-list, SHA-256 in a Web Worker, parallel uploads with resume, Checking / Verified / Refused states, the mapping grid with the live task count, the Review section with Preview and remove, Send.
+- Web app part 2: file picker with the allow-list, SHA-256 in a Web Worker, parallel uploads with resume, Checking / Verified / Refused states, mapping as in the mockup (D-G15) with the live task count, the Review section with Preview and remove, Send.
+- Platform draining for streamed ingest: the platform target group's deregistration delay and the platform container's `stopTimeout` set to 120 seconds in dev and prod (a module variable, default 30 for the other services), so a 100-second ingest stream survives a deploy.
+- The four alarms and their SNS topic sending to `ALARM_EMAIL` (D-G12).
+- Lambda deploy jobs that skip, with a notice, when dev does not exist or the function already runs that code, like the ECS deploys (D-M1-14, D-M1-15).
+- In the plan, propose whether to keep `image_tag` required and pass a placeholder only in the CI plan, so a later `terraform apply` never registers task definitions with the image `bootstrap` (D-M1-14).
 - Unit and integration tests the testing strategy lists for these parts, including the EICAR file refused by the real ClamAV scanner, the same task message twice, a temporary error putting a task back to pending, two last tasks finishing together, and the sweeper re-sending a job. docs/testing/M2-TESTING.md and M2-RESULTS.md, docs/STATUS.md updated.
 
-Done when: the M2 demo works locally and on dev: pick files, upload, map, submit, and see the documents in the platform, including stopping the platform mid-run and watching the backlog drain when it returns. Tell me when to set LAMBDA_DEPLOY_ENABLED to true.
+Done when: the M2 demo works locally and on dev: pick files, upload, map, submit, and see the documents in the platform, including stopping the platform mid-run and watching the backlog drain when it returns. Tell me when to set LAMBDA_DEPLOY_ENABLED to true, and remind me to merge while dev is still up so the deploy jobs run once against it.
 
 Start with the plan and wait for my approval. Work on branch m2. Finish with the YES/NO check from AGENTS.md and a pull request.
 ```
@@ -118,6 +122,8 @@ Start with the plan and wait for my approval. Work on branch m2. Finish with the
 - The Job Queue message is sent after the commit, and the Sweeper re-sends a lost one.
 - Message bodies hold IDs only, never tokens.
 - Delivery classifies errors exactly as Step 2.4 lists.
+- The platform drains for 120 seconds on a deploy, in dev too.
+- You confirmed the SNS subscription email for `ALARM_EMAIL`.
 - After it reports: send a small real batch on dev, open the EICAR test file and check it is refused, then tear dev down.
 
 ---
@@ -184,6 +190,8 @@ Outputs:
 - scripts/m5-submit-load.sh and any other scripts the checks need, so every check can be re-run.
 - Each M5 check run on dev, with its result and evidence (CloudWatch numbers measured server-side, test output, screenshots described in words). Fixes for anything that fails, then the check run again.
 - docs/testing/M5-TESTING.md and M5-RESULTS.md, including the manual checks I must do in the browser (slow-connection upload, multipart resume, WebSocket reconnect) as step-by-step instructions.
+- The prod first bring-up (Launch plan, Rollout; D-M1-13) as a workflow input or a written runbook, proved by bringing dev up from nothing with it.
+- Database TLS that checks the certificate chain: the services load the RDS certificate authority bundle (Launch plan, Build decisions; D-M1-10).
 - docs/STATUS.md updated with a release summary: what passed, any limits found, what prod needs.
 
 Before the checks: the account must be on the Paid plan and dev applied with enable_rds_proxy = true, so the checks test the prod setup (D-M0-6); stop and ask me if it is not.

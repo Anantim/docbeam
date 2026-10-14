@@ -54,10 +54,10 @@ Web Client --> Object Store: presigned POST/GET (file bytes)
 
 // Edge into the private network
 API Gateway > Internal ALB: VPC Link (explicit routes, no catch-all)
-API Gateway --> Auth Service: signing keys (OpenID configuration, JWKS)
-Internal ALB > Auth Service
-Internal ALB > DocBeam API
-Internal ALB > Document Platform
+API Gateway --> Auth Service: signing keys (OpenID configuration, read when the authorizer is created; JWKS)
+Internal ALB > Auth Service: listener :3001, HTTP inside the VPC
+Internal ALB > DocBeam API: listener :3003
+Internal ALB > Document Platform: listener :3002
 
 // Each service owns its database (direct, no proxy)
 Auth Service > Auth DB: users (with sign-in pause), refresh tokens, service clients

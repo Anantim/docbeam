@@ -49,6 +49,8 @@ Context. The web app calls three services (Auth, DocBeam API, Document Platform)
 
 - Two routing layers to debug: the gateway and the ALB.
 - Deploy order matters: services and the ALB first, checked from inside the network, then the gateway in front. The milestones follow this order.
+- The JWT authorizer reads the Auth Service's OpenID configuration when it is created, so a brand-new environment is applied twice: first without the authorizer and the protected routes (they do not exist and answer 404, never open), then with them once the Auth Service answers.
+- Traffic between the VPC Link, the internal ALB and the services is plain HTTP inside the private network, with one ALB listener per service. Security groups limit who can reach it. This is an accepted risk; internal TLS needs a private certificate and is left for later.
 
 ### ADR-002: File transfer path
 
@@ -331,6 +333,7 @@ Context. A user access token lasts 15 minutes. Without a way to renew it, people
 - A stolen refresh token is caught the first time both copies are used, and that sign-in ends for both.
 - The web app and the API must share one site so the cookie can be SameSite=Strict. CloudFront serves the web app and forwards /api/* to API Gateway, so the browser sees one site without a custom domain, and the cookie is limited to /api/auth. A custom domain can be added to CloudFront later without other changes.
 - Someone guessing passwords can keep an account paused. The pause is short and ending it early is a support script in v1.
+- Every failure gets the same message and takes about the same time (an unknown email is compared against a dummy hash), so the sign-in page shows neither which accounts exist nor which are paused. Hashing is slow by design, so the Auth Service gets 0.5 vCPU and compares the password before it opens its short database transaction.
 
 ### ADR-016: Upload confirmation and malware scanning
 

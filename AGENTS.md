@@ -35,7 +35,8 @@ Write all code yourself from these documents. Do not copy code from any other re
 - GitHub (already set up by the person):
   - Repository variables: `AWS_REGION` = `ap-southeast-2`, `TF_STATE_BUCKET` = `docbeam-tfstate-<account id>`.
   - Environments: `dev`, and `prod` (only `main` allowed). GitHub Free gives no required reviewer on a private repo, so prod jobs run only on a manual run from `main` with the typed input `deploy-prod` (D-G3).
-  - Switches, set by the person when you say so: `ECS_DEPLOY_ENABLED` (from M1, once ECS services exist), `LAMBDA_DEPLOY_ENABLED` (from M2) and `INFRA_APPLY_ENABLED` (dev apply on merge; `false` while dev is down). Workflows must skip those jobs while a switch is not `true`.
+  - Switches, set by the person when you say so: `ECS_DEPLOY_ENABLED` (from M1, once ECS services exist), `LAMBDA_DEPLOY_ENABLED` (from M2) and `INFRA_APPLY_ENABLED` (dev apply on merge; `false` while dev is down). Workflows must skip those jobs while a switch is not `true`, and deploy jobs must also skip, with a notice, when the environment does not exist or already runs that version (D-M1-14, D-M1-15).
+  - `ALARM_EMAIL`: the address for alarm emails, set by the person before M2. Check it with `gh variable list` before planning the alarms.
 - Terraform state: S3 bucket `docbeam-tfstate-<account id>` in `ap-southeast-2`, created by `bootstrap/create-state-backend.sh` (versioned, encrypted, private, `use_lockfile = true`, no DynamoDB). Check whether it exists before creating it.
 
 ## Safety rules
@@ -57,7 +58,7 @@ Write all code yourself from these documents. Do not copy code from any other re
    3. Verify on dev: exact checks, including what to look for in the AWS Console (Sydney).
    4. Prod (to run later): what to check after the prod deploy.
    5. Tear down.
-4. **Run the testing round yourself** before reporting: everything in sections 1 to 3 of the testing document (ask before the AWS commands). Fix what fails and run it again. Record the evidence (command, short output, test names) in `docs/testing/M{n}-RESULTS.md`.
+4. **Run the testing round yourself** before reporting: everything in sections 1 to 3 of the testing document (ask before the AWS commands). Fix what fails and run it again. Record the evidence (command, short output, test names) in `docs/testing/M{n}-RESULTS.md`. You have no browser: write the browser checks as numbered steps for the person (section 1.3), mark them as waiting on the person, and record them as YES only after the person reports what passed.
 5. **Final check.** Walk the milestone's prompt and the milestone's steps in the technical design line by line. Give every requirement YES or NO with evidence: a file and line, a test name, or a command with its output. **One unaddressed requirement means the milestone FAILS.** Fix it, or report it clearly as a NO with the reason; never hide it.
 6. **Walkthrough.** Write `docs/walkthrough/M{n}.md` to teach the person what the milestone built, in plain English: the big picture; one request traced start to finish (what happens, why, the files, what to see in the AWS Console); the 2 to 4 parts where a mistake would cause real harm and the tests that cover them; what can be ignored; 8 to 10 questions a reviewer might ask, with short answers; a short glossary. About 4 pages, no code dumps.
 7. **Hand over.** Update `docs/STATUS.md` (what is done, what was decided, known issues, how to run it, what the next milestone needs), commit, push the branch `m{n}` and open a pull request to `main` with `gh pr create`. Tell the person: what to check in the browser, which GitHub variable to switch on (if any), and the teardown command.
@@ -66,4 +67,6 @@ Write all code yourself from these documents. Do not copy code from any other re
 
 - Stack: the design fixes React with Vite, PostgreSQL, Lambda, ECS Fargate and Terraform. For the rest use TypeScript (`strict`, ESM, Node 22) in an npm workspaces monorepo, Fastify for the services, Drizzle with drizzle-kit for each service's schema and migrations, vitest for tests and esbuild to bundle the Lambdas. Propose something else only with a strong reason, in the plan, for the person to approve.
 - Plain, simple English in docs, comments and messages. Short sentences.
+- Change files with your Edit and Write tools, not with shell commands (`cat >`, `sed -i`, inline Python), so the person sees every change before it lands.
+- Never hide a failure. Do not pipe a check through `tail` or `grep` in a way that drops its exit code; use `set -o pipefail` or check the status, and show the failing lines.
 - No dead code, no placeholder TODOs left behind without a line in `docs/STATUS.md`.
