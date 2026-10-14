@@ -6,6 +6,7 @@
 #
 # Names follow the Terraform modules from M1 (ecs-service): cluster docbeam-<env>-cluster, service
 # and task definition family docbeam-<env>-<service>, and docbeam-<env>-<service>-migrate for the migrations.
+# A service with a docbeam-<env>-<service>-seed family (platform) runs it after the migrations (Launch plan).
 # Rollback: run it again with the previous image URI (see the README).
 set -euo pipefail
 
@@ -50,6 +51,20 @@ EXIT_CODE="$(aws ecs describe-tasks --region "$REGION" --cluster "$CLUSTER" --ta
 if [ "$EXIT_CODE" != "0" ]; then
   echo "Migrations failed (exit code ${EXIT_CODE}). The service was not changed." >&2
   exit 1
+fi
+
+if aws ecs describe-task-definition --region "$REGION" --task-definition "${NAME}-seed" >/dev/null 2>&1; then
+  echo "Running the seed for ${SERVICE}"
+  SEED_TASK_DEF="$(register "${NAME}-seed")"
+  SEED_ARN="$(aws ecs run-task --region "$REGION" --cluster "$CLUSTER" --task-definition "$SEED_TASK_DEF" \
+    --launch-type FARGATE --network-configuration "$NETWORK" --query 'tasks[0].taskArn' --output text)"
+  aws ecs wait tasks-stopped --region "$REGION" --cluster "$CLUSTER" --tasks "$SEED_ARN"
+  SEED_CODE="$(aws ecs describe-tasks --region "$REGION" --cluster "$CLUSTER" --tasks "$SEED_ARN" \
+    --query 'tasks[0].containers[0].exitCode' --output text)"
+  if [ "$SEED_CODE" != "0" ]; then
+    echo "The seed failed (exit code ${SEED_CODE}). The service was not changed." >&2
+    exit 1
+  fi
 fi
 
 echo "Updating ${NAME}"

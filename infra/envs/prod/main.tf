@@ -98,6 +98,7 @@ module "s3" {
   force_destroy              = false
   deny_delete_object_version = true
   admin_principal_arns       = local.admin_principal_arns
+  platform_files_role_arns   = [module.platform.task_role_arn]
   cors_allowed_origins       = ["https://${module.cloudfront.domain_name}"]
 }
 
@@ -108,6 +109,7 @@ module "cloudfront" {
   web_bucket                      = module.s3.web_bucket
   web_bucket_arn                  = module.s3.web_bucket_arn
   web_bucket_regional_domain_name = module.s3.web_bucket_regional_domain_name
+  api_origin_domain               = replace(module.api_gateway.api_endpoint, "https://", "")
 }
 
 module "ecs_cluster" {

@@ -58,3 +58,44 @@ output "db_endpoint" {
 output "db_instance_id" {
   value = module.rds.instance_id
 }
+
+output "alb_dns_name" {
+  value = module.alb.dns_name
+}
+
+output "alb_arn_suffix" {
+  value = module.alb.arn_suffix
+}
+
+output "api_endpoint" {
+  description = "Direct API Gateway address. Use the CloudFront /api path in practice."
+  value       = module.api_gateway.api_endpoint
+}
+
+output "issuer" {
+  value = local.issuer
+}
+
+output "service_names" {
+  value = {
+    auth        = module.auth.service_name
+    platform    = module.platform.service_name
+    docbeam_api = module.docbeam_api.service_name
+  }
+}
+
+output "task_definition_families" {
+  value = {
+    auth        = module.auth.task_definition_families
+    platform    = module.platform.task_definition_families
+    docbeam_api = module.docbeam_api.task_definition_families
+  }
+}
+
+output "service_security_group_ids" {
+  value = {
+    auth        = module.auth.security_group_id
+    platform    = module.platform.security_group_id
+    docbeam_api = module.docbeam_api.security_group_id
+  }
+}
