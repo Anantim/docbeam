@@ -1,0 +1,23 @@
+{
+  "name": "@docbeam/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "fastify-plugin": "^5.0.1",
+    "jose": "^6.2.12"
+  },
+  "peerDependencies": {
+    "fastify": "^5.12.7"
+  },
+  "devDependencies": {
+    "fastify": "^5.12.7"
+  }
+}
