@@ -89,3 +89,39 @@ Account `346208529537`, region `ap-southeast-2`. Identity `user/anantim-admin`. 
 ## 4. Prod
 
 Not run (never from a session). `terraform plan` for prod: `Plan: 182 to add, 0 to change, 0 to destroy.`
+
+## 5. Final check (AGENTS.md step 5)
+
+Prompt outputs and the milestone's steps in the TDD, one line each. **NO** lines are listed first in the summary at the end.
+
+| # | Requirement | | Evidence |
+|---|---|---|---|
+| 1 | Auth: register | YES | `auth.test.ts` "register" (3 tests); `services/auth/src/routes/accounts.ts` |
+| 2 | Auth: login, same 401 for every failure | YES | `auth.test.ts` "gives the same 401 for an unknown email and a wrong password" |
+| 3 | RS256 user tokens with `kid`, `iss`, `aud`, `token_use`, `name` | YES | `tokens.test.ts`; `auth.test.ts` "returns a 15-minute RS256 token…" |
+| 4 | JWKS and OpenID configuration | YES | `app.test.ts`; dev check 4 |
+| 5 | Refresh rotation and reuse detection | YES | `sessions.test.ts`; `auth.test.ts` "a used token coming back cancels the whole sign-in" |
+| 6 | Logout | YES | `auth.test.ts` "logout cancels the sign-in and clears the cookie" |
+| 7 | Pause after 5 wrong passwords | YES | `login-attempts.test.ts`; `auth.test.ts` "pauses sign-in for 15 minutes…" |
+| 8 | Service tokens, internal user lookup, four clients seeded by the migrate task | YES | `auth.test.ts` "service tokens and user lookup" (4 clients, 401, 403, 200, 404); `service-clients.test.ts` |
+| 9 | Platform: schema, four browse routes, membership in each query, 404 otherwise | YES | `platform.test.ts` "browse: only your own teams" (8 tests); `routes/browse.ts` |
+| 10 | Destination check (teamName, path) and user teams routes | YES | `platform.test.ts` "service routes" (4 tests) |
+| 11 | `POST /documents`: 201, 200, 403, 404, 422 x2, parallel repeats | YES | `ingest.test.ts` (11 tests) |
+| 12 | Seed script and files, 50-team dev seed, safe to re-run, prunes, warns on unknown email | YES | Seed logs (local and dev: second run all 0); `platform.test.ts` "seed script"; the warning is `skippedEmails` in the report and a `warn` log line in `seed-run.ts` |
+| 13 | DocBeam API skeleton with database and migrations | YES | `docbeam-db.test.ts` (5 tests); dev check 11 |
+| 14 | Edge: HTTP API, JWT authorizer, VPC Link, each route listed one by one | YES | Dev checks 12 (10 routes, no `ANY` or `$default`), 3 (404 on internal routes), 11 |
+| 15 | Edge: tight throttling on `/auth/login` and `/auth/refresh` | YES | Dev check 12b (5 and 10); check 8 (429 seen) |
+| 16 | Edge: CORS with credentials | **NO** | Configured with credentials from `cors_allowed_origins`, but it lists `http://localhost:5173` in dev and nothing in prod, not the CloudFront origin the TDD names. Reason and consequence in D-M1-12. Needs the person's acceptance |
+| 17 | Edge: CloudFront `/api/*` behaviour with the prefix stripped | YES | Dev check 13; login through `$APP/api/auth/login` returned 200 |
+| 18 | Web: register, sign in, quiet refresh with Web Locks, 12-hour dialog | **NO** (not run in a browser) | Logic covered by `session.test.ts`; the dialog and the two-tab lock are not exercised by any test or by me. Browser section 1.3 steps 1, 9 to 12 are the person's |
+| 19 | Web: lazy tree, select up to 20 | YES (component tests) | `Destinations.test.tsx`, `selection.test.ts`. The click-through in a browser is item 18's gap |
+| 20 | Migrations as one-off ECS tasks; the seed after migrations as a deploy step | YES | Dev steps 11: `Running migrations`, `Running the seed for platform`; `scripts/deploy-service.sh` |
+| 21 | Unit and integration tests the strategy lists for these parts | YES | 93 and 74 tests; table in the testing document, section 1.2 |
+| 22 | `docs/testing/M1-TESTING.md`, `M1-RESULTS.md`, STATUS updated | YES | These files |
+| 23 | Demo works locally: register, log in, browse only your own teams | YES at API level, browser NOT RUN | Section 1.4 of the testing document, run through the Vite proxy; see item 18 |
+| 24 | Demo works on dev | YES at API level, browser NOT RUN | Dev checks 5, 6, 7 |
+| 25 | No token: 401 at the gateway | YES | Dev checks 1 and 2 |
+| 26 | Another team's binder: 404 | YES | Local 1.4; dev check 7 |
+| 27 | Tell the person when to set `ECS_DEPLOY_ENABLED` | YES | In the hand-over message: after the browser check |
+
+**Summary: 2 NO.** Item 16 (CORS wording) needs the person to accept D-M1-12, or say what origin should be listed. Item 18 needs the person to run the browser clicks of section 1.3 (or section 3.9) on dev, which is up. Per AGENTS.md one unaddressed requirement fails the milestone, so both are reported here, not hidden.

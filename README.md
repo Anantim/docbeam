@@ -62,17 +62,29 @@ Deploy jobs are skipped unless their switch is `true`.
 ### Build dev
 
 ```bash
-terraform -chdir=infra/envs/dev init -backend-config="bucket=docbeam-tfstate-<account id>"
-terraform -chdir=infra/envs/dev apply          # about 20 minutes (RDS and CloudFront)
+export IMAGE_TAG=$(git rev-parse --short=12 HEAD)          # clean tree, so the tag is not "-dirty"
+B="bucket=docbeam-tfstate-<account id>"
+terraform -chdir=infra/envs/dev init -reconfigure -backend-config="$B"
+terraform -chdir=infra/envs/dev apply -target=module.ecr -var image_tag=$IMAGE_TAG   # repositories only
+for s in auth platform docbeam-api; do
+  scripts/push-image.sh dev $s docker/service.Dockerfile --build-arg SERVICE=$s
+done
 scripts/push-image.sh dev db-bootstrap docker/db-bootstrap/Dockerfile
+# First apply of a new environment: without the authorizer (D-M1-13), about 20 minutes.
+terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG -var jwt_authorizer_enabled=false
 scripts/run-db-bootstrap.sh dev                # creates the databases and roles
+scripts/run-task.sh dev auth signing-key       # writes the token signing key, once
+R=<account id>.dkr.ecr.ap-southeast-2.amazonaws.com/docbeam-dev
+for s in auth platform docbeam-api; do scripts/deploy-service.sh dev $s $R/$s:$IMAGE_TAG; done   # migrate, seed, update
+scripts/check-internal.sh dev                  # /health of each service from inside the network
+terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG                       # now with the authorizer
 scripts/deploy-web.sh dev                      # publishes the web app
 ```
 
 Dev costs about 3 to 5 USD a day while it is up, paid from credits. Tear it down when you are not testing:
 
 ```bash
-terraform -chdir=infra/envs/dev destroy
+terraform -chdir=infra/envs/dev destroy -var image_tag=$IMAGE_TAG
 ```
 
 ### Prod
