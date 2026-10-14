@@ -51,6 +51,13 @@ services:
 
   clamav:
     image: clamav/clamav:1.4
+    environment:
+      # Scan limits raised to a little above the 1 GiB file limit (D-M2-12). A file or archive over a
+      # limit is reported as found, never as clean.
+      CLAMD_CONF_StreamMaxLength: 1100M
+      CLAMD_CONF_MaxFileSize: 1100M
+      CLAMD_CONF_MaxScanSize: 1100M
+      CLAMD_CONF_AlertExceedsMax: "yes"
     ports: ["3310:3310"]
     healthcheck:
       test: ["CMD", "clamdcheck.sh"]
@@ -163,10 +170,16 @@ services:
     environment:
       <<: *aws-env
       QUEUE_PREFIX: docbeam-local
+      # The Lambdas connect as the DocBeam app role, one connection each (D-M0-6).
+      DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
+      # The Upload Events handler scans through the clamav container (ADR-016).
+      CLAMD_HOST: clamav
     depends_on:
       localstack: { condition: service_healthy }
       postgres: { condition: service_healthy }
       clamav: { condition: service_healthy }
+      # The DocBeam API runs the migrations that create the tables the workers use.
+      docbeam-api: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3005/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 5s

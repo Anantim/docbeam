@@ -70,8 +70,9 @@ Task list: `docs/PLAN.md` (M2 task list). Decisions: D-M2-1 to D-M2-14 in `docs/
 | 0 Branch, plan, decisions | done |
 | 1 Shared building blocks | done: `packages/shared` has `limits`, `batch` (`validateBatch`), `checksum`, `file-types` (moved from platform), `service-token`, `secrets`, and a `@docbeam/shared/browser` subpath for the web. Error code `PLATFORM_UNAVAILABLE` added. 128 unit tests green |
 | 2 Upload routes and `GET /files` | done: `POST /uploads`, multipart start, re-sign, complete, `GET /files` in `services/docbeam-api` (`routes/uploads.ts`, `routes/files.ts`, `s3.ts`). Integration `uploads.test.ts` (18 tests). Fastify `maxParamLength` raised (S3 upload ids are long). LocalStack 4.14 does not enforce the checksum of a presigned POST: the swapped-body refusal is a dev check (M2-TESTING 3); the Upload Events Lambda will hash the bytes itself (task 3). The ingest test now cleans up its top-level document so a second run passes |
-| 3 Upload Events Lambda, scanner, EICAR | **next** |
-| 4 to 12 | not started |
+| 3 Upload Events Lambda, scanner, EICAR | done: `workers/upload-events/src` (`scanner.ts` clamd INSTREAM and `clamscan`, `events.ts`, `process.ts`, `index.ts`); shared `sqs.ts` (visibility changer) and `lambda-db.ts`; Compose gives the workers `DATABASE_URL` and `CLAMD_HOST`, and clamd the 1100M limits. **Carried-over M0 line met:** integration test `upload-events: EICAR is refused as infected by the real ClamAV` passes (object deleted, row `infected`, one `file.refused`). The Lambda image builds and its `clamscan` flags EICAR (exit 1). 159 unit, 99 integration tests green |
+| 4 `POST /jobs` | **next** |
+| 5 to 12 | not started |
 
 ## Next: M2 (Upload and distribute)
 

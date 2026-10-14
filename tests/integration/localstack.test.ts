@@ -39,10 +39,14 @@ describe('local LocalStack', () => {
     expect(config.QueueConfigurations?.[0]?.QueueArn).toMatch(/:docbeam-local-upload-events$/);
 
     const since = new Date(Date.now() - 1000);
-    const key = `staging/test-user/${crypto.randomUUID()}`;
+    const fileId = crypto.randomUUID();
+    const key = `staging/${crypto.randomUUID()}/${fileId}`;
     await s3.send(new PutObjectCommand({ Bucket: `${PREFIX}-object-store`, Key: key, Body: 'hello' }));
+    // No file row exists for this key, so the handler reads the event and acknowledges it as unknown.
     await eventually(() =>
-      logLines('workers', since).find((l) => l.name === 'upload-events' && l.msg === 'upload event received'),
+      logLines('workers', since).find(
+        (l) => l.name === 'upload-events' && l.msg === 'upload event for an unknown file' && l.fileId === fileId,
+      ),
     );
   });
 });

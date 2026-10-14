@@ -22,7 +22,7 @@ describe('workers container', () => {
   it.each([
     ['job', 'fanout', 'job message received'],
     ['task', 'delivery', 'task message received'],
-    ['upload-events', 'upload-events', 'upload event received'],
+    // upload-events has real logic since M2 task 3: see upload-events.test.ts.
     ['job-dlq', 'dlq', 'dead-letter message received'],
     ['task-dlq', 'dlq', 'dead-letter message received'],
     ['upload-events-dlq', 'dlq', 'dead-letter message received'],

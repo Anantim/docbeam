@@ -367,6 +367,8 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Date:** 2026-10-15
 - **Changes:** TDD Step 2.1 (size and checksum "checked against the file row", no outcome for a difference).
 - **What:** On a size or checksum difference the Upload Events Lambda deletes the object, sets `scan_status = 'failed'` and writes `file.refused` with `detail.reason = "MISMATCH"`. Malware gives `reason = "MALWARE"` plus the signature name. `actor_id` is NULL and `detail.ownerUserId` names the owner, so only the owner sees it.
+- **Also:** The Lambda computes the SHA-256 of the bytes during the scan pass and compares it with the declared `checksum_sha256`, besides comparing S3's reported checksum. This covers a multipart file's whole-file checksum (S3 reports only a combined one) and a store that does not enforce the checksum of a presigned POST (LocalStack 4.14).
+- **Retry timing:** The queue's visibility timeout is 3,600 s, so the handler sets its own gap with ChangeMessageVisibility: 30 s while a multipart upload is not yet recorded, and 30 s, 1, 2 and 5 minutes after an error.
 - **Why:** The page needs a reason, and the user adds the file again.
 
 ## D-M2-9. Concurrency of the smaller Lambdas
@@ -394,8 +396,8 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 
 - **Date:** 2026-10-15
 - **Changes:** TDD Step 2.1 ("scan limits raised to 1 GB").
-- **What:** Lambda: `clamscan --max-filesize=1024M --max-scansize=1024M` with matching recursion limits. Compose: `docker/clamav/clamd.conf` with the same limits and `StreamMaxLength 1024M`. An "exceeds limit" answer is an error, never "clean".
-- **Why:** The default limits are far below 1 GB, and a skipped scan must never read as clean.
+- **What:** The limit is 1100 MB, a little above the 1 GiB file limit, so no valid file reaches it. Lambda: `clamscan --max-filesize=1100M --max-scansize=1100M --alert-exceeds-max=yes`. Compose: the clamav image's `CLAMD_CONF_*` environment (`StreamMaxLength`, `MaxFileSize`, `MaxScanSize` 1100M, `AlertExceedsMax yes`), so no mounted config file. A file or archive over a limit is reported as found and refused; a scan that could not finish throws and the event is retried. Neither reads as clean.
+- **Why:** The default limits are far below 1 GB, and without `AlertExceedsMax` ClamAV skips an over-limit file and reports it clean.
 
 ## D-M2-13. The daily ClamAV rebuild skips while dev is down; the image repository keeps 3 images
 
