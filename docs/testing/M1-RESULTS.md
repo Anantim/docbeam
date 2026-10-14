@@ -1,6 +1,6 @@
 # M1 results
 
-Evidence for `docs/testing/M1-TESTING.md`. Run on 2026-10-14 on the laptop (WSL2, Docker Desktop). The AWS sections are added when the AWS block has run.
+Evidence for `docs/testing/M1-TESTING.md`. Run on 2026-10-14 on the laptop (WSL2, Docker Desktop).
 
 ## 1. Local
 
