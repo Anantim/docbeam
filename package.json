@@ -1,0 +1,39 @@
+{
+  "name": "docbeam",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12 <23"
+  },
+  "workspaces": [
+    "packages/shared",
+    "services/auth",
+    "services/platform",
+    "services/docbeam-api",
+    "workers/fanout",
+    "workers/delivery",
+    "workers/upload-events",
+    "workers/dlq",
+    "workers/ws",
+    "workers/sweeper",
+    "packages/worker-runtime",
+    "web"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.check.json && tsc -p web/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "build": "tsc -b && npm run bundle --workspaces --if-present && npm run build -w web",
+    "clean": "tsc -b --clean"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  }
+}

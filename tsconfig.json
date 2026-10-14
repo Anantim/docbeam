@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "services/auth" },
+    { "path": "services/platform" },
+    { "path": "services/docbeam-api" },
+    { "path": "workers/fanout" },
+    { "path": "workers/delivery" },
+    { "path": "workers/upload-events" },
+    { "path": "workers/dlq" },
+    { "path": "workers/ws" },
+    { "path": "workers/sweeper" },
+    { "path": "packages/worker-runtime" }
+  ]
+}

@@ -11,3 +11,4 @@ coverage/
 *.tfstate.*
 *.tfplan
 backend.hcl
+*.tsbuildinfo

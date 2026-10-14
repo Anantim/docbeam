@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@docbeam/shared": ["./packages/shared/src/index.ts"],
+      "@docbeam/worker-runtime": ["./packages/worker-runtime/src/index.ts"],
+      "@docbeam/worker-fanout": ["./workers/fanout/src/index.ts"],
+      "@docbeam/worker-delivery": ["./workers/delivery/src/index.ts"],
+      "@docbeam/worker-upload-events": ["./workers/upload-events/src/index.ts"],
+      "@docbeam/worker-dlq": ["./workers/dlq/src/index.ts"],
+      "@docbeam/worker-ws": ["./workers/ws/src/index.ts"],
+      "@docbeam/worker-sweeper": ["./workers/sweeper/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "services/*/src/**/*.ts",
+    "services/*/drizzle.config.ts",
+    "workers/*/src/**/*.ts",
+    "workers/*/build.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "vitest.aliases.ts"
+  ]
+}
