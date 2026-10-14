@@ -92,6 +92,9 @@ module "ecr" {
 
   name         = local.name
   force_delete = true
+
+  # Each Upload Events image is about 1 GB and one is built every day (D-M2-13).
+  keep_images_by_repository = { "upload-events" = 3 }
 }
 
 module "s3" {
@@ -105,6 +108,17 @@ module "s3" {
   admin_principal_arns       = local.admin_principal_arns
   platform_files_role_arns   = [module.platform.task_role_arn]
   cors_allowed_origins       = ["https://${module.cloudfront.domain_name}", "http://localhost:5173"]
+
+  # The only roles that may touch staged objects, and the one that may read before the clean tag (ADR-003, ADR-016).
+  object_store_role_arns = [
+    module.docbeam_api.task_role_arn,
+    module.upload_events.role_arn,
+    module.delivery.role_arn,
+    module.sweeper.role_arn,
+  ]
+  upload_events_enabled   = true
+  upload_events_role_arn  = module.upload_events.role_arn
+  upload_events_queue_arn = module.sqs.upload_events_queue_arn
 }
 
 module "cloudfront" {

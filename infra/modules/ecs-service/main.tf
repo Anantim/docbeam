@@ -136,6 +136,7 @@ resource "aws_ecs_task_definition" "service" {
     name         = "app"
     image        = var.image
     essential    = true
+    stopTimeout  = var.stop_timeout
     portMappings = [{ containerPort = var.port, protocol = "tcp" }]
     environment  = [for k, v in var.environment : { name = k, value = v }]
     secrets      = [for k, v in var.secrets : { name = k, valueFrom = v }]

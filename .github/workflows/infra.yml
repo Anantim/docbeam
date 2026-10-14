@@ -23,6 +23,8 @@ permissions:
 env:
   TF_IN_AUTOMATION: 'true'
   TF_INPUT: '0'
+  # Where the alarm emails go (D-M2-2). Set once by the person as a repository variable.
+  TF_VAR_alarm_email: ${{ vars.ALARM_EMAIL }}
 
 jobs:
   check:

@@ -7,6 +7,8 @@ coverage/
 *.log
 .DS_Store
 .terraform/
+# The placeholder zip the lambda module builds at plan time
+.build/
 *.tfstate
 *.tfstate.*
 *.tfplan

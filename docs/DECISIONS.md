@@ -433,3 +433,20 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** STATUS "Draining" (D-M1-14 follow-up), Compose commands.
 - **What:** On SIGTERM the platform stops accepting requests, lets running ones finish and closes connections as they go idle (every 250 ms), then exits. Without that, Fastify's 72 s keep-alive held the process for about a minute after the last response. Compose runs `exec node dist/server.js`, so node is PID 1 and receives the signal (an `sh -c` wrapper did not pass it on). `tests/integration/platform-drain.test.ts` sends SIGTERM during a 4 s upload and expects 201 and the stored document. The 120 s target group delay and `stopTimeout` are set in Terraform (task 8).
 - **Why:** A rolling deploy must not cut a delivery that streams a large file.
+
+## D-M2-18. Terraform for the asynchronous half: modules, flags and one widening
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Steps 2.1 to 2.5 (infrastructure), D-M2-2, D-M2-6, D-M2-9, D-M2-13.
+- **What:**
+  - New modules `sqs` (three queues with DLQs, SSE-SQS, 14 days, visibility 360, 720 and 3,600 s, redrive 3, 5 and 5, a queue policy for S3), `lambda` (one VPC function with its role, group, log group and SQS triggers; code changes ignored, D-M2-6), `alarms` (D-M2-2) and `scheduler` (the Sweeper's two schedules). `infra/envs/*/async.tf` wires them; dev and prod are identical there.
+  - Trigger limits: Upload Events 10, Fan-out 2, Delivery 50. The DLQ Consumer has three triggers of 2 and reserved concurrency 2. The Sweeper has reserved concurrency 1 (D-M2-9).
+  - The `s3` module gets `upload_events_enabled`. The notification's `count` and the clean-tag rule depended on ARNs that are unknown until apply, which `terraform plan` rejected; a flag known at plan time fixes it.
+  - The queue policy takes the bucket ARN built from its name, so the queue does not wait for the bucket's notification (which waits for the queue).
+  - The platform's target group drains for 120 s and its container has `stopTimeout` 120 (D-M2-17). Others stay at 30 s.
+  - The ECR repository `upload-events` keeps 3 images (D-M2-13).
+  - The DocBeam API routes of M2 are public routes with the JWT authorizer. The infra workflow passes `TF_VAR_alarm_email` from `ALARM_EMAIL`.
+- **Widening, accepted:** the Delivery Lambda's security group is allowed on every ALB listener (the module opens each client to each service's port), not only the platform's and the Auth Service's. Each service still checks the token.
+- **Also:** `terraform init -upgrade` added the `archive` provider (the placeholder zip) and moved the AWS provider from 6.68.0 to 6.69.0 in both lock files.
+- **Found by:** a read-only `terraform plan` of dev from an empty state (251 resources to add, no error), run on 2026-10-15 with `-lock=false`.
+- **Why:** M2 needs the queues, functions, alarms and schedules in code before the first apply.

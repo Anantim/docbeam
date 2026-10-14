@@ -31,6 +31,14 @@ locals {
     "GET /teams/{teamId}/binders"           = { service = "platform", public = false }
     "GET /binders/{binderId}/contents"      = { service = "platform", public = false }
     "GET /folders/{folderId}/contents"      = { service = "platform", public = false }
+
+    # DocBeam API, M2 (Step 2.1 and 2.2). The status, audit and download routes arrive in M3 and M4.
+    "POST /uploads"                                              = { service = "docbeam-api", public = false }
+    "POST /files/{fileId}/multipart-uploads"                     = { service = "docbeam-api", public = false }
+    "POST /files/{fileId}/multipart-uploads/{uploadId}/parts"    = { service = "docbeam-api", public = false }
+    "POST /files/{fileId}/multipart-uploads/{uploadId}/complete" = { service = "docbeam-api", public = false }
+    "GET /files"                                                 = { service = "docbeam-api", public = false }
+    "POST /jobs"                                                 = { service = "docbeam-api", public = false }
   }
 
   common_env = { for s, p in local.ports : s => {
@@ -64,13 +72,17 @@ module "alb" {
   vpc_id             = module.network.vpc_id
   vpc_cidr_block     = module.network.vpc_cidr_block
   private_subnet_ids = module.network.private_subnet_ids
-  services           = { for s, p in local.ports : s => { port = p } }
+  # The platform streams large files in, so its target group drains for 120 s, as long as its stop timeout (D-M2-17).
+  services = { for s, p in local.ports : s => { port = p, deregistration_delay = s == "platform" ? 120 : 30 } }
 
-  # Services and their one-off tasks (same group) call each other through the ALB.
+  # Services and their one-off tasks (same group) call each other through the ALB. The Delivery Lambda calls the
+  # platform and the Auth Service the same way; its group is allowed on every listener, and each service still
+  # checks the token it is sent.
   client_security_group_ids = {
     auth        = module.auth.security_group_id
     platform    = module.platform.security_group_id
     docbeam-api = module.docbeam_api.security_group_id
+    delivery    = module.delivery.security_group_id
   }
 }
 
@@ -149,6 +161,9 @@ module "platform" {
   alb_security_group_id = module.alb.security_group_id
   target_group_arn      = module.alb.target_group_arns["platform"]
 
+  # Long enough to finish an ingest that is running when a deploy replaces the task (D-M2-17).
+  stop_timeout = 120
+
   environment = merge(local.common_env["platform"], {
     PLATFORM_FILES_BUCKET = module.s3.platform_files_bucket
     AWS_REGION            = var.region
@@ -201,8 +216,34 @@ module "docbeam_api" {
   alb_security_group_id = module.alb.security_group_id
   target_group_arn      = module.alb.target_group_arns["docbeam-api"]
 
-  environment = local.common_env["docbeam-api"]
-  secrets     = local.db_secrets["docbeam-api"]
+  environment = merge(local.common_env["docbeam-api"], {
+    AWS_REGION          = var.region
+    OBJECT_STORE_BUCKET = module.s3.object_store_bucket
+    JOB_QUEUE_URL       = module.sqs.queue_urls["job"]
+    AUTH_URL            = "${local.alb_url}:3001"
+    PLATFORM_URL        = "${local.alb_url}:3002"
+  })
+  secrets = merge(local.db_secrets["docbeam-api"], {
+    CLIENT_SECRET_DOCBEAM_API = "${module.secrets.client_secret_arns["docbeam-api"]}:client_secret::"
+  })
+
+  # Signs upload links with this role (so it needs the rights it grants), completes multipart uploads, and
+  # starts fan-out with one Job Queue message (ADR-002, ADR-008).
+  task_policy_json = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"]
+        Resource = "${module.s3.object_store_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = module.sqs.queue_arns["job"]
+      },
+    ]
+  })
 
   migrate_environment = local.migrate_env["docbeam-api"]
   migrate_secrets     = local.migrate_secrets
