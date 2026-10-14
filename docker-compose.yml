@@ -124,6 +124,25 @@ services:
       timeout: 5s
       retries: 20
 
+  # One-shot: loads the demo and 50-team seed files after auth and platform are healthy (Step 1.2).
+  # Safe to re-run: docker compose run --rm seed
+  seed:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args: { SERVICE: platform }
+    command: ["node", "dist/seed-run.js"]
+    restart: "no"
+    depends_on:
+      auth: { condition: service_healthy }
+      platform: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://platform_app:${PLATFORM_APP_PASSWORD}@postgres:5432/platform_db
+      AUTH_URL: http://auth:3001
+      CLIENT_SECRET_SEED_SCRIPT: ${CLIENT_SECRET_SEED_SCRIPT}
+      SEED_CREATE_USERS: "true"
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
+
   workers:
     build:
       context: .
