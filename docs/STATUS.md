@@ -68,8 +68,9 @@ Task list: `docs/PLAN.md` (M2 task list). Decisions: D-M2-1 to D-M2-14 in `docs/
 | Task | Status |
 |---|---|
 | 0 Branch, plan, decisions | done |
-| 1 Shared building blocks | **next** |
-| 2 to 12 | not started |
+| 1 Shared building blocks | done: `packages/shared` has `limits`, `batch` (`validateBatch`), `checksum`, `file-types` (moved from platform), `service-token`, `secrets`, and a `@docbeam/shared/browser` subpath for the web. Error code `PLATFORM_UNAVAILABLE` added. 128 unit tests green |
+| 2 Upload routes and `GET /files` | **next** |
+| 3 to 12 | not started |
 
 ## Next: M2 (Upload and distribute)
 

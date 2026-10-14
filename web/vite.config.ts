@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -8,6 +9,10 @@ const service = (target: string) => ({ target, changeOrigin: true, rewrite: stri
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // The shared limits and batch rules, straight from source, so the page needs no build of the package.
+    alias: { '@docbeam/shared/browser': fileURLToPath(new URL('../packages/shared/src/browser.ts', import.meta.url)) },
+  },
   server: {
     port: 5173,
     strictPort: true,

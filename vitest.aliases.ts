@@ -4,7 +4,9 @@ const src = (path: string): string => fileURLToPath(new URL(path, import.meta.ur
 
 // Tests run against the TypeScript sources, so no build is needed first.
 export const aliases: Record<string, string> = {
-  '@docbeam/shared': src('./packages/shared/src/index.ts'),
+  // The subpath must come first: an alias matches by prefix.
+  '@docbeam/shared/browser': src('./packages/shared/src/browser.ts'),
+  '@docbeam/shared':src('./packages/shared/src/index.ts'),
   '@docbeam/worker-runtime': src('./packages/worker-runtime/src/index.ts'),
   '@docbeam/worker-fanout': src('./workers/fanout/src/index.ts'),
   '@docbeam/worker-delivery': src('./workers/delivery/src/index.ts'),

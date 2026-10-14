@@ -3,16 +3,15 @@ import { Readable } from 'node:stream';
 import { DeleteObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import type { Multipart, MultipartFile } from '@fastify/multipart';
-import { ApiError } from '@docbeam/shared';
+import { ApiError, isAllowedType, LIMITS, matchesSignature, SIGNATURE_BYTES } from '@docbeam/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db.js';
-import { isAllowedType, matchesSignature, SIGNATURE_BYTES } from '../file-types.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256 = /^[0-9a-f]{64}$/i;
 /** The hard size limit of the design (1 GiB). */
-export const MAX_FILE_BYTES = 1024 ** 3;
+export const MAX_FILE_BYTES = LIMITS.maxFileBytes;
 
 interface Fields {
   taskId: string;
