@@ -183,6 +183,8 @@ services:
       DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
       # The Upload Events handler scans through the clamav container (ADR-016).
       CLAMD_HOST: clamav
+      # Fan-out sends one message per task here (ADR-008).
+      TASK_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-task
     depends_on:
       localstack: { condition: service_healthy }
       postgres: { condition: service_healthy }

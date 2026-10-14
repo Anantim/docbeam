@@ -72,8 +72,21 @@ Task list: `docs/PLAN.md` (M2 task list). Decisions: D-M2-1 to D-M2-14 in `docs/
 | 2 Upload routes and `GET /files` | done: `POST /uploads`, multipart start, re-sign, complete, `GET /files` in `services/docbeam-api` (`routes/uploads.ts`, `routes/files.ts`, `s3.ts`). Integration `uploads.test.ts` (18 tests). Fastify `maxParamLength` raised (S3 upload ids are long). LocalStack 4.14 does not enforce the checksum of a presigned POST: the swapped-body refusal is a dev check (M2-TESTING 3); the Upload Events Lambda will hash the bytes itself (task 3). The ingest test now cleans up its top-level document so a second run passes |
 | 3 Upload Events Lambda, scanner, EICAR | done: `workers/upload-events/src` (`scanner.ts` clamd INSTREAM and `clamscan`, `events.ts`, `process.ts`, `index.ts`); shared `sqs.ts` (visibility changer) and `lambda-db.ts`; Compose gives the workers `DATABASE_URL` and `CLAMD_HOST`, and clamd the 1100M limits. **Carried-over M0 line met:** integration test `upload-events: EICAR is refused as infected by the real ClamAV` passes (object deleted, row `infected`, one `file.refused`). The Lambda image builds and its `clamscan` flags EICAR (exit 1). 159 unit, 99 integration tests green |
 | 4 `POST /jobs` | done: `routes/jobs.ts`, `platform.ts` (service-token client, 503 `PLATFORM_UNAVAILABLE`), `queue.ts`; docbeam-api now needs `JOB_QUEUE_URL`, `AUTH_URL`, `PLATFORM_URL`, `CLIENT_SECRET_DOCBEAM_API` (Compose sets them; Terraform in task 8). Integration `jobs.test.ts` (13 tests): 201, each error creates nothing, repeated and parallel same key, 100 files x 20 destinations, platform stopped then same key works. The 500 ms p99 target is measured on dev (M5 5.1). 178 unit, 111 integration tests green |
-| 5 Fan-out | **next** |
-| 6 to 12 | not started |
+| 5 Fan-out | done: `workers/fanout/src/index.ts` (`fanOut`, `createHandler`); Compose gives the workers `TASK_QUEUE_URL`. Integration `fanout.test.ts` (job message and a redelivered one). 185 unit, 111 integration tests green |
+| 6 Delivery, push, platform draining | **next** (the largest task; start it in a fresh session) |
+| 7 to 12 | not started |
+
+### Handover notes for the next session (written 2026-10-15 at the end of task 5)
+
+- **State:** branch `m2`, five commits after the plan commit, all local. Nothing in AWS has been touched. The Compose stack is up and healthy (`docker compose up -d --build --wait`; after a worker or docbeam-api change run it again). `.env` exists.
+- **Reused pieces for task 6:** `createServiceTokenClient` (`packages/shared/src/service-token.ts`, one retry on 401 via `invalidate()`), `createVisibilityChanger` (`sqs.ts`), `lambdaPoolConfig` and `createSecretReader`, `createHandler(runtime)` and `Deps` shape as in `workers/upload-events/src/index.ts` and `workers/fanout/src/index.ts`, `pgArray` pattern in `services/docbeam-api/src/sql.ts`.
+- **Workers container needs for Delivery:** `CLIENT_SECRET_DELIVERY_WORKER`, `AUTH_URL`, `PLATFORM_URL` (add to the `workers` service in `docker-compose.yml`); the Delivery deps `@aws-sdk/client-s3`, `client-sqs`, `pg`, `@types/pg` (`npm install -w @docbeam/worker-delivery`). The platform call is multipart with the text fields first (D-M1-6), 100 s limit.
+- **ws push locally:** `ws-local` serves `POST /@connections/{id}`; set `WS_MANAGEMENT_ENDPOINT` for `PostToConnection`. Task 6 needs a small push module shared with the DLQ Consumer (task 7).
+- **Remove skeleton entries** from `tests/integration/workers.test.ts` as each worker gets real logic (`task`/delivery in task 6, the three `-dlq` entries in task 7, and the sweeper line in task 7).
+- **Platform draining** (task 6/8 split): the SIGTERM handler of `services/platform/src/server.ts` must let an in-flight ingest finish (`app.close()` waits for requests); Terraform's 120 s `deregistration_delay` and `stop_timeout` are task 8. Add a test that a SIGTERM during a slow upload still completes it.
+- **Gotchas:** use absolute paths in Bash (a stray `cd` into a service changes the working directory for later calls); `packages/shared/dist` is stale until `npm run build` (the Lambda bundle needs it); the checksum field of a presigned POST is not enforced by LocalStack 4.14 (see task 2 row); the ingest test deletes its top-level document so a second integration run passes.
+- **Still to do for the user's added points (D-M2-13):** the daily rebuild guard and the ECR `keep_images_by_repository` (task 8/9); web retries `PLATFORM_UNAVAILABLE` with the same Idempotency-Key (task 10).
+- **AWS:** none yet. The person runs the AWS block in the daytime, after task 10 and the local part of task 11 (D-M2-14).
 
 ## Next: M2 (Upload and distribute)
 
