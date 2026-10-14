@@ -61,6 +61,16 @@ npm run dev -w @docbeam/web      # http://localhost:5173
 
 Dev on AWS: `docs/testing/M1-TESTING.md` section 2 (two-step first apply). Tear down: `terraform -chdir=infra/envs/dev destroy -var image_tag=<tag>`.
 
+## M2 progress (branch `m2`, started 2026-10-15)
+
+Task list: `docs/PLAN.md` (M2 task list). Decisions: D-M2-1 to D-M2-14 in `docs/DECISIONS.md`. Rule (D-M2-14): commit after each task and update this section; do all local tasks first; **stop before the first AWS step and wait for the person.**
+
+| Task | Status |
+|---|---|
+| 0 Branch, plan, decisions | done |
+| 1 Shared building blocks | **next** |
+| 2 to 12 | not started |
+
 ## Next: M2 (Upload and distribute)
 
 M2 needs from the person:

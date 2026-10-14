@@ -312,3 +312,101 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - A manual run from `main` without the prod confirmation now deploys dev (so `force` can be used there). With `confirm=deploy-prod` it deploys prod only, as before.
   - `tests/scripts/deploy-service.test.ts` runs the script against a fake `aws` and covers: skipped when already deployed, deploys on another image, deploys on a first run without the marker, deploys with `--force` and with `FORCE_DEPLOY=true`.
 - **Why:** The PR was merged twice and every service ran migrations, the seed and a rolling update twice. The result was harmless but wasteful, and a re-run or a duplicate event must not roll a service.
+
+## D-M2-1. `image_tag` stays optional; one-off tasks run only marked revisions
+
+- **Date:** 2026-10-15
+- **Changes:** D-M1-14 follow-up (a later apply registers task definitions with the image `bootstrap`).
+- **What:** `image_tag` keeps its default `bootstrap`. `scripts/run-task.sh` runs the newest revision of a family that carries the tag `deployed-by=deploy-service.sh` (D-M1-15) and stops with "deploy the service first" if none does. `deploy-service.sh` marks the `-seed` family too. `tests/scripts/run-task.test.ts` covers both cases.
+- **Why:** The services are path-filtered and run different tags, so one required tag would still register revisions with an image a service does not run, and CI does not know a real tag. Fixing the consumer removes the harm at its source.
+
+## D-M2-2. Alarms module, email from `ALARM_EMAIL`
+
+- **Date:** 2026-10-15
+- **Changes:** TDD repository layout (module list), D-G12.
+- **What:** `infra/modules/alarms` holds the SNS topic, the email subscription (`alarm_email`, no default) and the four alarms: Job, Task and Upload DLQ depth above 0 for 5 minutes, and Delivery Errors over Invocations above 1% for 15 minutes. CI passes `TF_VAR_alarm_email` from the repository variable.
+- **Why:** No module held them, and the address must come from the variable the person set.
+
+## D-M2-3. File age is measured from `files.created_at`
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Submission checks ("uploaded more than 24 hours ago").
+- **What:** FILE_TOO_OLD is decided from `created_at`, inside the same conditional claim `UPDATE`, the column the daily cleanup deletes on.
+- **Why:** One column for both sides makes "claimed or deleted, never both" exact.
+
+## D-M2-4. 503 PLATFORM_UNAVAILABLE on submit; the web retries with the same key
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Submission checks (no answer for a platform that is down).
+- **What:** When `POST /destinations/check` fails or times out, `POST /jobs` returns 503 `PLATFORM_UNAVAILABLE` and creates nothing. The web app shows "The platform is not answering. Try again." and the next Send reuses the same Idempotency-Key, so a retry can never create a second job.
+- **Why:** The design did not say what the caller sees, and a retry must be safe.
+
+## D-M2-5. Lambda secrets are fetched by ARN
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.2 (secrets "injected at runtime"; Lambda has no ECS-style injection).
+- **What:** A Lambda's environment holds only secret ARNs. `packages/shared/src/secrets.ts` reads them with GetSecretValue on a cold start and caches them. Locally the plain env names from `.env` are used.
+- **Why:** Keeps secret values out of Terraform state and the function configuration.
+
+## D-M2-6. Terraform creates Lambdas from a placeholder; a script deploys the code
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.3 (Worker workflow), PLAN "Small choices" ("Terraform deploys each Lambda once from a local build").
+- **What:** Zip Lambdas start from a tiny placeholder built by `archive_file`. The Upload Events Lambda starts from the pushed `upload-events` image. Both ignore later code changes in Terraform. `scripts/deploy-lambda.sh` deploys the real code, as `deploy-service.sh` does for ECS, and skips with a notice when the function does not exist or already runs that code.
+- **Why:** CI has no bundles at plan time, and the ECS split already works.
+
+## D-M2-7. Checksum encodings
+
+- **Date:** 2026-10-15
+- **Changes:** TDD DocBeam DB `files.checksum_sha256` and `s3_checksum` (encoding not stated).
+- **What:** `checksum_sha256` is hex (as the browser sends it and as `POST /documents` takes it). `s3_checksum` is what S3 reports: base64, and `<base64>-<parts>` for a multipart file. A single-part file stores the base64 of its declared SHA-256.
+- **Why:** The two columns meet at the Delivery check and must compare exactly.
+
+## D-M2-8. A mismatched upload is refused and the object deleted
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 (size and checksum "checked against the file row", no outcome for a difference).
+- **What:** On a size or checksum difference the Upload Events Lambda deletes the object, sets `scan_status = 'failed'` and writes `file.refused` with `detail.reason = "MISMATCH"`. Malware gives `reason = "MALWARE"` plus the signature name. `actor_id` is NULL and `detail.ownerUserId` names the owner, so only the owner sees it.
+- **Why:** The page needs a reason, and the user adds the file again.
+
+## D-M2-9. Concurrency of the smaller Lambdas
+
+- **Date:** 2026-10-15
+- **Changes:** D-M0-6 (budget numbers), TDD Step 2.5.
+- **What:** SQS triggers cannot have a maximum concurrency below 2, so three DLQ triggers would allow 6. The DLQ Consumer gets reserved concurrency 2 and the Sweeper 1. Fan-out has trigger maximum 2. Delivery 50 and Upload Events 10 stay as designed. The 79-connection budget in `db.test.ts` does not change.
+- **Why:** Keeps the dev connection budget true.
+
+## D-M2-10. Web libraries
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.6 (no libraries named).
+- **What:** `@noble/hashes` for the incremental SHA-256 in the Web Worker (`crypto.subtle` cannot hash in parts). Local preview: PDF in the browser's own viewer, PNG and JPG as images, DOCX with `docx-preview`, XLSX with `exceljs`, both loaded only when used (and reused in M4).
+- **Why:** A 1 GB file cannot be hashed in one call, and M4 needs the same viewers.
+
+## D-M2-11. Presigned links locally
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 (links "signed locally").
+- **What:** docbeam-api signs with a second S3 client on `S3_PUBLIC_ENDPOINT` (`http://localhost:4566` in Compose) so the browser can reach LocalStack. Unset on AWS.
+- **Why:** The browser cannot resolve `localstack`.
+
+## D-M2-12. ClamAV scan limits
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 ("scan limits raised to 1 GB").
+- **What:** Lambda: `clamscan --max-filesize=1024M --max-scansize=1024M` with matching recursion limits. Compose: `docker/clamav/clamd.conf` with the same limits and `StreamMaxLength 1024M`. An "exceeds limit" answer is an error, never "clean".
+- **Why:** The default limits are far below 1 GB, and a skipped scan must never read as clean.
+
+## D-M2-13. The daily ClamAV rebuild skips while dev is down; the image repository keeps 3 images
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.3 (scheduled rebuild), `infra/modules/ecr` (`keep_images` 20 for every repository).
+- **What:** The scheduled build in `upload-events-image.yml` first checks that the `docbeam-dev/upload-events` repository and the `docbeam-dev-upload-events` function exist, and skips with a notice if either does not (dev destroyed). The `ecr` module takes `keep_images_by_repository`; `upload-events` keeps the last 3 images, the others keep 20.
+- **Why:** Dev's repository is deleted on destroy, so a daily build would fail every day, and a new 1 GB image every day would otherwise pile up.
+
+## D-M2-14. Working rule for a large milestone
+
+- **Date:** 2026-10-15
+- **Changes:** AGENTS "How to work" (handover only at the end).
+- **What:** After each M2 task: commit, then update `docs/STATUS.md` with "done" and "next task", so a new session can continue. All local tasks (0 to 10 and the local part of 11) come first; the session stops before the first AWS step and waits for the person.
+- **Why:** M2 is too large for one conversation.
