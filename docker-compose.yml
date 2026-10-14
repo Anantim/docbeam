@@ -122,6 +122,10 @@ services:
       MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/docbeam_db
       JWT_ISSUER: ${JWT_ISSUER}
       JWKS_URL: http://auth:3001/.well-known/jwks.json
+      <<: *aws-env
+      OBJECT_STORE_BUCKET: docbeam-local-object-store
+      # Links go to the browser, which reaches LocalStack on the host (D-M2-11).
+      S3_PUBLIC_ENDPOINT: http://localhost:4566
     ports: ["3003:3003"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]

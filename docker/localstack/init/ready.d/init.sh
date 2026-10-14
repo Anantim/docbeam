@@ -33,7 +33,7 @@ awslocal s3api put-bucket-versioning --bucket "$P-platform-files" \
 awslocal s3api put-bucket-cors --bucket "$P-object-store" --cors-configuration '{
   "CORSRules": [{
     "AllowedOrigins": ["http://localhost:5173"],
-    "AllowedMethods": ["GET", "POST", "PUT"],
+    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000

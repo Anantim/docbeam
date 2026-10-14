@@ -8,6 +8,9 @@
     "migrate": "node dist/migrate.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/s3-presigned-post": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@docbeam/shared": "0.0.0",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.7",

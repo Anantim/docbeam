@@ -126,6 +126,9 @@ describe('POST /documents', () => {
     expect(res.status).toBe(201);
     const { rows } = await db.query('SELECT folder_id FROM documents WHERE source_task_id = $1', [taskId]);
     expect(rows[0].folder_id).toBeNull();
+    // Leave no document at the top of the binder: platform.test.ts expects that level to be empty,
+    // and a second run on the same database would otherwise fail.
+    await db.query('DELETE FROM documents WHERE source_task_id = $1', [taskId]);
   });
 
   it('answers 403 NOT_A_MEMBER when the user is not in the binder\'s team', async () => {
