@@ -64,6 +64,7 @@ Deploy jobs are skipped unless their switch is `true`.
 
 ```bash
 export IMAGE_TAG=$(git rev-parse --short=12 HEAD)          # clean tree, so the tag is not "-dirty"
+export TF_VAR_alarm_email=<the address in the ALARM_EMAIL variable>   # confirm the SNS email after the apply
 B="bucket=docbeam-tfstate-<account id>"
 terraform -chdir=infra/envs/dev init -reconfigure -backend-config="$B"
 terraform -chdir=infra/envs/dev apply -target=module.ecr -var image_tag=$IMAGE_TAG   # repositories only
@@ -71,14 +72,19 @@ for s in auth platform docbeam-api; do
   scripts/push-image.sh dev $s docker/service.Dockerfile --build-arg SERVICE=$s
 done
 scripts/push-image.sh dev db-bootstrap docker/db-bootstrap/Dockerfile
+# Terraform starts the Upload Events Lambda from this image, so it must exist before the apply (about 1 GB, 5 to 10 minutes).
+scripts/push-image.sh dev upload-events workers/upload-events/Dockerfile
 # First apply of a new environment: without the authorizer (D-M1-13), about 20 minutes.
-terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG -var jwt_authorizer_enabled=false
+terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG -var jwt_authorizer_enabled=false
 scripts/run-db-bootstrap.sh dev                # creates the databases and roles
 scripts/run-task.sh dev auth signing-key       # writes the token signing key, once
 R=<account id>.dkr.ecr.ap-southeast-2.amazonaws.com/docbeam-dev
 for s in auth platform docbeam-api; do scripts/deploy-service.sh dev $s $R/$s:$IMAGE_TAG; done   # migrate, seed, update
 scripts/check-internal.sh dev                  # /health of each service from inside the network
-terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG                       # now with the authorizer
+npm run build                                  # bundles the worker Lambdas
+for w in fanout delivery dlq sweeper; do scripts/deploy-lambda.sh dev $w workers/$w/dist/lambda; done
+scripts/deploy-lambda.sh dev upload-events $R/upload-events:$IMAGE_TAG                # skips: it already runs this image
+terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG   # now with the authorizer
 scripts/deploy-web.sh dev                      # publishes the web app
 ```
 
@@ -95,7 +101,7 @@ Prod is never applied from a laptop or an agent session. It runs only through th
 ### Roll back
 
 - **A service (ECS):** run `scripts/deploy-service.sh <env> <service> <previous image uri>`. It registers the older image as a new task definition, runs the migrations (forward-only, so a backward-compatible schema is kept for one deploy) and waits for the service to settle. Or in the console (read only here), copy the previous task definition's image from the service's deployment history.
-- **A worker (Lambda):** re-run the `workers` workflow on the previous commit, or `aws lambda update-function-code` with the previous image or zip.
+- **A worker (Lambda):** re-run the `workers` workflow on the previous commit with `force` ticked, or run `scripts/deploy-lambda.sh <env> <function> <bundle-dir | image-uri> --force` with the previous bundle or image. It skips a function that does not exist or already runs that code.
 - **The web app:** check out the previous commit and run `scripts/deploy-web.sh <env>`.
 - **Infrastructure:** revert the commit and let the `infra` workflow plan and apply, or run `terraform apply` from the previous commit. Read the plan first.
 

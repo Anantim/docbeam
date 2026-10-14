@@ -25,6 +25,11 @@ on:
         description: Type deploy-prod to deploy to prod (runs from main only)
         required: false
         default: ''
+      force:
+        description: Deploy even when the function already runs this code
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -55,8 +60,10 @@ jobs:
   deploy-dev:
     name: Deploy ${{ matrix.worker }} to dev
     needs: test
+    # A manual run from main without the prod confirmation deploys dev, so `force` can be used there (D-M1-15).
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm != 'deploy-prod'))
+      && github.ref == 'refs/heads/main' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     environment: dev
     strategy:
@@ -65,6 +72,7 @@ jobs:
         worker: [fanout, delivery, dlq, ws, sweeper]
     concurrency: deploy-dev-worker-${{ matrix.worker }}
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: lambda-bundles
@@ -74,13 +82,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
+      # Skips with a notice when the function does not exist (dev is down, or ws before M3) or already runs
+      # this bundle (D-M1-14, D-M1-15, D-M2-6).
       - name: Update the function code
         run: |
-          cd "bundles/${{ matrix.worker }}/dist/lambda" 2>/dev/null || cd "bundles/${{ matrix.worker }}"
-          zip -q -r "$RUNNER_TEMP/${{ matrix.worker }}.zip" .
-          aws lambda update-function-code --function-name "docbeam-dev-${{ matrix.worker }}" \
-            --zip-file "fileb://$RUNNER_TEMP/${{ matrix.worker }}.zip" --query LastUpdateStatus --output text
-          aws lambda wait function-updated --function-name "docbeam-dev-${{ matrix.worker }}"
+          dir="bundles/${{ matrix.worker }}/dist/lambda"
+          [ -d "$dir" ] || dir="bundles/${{ matrix.worker }}"
+          scripts/deploy-lambda.sh dev "${{ matrix.worker }}" "$dir" ${{ inputs.force && '--force' || '' }}
 
   # Prod runs only by hand from main with the typed confirmation (D-G3).
   deploy-prod:
@@ -97,6 +105,7 @@ jobs:
         worker: [fanout, delivery, dlq, ws, sweeper]
     concurrency: deploy-prod-worker-${{ matrix.worker }}
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: lambda-bundles
@@ -108,8 +117,6 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
       - name: Update the function code
         run: |
-          cd "bundles/${{ matrix.worker }}/dist/lambda" 2>/dev/null || cd "bundles/${{ matrix.worker }}"
-          zip -q -r "$RUNNER_TEMP/${{ matrix.worker }}.zip" .
-          aws lambda update-function-code --function-name "docbeam-prod-${{ matrix.worker }}" \
-            --zip-file "fileb://$RUNNER_TEMP/${{ matrix.worker }}.zip" --query LastUpdateStatus --output text
-          aws lambda wait function-updated --function-name "docbeam-prod-${{ matrix.worker }}"
+          dir="bundles/${{ matrix.worker }}/dist/lambda"
+          [ -d "$dir" ] || dir="bundles/${{ matrix.worker }}"
+          scripts/deploy-lambda.sh prod "${{ matrix.worker }}" "$dir" ${{ inputs.force && '--force' || '' }}
