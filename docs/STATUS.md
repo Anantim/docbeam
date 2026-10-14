@@ -1,6 +1,6 @@
 # DocBeam status
 
-Updated 2026-10-14, at the end of M0 (pull request #1, branch `m0`).
+Updated 2026-10-14, at the end of M0 (pull request #1, branch `m0`), after the person accepted both NOs.
 
 **M0 is built and verified.** Nothing user-facing exists yet: the repository, the local stack, the dev and prod Terraform and the pipelines are in place. Dev AWS is **down** (destroyed after the checks). The plan is in `docs/PLAN.md`; agreed design changes are in `docs/DECISIONS.md`; M0's evidence is in `docs/testing/M0-RESULTS.md`; a teaching explanation is in `docs/walkthrough/M0.md`.
 
@@ -8,7 +8,7 @@ Updated 2026-10-14, at the end of M0 (pull request #1, branch `m0`).
 
 | Milestone | Flow | Estimate | Status |
 |---|---|---|---|
-| M0 | Foundations | 4.5 d | Built, in review (PR #1). Two NOs in the YES/NO check, see below |
+| M0 | Foundations | 4.5 d | Built, PR #1 ready to merge by the person. Two NOs in the YES/NO check, both accepted (see Known issues) |
 | M1 | Flow 1: Browse destinations | 11 d | Not started |
 | M2 | Flow 2: Upload and distribute | 13 d | Not started |
 | M3 | Flow 3: Track a job | 7 d | Not started |
@@ -42,8 +42,8 @@ Updated 2026-10-14, at the end of M0 (pull request #1, branch `m0`).
 
 ## Known issues
 
-- **RDS Proxy is off in dev** (D-M0-6). Dev Lambdas will connect to the instance directly, with at most 1 connection each. Worst case 79 of `max_connections = 100`. **M5 runs with `enable_rds_proxy = true`, after the move to the Paid plan**, so the release checks test the prod setup.
-- **Step 0.1 says the Upload Events handler scans through ClamAV locally.** M0 builds the container and image; scanning and the EICAR check come in Step 2.1.
+- **NO 1, accepted 2026-10-14: RDS Proxy is off in dev** (D-M0-6). The Free plan blocks it. Dev Lambdas connect to the instance directly, with at most 1 connection each. Worst case 79 of `max_connections = 100`. **M5 runs with `enable_rds_proxy = true`, after the move to the Paid plan**, so the release checks test the prod setup (`docs/PLAN.md`, M5).
+- **NO 2, accepted 2026-10-14: local scanning is deferred to Step 2.1.** Step 0.1 says the Upload Events handler scans through ClamAV locally. M0 builds the container and the image, and the handler only logs. The scanning logic and the EICAR check against the real ClamAV are an explicit line in the M2 plan (task 2.1b) and in the M2 YES/NO check.
 - The deploy user has AdministratorAccess. Narrow it, or replace it with OIDC, after the move to the Paid plan.
 - GitHub Free allows no required reviewer on a private repo, so prod is gated by a manual run from `main` with a typed confirmation (D-G3).
 - The Free-plan account is under an AWS service control policy. The only deny found in M0 was RDS Proxy. Any other will be listed here.
@@ -69,7 +69,7 @@ Dev on AWS: see `README.md` "Build dev" and `docs/testing/M0-TESTING.md` section
 ## Next: M1 (Browse destinations)
 
 M1 needs from the person:
-- the decision on the RDS Proxy deviation (accept D-M0-6 as recorded);
+- the merge of PR #1 (M0), so `main` holds the foundations;
 - the repo variable `INFRA_APPLY_ENABLED` created (`false` while dev is down);
 - a yes before each dev apply, image push and task run, and `ECS_DEPLOY_ENABLED=true` when told.
 

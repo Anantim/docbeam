@@ -14,7 +14,7 @@ Run on 2026-10-14, branch `m0`, account `346208529537`, region `ap-southeast-2`.
 | Destroy and re-create cycle | Pass, no name conflicts |
 | Final teardown, nothing billable left | Pass |
 | GitHub pipelines on PR #1 | Pass (deploy jobs skipped) |
-| **Deviation from the design** | RDS Proxy is off in dev (D-M0-6), approved |
+| **Deviations from the design** | Two NOs, both accepted by the person on 2026-10-14: RDS Proxy off in dev (D-M0-6), and local scanning deferred to Step 2.1 |
 
 ## 1. Local
 
@@ -150,10 +150,10 @@ Not exercised: the deploy jobs themselves (the switches are off by design), the 
 | 6 | Six workers' handlers run and log | YES | `workers/*/src/index.test.ts`; `workers.test.ts` (six queues) |
 | 7 | `docker-compose.yml`: Postgres with three databases and roles, LocalStack with bucket and queues, clamav, workers, ws-local | YES | `docker-compose.yml`; `postgres.test.ts`, `localstack.test.ts` |
 | 8 | Every container healthy on `docker compose up` | YES | `docker compose ps`: 8 rows `(healthy)` |
-| 9 | Upload Events handler scans through `clamav` and refuses EICAR locally (Step 0.1 text) | NO (scheduled) | M0 builds the container, the image with ClamAV and a handler that logs. Scanning and the EICAR check are Step 2.1 and 2.1b in PLAN. ClamAV answers `PONG` (`services.test.ts`) |
+| 9 | Upload Events handler scans through `clamav` and refuses EICAR locally (Step 0.1 text) | NO (accepted, deferred to Step 2.1) | M0 builds the container, the image with ClamAV and a handler that logs. Scanning and the EICAR check are Step 2.1 (task 2.1b in PLAN, now an explicit line in the M2 plan and the M2 YES/NO check). ClamAV answers `PONG` (`services.test.ts`) |
 | 10 | `bootstrap/create-state-backend.sh`; bucket exists | YES | script; `get-bucket-*` outputs above |
 | 11 | Terraform modules for Step 0.2: network, rds, ecr, s3 (+ cloudfront, ecs-cluster, secrets) | YES | `infra/modules/*`; apply created 86 resources |
-| 12 | `rds` includes RDS Proxy | NO (approved) | Free plan blocks it: `FreeTierRestrictionError`. Off in dev, on in prod. D-M0-6, `infra/modules/rds/main.tf` |
+| 12 | `rds` includes RDS Proxy | NO (accepted, D-M0-6) | Free plan blocks it: `FreeTierRestrictionError`. Off in dev, on in prod; M5 runs with it on after the Paid plan move. `infra/modules/rds/main.tf` |
 | 13 | Dev sized as designed (one NAT, single-AZ `db.t4g.micro`); prod Multi-AZ, NAT per zone | YES | `infra/envs/dev/main.tf`, `infra/envs/prod/main.tf`; checks 7, 9 |
 | 14 | KMS-encrypted RDS storage; secrets generated, none typed in | YES | check 7; `random_password`, `manage_master_user_password`; gitleaks clean |
 | 15 | Object Store: SSE-KMS and Bucket Key, BPA, TLS only, role allow-list, clean-tag rule, 33-day expiry, 7-day multipart cleanup, CORS exposing ETag | YES | checks 3, 4, 6, 6a, 16; `infra/modules/s3/main.tf` |
@@ -176,12 +176,12 @@ Not exercised: the deploy jobs themselves (the switches are off by design), the 
 
 ### Verdict
 
-**Two NOs.** Both are stated above and neither is hidden.
+**Two NOs, both accepted by the person on 2026-10-14.** Neither is hidden.
 
-- **#12 RDS Proxy:** the account's Free plan blocks it. It is a design change, approved by the person (D-M0-6) and recorded in `docs/DECISIONS.md`. It closes in M5, which runs dev with the proxy on after the move to the Paid plan.
-- **#9 Scanning and EICAR locally:** the text of Step 0.1 says the handler scans locally. The M0 prompt asks only that each handler runs and logs, and the scanner is built in Step 2.1 (ADR-016). The ClamAV container and image are in place and healthy.
+- **#12 RDS Proxy: NO, accepted.** The account's Free plan blocks it. The design change is recorded as D-M0-6 in `docs/DECISIONS.md`. It closes in M5, which runs dev with the proxy on after the move to the Paid plan (`docs/PLAN.md`, M5).
+- **#9 Scanning and EICAR locally: NO, accepted as deferred.** The M0 prompt asks only that each handler runs and logs, and the scanner is built in Step 2.1 (ADR-016). The ClamAV container and image are in place and healthy. It closes in M2: an explicit line in the M2 plan (task 2.1b) and in the M2 YES/NO check requires the EICAR file to be refused by the real ClamAV locally.
 
-By the rule in AGENTS.md ("one unaddressed requirement means the milestone fails"), #12 is a NO against the letter of Step 0.2. Please decide whether to accept the deviation as recorded or to move to the Paid plan first.
+With both NOs accepted, nothing else is open: every other requirement is YES. This is the milestone's final state unless the person changes either decision.
 
 ## Known follow-ups (also in `docs/STATUS.md`)
 
