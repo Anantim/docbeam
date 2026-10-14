@@ -22,6 +22,11 @@ on:
         description: Type deploy-prod to deploy to prod (runs from main only)
         required: false
         default: ''
+      force:
+        description: Deploy even when the service already runs this image
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -32,4 +37,5 @@ jobs:
     with:
       service: auth
       confirm: ${{ inputs.confirm || '' }}
+      force: ${{ inputs.force || false }}
     secrets: inherit

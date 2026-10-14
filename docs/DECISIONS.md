@@ -300,3 +300,15 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - The `seed` service in Docker Compose has a profile and is started with `docker compose run --rm seed`, because `docker compose up --wait` counts a container that exits as a failure (found by CI). CI runs it after `up`.
   - The ECS deploy jobs (`_service.yml`) check that the service is `ACTIVE` first and skip with a notice if it is not. The web deploy jobs do the same on the `web_bucket` output. A merge while dev is down no longer turns red.
 - **Why:** Three defects in the pipeline that the local run did not show.
+
+## D-M1-15. Deploys are idempotent per image, with a force switch
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 0.3 and Launch plan (deploy steps, no repeat rule); found when the M1 merge ran every workflow twice.
+- **What:**
+  - `scripts/deploy-service.sh` first reads the service's current task definition. If it runs the target image **and** carries the tag `deployed-by=deploy-service.sh`, the script prints a notice and exits 0 before migrating, seeding or updating. The script puts that tag on every revision it registers.
+  - The marker is needed because Terraform creates the first task definitions with an image tag that can equal the one being deployed. Such a revision has no marker, so the first deploy of an environment always runs.
+  - `--force` or `FORCE_DEPLOY=true` skips the check. The three service workflows have a `force` boolean input on `workflow_dispatch`, passed to the deploy jobs.
+  - A manual run from `main` without the prod confirmation now deploys dev (so `force` can be used there). With `confirm=deploy-prod` it deploys prod only, as before.
+  - `tests/scripts/deploy-service.test.ts` runs the script against a fake `aws` and covers: skipped when already deployed, deploys on another image, deploys on a first run without the marker, deploys with `--force` and with `FORCE_DEPLOY=true`.
+- **Why:** The PR was merged twice and every service ran migrations, the seed and a rolling update twice. The result was harmless but wasteful, and a re-run or a duplicate event must not roll a service.

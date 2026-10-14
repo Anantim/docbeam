@@ -2,7 +2,13 @@
 # Deploys one ECS service from an image that is already in ECR: runs its migrations as a one-off
 # task, then points the service at a new task definition and waits for it to settle.
 #
-#   scripts/deploy-service.sh <env> <service> <image-uri>
+#   scripts/deploy-service.sh <env> <service> <image-uri> [--force]
+#
+# Safe to run twice: when the service already runs <image-uri>, from a task definition this script
+# registered, it prints a notice and exits 0 without migrating, seeding or updating (D-M1-15). That keeps a
+# duplicate push event, a re-run or a double merge from rolling the service again. FORCE_DEPLOY=true
+# or --force skips the check. A task definition made by Terraform carries no marker, so the first deploy
+# of an environment always runs, even when Terraform was applied with the same image tag.
 #
 # Names follow the Terraform modules from M1 (ecs-service): cluster docbeam-<env>-cluster, service
 # and task definition family docbeam-<env>-<service>, and docbeam-<env>-<service>-migrate for the migrations.
@@ -10,9 +16,13 @@
 # Rollback: run it again with the previous image URI (see the README).
 set -euo pipefail
 
-ENV_NAME="${1:?usage: scripts/deploy-service.sh <env> <service> <image-uri>}"
+ENV_NAME="${1:?usage: scripts/deploy-service.sh <env> <service> <image-uri> [--force]}"
 SERVICE="${2:?missing service}"
 IMAGE="${3:?missing image uri}"
+FORCE="${FORCE_DEPLOY:-false}"
+[ "${4:-}" = "--force" ] && FORCE=true
+MARKER_KEY="deployed-by"
+MARKER_VALUE="deploy-service.sh"
 
 if [ "$ENV_NAME" = "prod" ] && [ "${CI:-}" != "true" ]; then
   echo "Prod is deployed only by the GitHub workflows." >&2
@@ -25,6 +35,26 @@ NAME="docbeam-${ENV_NAME}-${SERVICE}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Already deployed? The service's current task definition must run this image and carry our marker.
+if [ "$FORCE" != "true" ]; then
+  CURRENT_DEF="$(aws ecs describe-services --region "$REGION" --cluster "$CLUSTER" --services "$NAME" \
+    --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
+  if [ -n "$CURRENT_DEF" ] && [ "$CURRENT_DEF" != "None" ]; then
+    CURRENT_JSON="$(aws ecs describe-task-definition --region "$REGION" --task-definition "$CURRENT_DEF" \
+      --include TAGS --output json 2>/dev/null || true)"
+    RUNNING_IMAGE="$(printf '%s' "$CURRENT_JSON" | jq -r '.taskDefinition.containerDefinitions[0].image // empty' 2>/dev/null || true)"
+    RUNNING_MARKER="$(printf '%s' "$CURRENT_JSON" | jq -r --arg k "$MARKER_KEY" \
+      '(.tags // []) | map(select(.key == $k)) | first | .value // empty' 2>/dev/null || true)"
+    if [ "$RUNNING_IMAGE" = "$IMAGE" ] && [ "$RUNNING_MARKER" = "$MARKER_VALUE" ]; then
+      echo "${NAME} already runs ${IMAGE}. Nothing to do (use --force or FORCE_DEPLOY=true to redeploy)."
+      if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+        echo "::notice title=Deploy skipped::${NAME} already runs this image."
+      fi
+      exit 0
+    fi
+  fi
+fi
+
 # Registers a new revision of a family with the new image and returns its ARN.
 register() {
   local family="$1"
@@ -33,7 +63,7 @@ register() {
         del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
         | .containerDefinitions[0].image = $image' > "${TMP}/${family}.json"
   aws ecs register-task-definition --region "$REGION" --cli-input-json "file://${TMP}/${family}.json" \
-    --query 'taskDefinition.taskDefinitionArn' --output text
+    --tags "key=${MARKER_KEY},value=${MARKER_VALUE}" --query 'taskDefinition.taskDefinitionArn' --output text
 }
 
 SERVICE_TASK_DEF="$(register "$NAME")"

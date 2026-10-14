@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: ''
+      force:
+        description: Deploy even when the service already runs this image
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -52,8 +57,10 @@ jobs:
   deploy-dev:
     name: Deploy to dev
     needs: [test, docker]
+    # On push to main, and on a manual run from main without the prod confirmation (to redeploy dev, with force).
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ECS_DEPLOY_ENABLED == 'true'
+      github.ref == 'refs/heads/main' && vars.ECS_DEPLOY_ENABLED == 'true'
+      && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm != 'deploy-prod'))
     runs-on: ubuntu-24.04
     environment: dev
     concurrency: deploy-dev-${{ inputs.service }}
@@ -77,6 +84,8 @@ jobs:
           fi
       - name: Push the image, migrate and update the service
         if: steps.exists.outputs.found == 'true'
+        env:
+          FORCE_DEPLOY: ${{ inputs.force }}
         run: |
           image="$(scripts/push-image.sh dev ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
           scripts/deploy-service.sh dev ${{ inputs.service }} "$image"
@@ -111,6 +120,8 @@ jobs:
           fi
       - name: Push the image, migrate and update the service
         if: steps.exists.outputs.found == 'true'
+        env:
+          FORCE_DEPLOY: ${{ inputs.force }}
         run: |
           image="$(scripts/push-image.sh prod ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
           scripts/deploy-service.sh prod ${{ inputs.service }} "$image"
