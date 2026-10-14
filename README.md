@@ -9,9 +9,10 @@ The design is in `docs/design/`. Build progress is in `docs/STATUS.md`, the plan
 You need Node 22, npm and Docker (Compose v2). Nothing else.
 
 ```bash
-cp .env.example .env              # safe local defaults only
+scripts/local-env.sh              # creates .env: safe defaults, plus a local signing key and secrets
 npm install
 docker compose up -d --build --wait   # every container reports healthy
+docker compose run --rm seed          # demo teams, binders, folders and users; safe to repeat
 ```
 
 | What | Address |
