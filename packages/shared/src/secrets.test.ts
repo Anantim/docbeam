@@ -31,6 +31,13 @@ describe('secret reader', () => {
     expect(await reader.read('S')).toBe('ok');
   });
 
+  it('returns a plain local value as the field itself', async () => {
+    const fetcher = vi.fn();
+    const reader = createSecretReader({ CLIENT_SECRET_DELIVERY_WORKER: 'plain-secret' }, fetcher);
+    expect(await reader.readField('CLIENT_SECRET_DELIVERY_WORKER', 'client_secret')).toBe('plain-secret');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it('fails when a JSON field is missing', async () => {
     const reader = createSecretReader({ S_ARN: 'arn:s' }, async () => '{"a":"1"}');
     await expect(reader.readField('S', 'b')).rejects.toThrow('no string field b');

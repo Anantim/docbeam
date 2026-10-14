@@ -44,6 +44,9 @@ export function createSecretReader(
   return {
     read,
     async readField(name, field) {
+      // A plain value in `.env` is the field itself; only a secret read by ARN is JSON.
+      const plain = env[name];
+      if (plain) return plain;
       const value = await read(name);
       const parsed = JSON.parse(value) as Record<string, unknown>;
       const found = parsed[field];

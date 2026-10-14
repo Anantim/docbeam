@@ -20,8 +20,7 @@ async function inFlight(url: string): Promise<number> {
 
 describe('workers container', () => {
   it.each([
-    ['task', 'delivery', 'task message received'],
-    // upload-events and fanout have real logic since M2: see upload-events.test.ts and fanout.test.ts.
+    // upload-events, fanout and delivery have real logic since M2: see their own test files.
     ['job-dlq', 'dlq', 'dead-letter message received'],
     ['task-dlq', 'dlq', 'dead-letter message received'],
     ['upload-events-dlq', 'dlq', 'dead-letter message received'],
