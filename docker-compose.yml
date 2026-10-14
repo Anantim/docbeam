@@ -72,6 +72,11 @@ services:
       MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/auth_db
       JWT_ISSUER: ${JWT_ISSUER}
       JWKS_URL: http://auth:3001/.well-known/jwks.json
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      CLIENT_SECRET_DELIVERY_WORKER: ${CLIENT_SECRET_DELIVERY_WORKER}
+      CLIENT_SECRET_DOCBEAM_API: ${CLIENT_SECRET_DOCBEAM_API}
+      CLIENT_SECRET_WS_HANDLERS: ${CLIENT_SECRET_WS_HANDLERS}
+      CLIENT_SECRET_SEED_SCRIPT: ${CLIENT_SECRET_SEED_SCRIPT}
     ports: ["3001:3001"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
