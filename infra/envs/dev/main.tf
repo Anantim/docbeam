@@ -68,6 +68,11 @@ module "rds" {
   backup_retention_days = 1
   apply_immediately     = true
 
+  # The Free plan blocks RDS Proxy, so dev Lambdas connect to the instance directly (D-M0-6).
+  # max_connections is fixed so the connection budget in D-M0-6 is a known number. M5 runs with the proxy on.
+  enable_rds_proxy = false
+  max_connections  = 100
+
   # Dev is destroyed and re-created often (D-M0-4).
   deletion_protection         = false
   skip_final_snapshot         = true

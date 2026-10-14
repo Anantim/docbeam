@@ -43,7 +43,13 @@ output "ecr_repository_urls" {
 }
 
 output "db_proxy_endpoint" {
-  value = module.rds.proxy_endpoint
+  description = "null while the proxy is off"
+  value       = module.rds.proxy_endpoint
+}
+
+output "lambda_db_host" {
+  description = "The database host the Lambdas get in their config"
+  value       = module.rds.lambda_db_host
 }
 
 output "db_endpoint" {

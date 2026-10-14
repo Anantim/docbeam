@@ -177,3 +177,18 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** PLAN G20 ("check in M0 whether an auth token is needed"); TDD Step 0.1 (LocalStack for S3 and SQS).
 - **What:** The latest LocalStack image (2026.10.0) exits at start without `LOCALSTACK_AUTH_TOKEN`. LocalStack `4.14` runs without a token and covers S3 and SQS, so Compose and CI pin `localstack/localstack:4.14`. No token is needed in `.env` or in GitHub. Checks LocalStack cannot enforce are proved on dev.
 - **Why:** The person did not have to create an account or store another secret. Move to a newer image when a token is set up.
+
+## D-M0-6. No RDS Proxy in dev (Free plan)
+
+- **Date:** 2026-10-14
+- **Changes:** ADR-011 consequences ("Every Lambda reaches PostgreSQL through RDS Proxy"); TDD Step 0.2 (module `rds`: "RDS Proxy"; the AWS account plan paragraph, which lists RDS Proxy as allowed on the Free plan); TDD Steps 2.4 and 3.2 ("All database access through RDS Proxy").
+- **What:**
+  - The Free plan blocks RDS Proxy: `CreateDBProxy` returns `FreeTierRestrictionError: This feature isn't available with free plan accounts`. Found on the first dev apply on 2026-10-14.
+  - The `rds` module has a variable `enable_rds_proxy`. Dev is `false`, prod is `true`. With it off, no proxy, proxy role or proxy security group exists, and dev Lambdas connect directly to the instance. The module output `lambda_db_host` is the proxy address when there is one, and the instance address otherwise.
+  - No code depends on the proxy. Only the database host in config differs.
+  - Every Lambda opens at most 1 connection (`LAMBDA_POOL` in `packages/shared/src/db.ts`: pool max 1, idle timeout 1 second). ECS services use a pool of 2 (`SERVICE_POOL`).
+  - Dev sets `max_connections = 100` in a parameter group, so the budget below is a known number. The default for `db.t4g.micro` is about 80 to 110 and cannot be read before the instance exists.
+  - **Worst case in dev: 79 connections, which is 79% of 100 and under the 80% limit.** Delivery 50, Upload Events 10, Fan-out 2, DLQ Consumer 2, Sweeper 1, WS Handlers 3 (68 Lambda copies at 1 connection each), 3 ECS services at a pool of 2 (6), 2 one-off tasks (migrate, seed, bootstrap) (2), 3 kept by RDS (3). The unit test `packages/shared/src/db.test.ts` fails if a number changes without this budget changing too.
+  - Fan-out, DLQ Consumer, Sweeper and WS Handlers get trigger or reserved concurrency limits in Terraform that match these numbers (Steps 2.3, 2.5 and 3.2). Delivery 50 and Upload Events 10 stay as the design says.
+  - **M5 runs with `enable_rds_proxy = true` in dev**, after the account moves to the Paid plan, so the release checks test the prod setup.
+- **Why:** The design assumed RDS Proxy is available on the Free plan, and it is not. Without a proxy, 60 Lambda copies could open many connections to a 1 GB instance, so the budget is written down and enforced.

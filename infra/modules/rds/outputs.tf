@@ -8,8 +8,13 @@ output "endpoint" {
 }
 
 output "proxy_endpoint" {
-  description = "RDS Proxy address. Lambdas use this (ADR-011)."
-  value       = aws_db_proxy.this.endpoint
+  description = "RDS Proxy address, or null when the proxy is off (dev, D-M0-6)."
+  value       = one(aws_db_proxy.this[*].endpoint)
+}
+
+output "lambda_db_host" {
+  description = "Host the Lambdas put in their config: the proxy when it exists, otherwise the instance."
+  value       = coalesce(one(aws_db_proxy.this[*].endpoint), aws_db_instance.this.address)
 }
 
 output "port" {
@@ -31,5 +36,5 @@ output "security_group_id" {
 }
 
 output "proxy_security_group_id" {
-  value = aws_security_group.proxy.id
+  value = one(aws_security_group.proxy[*].id)
 }

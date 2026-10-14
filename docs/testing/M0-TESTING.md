@@ -83,7 +83,8 @@ Ask the person before each command that changes AWS. Account `346208529537`, reg
 | 5 | `aws s3api get-bucket-versioning --bucket <platform files>` | `Enabled` |
 | 6 | `aws s3api get-public-access-block --bucket <each of the three buckets>` | All four settings `true` |
 | 7 | `aws rds describe-db-instances --query 'DBInstances[].[DBInstanceIdentifier,DBInstanceClass,MultiAZ,StorageEncrypted,Engine,EngineVersion]'` | `docbeam-dev-postgres`, `db.t4g.micro`, `False`, `True`, `postgres`, `16.x` |
-| 8 | `aws rds describe-db-proxies --query 'DBProxies[].[DBProxyName,Status,RequireTLS]'` | `docbeam-dev-proxy`, `available`, `True` |
+| 8 | `aws rds describe-db-proxies --query 'DBProxies[].DBProxyName'` | Empty. Dev has no RDS Proxy: the Free plan blocks it (D-M0-6). `terraform -chdir=infra/envs/dev output lambda_db_host` shows the instance address |
+| 8a | `aws rds describe-db-parameters --db-parameter-group-name $(aws rds describe-db-instances --query 'DBInstances[0].DBParameterGroups[0].DBParameterGroupName' --output text) --query "Parameters[?ParameterName=='max_connections'].ParameterValue" --output text` | `100` |
 | 9 | `aws ec2 describe-nat-gateways --filter Name=state,Values=available --query 'length(NatGateways)'` | `1` |
 | 10 | `aws secretsmanager list-secrets --query 'SecretList[].Name' --output text` | The RDS master secret, three `docbeam-dev/db/*_app`, four `docbeam-dev/service-client/*`, `docbeam-dev/auth/signing-key`, `docbeam-dev/seed/user-password` |
 | 11 | `aws secretsmanager describe-secret --secret-id docbeam-dev/auth/signing-key --query 'VersionIdsToStages'` | `null` (empty, written in M1) |

@@ -316,6 +316,8 @@ Demo: Preview shows the file in the page and Download saves it; anyone not allow
 
 Run against deployed dev. All must pass before any prod apply. Each check gets a re-runnable script in `scripts/m5-*`, its AWS change and cost in the M5 plan, and evidence in `docs/testing/M5-RESULTS.md`.
 
+**Run M5 with the RDS Proxy on (D-M0-6).** The Free plan blocks RDS Proxy, so dev runs without it in M1 to M4. Before the M5 checks, the account moves to the Paid plan and dev is applied with `enable_rds_proxy = true`, so the release checks test the prod setup (Lambdas through the proxy). The M5 plan states the cost (the proxy adds about 0.85 USD a day) and asks first. The Lambda config needs only a new database host, with no code change.
+
 | # | Check | How it is checked | You |
 |---|---|---|---|
 | 5.1 | 100 x 20 job accepted in under 500 ms at p99 | `scripts/m5-submit-load.sh`; p99 read from API Gateway and CloudWatch, not the laptop | nothing |

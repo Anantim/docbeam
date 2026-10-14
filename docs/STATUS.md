@@ -29,6 +29,8 @@ Updated 2026-10-14, after the kickoff session.
 - GitHub Free allows no required reviewer on a private repo, so prod is gated by a manual run from `main` with a typed confirmation (D-G3).
 - The Free-plan account is under an AWS service control policy; some IAM read calls are denied. Any deny found during `terraform apply` will be listed here.
 - Credits are limited. Keep dev down except during AWS testing.
+- **The Free plan blocks RDS Proxy** (found 2026-10-14, D-M0-6). Dev runs with `enable_rds_proxy = false` and Lambdas connect to the instance directly, with at most 1 connection each. The worst case is 79 of `max_connections = 100`. **M5 runs with `enable_rds_proxy = true`, after the move to the Paid plan**, so the release checks test the prod setup.
+- Not turned on in dev: nothing else is blocked so far. Any other Free-plan block found during `terraform apply` will be listed here.
 
 ## Next: M0
 

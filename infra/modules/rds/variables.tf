@@ -31,6 +31,17 @@ variable "multi_az" {
   type        = bool
 }
 
+variable "enable_rds_proxy" {
+  description = "false in dev: the Free plan blocks RDS Proxy (D-M0-6). true in prod."
+  type        = bool
+}
+
+variable "max_connections" {
+  description = "Fixed max_connections for the instance. Null keeps the default for the instance size."
+  type        = number
+  default     = null
+}
+
 variable "allocated_storage_gb" {
   type    = number
   default = 20

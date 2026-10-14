@@ -67,6 +67,8 @@ module "rds" {
   multi_az              = true
   backup_retention_days = 7
 
+  enable_rds_proxy = true # ADR-011
+
   deletion_protection         = true
   skip_final_snapshot         = false
   secret_recovery_window_days = 30

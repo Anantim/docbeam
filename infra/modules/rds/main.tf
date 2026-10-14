@@ -46,6 +46,26 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_vpc" {
   ip_protocol       = "tcp"
 }
 
+# A fixed max_connections, so the connection budget in D-M0-6 is a known number and not a guess.
+# Without a value the instance keeps the default for its size.
+resource "aws_db_parameter_group" "this" {
+  count = var.max_connections != null ? 1 : 0
+
+  name_prefix = "${var.name}-pg16-"
+  family      = "postgres16"
+  description = "DocBeam PostgreSQL 16 settings"
+
+  parameter {
+    name         = "max_connections"
+    value        = tostring(var.max_connections)
+    apply_method = "pending-reboot"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 resource "aws_db_instance" "this" {
   identifier     = "${var.name}-postgres"
   engine         = "postgres"
@@ -63,6 +83,7 @@ resource "aws_db_instance" "this" {
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [aws_security_group.db.id]
+  parameter_group_name   = one(aws_db_parameter_group.this[*].name)
   publicly_accessible    = false
   multi_az               = var.multi_az
 
@@ -111,8 +132,12 @@ resource "aws_secretsmanager_secret_version" "app" {
 }
 
 # --- RDS Proxy (ADR-011): every Lambda reaches PostgreSQL through it ---------
+# The Free plan blocks RDS Proxy (D-M0-6), so dev runs without it (enable_rds_proxy = false) and its Lambdas
+# connect to the instance directly. No code depends on this: only the database host in config differs.
 
 resource "aws_security_group" "proxy" {
+  count = var.enable_rds_proxy ? 1 : 0
+
   name        = "${var.name}-db-proxy"
   description = "RDS Proxy for DocBeam: reachable from inside the VPC only"
   vpc_id      = var.vpc_id
@@ -121,7 +146,9 @@ resource "aws_security_group" "proxy" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "proxy_from_vpc" {
-  security_group_id = aws_security_group.proxy.id
+  count = var.enable_rds_proxy ? 1 : 0
+
+  security_group_id = aws_security_group.proxy[0].id
   description       = "PostgreSQL from the VPC"
   cidr_ipv4         = var.vpc_cidr_block
   from_port         = 5432
@@ -130,7 +157,9 @@ resource "aws_vpc_security_group_ingress_rule" "proxy_from_vpc" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "proxy_to_db" {
-  security_group_id            = aws_security_group.proxy.id
+  count = var.enable_rds_proxy ? 1 : 0
+
+  security_group_id            = aws_security_group.proxy[0].id
   description                  = "PostgreSQL to the database"
   referenced_security_group_id = aws_security_group.db.id
   from_port                    = 5432
@@ -139,9 +168,11 @@ resource "aws_vpc_security_group_egress_rule" "proxy_to_db" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_proxy" {
+  count = var.enable_rds_proxy ? 1 : 0
+
   security_group_id            = aws_security_group.db.id
   description                  = "PostgreSQL from the proxy"
-  referenced_security_group_id = aws_security_group.proxy.id
+  referenced_security_group_id = aws_security_group.proxy[0].id
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"
@@ -158,6 +189,8 @@ data "aws_iam_policy_document" "proxy_assume" {
 }
 
 resource "aws_iam_role" "proxy" {
+  count = var.enable_rds_proxy ? 1 : 0
+
   name               = "${var.name}-rds-proxy"
   assume_role_policy = data.aws_iam_policy_document.proxy_assume.json
 }
@@ -170,19 +203,22 @@ data "aws_iam_policy_document" "proxy_secrets" {
 }
 
 resource "aws_iam_role_policy" "proxy_secrets" {
+  count = var.enable_rds_proxy ? 1 : 0
+
   name   = "read-app-role-secrets"
-  role   = aws_iam_role.proxy.id
+  role   = aws_iam_role.proxy[0].id
   policy = data.aws_iam_policy_document.proxy_secrets.json
 }
 
 resource "aws_db_proxy" "this" {
+  count      = var.enable_rds_proxy ? 1 : 0
   depends_on = [aws_secretsmanager_secret_version.app]
 
   name                   = "${var.name}-proxy"
   engine_family          = "POSTGRESQL"
-  role_arn               = aws_iam_role.proxy.arn
+  role_arn               = aws_iam_role.proxy[0].arn
   vpc_subnet_ids         = var.private_subnet_ids
-  vpc_security_group_ids = [aws_security_group.proxy.id]
+  vpc_security_group_ids = [aws_security_group.proxy[0].id]
   require_tls            = true
   idle_client_timeout    = 1800
   debug_logging          = false
@@ -202,7 +238,9 @@ resource "aws_db_proxy" "this" {
 }
 
 resource "aws_db_proxy_default_target_group" "this" {
-  db_proxy_name = aws_db_proxy.this.name
+  count = var.enable_rds_proxy ? 1 : 0
+
+  db_proxy_name = aws_db_proxy.this[0].name
 
   connection_pool_config {
     max_connections_percent      = 90
@@ -212,7 +250,9 @@ resource "aws_db_proxy_default_target_group" "this" {
 }
 
 resource "aws_db_proxy_target" "this" {
-  db_proxy_name          = aws_db_proxy.this.name
-  target_group_name      = aws_db_proxy_default_target_group.this.name
+  count = var.enable_rds_proxy ? 1 : 0
+
+  db_proxy_name          = aws_db_proxy.this[0].name
+  target_group_name      = aws_db_proxy_default_target_group.this[0].name
   db_instance_identifier = aws_db_instance.this.identifier
 }
