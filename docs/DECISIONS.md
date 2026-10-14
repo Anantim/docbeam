@@ -446,7 +446,7 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - The platform's target group drains for 120 s and its container has `stopTimeout` 120 (D-M2-17). Others stay at 30 s.
   - The ECR repository `upload-events` keeps 3 images (D-M2-13).
   - The DocBeam API routes of M2 are public routes with the JWT authorizer. The infra workflow passes `TF_VAR_alarm_email` from `ALARM_EMAIL`.
-- **Widening, accepted:** the Delivery Lambda's security group is allowed on every ALB listener (the module opens each client to each service's port), not only the platform's and the Auth Service's. Each service still checks the token.
+- **Widening, narrowed on 2026-10-15:** the Delivery Lambda's security group was first allowed on every ALB listener. The `alb` module now takes `clients`, each with an optional `services` list, and Delivery is allowed only on the Auth Service and platform listeners (3001 and 3002). The other clients keep every listener.
 - **Also:** `terraform init -upgrade` added the `archive` provider (the placeholder zip) and moved the AWS provider from 6.68.0 to 6.69.0 in both lock files.
 - **Found by:** a read-only `terraform plan` of dev from an empty state (251 resources to add, no error), run on 2026-10-15 with `-lock=false`.
 - **Why:** M2 needs the queues, functions, alarms and schedules in code before the first apply.

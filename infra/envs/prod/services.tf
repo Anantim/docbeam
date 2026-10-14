@@ -75,14 +75,13 @@ module "alb" {
   # The platform streams large files in, so its target group drains for 120 s, as long as its stop timeout (D-M2-17).
   services = { for s, p in local.ports : s => { port = p, deregistration_delay = s == "platform" ? 120 : 30 } }
 
-  # Services and their one-off tasks (same group) call each other through the ALB. The Delivery Lambda calls the
-  # platform and the Auth Service the same way; its group is allowed on every listener, and each service still
-  # checks the token it is sent.
-  client_security_group_ids = {
-    auth        = module.auth.security_group_id
-    platform    = module.platform.security_group_id
-    docbeam-api = module.docbeam_api.security_group_id
-    delivery    = module.delivery.security_group_id
+  # Services and their one-off tasks (same group) call each other through the ALB. The Delivery Lambda only calls
+  # the Auth Service (token) and the platform (documents), so its group is allowed on those two listeners.
+  clients = {
+    auth        = { security_group_id = module.auth.security_group_id }
+    platform    = { security_group_id = module.platform.security_group_id }
+    docbeam-api = { security_group_id = module.docbeam_api.security_group_id }
+    delivery    = { security_group_id = module.delivery.security_group_id, services = ["auth", "platform"] }
   }
 }
 

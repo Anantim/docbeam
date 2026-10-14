@@ -25,8 +25,18 @@ variable "services" {
   }))
 }
 
-variable "client_security_group_ids" {
-  description = "Security groups of the callers inside the VPC (the services and their one-off tasks), keyed by name. Services call each other through this ALB: JWKS, the seed script and the destination check."
-  type        = map(string)
-  default     = {}
+variable "clients" {
+  description = "Callers inside the VPC (the services and their one-off tasks), keyed by name. Services call each other through this ALB: JWKS, the seed script and the destination check. `services` lists the listeners a caller may reach; null means every listener."
+  type = map(object({
+    security_group_id = string
+    services          = optional(list(string))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue(flatten([
+      for c in values(var.clients) : [for s in coalesce(c.services, []) : contains(keys(var.services), s)]
+    ]))
+    error_message = "Every name in a client's services must be a service of the ALB."
+  }
 }
