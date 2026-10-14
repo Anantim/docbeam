@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiFailure } from '../auth/session.js';
+import { ApiFailure } from '../auth/errors.js';
 import type { JobBody } from './mapping.js';
 import { Submission } from './submit.js';
 

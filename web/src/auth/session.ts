@@ -1,3 +1,4 @@
+import { ApiFailure } from './errors.js';
 import { decodeClaims, isUsable, msUntilRefresh, type Claims } from './token.js';
 
 // The access token lives in sessionStorage, so reloading keeps the session; the refresh token lives only in
@@ -198,18 +199,7 @@ export async function logout(): Promise<void> {
   }
 }
 
-export class ApiFailure extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-    /** The API's error code, for example PLATFORM_UNAVAILABLE. */
-    readonly code?: string,
-    /** The whole error body, for fields such as `notFound` on a DESTINATION_NOT_FOUND. */
-    readonly body?: Record<string, unknown>,
-  ) {
-    super(message);
-  }
-}
+export { ApiFailure };
 
 /**
  * Calls the API with the access token. A 401 triggers one refresh and one retry; if that fails the

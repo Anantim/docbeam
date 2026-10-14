@@ -1,7 +1,7 @@
 import { hexToBase64, isMultipart, LIMITS, partCount } from '@docbeam/shared/browser';
-import { ApiFailure } from '../auth/session.js';
+import { ApiFailure } from '../auth/errors.js';
 import type { Accepted } from '../distribute/files.js';
-import { uploadApi, withSignIn, type UploadApi, type UploadGrant } from './api.js';
+import type { UploadApi, UploadGrant } from './api-types.js';
 import type { HashResult } from './hashing.js';
 import type { Transport, TransportResult } from './transport.js';
 import { TransportError } from './transport.js';
@@ -42,10 +42,13 @@ export interface PageFile {
 export type Hasher = (file: Blob, multipart: boolean, onProgress: (fraction: number) => void) => Promise<HashResult>;
 
 export interface ManagerDeps {
-  api?: UploadApi;
+  api: UploadApi;
   transport: Transport;
   hash: Hasher;
-  /** Waits for the session after a 401 that a refresh could not fix. */
+  /**
+   * Waits for the session after a 401 that a refresh could not fix (the sign-in dialog is open). Without it a 401
+   * is an ordinary failure.
+   */
   waitForSession?: () => Promise<void>;
   now?: () => number;
   id?: () => string;
@@ -103,7 +106,7 @@ export class UploadManager {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(deps: ManagerDeps) {
-    this.api = deps.api ?? uploadApi;
+    this.api = deps.api;
     this.transport = deps.transport;
     this.hash = deps.hash;
     this.waitForSession = deps.waitForSession;
@@ -196,8 +199,17 @@ export class UploadManager {
     for (const l of this.listeners) l();
   }
 
-  private call<T>(fn: () => Promise<T>): Promise<T> {
-    return withSignIn(fn, this.waitForSession);
+  /** An API call. After a 401 the session has ended: wait behind the sign-in dialog and try once more. */
+  private async call<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof ApiFailure && error.status === 401 && this.waitForSession) {
+        await this.waitForSession();
+        return fn();
+      }
+      throw error;
+    }
   }
 
   private async prepare(id: string): Promise<void> {

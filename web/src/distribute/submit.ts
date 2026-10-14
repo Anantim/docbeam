@@ -1,5 +1,5 @@
-import { ApiFailure } from '../auth/session.js';
-import type { JobAccepted } from '../upload/api.js';
+import { ApiFailure } from '../auth/errors.js';
+import type { JobAccepted } from '../upload/api-types.js';
 import type { JobBody } from './mapping.js';
 
 export type SubmitOutcome =

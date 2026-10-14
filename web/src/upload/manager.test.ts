@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiFailure } from '../auth/session.js';
-import type { FileState, UploadApi, UploadGrant, UploadRequest } from './api.js';
+import { ApiFailure } from '../auth/errors.js';
+import type { FileState, UploadApi, UploadGrant, UploadRequest } from './api-types.js';
 import { LINK_FRESH_MS, POLL_MS, UploadManager } from './manager.js';
 import { TransportError, type Transport, type TransportResult } from './transport.js';
 

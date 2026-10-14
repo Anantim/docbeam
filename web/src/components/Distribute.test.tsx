@@ -9,15 +9,6 @@ vi.mock('../auth/session.js', () => ({
   apiFetch: (path: string) => apiFetch(path),
   logout: vi.fn(),
   whenSignedIn: async () => undefined,
-  ApiFailure: class ApiFailure extends Error {
-    constructor(
-      readonly status: number,
-      message: string,
-      readonly code?: string,
-    ) {
-      super(message);
-    }
-  },
 }));
 vi.mock('../upload/instance.js', () => ({ uploadManager: {} }));
 
@@ -186,7 +177,7 @@ describe('Distribute', () => {
   });
 
   it('shows the platform message and keeps the page as it is when the platform is down', async () => {
-    const { ApiFailure } = await import('../auth/session.js');
+    const { ApiFailure } = await import('../auth/errors.js');
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
     const submit = vi.fn().mockRejectedValue(new ApiFailure(503, 'down', 'PLATFORM_UNAVAILABLE'));
