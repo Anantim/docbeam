@@ -235,7 +235,9 @@ Reminder for the M2 plan: **the person sets the repo variable `ALARM_EMAIL` befo
 **2.1b Upload Events and scanning**
 - Inputs: TDD Step 2.1; ADR-016; G9, G12.
 - Outputs: Upload Events Lambda as a container image with ClamAV (scan limits 1 GB); size and checksum check, clean tag, conditional update, delete of an infected file, `file.refused`; Terraform for the Upload Events Queue and DLQ, the S3 event, the Lambda (3,008 MB, 10 GB storage, 600 s, batch 1, max concurrency 10, queue visibility 3,600 s), the Upload DLQ alarm; the daily rebuild wired to the Lambda.
+- **Carried over from M0 (accepted NO, 2026-10-14):** Step 0.1 says the Upload Events handler scans through the `clamav` container locally, and M0 built only the container, the image and a handler that logs. This task must deliver the scanning logic behind one scanner interface (clamd over TCP in Compose, `clamscan` in Lambda), so the EICAR test file is refused locally by the real ClamAV.
 - Check: integration tests for the EICAR file refused by the real ClamAV and for a repeated event.
+- **M2 YES/NO line (must be YES, or M2 fails):** "Locally, in Docker Compose, the EICAR test file is refused as infected by the real `clamav` container through the Upload Events handler. Carried over from M0 (Step 0.1)." Evidence: the integration test name and its output.
 - You: say yes to the image push and the apply.
 
 **2.2 Job submission**
