@@ -1,0 +1,31 @@
+{
+  "name": "@docbeam/worker-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "workers": "node dist/workers.js",
+    "ws-local": "node dist/ws-local-main.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1151.0",
+    "@docbeam/shared": "0.0.0",
+    "@docbeam/worker-delivery": "0.0.0",
+    "@docbeam/worker-dlq": "0.0.0",
+    "@docbeam/worker-fanout": "0.0.0",
+    "@docbeam/worker-sweeper": "0.0.0",
+    "@docbeam/worker-upload-events": "0.0.0",
+    "@docbeam/worker-ws": "0.0.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
+    "@types/ws": "^8.18.2"
+  }
+}

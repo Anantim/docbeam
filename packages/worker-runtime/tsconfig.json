@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    { "path": "../shared" },
+    { "path": "../../workers/fanout" },
+    { "path": "../../workers/delivery" },
+    { "path": "../../workers/upload-events" },
+    { "path": "../../workers/dlq" },
+    { "path": "../../workers/ws" },
+    { "path": "../../workers/sweeper" }
+  ]
+}
