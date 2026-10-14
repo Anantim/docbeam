@@ -1,0 +1,95 @@
+name: web
+
+on:
+  pull_request:
+    paths: &paths
+      - web/**
+      - package.json
+      - package-lock.json
+      - tsconfig.base.json
+      - .github/workflows/web.yml
+      - scripts/deploy-web.sh
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to deploy to prod (runs from main only)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, typecheck and build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build -w @docbeam/web
+
+  # The web deploy uses the same switch as the ECS services (G14).
+  deploy-dev:
+    name: Deploy to dev
+    needs: test
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ECS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: dev
+    concurrency: deploy-dev-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: npm ci
+      - run: terraform -chdir=infra/envs/dev init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: scripts/deploy-web.sh dev
+
+  # Prod runs only by hand from main with the typed confirmation (D-G3).
+  deploy-prod:
+    name: Deploy to prod
+    needs: test
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.confirm == 'deploy-prod' && vars.ECS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: prod
+    concurrency: deploy-prod-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: npm ci
+      - run: terraform -chdir=infra/envs/prod init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: scripts/deploy-web.sh prod
+        env:
+          CI: 'true'

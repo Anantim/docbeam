@@ -1,0 +1,104 @@
+# The Upload Events Lambda is a container image with ClamAV (ADR-016). It is rebuilt every day so its
+# virus definitions stay current.
+name: upload-events-image
+
+on:
+  pull_request:
+    paths: &paths
+      - workers/upload-events/**
+      - packages/shared/**
+      - package.json
+      - package-lock.json
+      - tsconfig*.json
+      - .github/workflows/upload-events-image.yml
+  push:
+    branches: [main]
+    paths: *paths
+  schedule:
+    - cron: '17 3 * * *' # every day, 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to deploy to prod (runs from main only)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run workers/upload-events
+      - uses: docker/setup-buildx-action@v3
+      # No cache: the point of the daily run is fresh virus definitions.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: workers/upload-events/Dockerfile
+          platforms: linux/amd64
+          push: false
+          no-cache: ${{ github.event_name == 'schedule' }}
+
+  # Stays skipped until the switch is on (from M2, once the Lambda exists). The daily run updates dev only.
+  deploy-dev:
+    name: Push to ECR and update the Lambda (dev)
+    needs: build
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'schedule')
+      && github.ref == 'refs/heads/main' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: dev
+    concurrency: deploy-dev-upload-events
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Push the image and update the function
+        env:
+          IMAGE_TAG_BASE: ${{ github.sha }}
+        run: |
+          # The date in the tag makes each daily rebuild a new immutable tag.
+          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-$(date -u +%Y%m%d)"
+          image="$(scripts/push-image.sh dev upload-events workers/upload-events/Dockerfile | tail -n 1)"
+          aws lambda update-function-code --function-name docbeam-dev-upload-events --image-uri "$image" \
+            --query LastUpdateStatus --output text
+          aws lambda wait function-updated --function-name docbeam-dev-upload-events
+
+  # Prod runs only by hand from main with the typed confirmation (D-G3).
+  deploy-prod:
+    name: Push to ECR and update the Lambda (prod)
+    needs: build
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.confirm == 'deploy-prod' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: prod
+    concurrency: deploy-prod-upload-events
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Push the image and update the function
+        env:
+          IMAGE_TAG_BASE: ${{ github.sha }}
+        run: |
+          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-$(date -u +%Y%m%d)"
+          image="$(scripts/push-image.sh prod upload-events workers/upload-events/Dockerfile | tail -n 1)"
+          aws lambda update-function-code --function-name docbeam-prod-upload-events --image-uri "$image" \
+            --query LastUpdateStatus --output text
+          aws lambda wait function-updated --function-name docbeam-prod-upload-events

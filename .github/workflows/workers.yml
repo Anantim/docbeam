@@ -1,0 +1,115 @@
+# Fan-out, Delivery, DLQ Consumer, WS Handlers and Sweeper: esbuild bundles that update Lambda code.
+# The Upload Events Lambda is a container image and has its own workflow (upload-events-image.yml).
+name: workers
+
+on:
+  pull_request:
+    paths: &paths
+      - workers/fanout/**
+      - workers/delivery/**
+      - workers/dlq/**
+      - workers/ws/**
+      - workers/sweeper/**
+      - packages/shared/**
+      - packages/worker-runtime/**
+      - package.json
+      - package-lock.json
+      - tsconfig*.json
+      - .github/workflows/workers.yml
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to deploy to prod (runs from main only)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, test and bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run packages workers
+      - run: npx tsc -b
+      - run: npm run bundle --workspaces --if-present
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lambda-bundles
+          path: workers/*/dist/lambda/
+          retention-days: 7
+
+  # Deploy jobs stay skipped until the switch is on (from M2, once the Lambdas exist).
+  deploy-dev:
+    name: Deploy ${{ matrix.worker }} to dev
+    needs: test
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: dev
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [fanout, delivery, dlq, ws, sweeper]
+    concurrency: deploy-dev-worker-${{ matrix.worker }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lambda-bundles
+          path: bundles
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Update the function code
+        run: |
+          cd "bundles/${{ matrix.worker }}/dist/lambda" 2>/dev/null || cd "bundles/${{ matrix.worker }}"
+          zip -q -r "$RUNNER_TEMP/${{ matrix.worker }}.zip" .
+          aws lambda update-function-code --function-name "docbeam-dev-${{ matrix.worker }}" \
+            --zip-file "fileb://$RUNNER_TEMP/${{ matrix.worker }}.zip" --query LastUpdateStatus --output text
+          aws lambda wait function-updated --function-name "docbeam-dev-${{ matrix.worker }}"
+
+  # Prod runs only by hand from main with the typed confirmation (D-G3).
+  deploy-prod:
+    name: Deploy ${{ matrix.worker }} to prod
+    needs: test
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.confirm == 'deploy-prod' && vars.LAMBDA_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: prod
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [fanout, delivery, dlq, ws, sweeper]
+    concurrency: deploy-prod-worker-${{ matrix.worker }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lambda-bundles
+          path: bundles
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Update the function code
+        run: |
+          cd "bundles/${{ matrix.worker }}/dist/lambda" 2>/dev/null || cd "bundles/${{ matrix.worker }}"
+          zip -q -r "$RUNNER_TEMP/${{ matrix.worker }}.zip" .
+          aws lambda update-function-code --function-name "docbeam-prod-${{ matrix.worker }}" \
+            --zip-file "fileb://$RUNNER_TEMP/${{ matrix.worker }}.zip" --query LastUpdateStatus --output text
+          aws lambda wait function-updated --function-name "docbeam-prod-${{ matrix.worker }}"
