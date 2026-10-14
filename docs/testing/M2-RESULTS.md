@@ -23,7 +23,28 @@ Evidence for `docs/testing/M2-TESTING.md`. Local part run on 2026-10-15 on the l
 | `terraform fmt -check -recursive infra` | exit 0 |
 | `terraform -chdir=infra/envs/dev validate`, same for `prod` | `The configuration is valid.` for both |
 
-Note on counts: STATUS had said 129 integration tests after task 7 and task 9. Today's run is 126, and the only change to the integration files since then is the new `web-upload.test.ts` (one test; the `dlq-sweeper.test.ts` test gained assertions, not a test). So the earlier figure was 125 by the same count, and the 129 in STATUS was wrong. I could not re-run the old commit to prove it, so treat 126 as the measured number.
+### 1.2c Why STATUS said 129 and the run says 126 (by test names, no old code run)
+
+Method: `git grep -n -E "^\s*(it|test)(\.each)?\(" <commit> -- tests/integration`, names sorted and diffed. A name written with `it.each` runs once per table row, so the run count is the name count plus the extra rows.
+
+| Commit | `it(` / `it.each(` names | Extra rows from `it.each` | Tests run |
+|---|---|---|---|
+| `cde4987` task 6 | 104 | 14 in 5 tables, plus 3 rows in `workers.test.ts` (3 rows, 1 more name counted once: +2) | 120 (matches the STATUS row for task 6) |
+| `0e13e67` task 7 | 111 | 14 | 125 |
+| `b163c24` task 9 | 111 | 14 | 125 |
+| `HEAD` | 112 | 14 | 126 |
+
+The 14 extra rows are the five tables that exist at every commit: `auth.test.ts` 4 rows (+3), `localstack.test.ts` 3 (+2), `services.test.ts` 3 (+2), `uploads.test.ts` 6 (+5) and 3 (+2). 112 + 14 = 126, which equals the run.
+
+Names removed and added:
+
+| Step | Removed | Added |
+|---|---|---|
+| task 6 → task 7 (`cde4987` → `0e13e67`) | `workers.test.ts`: `it('runs the sweeper on its one-minute timer')` and `it.each` of 3 rows (4 tests) | `dlq-sweeper.test.ts`: 9 names (task DLQ, crashed worker, never flips, job DLQ pending only, job DLQ closes job, Upload DLQ, sweeper re-send, a minute-old job, daily cleanup) |
+| task 7 → task 9 (`0e13e67` → `b163c24`) | none | none |
+| task 9 → `HEAD` (`b163c24` → `HEAD`) | none | `web-upload.test.ts`: `it('uploads a small file and a multipart file, verifies both, and sends them as one distribution')`. `dlq-sweeper.test.ts` gained assertions in an existing test, no new name |
+
+So the 129 in the STATUS row for task 7 was 120 (task 6) + 9 (new DLQ tests) with the 4 removed `workers.test.ts` tests not subtracted: 120 − 4 + 9 = 125. It was an arithmetic slip in STATUS, not a lost test. No integration test was removed since task 7, and the only name added since task 9 is the one above. The per-file diff is `git diff --stat b163c24 HEAD -- tests/integration`: `dlq-sweeper.test.ts` (+13 lines) and `web-upload.test.ts` (+122, new).
 
 ### 1.2a Named checks
 
