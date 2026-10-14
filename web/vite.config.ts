@@ -13,6 +13,8 @@ export default defineConfig({
     // The shared limits and batch rules, straight from source, so the page needs no build of the package.
     alias: { '@docbeam/shared/browser': fileURLToPath(new URL('../packages/shared/src/browser.ts', import.meta.url)) },
   },
+  // exceljs is about 900 kB, but it is loaded only when an XLSX is previewed (D-M2-10), so the warning does not apply.
+  build: { chunkSizeWarningLimit: 1000 },
   server: {
     port: 5173,
     strictPort: true,
