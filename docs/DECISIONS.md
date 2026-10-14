@@ -192,3 +192,90 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - Fan-out, DLQ Consumer, Sweeper and WS Handlers get trigger or reserved concurrency limits in Terraform that match these numbers (Steps 2.3, 2.5 and 3.2). Delivery 50 and Upload Events 10 stay as the design says.
   - **M5 runs with `enable_rds_proxy = true` in dev**, after the account moves to the Paid plan, so the release checks test the prod setup.
 - **Why:** The design assumed RDS Proxy is available on the Free plan, and it is not. Without a proxy, 60 Lambda copies could open many connections to a 1 GB instance, so the budget is written down and enforced.
+
+## D-M1-1. Local secrets, signing key and client secret names
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 0.1 and Step 1.1 (no detail on local secrets); D-G10.
+- **What:** `scripts/local-env.sh` creates `.env` from `.env.example` and adds random values that are missing: `JWT_PRIVATE_KEY` (RSA 2048, PEM on one line with `\n`), `CLIENT_SECRET_DELIVERY_WORKER`, `CLIENT_SECRET_DOCBEAM_API`, `CLIENT_SECRET_WS_HANDLERS`, `CLIENT_SECRET_SEED_SCRIPT` and `SEED_USER_PASSWORD`. `.env` is git-ignored; `.env.example` holds names only. CI runs the same script. On AWS the migrate task gets the same four `CLIENT_SECRET_*` names from Secrets Manager (key `client_secret`), and the auth service gets `JWT_PRIVATE_KEY` from the signing-key secret. A one-off task (`node dist/bootstrap-signing-key.js`) writes that secret once and never replaces a key already there. `kid` is the RFC 7638 thumbprint of the public key.
+- **Why:** Nothing secret may be in git, and the same names must work locally and on AWS.
+
+## D-M1-2. Internal ALB: one listener per service, plain HTTP (accepted risk)
+
+- **Date:** 2026-10-14
+- **Changes:** ADR-001 (internal ALB, no listener detail).
+- **What:** The internal ALB has one listener and one target group per service, on the service's own port (auth 3001, platform 3002, docbeam-api 3003). Each API Gateway integration points at its service's listener, so the gateway's route list is the only path list. Services call each other at `http://<alb>:<port>`, so the ALB accepts traffic from the VPC Link and from the services' own security groups, and nothing else.
+- **Accepted risk:** Traffic between the VPC Link, the ALB and the services is plain HTTP inside the private network. Security groups limit who can reach it. Internal TLS needs a private certificate and is left for later.
+- **Why:** There is no domain, so no public certificate, and path-based ALB rules would copy the gateway's route list.
+
+## D-M1-3. Seed file format
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.2 (no format given).
+- **What:** JSON files in `services/platform/seed/`. `demo.json` has Cardio, Oncology and Neuro with Priya Shah, Raj Mehta and Sam Ito, as in the mockup. `dev-load.json` has 50 teams, each with 2 binders and 21 nested folders, and one user `load.user@example.com` in all of them. Both are written by `seed/generate.mjs` with UUIDv5 ids, so a re-run changes nothing. Local and dev load both; prod loads neither until the client's hierarchy exists (G18, `SEED_FILES` empty).
+- **Why:** The design gave no format, and fixed ids make the script safe to re-run.
+
+## D-M1-4. Seed users in dev
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.2 ("creating seed users first in dev").
+- **What:** With `SEED_CREATE_USERS=true` (local and dev) the seed script registers each user through `POST /auth/register` with the one seed password and treats 409 as "already there". Every email is then resolved with `GET /internal/users` and the `seed-script` token. A 404 means no account and the email is skipped with a warning; any other answer stops the run, so a blip cannot prune memberships.
+- **Why:** The Auth Service is the only owner of user ids (ADR-009).
+
+## D-M1-5. First-bytes check
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.3 ("checks the file's first bytes against the declared type").
+- **What:** PDF `%PDF-`, PNG signature, JPEG `FF D8 FF`. DOCX and XLSX are both ZIP files, so both are checked against `PK\x03\x04`; the first bytes cannot tell them apart.
+- **Why:** A rule per type was needed.
+
+## D-M1-6. POST /documents field order
+
+- **Date:** 2026-10-14
+- **Changes:** TDD `POST /documents` contract (multipart, no field order).
+- **What:** The text fields must come before the file part. Membership, destination and the repeat check run before one byte of the file is read; otherwise 400 VALIDATION_ERROR.
+- **Why:** A repeat must return 200 without reading a possible 1 GB file.
+
+## D-M1-7. Sign-in pause details
+
+- **Date:** 2026-10-14
+- **Changes:** ADR-015 (pause, no mechanics).
+- **What:** The fifth wrong password in a row sets `locked_until` to 15 minutes ahead and resets `failed_logins` to 0, inside a transaction that locks the user row. A right password resets the count. A paused account gets the same 401 even with the right password, after the same password comparison. An unknown email compares against a dummy hash, so timing does not show whether an account exists. `services/auth/src/unlock-user.ts` ends a pause early (support script).
+- **Why:** The same message and timing for every failure.
+
+## D-M1-8. A new tab tries one quiet refresh
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.6 (silent on a tab with no token).
+- **What:** The access token is in sessionStorage, which each tab has separately. A tab with no usable token calls `/auth/refresh` once, under the Web Lock, before it shows sign-in. Other tabs get the new token over a BroadcastChannel.
+- **Why:** So opening a second tab does not ask for the password.
+
+## D-M1-9. Destination tree
+
+- **Date:** 2026-10-14
+- **Changes:** Mockup Destinations panel.
+- **What:** The tree shows teams, binders and folders; documents are not destinations and are left out. Both binders (top level) and folders can be ticked. The filter searches the levels already opened. With 5 teams or fewer the teams open at once; with more they open on click. Team colours come from a fixed palette by position.
+- **Why:** The browse API is one level at a time, and 50 teams would send 50 requests on load.
+
+## D-M1-10. Database connection on AWS
+
+- **Date:** 2026-10-14
+- **Changes:** D-M0-1 (role secrets hold user and password but no host).
+- **What:** Services accept `DATABASE_URL` (local) or `DB_HOST`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` (ECS injects user and password from the role's secret and the host from Terraform). Migrate tasks use `MIGRATION_DB_USER` and `MIGRATION_DB_PASSWORD` from the RDS master secret. Connections built from parts use TLS without chain checks, because Node does not know the RDS certificate authority.
+- **Why:** The secret has no host, and no value should be copied into Terraform.
+
+## D-M1-11. Web tests
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Testing strategy (no web layer named).
+- **What:** vitest with jsdom and React Testing Library for the token and session logic (refresh, one retry on 401, the ended state), the 20-destination limit and the lazy tree. The browser checks in `docs/testing/M1-TESTING.md` are by hand.
+- **Why:** These rules are where a mistake would hurt, and they run in every CI pass.
+
+## D-M1-12. CORS origins and the page rewrite in CloudFront
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.4 ("CORS for the web app's origin only"); the web distribution's error pages from M0.
+- **What:**
+  - CloudFront and the API share one site, so the browser never makes a cross-origin call. The gateway's CORS (credentials allowed) is set from the variable `cors_allowed_origins`: `http://localhost:5173` in dev, empty in prod. CloudFront's own address cannot be named there, because the distribution's origin is the API, and an API that names the distribution would make a cycle in Terraform.
+  - The M0 error pages (403 and 404 become `index.html` with 200) apply to every behaviour, so an API 404 such as "another team's binder" would arrive as a 200 page. They are removed. A CloudFront Function on the web behaviour serves `index.html` for any path without a dot.
+- **Why:** Without both changes the cookie flow works but the 404 rule is hidden from the browser.
