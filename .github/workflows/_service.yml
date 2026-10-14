@@ -1,0 +1,92 @@
+# Shared by auth.yml, platform.yml and docbeam-api.yml. Each caller sets the paths it reacts to.
+name: service (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: auth, platform or docbeam-api
+        required: true
+        type: string
+      confirm:
+        description: Typed confirmation for a prod deploy (empty otherwise)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run packages/shared services/${{ inputs.service }}
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/service.Dockerfile
+          build-args: SERVICE=${{ inputs.service }}
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=${{ inputs.service }}
+          cache-to: type=gha,scope=${{ inputs.service }},mode=max
+
+  # Deploy jobs stay skipped until the switch is on (from M1, once the ECS services exist).
+  deploy-dev:
+    name: Deploy to dev
+    needs: [test, docker]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ECS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: dev
+    concurrency: deploy-dev-${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Push the image, migrate and update the service
+        run: |
+          image="$(scripts/push-image.sh dev ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
+          scripts/deploy-service.sh dev ${{ inputs.service }} "$image"
+
+  # Prod runs only by hand from main with the typed confirmation (D-G3). Never on push or merge.
+  deploy-prod:
+    name: Deploy to prod
+    needs: [test, docker]
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+      && inputs.confirm == 'deploy-prod' && vars.ECS_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: prod
+    concurrency: deploy-prod-${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Push the image, migrate and update the service
+        run: |
+          image="$(scripts/push-image.sh prod ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
+          scripts/deploy-service.sh prod ${{ inputs.service }} "$image"

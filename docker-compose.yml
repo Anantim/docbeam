@@ -1,0 +1,158 @@
+# The whole system on a laptop (Step 0.1). Start: cp .env.example .env && docker compose up -d --wait
+# Ports: auth 3001, platform 3002, docbeam-api 3003, ws-local 3004, Postgres 5432, LocalStack 4566, ClamAV 3310.
+name: docbeam
+
+x-service: &service
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+x-aws-env: &aws-env
+  AWS_REGION: ${AWS_REGION}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_ENDPOINT_URL: http://localstack:4566
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_APP_PASSWORD: ${AUTH_APP_PASSWORD}
+      PLATFORM_APP_PASSWORD: ${PLATFORM_APP_PASSWORD}
+      DOCBEAM_APP_PASSWORD: ${DOCBEAM_APP_PASSWORD}
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+      - ./docker/db-bootstrap:/bootstrap:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docbeam_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  localstack:
+    # 4.14 is the last LocalStack image that runs without an auth token (G20, D-M0-5).
+    image: localstack/localstack:4.14
+    environment:
+      SERVICES: s3,sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION}
+    ports: ["4566:4566"]
+    volumes:
+      - ./docker/localstack/init/ready.d:/etc/localstack/init/ready.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/docbeam-ready && curl -sf localhost:4566/_localstack/health >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  clamav:
+    image: clamav/clamav:1.4
+    ports: ["3310:3310"]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 180s
+
+  auth:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args: { SERVICE: auth }
+    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://auth_app:${AUTH_APP_PASSWORD}@postgres:5432/auth_db
+      MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/auth_db
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWKS_URL: http://auth:3001/.well-known/jwks.json
+    ports: ["3001:3001"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  platform:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args: { SERVICE: platform }
+    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgres://platform_app:${PLATFORM_APP_PASSWORD}@postgres:5432/platform_db
+      MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/platform_db
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWKS_URL: http://auth:3001/.well-known/jwks.json
+    ports: ["3002:3002"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  docbeam-api:
+    <<: *service
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+      args: { SERVICE: docbeam-api }
+    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
+      MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/docbeam_db
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWKS_URL: http://auth:3001/.well-known/jwks.json
+    ports: ["3003:3003"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  workers:
+    build:
+      context: .
+      dockerfile: docker/workers.Dockerfile
+    image: docbeam-workers
+    restart: unless-stopped
+    environment:
+      <<: *aws-env
+      QUEUE_PREFIX: docbeam-local
+    depends_on:
+      localstack: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      clamav: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3005/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ws-local:
+    image: docbeam-workers
+    pull_policy: never
+    restart: unless-stopped
+    command: ["node", "dist/ws-local-main.js"]
+    environment:
+      WS_LOCAL_PORT: 3004
+    ports: ["3004:3004"]
+    depends_on:
+      workers: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

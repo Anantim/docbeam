@@ -1,0 +1,35 @@
+name: docbeam-api
+
+on:
+  pull_request:
+    paths: &paths
+      - services/docbeam-api/**
+      - packages/shared/**
+      - docker/service.Dockerfile
+      - package.json
+      - package-lock.json
+      - tsconfig*.json
+      - .github/workflows/docbeam-api.yml
+      - .github/workflows/_service.yml
+      - scripts/push-image.sh
+      - scripts/deploy-service.sh
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to deploy to prod (runs from main only)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  service:
+    uses: ./.github/workflows/_service.yml
+    with:
+      service: docbeam-api
+      confirm: ${{ inputs.confirm || '' }}
+    secrets: inherit

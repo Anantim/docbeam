@@ -1,0 +1,132 @@
+name: infra
+
+on:
+  pull_request:
+    paths:
+      - infra/**
+      - .github/workflows/infra.yml
+  push:
+    branches: [main]
+    paths:
+      - infra/**
+      - .github/workflows/infra.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-prod to plan and apply prod (runs from main only)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+
+jobs:
+  check:
+    name: Format and validate (${{ matrix.env }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        env: [dev, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive -diff infra
+      - run: terraform -chdir=infra/envs/${{ matrix.env }} init -backend=false
+      - run: terraform -chdir=infra/envs/${{ matrix.env }} validate
+
+  # The plan is posted on the pull request. It only reads AWS.
+  plan-dev:
+    name: Plan dev
+    needs: check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform -chdir=infra/envs/dev init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: Plan
+        run: terraform -chdir=infra/envs/dev plan -no-color -lock=false -detailed-exitcode > "$RUNNER_TEMP/plan.txt" || [ $? -eq 2 ]
+      - name: Post the plan on the pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- docbeam-terraform-plan-dev -->';
+            let plan = fs.readFileSync(`${process.env.RUNNER_TEMP}/plan.txt`, 'utf8');
+            const limit = 60000;
+            if (plan.length > limit) plan = plan.slice(0, limit) + '\n... (cut: see the job log)';
+            const body = `${marker}\n### Terraform plan: dev\n\n<details><summary>Show plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  # Dev is applied on merge only while the switch is on (D-G4), so a merge never rebuilds a torn-down dev by accident.
+  apply-dev:
+    name: Apply dev
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.INFRA_APPLY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: dev
+    concurrency:
+      group: infra-dev
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform -chdir=infra/envs/dev init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform -chdir=infra/envs/dev apply -auto-approve
+
+  # Prod: by hand, from main, with the typed confirmation and the prod environment (D-G3). Never on push or merge.
+  apply-prod:
+    name: Plan and apply prod
+    needs: check
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'deploy-prod'
+    runs-on: ubuntu-24.04
+    environment: prod
+    concurrency:
+      group: infra-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform -chdir=infra/envs/prod init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform -chdir=infra/envs/prod plan -no-color -out="$RUNNER_TEMP/prod.tfplan"
+      - run: terraform -chdir=infra/envs/prod apply -auto-approve "$RUNNER_TEMP/prod.tfplan"
