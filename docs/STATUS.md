@@ -2,7 +2,7 @@
 
 Updated 2026-10-14, at the end of M1 (branch `m1`, pull request open).
 
-**M1 is built and verified locally and on dev,** including the browser checks done by the person. A user can register, sign in and browse only their own teams, binders and folders. A request with no token gets 401 at the gateway; another team's binder gets 404. Dev AWS is **up** until the person says to tear it down. Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-13). Evidence: `docs/testing/M1-RESULTS.md`. Teaching text: `docs/walkthrough/M1.md`.
+**M1 is built and verified locally and on dev,** including the browser checks done by the person. A user can register, sign in and browse only their own teams, binders and folders. A request with no token gets 401 at the gateway; another team's binder gets 404. Dev AWS is **down** (destroyed on 2026-10-14 after the merge: 175 resources, nothing billable left). Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-15). Evidence: `docs/testing/M1-RESULTS.md`. Teaching text: `docs/walkthrough/M1.md`.
 
 ## Milestones
 
@@ -33,8 +33,8 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is **up** and applied with image tag `2f825256fee7`. App: `https://d2ii4puto0s1y9.cloudfront.net` (changes if dev is destroyed and applied again).
-- Not yet: `ECS_DEPLOY_ENABLED` (to set after the browser check), `INFRA_APPLY_ENABLED` (keep `false` while dev is down), `LAMBDA_DEPLOY_ENABLED` (M2), `ALARM_EMAIL` (before M2).
+- Dev is **down**. Its last apply used image tag `2f825256fee7` and the app was `https://d2ii4puto0s1y9.cloudfront.net`; a new apply gives a new CloudFront address and needs the two-step bring-up in the README.
+- Set: `ECS_DEPLOY_ENABLED=true`, `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down). Not yet: `LAMBDA_DEPLOY_ENABLED` (M2), `ALARM_EMAIL` (before M2).
 
 ## Known issues
 
@@ -43,7 +43,8 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 - The first-time `terraform apply` for the web distribution can take 3 minutes and the VPC Link 2 minutes.
 - Internal traffic is plain HTTP inside the VPC (D-M1-2, accepted).
 - The M0 items still stand: no RDS Proxy in dev (D-M0-6), the deploy user has AdministratorAccess, GitHub Free has no required reviewer for prod (D-G3), `npm audit` shows four moderate findings in drizzle-kit's dev chain.
-- The workflow deploy jobs (`_service.yml`, `web.yml`) have not run yet: they start after the merge, once `ECS_DEPLOY_ENABLED` is `true`. They now skip with a notice when the service or the environment does not exist (D-M1-14).
+- The deploy jobs ran on the M1 merge against dev and were green. They skip with a notice when the service or the environment does not exist (D-M1-14), and since D-M1-15 they skip when the service already runs the image. A manual run of a service workflow from `main` with `force` redeploys dev.
+- The M1 merge ran every workflow twice because the PR was merged twice (GitHub logged two `pr_merge` events). Both deploys succeeded. D-M1-15 makes a repeat harmless; it is on branch `fix-duplicate-runs`.
 - The first image tag deployed on dev was `2d59b80efe69` for platform and docbeam-api; later builds share `2f825256fee7`. Same code.
 - Credits are limited. Dev costs about 4.5 USD a day while up.
 
@@ -67,5 +68,8 @@ M2 needs from the person:
 - `ECS_DEPLOY_ENABLED=true` (the browser check is done), and `LAMBDA_DEPLOY_ENABLED` when told;
 - the repository variable `ALARM_EMAIL` set before M2's first apply, and the SNS email confirmed;
 - a yes before each dev apply, image push and task run.
+
+M2 also needs (decided 2026-10-14, D-M1-14 follow-up):
+- **Draining.** Add a per-service `deregistration_delay` variable to the `alb` module (default 30 s) and a `stop_timeout` to `ecs-service`. The platform gets **120 s for the target group and 120 s `stopTimeout` in dev and in prod alike**, so dev tests the same draining as prod. The Delivery Lambda streams to `POST /documents` with a 100 s client limit (Step 2.4), and a 30 s drain would cut a long stream during a rolling deploy. Auth and docbeam-api stay at 30 s. Do it in the M2 step that makes Delivery call the platform (Step 2.4), with a test that a deploy during a long upload does not fail it.
 
 M2 builds on: `ecs-service` (add task role rights for the DocBeam API), the `alb` and `api-gateway` modules (add the DocBeam API routes to `public_routes`), the DocBeam DB schema from 1.5, `POST /destinations/check` and the service token flow, the Upload Events handler skeleton (the scanner is task 2.1b, a carried-over item from M0).
