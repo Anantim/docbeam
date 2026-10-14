@@ -5,6 +5,8 @@
 ARG NODE_IMAGE=node:22-bookworm-slim
 
 FROM --platform=linux/amd64 ${NODE_IMAGE} AS manifests
+# Several images build at once in CI, and the npm registry sometimes resets a connection.
+ENV NPM_CONFIG_FETCH_RETRIES=5 NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=2000 NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=30000
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/

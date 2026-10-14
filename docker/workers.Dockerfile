@@ -1,6 +1,8 @@
 # Local only: the `workers` and `ws-local` containers in Docker Compose. They run the Lambda handlers
 # through packages/worker-runtime. On AWS the handlers run in Lambda instead. Build from the repo root.
 FROM node:22-bookworm-slim AS build
+# The npm registry sometimes resets a connection when several images build at once in CI.
+ENV NPM_CONFIG_FETCH_RETRIES=5 NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=2000 NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=30000
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json tsconfig.json ./
 COPY packages packages
