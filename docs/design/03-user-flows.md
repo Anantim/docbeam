@@ -15,7 +15,7 @@ These are the four things a user does in DocBeam, written out step by step. Each
 | **Fingerprint (SHA-256)** | A code worked out from a file's contents. If even one byte changes, the fingerprint changes, so it proves the file arrived intact |
 | **Task** | One file going to one destination. 10 files sent to 3 folders is 30 tasks |
 
-How every request from the browser travels: Web Client, then API Gateway (checks the token), then the VPC Link and internal load balancer into the private network, then the service. The steps below say "through API Gateway" for short. Background workers (the Lambdas) reach the database through RDS Proxy, which shares a small pool of connections between them.
+How every request from the browser travels: Web Client, then CloudFront (which forwards every /api/* call), then API Gateway (checks the token), then the VPC Link and internal load balancer into the private network, then the service. The steps below say "through API Gateway" for short. Background workers (the Lambdas) reach the database through RDS Proxy in prod (in dev, directly, one connection each), which shares a small pool of connections between them.
 
 ### Who can see what
 

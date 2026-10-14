@@ -23,7 +23,7 @@ Data [icon: database, color: purple, label: "Data (PostgreSQL is one Multi-AZ in
   Auth DB [icon: aws-rds]
   DocBeam DB [icon: aws-rds]
   Platform DB [icon: aws-rds]
-  RDS Proxy [icon: aws-rds]
+  RDS Proxy [icon: aws-rds, label: "RDS Proxy (prod; dev Lambdas connect directly, Free plan)"]
   Object Store [icon: aws-s3, label: "Object Store (33-day expiry, hands out clean files only)"]
   Platform File Store [icon: aws-s3, label: "Platform File Store (versioned)"]
 }
@@ -47,7 +47,8 @@ Async [icon: zap, color: red] {
 
 // Client and edge
 CloudFront > Web Client: serve SPA
-Web Client > API Gateway: API calls (15-min JWT, renewed 1 min before expiry with the refresh cookie)
+Web Client > CloudFront: API calls on /api/* (15-min JWT, renewed 1 min before expiry with the refresh cookie on /api/auth)
+CloudFront > API Gateway: forwards /api/*, prefix stripped (one site for the cookie)
 Web Client <> WebSocket API: live status
 Web Client --> Object Store: presigned POST/GET (file bytes)
 
@@ -108,7 +109,7 @@ WebSocket API > WS Handlers: invoke on connect / subscribe / disconnect
 WS Handlers > Auth Service: service token, JWKS
 WS Handlers > Document Platform: user's teams (visibility)
 
-// All Lambda database access goes through RDS Proxy
+// All Lambda database access goes through RDS Proxy in prod (in dev, straight to the instance, one connection each)
 Fan-out Lambda > RDS Proxy: read tasks, set fanned_out_at
 Delivery Lambda > RDS Proxy: lock job, update task, audit event, complete job, find subscribers
 DLQ Consumer > RDS Proxy: mark tasks or files failed, audit event, find live subscribers
