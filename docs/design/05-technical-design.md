@@ -99,7 +99,7 @@ docbeam/
   packages/shared/   # JWT validation middleware, error shapes, shared types
   packages/worker-runtime/  # runs the Lambda handlers against LocalStack queues locally
   infra/
-    modules/         # network, rds, ecs-service, alb, sqs, s3, cloudfront, api-gateway, lambda
+    modules/         # network, rds, ecr, ecs-cluster, secrets, ecs-service, alb, sqs, s3, cloudfront, api-gateway, lambda
     envs/dev/        # calls modules with dev variables
     envs/prod/       # calls modules with prod variables
   bootstrap/         # one-time Terraform state store (ADR-012)
@@ -117,7 +117,7 @@ Two rules:
 
 ### Database design
 
-One PostgreSQL instance holds three databases: Auth DB, DocBeam DB and Platform DB (`auth_db`, `docbeam_db`, `platform_db`). Each is reachable only with its owning service's credentials (ADR-009, ADR-010). There are no foreign keys across databases; a reference to another service's data is a plain UUID, checked through that service's API.
+One PostgreSQL instance holds three databases: Auth DB, DocBeam DB and Platform DB (`auth_db`, `docbeam_db`, `platform_db`). Each is reachable only with its owning service's credentials (ADR-009, ADR-010). Each database has two roles: a NOLOGIN owner role that owns the tables and runs migrations, and a login app role used at runtime; the DocBeam app role has only INSERT and SELECT on audit_events, so the audit trail stays append-only. There are no foreign keys across databases; a reference to another service's data is a plain UUID, checked through that service's API.
 
 #### Auth DB
 
@@ -367,7 +367,7 @@ All bodies are JSON unless noted. Every route needs a JWT except register, login
 | **`Method and path`** | **Request** | **Response** |
 |---|---|---|
 | `POST /auth/register` | `{email, password, name}` | 201 `{id, email, name}` |
-| `POST /auth/login` | `{email, password}` | 200 `{accessToken, expiresIn: 900}`, a 15-minute user JWT, and a refresh token in a `Secure`, `HttpOnly`, `SameSite=Strict` cookie limited to `/auth` (12 hours). 401 with the same message for any failure, including a paused account; 5 wrong passwords in a row pause sign-in for 15 minutes |
+| `POST /auth/login` | `{email, password}` | 200 `{accessToken, expiresIn: 900}`, a 15-minute user JWT, and a refresh token in a `Secure`, `HttpOnly`, `SameSite=Strict` cookie limited to `/api/auth`, the path the browser uses through CloudFront (12 hours). 401 with the same message for any failure, including a paused account; 5 wrong passwords in a row pause sign-in for 15 minutes |
 | `POST /auth/refresh` | `none (refresh cookie)` | 200 `{accessToken, expiresIn: 900}` and a new refresh cookie; the old token stops working. A token used twice cancels the whole sign-in. 401 when expired or cancelled. Public |
 | `POST /auth/logout` | `none (refresh cookie)` | 204. Cancels this sign-in. Public |
 | `POST /auth/token` | `{clientId, clientSecret, scope}` | 200 `{accessToken, expiresIn: 900}`, a service JWT. Internal only |
@@ -375,7 +375,7 @@ All bodies are JSON unless noted. Every route needs a JWT except register, login
 | `GET /.well-known/openid-configuration` | none | 200 `{issuer, jwks_uri}`. The gateway's JWT authorizer reads it to find the keys. Public |
 | `GET /internal/users?email=` | none | 200 `{id}` or 404. Scope users:read. Internal only, for the seed script |
 
-Every token carries `iss` (the public API address), `aud` ("docbeam"), `iat`, `exp` and `token_use`. User tokens add `sub` (user ID), `email` and `token_use: "user"`; service tokens add `sub` (client ID), `scope` and `token_use: "service"`. The gateway checks `iss` and `aud`, and each service also checks `token_use`, so a service token can never call a user route and a user token can never call an internal one. Tokens are RS256-signed with a `kid`, so keys can rotate. The access token lasts 15 minutes; a refresh token keeps the sign-in going for 12 hours (ADR-015). The app swaps it a minute before the access token expires, and asks for the password in a small dialog only when the 12 hours are up, keeping everything on the page.
+Every token carries `iss` (the CloudFront address followed by `/api`), `aud` ("docbeam"), `iat`, `exp` and `token_use`. User tokens add `sub` (user ID), `email`, `name` and `token_use: "user"`; service tokens add `sub` (client ID), `scope` and `token_use: "service"`. The gateway checks `iss` and `aud`, and each service also checks `token_use`, so a service token can never call a user route and a user token can never call an internal one. Tokens are RS256-signed with a `kid`, so keys can rotate. The access token lasts 15 minutes; a refresh token keeps the sign-in going for 12 hours (ADR-015). The app swaps it a minute before the access token expires, and asks for the password in a small dialog only when the 12 hours are up, keeping everything on the page.
 
 #### Document Platform
 
@@ -392,7 +392,7 @@ Service-token routes, internal only:
 
 | **`Method and path`** | **Request** | **Response** |
 |---|---|---|
-| `POST /destinations/check` | {userId, destinations: [{binderId, folderId?}]} | 200 {destinations: [{binderId, folderId, teamId}]} when every binder exists, every folder is inside its binder and the user is in each binder's team. Otherwise 422 {notFound: [...]}, the same for a missing binder and one in another team. Scope memberships:read |
+| `POST /destinations/check` | {userId, destinations: [{binderId, folderId?}]} | 200 {destinations: [{binderId, folderId, teamId, teamName, path}]} when every binder exists, every folder is inside its binder and the user is in each binder's team. Otherwise 422 {notFound: [...]}, the same for a missing binder and one in another team. Scope memberships:read |
 | `GET /users/:userId/teams` | none | 200 {teamIds: [...]}: the teams the user belongs to. Used for every visibility check and the team job list. Scope memberships:read |
 | `POST /documents` | Multipart: `{taskId, binderId, folderId?, name, contentType, checksumSha256, onBehalfOf}` plus the file | 201 `{documentId}` new; 200 already stored for this task; 403 NOT_A_MEMBER, the user is no longer in the binder's team; 404 DESTINATION_NOT_FOUND, the binder or folder no longer exists; 422 CHECKSUM_MISMATCH or UNSUPPORTED_TYPE. The team always comes from the binder, never from the caller. Scope documents:ingest |
 
@@ -440,14 +440,14 @@ Each step names what gets built, the ADRs it follows, and its estimate.
 
 - Repo layout as above, a root README (what it is, how to run it locally, how to deploy, where things live), shared TypeScript config and ESLint.
 - `packages/shared`: one JWT validation middleware for every service, plus the common error shape.
-- `docker-compose.yml`: the three services, PostgreSQL with an init script that creates three databases and three roles, LocalStack for S3 and SQS, a `clamav` container (the official ClamAV image), a `workers` container that polls the LocalStack queues and runs the Lambda handlers (Fan-out, Delivery, DLQ Consumer, Upload Events, and the Sweeper on a timer), and a `ws-local` container that stands in for the WebSocket API. There is no API Gateway locally, so each service checks the JWT itself, as it already does in AWS. The Upload Events handler scans through the `clamav` container, so the EICAR test file is refused locally too.
+- `docker-compose.yml`: the three services, PostgreSQL with an init script that creates three databases and six roles (an owner and an app role each), LocalStack 4.14 for S3 and SQS (the last version that needs no account token), a `clamav` container (the official ClamAV image), a `workers` container that polls the LocalStack queues and runs the Lambda handlers (Fan-out, Delivery, DLQ Consumer, Upload Events, and the Sweeper on a timer), and a `ws-local` container that stands in for the WebSocket API. There is no API Gateway locally, so each service checks the JWT itself, as it already does in AWS. The Upload Events handler scans through the `clamav` container, so the EICAR test file is refused locally too.
 
 **Step 0.2: Terraform foundation (2.5 d)**
 
 - `bootstrap/` script creates the state store: one versioned, encrypted S3 bucket. Terraform locks the state with a lock file in that bucket (`use_lockfile = true` in each backend), so there is no DynamoDB table. The only manual step (ADR-012).
-- Modules: network (VPC across 2 availability zones, private subnets, NAT gateways (one per zone in prod, one shared in dev), and an S3 gateway endpoint so file traffic skips the NAT), rds (one PostgreSQL instance, Multi-AZ in prod and single-AZ in dev, with KMS-encrypted storage, RDS Proxy, one Secrets Manager secret per database role), ecr, s3.
+- Modules: network (VPC across 2 availability zones, private subnets, NAT gateways (one per zone in prod, one shared in dev), and an S3 gateway endpoint so file traffic skips the NAT), rds (one PostgreSQL instance, Multi-AZ in prod and single-AZ in dev, with KMS-encrypted storage, RDS Proxy in prod only (the Free plan blocks it), one Secrets Manager secret per login role), ecr, s3, ecs-cluster (the cluster and the database bootstrap task) and secrets (service client secrets, and the signing-key secret, created empty so Terraform never holds the key).
 - Region: Asia Pacific (Sydney), `ap-southeast-2`, for dev and prod. The AWS account uses the project-based sign-up, where each project gets one home region from the contact address (Sydney for India). On the Free plan only that region, `us-east-1` and `us-west-2` are allowed, so Mumbai is not available. Every service DocBeam uses is offered in Sydney, including RDS Proxy for PostgreSQL, EventBridge Scheduler, API Gateway HTTP and WebSocket APIs and Lambda container images. Moving to Mumbai later needs the Paid plan with advanced features turned on (which cannot be undone) and a fresh deployment, since data does not move between regions. CloudFront is global; if a custom domain is added later, its certificate must be created in `us-east-1`, as CloudFront requires.
-- **AWS account plan.** Dev runs on the AWS Free plan (credits, at most 6 months). Everything DocBeam uses is allowed there except GuardDuty (which needs advanced features even on the Paid plan) and IAM identity providers, so malware scanning uses ClamAV (ADR-016) and GitHub Actions signs in with a deploy user's access keys instead of OIDC (Step 0.3). Dev is sized to save credits: one NAT gateway, a single-AZ `db.t4g.micro` instance, one task per ECS service, and it is taken down when not in use. The account already allows 400 Lambda runs at once in Sydney, so dev uses the same trigger caps as prod (Task Queue 50, Upload Events 10). The account moves to the Paid plan (unused credits carry over) before prod and before the Free plan ends; otherwise AWS suspends it.
+- **AWS account plan.** Dev runs on the AWS Free plan (credits, at most 6 months). Everything DocBeam uses is allowed there except GuardDuty (which needs advanced features even on the Paid plan), IAM identity providers and RDS Proxy, so malware scanning uses ClamAV (ADR-016), GitHub Actions signs in with a deploy user's access keys instead of OIDC (Step 0.3), and dev Lambdas connect to the database directly (ADR-011). Dev is sized to save credits: one NAT gateway, a single-AZ `db.t4g.micro` instance, one task per ECS service, and it is taken down when not in use. Its settings (secrets deleted at once, buckets and image repositories emptied on destroy, no final database snapshot) let it be re-created the next day without name clashes. The account already allows 400 Lambda runs at once in Sydney, so dev uses the same trigger caps as prod (Task Queue 50, Upload Events 10). The account moves to the Paid plan (unused credits carry over) before prod and before the Free plan ends; otherwise AWS suspends it.
 - Object Store: SSE-KMS with the AWS-managed key and S3 Bucket Keys (ADR-003), Block Public Access, TLS-only policy, a bucket policy that lets only the DocBeam API, Delivery, Sweeper and Upload Events roles in, 33-day expiry counted from upload (see Retention), 7-day cleanup of abandoned multipart uploads, a CORS rule for the web app that allows uploads and preview reads (GET) and exposes the ETag header, and event notifications for new objects to the Upload Events Queue. The bucket policy refuses to hand out any object not tagged `scan-status=clean` to every role except the Upload Events role, which must read a file before it is tagged.
 - Platform File Store: same encryption and access settings, no expiry, and versioning on, so an overwrite or delete keeps the earlier version for 90 days and can be undone. Only the Document Platform's task role can use it, and the bucket policy denies s3:DeleteObjectVersion to every role, so no bug or bad retry can remove a stored version directly.
 - Web app bucket plus CloudFront.
@@ -457,8 +457,8 @@ Each step names what gets built, the ADRs it follows, and its estimate.
 
 - One workflow per service, filtered by path: lint, test, Docker build, push to ECR tagged with the git SHA, update the ECS task definition.
 - Worker workflow: esbuild bundle, then update the Lambda code. The Upload Events Lambda is a container image with ClamAV instead; a scheduled run rebuilds it every day so its virus definitions stay current.
-- AWS access: a `docbeam-github-deploy` IAM user whose access keys are stored as GitHub environment secrets, rotated every 90 days. The AWS Free plan does not allow the OIDC identity provider; after the move to the Paid plan the workflows switch to OIDC and the keys are deleted.
-- Infra workflow: `terraform plan` posted on the pull request, `apply` on merge, manual approval for prod.
+- AWS access: a `docbeam-github-deploy` IAM user whose access keys are stored as GitHub repository secrets (set up by hand once, like the state bucket), rotated every 90 days. The AWS Free plan does not allow the OIDC identity provider; after the move to the Paid plan the workflows switch to OIDC and the keys are deleted.
+- Infra workflow: `terraform plan` posted on every pull request. The dev `apply` on merge runs only while the repository variable `INFRA_APPLY_ENABLED` is `true`, so a merge never rebuilds a torn-down dev by surprise. Prod plan, apply and deploys run only when started by hand from `main` with the typed confirmation `deploy-prod`; GitHub Free allows no required reviewers on a private repository.
 - Rollback: point the ECS service back at the previous task definition and wait for it to settle.
 
 #### M1: Browse destinations (11 d)
@@ -467,9 +467,9 @@ Demo: a user registers, logs in and browses the team, binder and folder tree, se
 
 **Step 1.1: Auth Service, complete and deployed (5 d)**
 
-- Register (bcrypt cost 12, the same error for an existing email), login (constant-time compare), RS256 signing with the key from Secrets Manager, JWKS with `kid`, and the OpenID configuration route the gateway reads.
+- Register (bcrypt cost 12, passwords of 12 to 72 bytes, 400 VALIDATION_ERROR for bad input, one generic 409 REGISTRATION_FAILED for an email already in use), login (constant-time compare), RS256 signing with the key from Secrets Manager, JWKS with `kid`, and the OpenID configuration route the gateway reads.
 - Refresh tokens (ADR-015): `POST /auth/refresh` and `POST /auth/logout`, the `refresh_tokens` table, a new token on every use, and cancelling the whole sign-in when a used token comes back. Pause: 5 wrong passwords in a row stop sign-in for 15 minutes with the same 401 message, and API Gateway throttles `/auth/login` and `/auth/refresh` tightly. Ending a pause early is a support script in v1.
-- Service token endpoint and internal user lookup, built now although first used later. Seed the four service clients by migration. Client secrets are long random values, so they are stored as SHA-256 hashes (bcrypt is for passwords and would add about 100 ms to every token call); the secrets themselves stay in Secrets Manager.
+- Service token endpoint and internal user lookup, built now although first used later. The migrate task runs the migrations, then upserts the four service clients with secrets injected from Secrets Manager (a migration file is in git and cannot hold them). Client secrets are long random values, so they are stored as SHA-256 hashes (bcrypt is for passwords and would add about 100 ms to every token call); the secrets themselves stay in Secrets Manager.
 - ECS Fargate, 2 tasks across availability zones, internal ALB target group, health check. Checked from inside the network first (ADR-001).
 
 **Step 1.2: Platform hierarchy, membership routes, seed (1 d)**
@@ -487,7 +487,7 @@ Demo: a user registers, logs in and browses the team, binder and folder tree, se
 
 - API Gateway HTTP API with the built-in JWT authorizer (issuer and audience checked, keys found through the OpenID configuration), and a VPC Link to the internal ALB (ADR-001).
 - Every public route is listed one by one, with no catch-all, so an internal route can never be reached by mistake: register, login, refresh, logout, the two public-key routes and the platform browse routes now, the DocBeam API routes as M2 to M4 add them. `/auth/token`, `/internal/*` and the platform's service routes stay internal.
-- CORS for the web app's origin only, with credentials allowed for the `/auth` cookie. The web app and the API share one site (for example `app.` and `api.` under one domain), so the cookie can be `SameSite=Strict`. Default throttling, tighter on `/auth/login` and `/auth/refresh`.
+- CORS for the web app's origin only, with credentials allowed. CloudFront serves the web app and forwards `/api/*` to the HTTP API, with a CloudFront Function stripping the `/api` prefix, so the browser talks to one site and the refresh cookie (`Path=/api/auth`) can be `SameSite=Strict` without a custom domain. The `/api/*` behaviour has caching off and forwards the Authorization header, cookies and query strings. Throttling: 50 requests a second (burst 100) by default, 5 a second (burst 10) on `/auth/login` and `/auth/refresh`.
 - Check: a request without a token gets 401 at the gateway and never reaches the ALB.
 
 **Step 1.5: DocBeam API skeleton (0.5 d)**
@@ -528,7 +528,7 @@ Demo: pick up to 100 files, upload them, map them, submit, and see the documents
 - Use the cached service token (fetched on a cold start and renewed before it expires), then stream the object to `POST /documents`. A 401 means the token was rejected: get a new one and try again at once, once.
 - 201 or 200: completed, with the document ID. 403 NOT_A_MEMBER: NOT_AUTHORIZED_AT_DELIVERY. 404 DESTINATION_NOT_FOUND: DESTINATION_NOT_FOUND. 422: CHECKSUM_MISMATCH or UNSUPPORTED_TYPE, as the platform says. These are permanent: the task fails and the message is acknowledged. Anything else (5xx, 429, any other 4xx, a timeout or a network error) is temporary: set the task back to pending with `last_error` (`WHERE id = $1 AND status = 'in_progress'`; if no row changes, another copy already finished it, so acknowledge and stop), call ChangeMessageVisibility with a gap chosen from the message's ApproximateReceiveCount (1: 30 seconds, 2: 2 minutes, 3: 5 minutes, 4: 10 minutes, 5: at once, so SQS moves it to the DLQ), then report it as a failed batch item. A platform blip is retried within seconds, and a task that keeps failing reaches RETRIES_EXHAUSTED after about 17 minutes, long enough to ride out a short platform outage.
 - Each final status is one transaction: lock the job row (`SELECT 1 FROM jobs WHERE id = $1 FOR UPDATE`), write the task with the conditional final write, write the audit event, and if no open tasks remain set `completed_at` (and `first_completed_at` if empty). The lock means that when the last two tasks finish together, the second always sees the first and closes the job. Then find subscribers in ws_connections (skipping rows past expires_at, and team viewers whose `team_ids` do not include the task's team), call PostToConnection for each, and delete rows that return 410 Gone. Push errors are logged and never fail a delivery.
-- All database access through RDS Proxy. The Task Queue trigger has maximum concurrency 50, set in Terraform (ADR-011): SQS hands out no more than 50 messages at a time, so extra messages wait in the queue instead of being throttled and using up their attempts. Dev uses the same cap; the account allows 400 Lambda runs at once in Sydney.
+- All database access through RDS Proxy in prod; in dev (no proxy on the Free plan) each Lambda copy opens at most one connection, and the worst case stays under 80% of the instance's 100 connections (ADR-011). The Task Queue trigger has maximum concurrency 50, set in Terraform (ADR-011): SQS hands out no more than 50 messages at a time, so extra messages wait in the queue instead of being throttled and using up their attempts. Dev uses the same cap; the account allows 400 Lambda runs at once in Sydney.
 
 **Step 2.5: DLQ Consumer and Sweeper (1 d)**
 
@@ -540,7 +540,7 @@ Demo: pick up to 100 files, upload them, map them, submit, and see the documents
 
 - File picker capped at 100 with the client-side allow-list. SHA-256 computed in a Web Worker so the page stays responsive.
 - Upload queue with 4 to 6 parallel uploads, links requested in waves of 20, progress per file, multipart resume within the session.
-- Mapping grid with select-all shortcuts and a live task count (for example 100 files x 20 destinations = 2,000 deliveries). The app checks the same batch limits as the API. Each file shows Checking until it is confirmed and scanned, then Verified or Refused with the reason. Send is enabled once every file is verified. A full-width Review section under the file list and the destinations shows every destination with the names of its files, each with Preview and a cross that removes it from that folder; a file left with no folder drops out of the distribution. Any file can be previewed before sending from the copy in the browser, with nothing sent to a server.
+- Mapping as in the mockup (pick files or Use all files, then tick folders in the destination tree) with a live task count (for example 100 files x 20 destinations = 2,000 deliveries). The app checks the same batch limits as the API. Each file shows Checking until it is confirmed and scanned, then Verified or Refused with the reason. Send is enabled once every file is verified. A full-width Review section under the file list and the destinations shows every destination with the names of its files, each with Preview and a cross that removes it from that folder; a file left with no folder drops out of the distribution. Any file can be previewed before sending from the copy in the browser, with nothing sent to a server.
 
 #### M3: Track a job (7 d)
 
@@ -550,11 +550,11 @@ Demo: submit a job, watch counts and rows change live, see failure reasons inlin
 
 - `GET /jobs`, `GET /jobs/:jobId` and `GET /jobs/:jobId/tasks` with the page-level count query and paging.
 - Team visibility: if the caller is not the sender, get their teams from the platform (GET /users/:userId/teams, cached for 60 seconds). They can open the job only if it has a delivery to one of those teams, and they get only those deliveries, with counts for them. The team view of the job list finds jobs through `idx_tasks_team`, with the same cache.
-- `POST /jobs/:jobId/cancel` as in the contracts. The claim already ignores tasks that are final, so a cancelled task's queued message is acknowledged and dropped. The job shows as cancelled once nothing is open, and Retry is refused for a cancelled job. After a cancel the API pushes one job_update to the job's open dashboards, so its task role may post to WebSocket connections.
+- `POST /jobs/:jobId/cancel`, `POST /jobs/:jobId/retry` and `GET /audit` as in the contracts. The claim already ignores tasks that are final, so a cancelled task's queued message is acknowledged and dropped. The job shows as cancelled once nothing is open, and Retry is refused for a cancelled job. After a cancel the API pushes one job_update to the job's open dashboards, so its task role may post to WebSocket connections.
 
 **Step 3.2: WebSocket API and WS Handlers (1.5 d)**
 
-- Second API Gateway (WebSocket type) and the WS Handlers Lambda for `$connect`, `subscribe` and `$disconnect`, as in the contracts. RDS Proxy for all database access.
+- Second API Gateway (WebSocket type) and the WS Handlers Lambda for `$connect`, `subscribe` and `$disconnect`, as in the contracts. Database access through RDS Proxy in prod, directly in dev (ADR-011).
 
 **Step 3.3: Catch-up (1.5 d)**
 
@@ -580,13 +580,13 @@ Demo: Preview shows the file in the page and Download saves it; anyone who is no
 Run against deployed dev; all must pass before any prod apply:
 
 - A 100 x 20 job (2,000 tasks) is accepted in under 500 ms at p99.
-- Removing the sender from one of the 20 destination teams right after submitting, before deliveries start: that destination's 100 deliveries fail with NOT_AUTHORIZED_AT_DELIVERY and the other 1,900 complete.
+- Removing the sender from one of the 20 destination teams after submitting, with the Task Queue trigger paused so no delivery starts first: that destination's 100 deliveries fail with NOT_AUTHORIZED_AT_DELIVERY and the other 1,900 complete.
 - Stopping the platform for 5 minutes mid-run: retries drain the backlog when it returns, and the DLQ stays empty.
 - Submitting a file that was never uploaded is refused with 422 FILE_NOT_READY, and a file removed after submitting fails only that file's tasks with FILE_NOT_UPLOADED.
 - Browsing loads in under 1 second for a user in 50 teams.
 - A 1 GB multipart upload completes, is checked by its combined checksum and is delivered with a matching SHA-256.
 - A viewer in only one destination team sees only that team's deliveries and audit events, and gets 404 for a file sent only to another team.
-- A database failover (reboot with failover) during a run: deliveries pause, then finish; nothing is lost.
+- A database failover (reboot with failover) during a run, with dev switched to Multi-AZ for the drill and RDS Proxy on (after the Paid plan move): deliveries pause, then finish; nothing is lost.
 - The EICAR test file is refused as infected before submit and can never be downloaded.
 - Cancelling mid-run: running deliveries finish, waiting ones show CANCELLED, and the job reads cancelled.
 - A refresh token used twice cancels the sign-in, and 5 wrong passwords pause sign-in for 15 minutes.
@@ -670,11 +670,12 @@ Permissions are checked at six points, and no check relies on an earlier one.
 
 - **Migrations.** Each service runs its own forward-only migrations as a deploy step. A change that is not backward-compatible ships in two deploys: expand, then contract. A new NOT NULL column on a table that already has rows is added in three steps (add as nullable, backfill, then set NOT NULL), or with a DEFAULT. CI runs every migration against a database that already holds seed data.
 - **Seed data.** The platform seed script runs after migrations in every environment.
-- **Rollout.** M0 to M5 in order. Each milestone is checked in dev, then promoted to prod through the approval gate. Gateway routes are added only after services pass checks from inside the network.
-- **Feature flags.** None in v1; there are no existing users to protect. The approval gate is the control point.
+- **Rollout.** M0 to M5 in order. Each milestone is checked in dev, then promoted to prod by a manual run from main with the typed confirmation deploy-prod. Gateway routes are added only after services pass checks from inside the network.
+- **Feature flags.** None in v1; there are no existing users to protect. That manual run is the control point.
 - **Rollback.** Previous image SHA for services and workers, previous plan for infrastructure.
 - **Retention.** The requirement is to keep staged files for 30 days after the job finishes. S3 expiry rules count from upload, not from job completion, so a 30-day rule could delete a file slightly early. The rule is set to 33 days instead. A file must be submitted within 1 day of upload (older files get FILE_TOO_OLD), a job finishes within hours, and Retry is refused once any of the job's files is more than 2 days old, so every file is kept at least 30 days after the last delivery that uses it. Only a job that finishes more than 3 days after upload would get less, which would take a database outage of days; the DLQ alarms would flag it long before. Deleting exactly 30 days after completion would need a daily sweep keyed on `jobs.completed_at`; left for v2 unless compliance requires it. The Platform File Store has no expiry, and job and task records are kept with no expiry in v1. Both are open questions for the client.
-- **Monitoring.** Default CloudWatch metrics and logs, as the Blueprint scopes it, plus four alarms that back the success metrics, sent by email through one SNS topic: Job DLQ depth above 0 for more than 5 minutes, Task DLQ and Upload DLQ depth above 0 for more than 5 minutes (any of them means something is failing), and the Delivery Lambda error rate. The delivery failure rate is one query on tasks: failures with a system code (RETRIES_EXHAUSTED, FANOUT_FAILED) divided by all tasks over 7 days. Failures caused by the user's data or access are counted separately, and cancelled deliveries are left out.
+- **Monitoring.** Default CloudWatch metrics and logs, as the Blueprint scopes it, plus four alarms that back the success metrics, sent by email through one SNS topic to the address in the repository variable `ALARM_EMAIL` (built in Steps 2.1, 2.3 and 2.4; the Delivery alarm fires when errors exceed 1% of runs for 15 minutes): Job DLQ depth above 0 for more than 5 minutes, Task DLQ and Upload DLQ depth above 0 for more than 5 minutes (any of them means something is failing), and the Delivery Lambda error rate. The delivery failure rate is one query on tasks: failures with a system code (RETRIES_EXHAUSTED, FANOUT_FAILED) divided by all tasks over 7 days. Failures caused by the user's data or access are counted separately, and cancelled deliveries are left out.
+- **Build decisions.** Changes agreed during the build are recorded in the repository's `docs/DECISIONS.md`, which wins where it differs from this document. The main ones are folded in above. Two schema additions live only there: user tokens carry a `name` claim and `jobs.submitted_by_name` stores it (D-G6), and `tasks.destination_path` stores each destination's readable path from the platform (D-G7).
 
 ### Open questions
 
@@ -683,7 +684,7 @@ Permissions are checked at six points, and no check relies on an earlier one.
 | Must staged files be deleted exactly 30 days after completion? | Currently at least 30 days after completion (33-day rule from upload). Exact deletion needs one more daily sweep | Client |
 | Do any teams need their documents kept in a specific region (data residency)? | Assumed no: v1 is one deployment, in Sydney (`ap-southeast-2`), so files and data are stored in Australia. If they must stay in India, the account needs advanced features for Mumbai, and storage and deployment change per region, not just routing | Client |
 | Should delivered documents in the Platform File Store ever be deleted? | No expiry. Assumed to be kept as trial records | Client |
-| Move the AWS account from the Free plan to the Paid plan | Needed before prod, and before the Free plan ends (6 months or when the credits run out) | Anantim |
+| Move the AWS account from the Free plan to the Paid plan | Needed before prod and before the Free plan ends, and before M5 so the release checks run with RDS Proxy (6 months or when the credits run out) | Anantim |
 | The brief says no alerting in v1. Keep the four email alarms? | Kept for now: the no-silent-loss promise depends on someone noticing a stuck DLQ. Removing them is one Terraform change | Client |
 | Must people be able to download a distribution's files after 33 days? | No: the link answers 410 File no longer available. The delivered copy stays in the team's binder in the Document Platform | Client |
 | Requirement 8 lets a user download any file in a job sent by a member of their teams. Read literally, a Cardio member could open files sent only to Oncology. Is the narrower rule right? | v1 uses the narrower rule, to match requirement 7 and the security rule: the sender sees everything; anyone else sees and downloads only what was delivered to their own teams | Client |

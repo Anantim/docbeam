@@ -62,7 +62,17 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
       - run: npm ci
       - run: terraform -chdir=infra/envs/dev init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: Check that the environment is up
+        id: up
+        run: |
+          if terraform -chdir=infra/envs/dev output -raw web_bucket >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::No web bucket in the dev state (dev is down). Nothing was deployed."
+          fi
       - run: scripts/deploy-web.sh dev
+        if: steps.up.outputs.found == 'true'
 
   # Prod runs only by hand from main with the typed confirmation (D-G3).
   deploy-prod:
@@ -90,6 +100,16 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
       - run: npm ci
       - run: terraform -chdir=infra/envs/prod init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: Check that the environment is up
+        id: up
+        run: |
+          if terraform -chdir=infra/envs/prod output -raw web_bucket >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::No web bucket in the prod state (prod is down). Nothing was deployed."
+          fi
       - run: scripts/deploy-web.sh prod
+        if: steps.up.outputs.found == 'true'
         env:
           CI: 'true'

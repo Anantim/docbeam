@@ -115,7 +115,7 @@ The full diagrams are in the [Eraser workspace](https://app.eraser.io/workspace/
 | **Zone** | **Component** | **What it does** |
 |---|---|---|
 | Client | **Web Client (React SPA)** | Browse destinations, pick, preview and map files, submit jobs, watch status, preview and download. Sends and receives file bytes directly to and from storage. |
-| Edge | **CloudFront** | Serves the web app. |
+| Edge | **CloudFront** | Serves the web app, and forwards /api/* to API Gateway, so the app and the API are one site. |
 | Edge | **API Gateway (HTTP)** | The single public entry for API calls. Checks the JWT on every request except login, register, token refresh, sign-out and the public-key routes, then routes into the private network. Every route is listed; there is no catch-all. |
 | Edge | **WebSocket API** | Keeps live connections open so status changes can be pushed to the browser. |
 | Private network | **Internal ALB** | Routes API traffic to the right service. Not reachable from the internet. |
@@ -123,7 +123,7 @@ The full diagrams are in the [Eraser workspace](https://app.eraser.io/workspace/
 | Private network | **DocBeam API** | Upload URLs, job submission, job and task status, download URLs. Owns DocBeam DB. Never touches file bytes. |
 | Private network | **Document Platform** | Browsing, membership checks and file ingest. Owns Platform DB and the Platform File Store. |
 | Data | **Auth DB, DocBeam DB, Platform DB** | Three separate PostgreSQL databases on one Multi-AZ instance. Each service can open only its own. |
-| Data | **RDS Proxy** | Pools database connections for the Lambda functions, so a burst of work cannot exhaust PostgreSQL's connection limit. |
+| Data | **RDS Proxy** | Pools database connections for the Lambda functions, so a burst of work cannot exhaust PostgreSQL's connection limit. Prod only: the AWS Free plan blocks it, so in dev each Lambda copy connects directly with one connection. |
 | Data | **Object Store** | Encrypted bucket for uploaded files until delivery. Files are kept at least 30 days after the job finishes, then deleted automatically. Every upload is scanned for malware before it can be sent. |
 | Data | **Platform File Store** | Encrypted, versioned bucket where delivered documents live. |
 | Async | **Job Queue and Job DLQ** | One message per submitted job. |

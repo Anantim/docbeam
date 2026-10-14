@@ -1,3 +1,4 @@
+import { withDatabaseUrl } from '@docbeam/shared';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -9,10 +10,15 @@ const schema = z.object({
   /** The public API address that issues tokens, for example https://<cloudfront>/api (D-G5). */
   JWT_ISSUER: z.string().url(),
   JWKS_URL: z.string().url(),
+  /** The Platform File Store (ADR-003). */
+  PLATFORM_FILES_BUCKET: z.string().min(1),
+  AWS_REGION: z.string().default('ap-southeast-2'),
+  /** Set only locally, to LocalStack. */
+  AWS_ENDPOINT_URL: z.string().url().optional(),
 });
 
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  return schema.parse(env);
+  return schema.parse(withDatabaseUrl(env));
 }

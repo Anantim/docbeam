@@ -27,7 +27,7 @@ ARG SERVICE
 RUN npm ci --workspace @docbeam/shared --workspace @docbeam/${SERVICE} --include-workspace-root
 COPY packages/shared packages/shared
 COPY services/${SERVICE} services/${SERVICE}
-RUN npx tsc -b services/${SERVICE}
+RUN npx tsc -b services/${SERVICE} && mkdir -p services/${SERVICE}/seed
 
 FROM manifests AS deps
 ARG SERVICE
@@ -43,6 +43,7 @@ COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/services/${SERVICE}/package.json services/${SERVICE}/
 COPY --from=build /repo/services/${SERVICE}/dist services/${SERVICE}/dist
 COPY --from=build /repo/services/${SERVICE}/migrations services/${SERVICE}/migrations
+COPY --from=build /repo/services/${SERVICE}/seed services/${SERVICE}/seed
 WORKDIR /repo/services/${SERVICE}
 USER node
 CMD ["node", "dist/server.js"]

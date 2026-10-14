@@ -1,0 +1,122 @@
+{
+  "users": [
+    {
+      "email": "priya.shah@example.com",
+      "name": "Priya Shah"
+    },
+    {
+      "email": "raj.mehta@example.com",
+      "name": "Raj Mehta"
+    },
+    {
+      "email": "sam.ito@example.com",
+      "name": "Sam Ito"
+    }
+  ],
+  "teams": [
+    {
+      "id": "efa09ad5-68e8-5761-bc3c-3acbcf971c75",
+      "name": "Cardio",
+      "members": [
+        "priya.shah@example.com",
+        "raj.mehta@example.com"
+      ],
+      "binders": [
+        {
+          "id": "adc5d38c-70fc-52dc-b705-8db4e0148dc0",
+          "name": "CARDIO-301 Regulatory",
+          "folders": [
+            {
+              "id": "f262f30b-399d-5b49-a207-af1a56a85623",
+              "name": "IRB approvals",
+              "folders": []
+            },
+            {
+              "id": "315216c3-9159-5660-89ec-8d0c54d623db",
+              "name": "Protocol amendments",
+              "folders": [
+                {
+                  "id": "07369b65-e853-51e7-82d9-f49188c859fe",
+                  "name": "2026",
+                  "folders": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1461d266-6cc8-579e-a6b1-10afe174a22b",
+          "name": "CARDIO-301 Site files",
+          "folders": [
+            {
+              "id": "5603fb3a-218a-518c-b9f8-3b814247a357",
+              "name": "Delegation logs",
+              "folders": []
+            },
+            {
+              "id": "6a818116-cbb2-5868-9923-365cc7a0683c",
+              "name": "Training records",
+              "folders": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "a6578412-8359-50f6-94ff-69da1b8974c0",
+      "name": "Oncology",
+      "members": [
+        "priya.shah@example.com"
+      ],
+      "binders": [
+        {
+          "id": "5058b459-cc4a-52ec-94e3-8ba85ed1991c",
+          "name": "ONC-118 Regulatory",
+          "folders": [
+            {
+              "id": "e4631be3-2aef-5382-a03a-41c7318b7784",
+              "name": "Ethics committee",
+              "folders": []
+            },
+            {
+              "id": "156c4e98-ad19-58d1-bd6e-96d541b7c9d9",
+              "name": "Investigator CVs",
+              "folders": []
+            }
+          ]
+        },
+        {
+          "id": "f1fc5fbc-8ab4-5882-83bc-7ce035f83cdf",
+          "name": "ONC-118 Pharmacy",
+          "folders": [
+            {
+              "id": "7e64d146-71cc-52af-94a4-6fbdab82d081",
+              "name": "Temperature logs",
+              "folders": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "02edc268-1770-5771-a210-b3700510038b",
+      "name": "Neuro",
+      "members": [
+        "sam.ito@example.com"
+      ],
+      "binders": [
+        {
+          "id": "a3a4ad1e-e539-549e-80f9-508b960d620d",
+          "name": "NEU-207 Regulatory",
+          "folders": [
+            {
+              "id": "916e193c-f6a0-5349-b3e2-826b727899ec",
+              "name": "Site approvals",
+              "folders": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

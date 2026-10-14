@@ -18,7 +18,7 @@ Read these in order. They are the spec; do not invent behaviour that is not in t
 
 Also available: `docs/design/diagrams/` (Eraser diagram code, detailed and simplified) and `docs/design/ui/Main.dc.html` (the UI mockup source: screens, states, copy and layout to match).
 
-When documents disagree, the technical design wins, then the ADRs, then the blueprint, then the flows, then the brief. If something is unclear, missing or contradictory, stop and ask. Do not guess.
+`docs/DECISIONS.md` records design changes agreed during the build; it wins over everything in `docs/design/`. Otherwise, when documents disagree, the technical design wins, then the ADRs, then the blueprint, then the flows, then the brief. If something is unclear, missing or contradictory, stop and ask. Do not guess.
 
 Write all code yourself from these documents. Do not copy code from any other repository, and do not look for one.
 
@@ -31,10 +31,11 @@ Write all code yourself from these documents. Do not copy code from any other re
   - No IAM OIDC identity provider: GitHub Actions signs in with the `docbeam-github-deploy` IAM user's access keys, stored as the repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
   - Only `ap-southeast-2`, `us-east-1` and `us-west-2` work. Use `ap-southeast-2`.
   - Lambda concurrency limit is 400, so dev uses the prod trigger caps (Delivery 50, Upload Events 10).
+  - No RDS Proxy on the Free plan: dev Lambdas connect directly to the database, at most 1 connection each; prod keeps the proxy (D-M0-6).
 - GitHub (already set up by the person):
   - Repository variables: `AWS_REGION` = `ap-southeast-2`, `TF_STATE_BUCKET` = `docbeam-tfstate-<account id>`.
-  - Environments: `dev`, and `prod` with a required reviewer and only `main` allowed.
-  - Deploy switches, set by the person when you say so: `ECS_DEPLOY_ENABLED` (from M1, once ECS services exist) and `LAMBDA_DEPLOY_ENABLED` (from M2). Workflows must skip their deploy jobs while these are not `true`.
+  - Environments: `dev`, and `prod` (only `main` allowed). GitHub Free gives no required reviewer on a private repo, so prod jobs run only on a manual run from `main` with the typed input `deploy-prod` (D-G3).
+  - Switches, set by the person when you say so: `ECS_DEPLOY_ENABLED` (from M1, once ECS services exist), `LAMBDA_DEPLOY_ENABLED` (from M2) and `INFRA_APPLY_ENABLED` (dev apply on merge; `false` while dev is down). Workflows must skip those jobs while a switch is not `true`.
 - Terraform state: S3 bucket `docbeam-tfstate-<account id>` in `ap-southeast-2`, created by `bootstrap/create-state-backend.sh` (versioned, encrypted, private, `use_lockfile = true`, no DynamoDB). Check whether it exists before creating it.
 
 ## Safety rules
@@ -58,14 +59,8 @@ Write all code yourself from these documents. Do not copy code from any other re
    5. Tear down.
 4. **Run the testing round yourself** before reporting: everything in sections 1 to 3 of the testing document (ask before the AWS commands). Fix what fails and run it again. Record the evidence (command, short output, test names) in `docs/testing/M{n}-RESULTS.md`.
 5. **Final check.** Walk the milestone's prompt and the milestone's steps in the technical design line by line. Give every requirement YES or NO with evidence: a file and line, a test name, or a command with its output. **One unaddressed requirement means the milestone FAILS.** Fix it, or report it clearly as a NO with the reason; never hide it.
-6. **Walkthrough.** Write `docs/walkthrough/M{n}.md`: an explanation of what the milestone built, written to teach the person, in plain simple English, so they can explain the system to someone else after reading it. Keep it under about 4 pages. No code dumps; quote at most a few lines when a line itself is the point. Use this structure:
-   1. The big picture: what the milestone adds, in 5 sentences or fewer, and how it fits the whole of DocBeam.
-   2. One request, start to finish: trace one real action through the system step by step. For each step give what happens, why it is built this way (naming the ADR or decision ID), in the code (exact files and functions, with paths), and on AWS (what to open in the console in Sydney and what should be there).
-   3. The parts that matter most: the 2 to 4 pieces where a mistake would cause real harm (security, lost data, cost). For each: what could go wrong, how the code prevents it, and which test proves it.
-   4. What can safely be ignored for now: the standard plumbing that needs no deep reading.
-   5. Things the person should be able to answer: 8 to 10 questions a reviewer might ask, each with a short answer and the file to look at.
-   6. Words used: a short glossary of every technical term in the document, one line each.
-7. **Hand over.** Update `docs/STATUS.md` (what is done, what was decided, known issues, how to run it, what the next milestone needs), commit (the walkthrough included), push the branch `m{n}` and open a pull request to `main` with `gh pr create`. Tell the person: what to check in the browser, which GitHub variable to switch on (if any), the teardown command, and the walkthrough file to read.
+6. **Walkthrough.** Write `docs/walkthrough/M{n}.md` to teach the person what the milestone built, in plain English: the big picture; one request traced start to finish (what happens, why, the files, what to see in the AWS Console); the 2 to 4 parts where a mistake would cause real harm and the tests that cover them; what can be ignored; 8 to 10 questions a reviewer might ask, with short answers; a short glossary. About 4 pages, no code dumps.
+7. **Hand over.** Update `docs/STATUS.md` (what is done, what was decided, known issues, how to run it, what the next milestone needs), commit, push the branch `m{n}` and open a pull request to `main` with `gh pr create`. Tell the person: what to check in the browser, which GitHub variable to switch on (if any), and the teardown command.
 
 ## Style
 

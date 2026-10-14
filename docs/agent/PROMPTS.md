@@ -4,7 +4,7 @@ One fresh agent session per milestone keeps each context clean. `AGENTS.md` load
 
 How to use them:
 
-- Start each session in plan mode (`cd ~/docbeam && claude --permission-mode plan`), so the agent can read and plan but not change files until you approve.
+- Start each session as a new conversation in the Claude Code panel in VS Code (connected to WSL: Ubuntu), in **Plan** mode, so the agent can read and plan but not change files until you approve. After approving, switch to **Edit automatically**.
 - Read the plan with the review checklist under each prompt before you approve it. A wrong plan costs days; a careful review costs minutes.
 - When the agent reports back, check its YES/NO list yourself against the evidence. Any NO means the milestone is not done.
 
@@ -46,7 +46,7 @@ Outputs:
 - The three services and six workers as working skeletons: each service answers /health; each worker's handler runs and logs.
 - docker-compose.yml with everything Step 0.1 lists (Postgres with three databases and roles, LocalStack with the bucket and queues, clamav, workers, ws-local).
 - bootstrap/create-state-backend.sh; Terraform modules and envs/dev and envs/prod for Step 0.2, sized for dev as the technical design says; scripts to push images and deploy the web app.
-- GitHub Actions for Step 0.3: one workflow per service filtered by path, the worker workflow, the daily Upload Events image rebuild, the infra workflow (plan on pull request, apply dev on merge, prod only by manual run with the prod environment's approval), and gitleaks. Deploy jobs skip unless ECS_DEPLOY_ENABLED or LAMBDA_DEPLOY_ENABLED is true.
+- GitHub Actions for Step 0.3: one workflow per service filtered by path, the worker workflow, the daily Upload Events image rebuild, the infra workflow (plan on pull request; apply dev on merge only while INFRA_APPLY_ENABLED is true; prod only on a manual run from main with the typed input deploy-prod), and gitleaks. Deploy jobs skip unless ECS_DEPLOY_ENABLED or LAMBDA_DEPLOY_ENABLED is true.
 - docs/testing/M0-TESTING.md and docs/testing/M0-RESULTS.md, docs/STATUS.md updated.
 
 Done when: the M0 demo in the technical design works: infra live in dev, pipelines green, local stack runs. Locally: npm install, lint, typecheck, test and build pass and docker compose up brings every container to healthy. On AWS (ask before each apply): the state bucket exists, terraform apply for dev succeeds, and every resource in Step 0.2 is visible in the Sydney console.
@@ -74,7 +74,7 @@ Outputs:
 - Auth Service complete for v1: register, login, RS256 user tokens, JWKS and OpenID configuration, refresh tokens with rotation and reuse detection, logout, the 5-wrong-password pause, service tokens, internal user lookup, the four service clients seeded by migration.
 - Document Platform: schema, the four browse routes with membership checked in each query, the destination check and user teams routes, POST /documents ingest, the seed script and seed file (including the 50-team dev seed).
 - DocBeam API skeleton with its database and migrations.
-- Public edge in Terraform: HTTP API with the JWT authorizer, VPC Link, each public route listed one by one, CORS with credentials, tight throttling on /auth/login and /auth/refresh.
+- Public edge in Terraform: HTTP API with the JWT authorizer, VPC Link, each public route listed one by one, CORS with credentials, tight throttling on /auth/login and /auth/refresh, and the CloudFront /api/* behaviour with the prefix-stripping function (D-G5).
 - Web app part 1: register, login, quiet refresh with Web Locks, the 12-hour sign-in dialog, the lazy destination tree, select up to 20 destinations.
 - Migrations run as one-off ECS tasks; the seed runs after migrations as a deploy step.
 - Unit and integration tests the testing strategy lists for these parts. docs/testing/M1-TESTING.md and M1-RESULTS.md, docs/STATUS.md updated.
@@ -85,7 +85,7 @@ Start with the plan and wait for my approval. Work on branch m1. Finish with the
 ```
 
 **Review checklist:**
-- Refresh token in an HttpOnly, Secure, SameSite=Strict cookie for `/auth`; access token in sessionStorage; 15-minute access token, 12-hour sign-in.
+- Refresh token in an HttpOnly, Secure, SameSite=Strict cookie for `/api/auth`, and every browser API call goes through CloudFront `/api/*` (D-G5); access token in sessionStorage; 15-minute access token, 12-hour sign-in.
 - Same 401 message for a wrong password and a paused sign-in.
 - Membership checked inside each platform query, 404 (never 403) for anything outside your teams.
 - Client secrets stored as SHA-256 hashes; passwords as bcrypt cost 12.
@@ -186,6 +186,8 @@ Outputs:
 - docs/testing/M5-TESTING.md and M5-RESULTS.md, including the manual checks I must do in the browser (slow-connection upload, multipart resume, WebSocket reconnect) as step-by-step instructions.
 - docs/STATUS.md updated with a release summary: what passed, any limits found, what prod needs.
 
+Before the checks: the account must be on the Paid plan and dev applied with enable_rds_proxy = true, so the checks test the prod setup (D-M0-6); stop and ask me if it is not.
+
 Done when: every item on the M5 checklist is YES with evidence. Do not deploy to prod.
 
 Start with the plan (the order of checks, what each costs in time and AWS credits, which ones change AWS resources) and wait for my approval. Work on branch m5. Finish with the YES/NO check from AGENTS.md and a pull request.
@@ -201,7 +203,7 @@ Start with the plan (the order of checks, what each costs in time and AWS credit
 
 ## If a session goes wrong
 
-When a session gets long or confused, stop it and start a fresh one with:
+When a session gets long or confused, start a new conversation with:
 
 ```text
 Continue milestone M{n} for DocBeam. Follow AGENTS.md. Read docs/STATUS.md, docs/PLAN.md, docs/testing/M{n}-TESTING.md and the git log of branch m{n}. Tell me what is done, what is left and what is failing, as a list, then wait for my go-ahead before changing anything.

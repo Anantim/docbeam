@@ -247,9 +247,9 @@ Context. Workers read SQS messages. Fan-out sends task messages; delivery fetche
 
 **Consequences**
 
-- Every Lambda reaches PostgreSQL through RDS Proxy. The ECS services keep direct connections with their own small pools.
+- Every Lambda reaches PostgreSQL through RDS Proxy in prod. The AWS Free plan blocks RDS Proxy, so in dev each Lambda copy connects to the instance directly with at most one connection; the worst case (79 of 100 connections) is checked by a unit test. M5 runs with the proxy on, after the move to the Paid plan. The ECS services keep direct connections with their own small pools.
 - The Delivery Lambda gets 1,024 MB of memory and a 120-second timeout, and streams the file, so even a 1 GB file finishes in well under a minute. Its call to the platform has its own 100-second limit, so a slow platform is a normal temporary error with backoff.
-- The Task Queue trigger caps Delivery at 50 runs at a time (maximum concurrency on the event source mapping, set in Terraform), so a burst cannot drain the proxy pool. This is used instead of reserved concurrency, because messages throttled by reserved concurrency would use up their attempts.
+- The Task Queue trigger caps Delivery at 50 runs at a time (maximum concurrency on the event source mapping, set in Terraform), so a burst cannot drain the proxy pool (or, in dev, the instance's connections). This is used instead of reserved concurrency, because messages throttled by reserved concurrency would use up their attempts.
 
 ### ADR-012: Infrastructure as code
 
@@ -267,7 +267,7 @@ Context. Every AWS resource must be defined in code: VPC, RDS, RDS Proxy, ECS, S
 
 **Consequences**
 
-- One resource is created by hand: the state store (one versioned, encrypted S3 bucket; Terraform locks the state with a lock file in that bucket, so no DynamoDB table is needed), made by a script in bootstrap/ so even that step can be repeated.
+- One resource is created by hand: the state store (one versioned, encrypted S3 bucket; Terraform locks the state with a lock file in that bucket, so no DynamoDB table is needed), made by a script in bootstrap/ so even that step can be repeated. Setting up the GitHub deploy user, its keys and the repository variables is the other manual step, done once.
 
 ### ADR-013: Service-to-service calls and repeat-safe ingest
 
@@ -323,13 +323,13 @@ Context. A user access token lasts 15 minutes. Without a way to renew it, people
 | 3 | **Short access token plus a refresh token in a secure cookie, replaced on every use** (chosen) | Access tokens stay at 15 minutes. Page scripts cannot read the cookie, each refresh token works once, and a reused one shows it was stolen. Adds one table and two routes. |
 | 4 | Refresh token kept in localStorage | Same flow as 3, but any script that gets into the page could read the token and take over the sign-in for 12 hours. |
 
-> **Decision.** Option 3. Login returns the 15-minute access token in the body and a refresh token in a Secure, HttpOnly, SameSite=Strict cookie that is sent only to /auth. The refresh token is a long random value. Auth DB keeps only its SHA-256 in refresh_tokens, with a family_id for the sign-in and an expiry 12 hours after sign-in. POST /auth/refresh swaps a valid token for a new access token and a new refresh token with the same family and expiry, and marks the old one used. If a used token comes back, every token in that family is revoked, so both the thief and the real user are signed out. POST /auth/logout revokes the family. The web app refreshes a minute before the access token expires; a browser lock (Web Locks API) lets only one tab refresh, and it shares the new token with the others. After 12 hours the refresh fails and a sign-in dialog keeps the page as it is. Five wrong passwords in a row pause sign-in for that account for 15 minutes (users.failed_logins and users.locked_until), with the same 401 message, and API Gateway throttles /auth/login and /auth/refresh tightly.
+> **Decision.** Option 3. Login returns the 15-minute access token in the body and a refresh token in a Secure, HttpOnly, SameSite=Strict cookie that is sent only to /api/auth (through CloudFront). The refresh token is a long random value. Auth DB keeps only its SHA-256 in refresh_tokens, with a family_id for the sign-in and an expiry 12 hours after sign-in. POST /auth/refresh swaps a valid token for a new access token and a new refresh token with the same family and expiry, and marks the old one used. If a used token comes back, every token in that family is revoked, so both the thief and the real user are signed out. POST /auth/logout revokes the family. The web app refreshes a minute before the access token expires; a browser lock (Web Locks API) lets only one tab refresh, and it shares the new token with the others. After 12 hours the refresh fails and a sign-in dialog keeps the page as it is. Five wrong passwords in a row pause sign-in for that account for 15 minutes (users.failed_logins and users.locked_until), with the same 401 message, and API Gateway throttles /auth/login and /auth/refresh tightly (5 requests a second, burst 10).
 
 **Consequences**
 
 - People sign in once per working day, and a stolen access token works for at most 15 minutes.
 - A stolen refresh token is caught the first time both copies are used, and that sign-in ends for both.
-- The web app and the API must share one site (for example app. and api. under one domain) so the cookie can be SameSite=Strict, and CORS must allow credentials.
+- The web app and the API must share one site so the cookie can be SameSite=Strict. CloudFront serves the web app and forwards /api/* to API Gateway, so the browser sees one site without a custom domain, and the cookie is limited to /api/auth. A custom domain can be added to CloudFront later without other changes.
 - Someone guessing passwords can keep an account paused. The pause is short and ending it early is a support script in v1.
 
 ### ADR-016: Upload confirmation and malware scanning

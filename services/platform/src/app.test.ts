@@ -10,6 +10,7 @@ describe('platform service', () => {
       DATABASE_URL: 'postgres://platform_app:unused@localhost:5432/platform_db',
       JWT_ISSUER: 'http://localhost:5173/api',
       JWKS_URL: 'http://localhost:3001/.well-known/jwks.json',
+      PLATFORM_FILES_BUCKET: 'docbeam-local-platform-files',
     });
     const { db, pool } = createDb(config.DATABASE_URL);
     const app = await buildApp(config, db);
