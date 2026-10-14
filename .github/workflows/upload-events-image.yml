@@ -70,7 +70,8 @@ jobs:
           IMAGE_TAG_BASE: ${{ github.sha }}
         run: |
           # The date in the tag makes each daily rebuild a new immutable tag.
-          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-$(date -u +%Y%m%d)"
+          today="$(date -u +%Y%m%d)"
+          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-${today}"
           image="$(scripts/push-image.sh dev upload-events workers/upload-events/Dockerfile | tail -n 1)"
           aws lambda update-function-code --function-name docbeam-dev-upload-events --image-uri "$image" \
             --query LastUpdateStatus --output text
@@ -97,7 +98,8 @@ jobs:
         env:
           IMAGE_TAG_BASE: ${{ github.sha }}
         run: |
-          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-$(date -u +%Y%m%d)"
+          today="$(date -u +%Y%m%d)"
+          export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-${today}"
           image="$(scripts/push-image.sh prod upload-events workers/upload-events/Dockerfile | tail -n 1)"
           aws lambda update-function-code --function-name docbeam-prod-upload-events --image-uri "$image" \
             --query LastUpdateStatus --output text
