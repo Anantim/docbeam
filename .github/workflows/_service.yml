@@ -64,7 +64,19 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
+      - name: Check that the ECS service exists
+        id: exists
+        run: |
+          status="$(aws ecs describe-services --cluster docbeam-dev-cluster --services docbeam-dev-${{ inputs.service }} \
+            --query 'services[0].status' --output text 2>/dev/null || true)"
+          if [ "$status" = "ACTIVE" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::ECS service docbeam-dev-${{ inputs.service }} does not exist in ${{ vars.AWS_REGION }} (dev is down). Nothing was deployed."
+          fi
       - name: Push the image, migrate and update the service
+        if: steps.exists.outputs.found == 'true'
         run: |
           image="$(scripts/push-image.sh dev ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
           scripts/deploy-service.sh dev ${{ inputs.service }} "$image"
@@ -86,7 +98,19 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
+      - name: Check that the ECS service exists
+        id: exists
+        run: |
+          status="$(aws ecs describe-services --cluster docbeam-prod-cluster --services docbeam-prod-${{ inputs.service }} \
+            --query 'services[0].status' --output text 2>/dev/null || true)"
+          if [ "$status" = "ACTIVE" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::ECS service docbeam-prod-${{ inputs.service }} does not exist in ${{ vars.AWS_REGION }} (prod is down). Nothing was deployed."
+          fi
       - name: Push the image, migrate and update the service
+        if: steps.exists.outputs.found == 'true'
         run: |
           image="$(scripts/push-image.sh prod ${{ inputs.service }} docker/service.Dockerfile --build-arg SERVICE=${{ inputs.service }} | tail -n 1)"
           scripts/deploy-service.sh prod ${{ inputs.service }} "$image"

@@ -11,9 +11,10 @@ Every check is a command or a click with the expected result. Account `346208529
 | # | Command | Expect |
 |---|---|---|
 | 1 | `scripts/local-env.sh` | `.env is ready`. `.env` now holds `JWT_PRIVATE_KEY`, four `CLIENT_SECRET_*` and `SEED_USER_PASSWORD` |
-| 2 | `docker compose up -d --build --wait` | auth, platform, docbeam-api, postgres, localstack, clamav, workers and ws-local are `healthy`. `seed` ends `exited (0)` |
-| 3 | `docker compose logs seed` | Two `seed applied` lines. `demo.json`: `teamsChanged 3`, `bindersChanged 5`, `foldersChanged 9`, `membersAdded 4`. `dev-load.json`: `teamsChanged 50`, `bindersChanged 100`, `foldersChanged 1500` |
-| 4 | `docker compose run --rm seed` | Both lines show every `…Changed` and `members…` count at `0` (safe to repeat) |
+| 2 | `docker compose up -d --build --wait` | auth, platform, docbeam-api, postgres, localstack, clamav, workers and ws-local are `healthy` |
+| 2b | `docker compose run --rm seed` | Two `seed applied` lines (the seed has its own profile because `up --wait` treats an exited container as a failure) |
+| 3 | The `seed applied` lines from step 2b | Two lines. `demo.json`: `teamsChanged 3`, `bindersChanged 5`, `foldersChanged 9`, `membersAdded 4`. `dev-load.json`: `teamsChanged 50`, `bindersChanged 100`, `foldersChanged 1500` |
+| 4 | `docker compose run --rm seed` again | Both lines show every `…Changed` and `members…` count at `0` (safe to repeat) |
 
 ### 1.2 Run the tests
 
@@ -23,13 +24,13 @@ Every check is a command or a click with the expected result. Account `346208529
 | 2 | `npm run typecheck` | No errors |
 | 3 | `npm test` | 25 files, 93 tests pass (unit tests, web tests with jsdom) |
 | 4 | `npm run build` | `✓ built` for the web app |
-| 5 | `npm run test:integration` | 8 files, 74 tests pass |
+| 5 | `docker compose run --rm seed` then `npm run test:integration` | 8 files, 75 tests pass |
 
 Tests that cover the M1 rules:
 
 | Rule | Test |
 |---|---|
-| 5 wrong passwords pause sign-in for 15 minutes | `services/auth/src/login-attempts.test.ts`, `tests/integration/auth.test.ts` "pauses sign-in…" |
+| 5 wrong passwords pause sign-in for 15 minutes, also when sent in parallel | `services/auth/src/login-attempts.test.ts`, `tests/integration/auth.test.ts` "pauses sign-in…" and "parallel wrong passwords cannot get around the pause" |
 | Refresh rotates, a reused token ends the sign-in | `services/auth/src/sessions.test.ts`, `auth.test.ts` "a used token coming back…" |
 | `iss`, `aud`, `token_use`, wrong key | `services/auth/src/tokens.test.ts`, `packages/shared/src/jwt.test.ts` |
 | Service tokens and user lookup | `auth.test.ts` "service tokens and user lookup" |

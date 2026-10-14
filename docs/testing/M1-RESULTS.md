@@ -9,8 +9,9 @@ Evidence for `docs/testing/M1-TESTING.md`. Run on 2026-10-14 on the laptop (WSL2
 | Check | Result |
 |---|---|
 | `scripts/local-env.sh` | `.env is ready` |
-| `docker compose down -v && docker compose up -d --build --wait` from nothing | auth, platform, docbeam-api, postgres, localstack, clamav, workers, ws-local `healthy`; seed `exited (0)` |
-| Seed, first run (`docker compose logs seed`) | `demo.json`: teamsChanged 3, bindersChanged 5, foldersChanged 9, membersAdded 4, membersRemoved 0, skippedEmails 0. `dev-load.json`: teamsChanged 50, bindersChanged 100, foldersChanged 1500, membersAdded 50 |
+| `docker compose down -v && docker compose up -d --build --wait` from nothing | exit 0. auth, platform, docbeam-api, postgres, localstack, clamav, workers, ws-local `healthy` |
+| `docker compose run --rm seed` | exit 0, two `seed applied` lines (the seed has its own profile: CI showed that `up --wait` fails on a container that exits, D-M1-14) |
+| Seed, first run | `demo.json`: teamsChanged 3, bindersChanged 5, foldersChanged 9, membersAdded 4, membersRemoved 0, skippedEmails 0. `dev-load.json`: teamsChanged 50, bindersChanged 100, foldersChanged 1500, membersAdded 50 |
 | Seed, second run (`docker compose run --rm seed`) | Every count 0 for both files |
 
 ### 1.2 Tests
@@ -21,9 +22,9 @@ Evidence for `docs/testing/M1-TESTING.md`. Run on 2026-10-14 on the laptop (WSL2
 | `npm run typecheck` | clean (services, shared, web) |
 | `npm test` | 25 test files, 93 tests passed |
 | `npm run build` | all workspaces built; web `dist/assets/index-*.js` 235 kB (74 kB gzip) |
-| `npm run test:integration` | 8 test files, 74 tests passed |
+| `npm run test:integration` | 8 test files, 75 tests passed (includes the parallel wrong-password test added after the review question) |
 
-Integration files and counts from the last run: `auth.test.ts` 20, `platform.test.ts` 14, `ingest.test.ts` 11, `docbeam-db.test.ts` 5, plus the M0 files (`services`, `postgres`, `localstack`, `workers`).
+Integration files and counts from the last run: `auth.test.ts` 21, `platform.test.ts` 14, `ingest.test.ts` 11, `docbeam-db.test.ts` 5, plus the M0 files (`services`, `postgres`, `localstack`, `workers`).
 
 ### 1.4 Command line through the Vite proxy
 
@@ -35,9 +36,14 @@ priya teams: Cardio,Oncology
 
 The login response carries `set-cookie: docbeam_refresh=…; Max-Age=43200; Path=/api/auth; HttpOnly; Secure; SameSite=Strict`.
 
-### 1.3 Browser checks: NOT RUN by the agent
+### 1.3 Browser checks: YES (done by the person, 2026-10-14)
 
-This session has no browser. The behaviours are covered by `web/src/auth/session.test.ts` (sign in, one refresh and one retry on 401, the ended state, a new tab's quiet refresh), `selection.test.ts` (21st refused), `tree.test.ts` and `Destinations.test.tsx` (lazy levels, filter, path). The clicks in section 1.3 of the testing document still have to be done by the person. This is listed under Known issues in `docs/STATUS.md`.
+Evidence, as reported by the person:
+
+- **Local:** register; sign in as all four seeded users; team visibility (Priya sees Cardio and Oncology, not Neuro); a new user with no teams sees the empty state; refresh cookie `Path=/api/auth`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Max-Age 43200`, through CloudFront; F5 keeps the session; 5 wrong passwords, then the right one is refused with the same message; the "Your sign-in has ended" dialog keeps the ticks and "Signed in again." appears.
+- **Dev** (`https://d2ii4puto0s1y9.cloudfront.net`): sign-in, team visibility and the cookie.
+
+Not named in that report, and so covered only by `Destinations.test.tsx`, `selection.test.ts` and `session.test.ts`: the 21st tick in a browser, the filter, the single refresh with two tabs open, and the dialog on dev. They are not recorded as a separate result.
 
 ## 2. Deploy to dev on AWS (2026-10-14, one session, about 1 hour 30 minutes of AWS work so far)
 
@@ -76,7 +82,7 @@ Account `346208529537`, region `ap-southeast-2`. Identity `user/anantim-admin`. 
 | 7b | `GET /api/teams` with `Bearer abc.def.ghi` | `401` |
 | 7c | Load user, `GET /api/teams` | 50 teams in 0.38 s through CloudFront and the gateway |
 | 8 | 40 parallel wrong logins, twice | `40 x 401`, then `29 x 401 + 11 x 429` (after the fix; before it, 31 x 500) |
-| 9 | Browser | **NOT RUN by the agent** (no browser in this session). Left to the person, see STATUS |
+| 9 | Browser | Done by the person: sign-in, team visibility and the cookie on dev (see 1.3) |
 | 10 | ECS services | `docbeam-dev-auth`, `-platform`, `-docbeam-api`: 1 running, 1 desired each |
 | 11 | Target groups | auth `healthy`, platform `healthy`, docbeam-api `healthy` |
 | 12 | API Gateway routes | 10 routes, no `ANY`, no `$default`. Six `NONE` (four auth routes, JWKS, OpenID), four `JWT` (teams, binders, binder contents, folder contents) |
@@ -111,17 +117,26 @@ Prompt outputs and the milestone's steps in the TDD, one line each. **NO** lines
 | 13 | DocBeam API skeleton with database and migrations | YES | `docbeam-db.test.ts` (5 tests); dev check 11 |
 | 14 | Edge: HTTP API, JWT authorizer, VPC Link, each route listed one by one | YES | Dev checks 12 (10 routes, no `ANY` or `$default`), 3 (404 on internal routes), 11 |
 | 15 | Edge: tight throttling on `/auth/login` and `/auth/refresh` | YES | Dev check 12b (5 and 10); check 8 (429 seen) |
-| 16 | Edge: CORS with credentials | **NO** | Configured with credentials from `cors_allowed_origins`, but it lists `http://localhost:5173` in dev and nothing in prod, not the CloudFront origin the TDD names. Reason and consequence in D-M1-12. Needs the person's acceptance |
+| 16 | Edge: CORS with credentials | YES (accepted deviation) | Configured with credentials from `cors_allowed_origins`: `http://localhost:5173` in dev, none in prod. The CloudFront origin the TDD names cannot be listed (Terraform cycle) and nothing cross-origin calls the gateway. D-M1-12, accepted by the person on 2026-10-14 |
 | 17 | Edge: CloudFront `/api/*` behaviour with the prefix stripped | YES | Dev check 13; login through `$APP/api/auth/login` returned 200 |
-| 18 | Web: register, sign in, quiet refresh with Web Locks, 12-hour dialog | **NO** (not run in a browser) | Logic covered by `session.test.ts`; the dialog and the two-tab lock are not exercised by any test or by me. Browser section 1.3 steps 1, 9 to 12 are the person's |
-| 19 | Web: lazy tree, select up to 20 | YES (component tests) | `Destinations.test.tsx`, `selection.test.ts`. The click-through in a browser is item 18's gap |
+| 18 | Web: register, sign in, quiet refresh with Web Locks, 12-hour dialog | YES | `session.test.ts`; browser checks by the person, section 1.3 above (register, sign in, F5, dialog keeps the ticks) |
+| 19 | Web: lazy tree, select up to 20 | YES | `Destinations.test.tsx`, `selection.test.ts`; team visibility in the browser (section 1.3). The 21st tick in a browser is not in the person's report |
 | 20 | Migrations as one-off ECS tasks; the seed after migrations as a deploy step | YES | Dev steps 11: `Running migrations`, `Running the seed for platform`; `scripts/deploy-service.sh` |
 | 21 | Unit and integration tests the strategy lists for these parts | YES | 93 and 74 tests; table in the testing document, section 1.2 |
 | 22 | `docs/testing/M1-TESTING.md`, `M1-RESULTS.md`, STATUS updated | YES | These files |
-| 23 | Demo works locally: register, log in, browse only your own teams | YES at API level, browser NOT RUN | Section 1.4 of the testing document, run through the Vite proxy; see item 18 |
-| 24 | Demo works on dev | YES at API level, browser NOT RUN | Dev checks 5, 6, 7 |
+| 23 | Demo works locally: register, log in, browse only your own teams | YES | Browser checks by the person (1.3); section 1.4 through the Vite proxy |
+| 24 | Demo works on dev | YES | Dev checks 5, 6, 7; the person's browser check on dev |
 | 25 | No token: 401 at the gateway | YES | Dev checks 1 and 2 |
 | 26 | Another team's binder: 404 | YES | Local 1.4; dev check 7 |
 | 27 | Tell the person when to set `ECS_DEPLOY_ENABLED` | YES | In the hand-over message: after the browser check |
 
-**Summary: 2 NO.** Item 16 (CORS wording) needs the person to accept D-M1-12, or say what origin should be listed. Item 18 needs the person to run the browser clicks of section 1.3 (or section 3.9) on dev, which is up. Per AGENTS.md one unaddressed requirement fails the milestone, so both are reported here, not hidden.
+**Summary: 0 NO.** Items 16 and 18 were NO until 2026-10-14. The person accepted D-M1-12 (item 16) and did the browser checks (item 18). One note stays on item 19: the 21st tick, the filter and the two-tab lock were not named in the browser report and rest on the component and session tests.
+
+### Added after the PR checks
+
+| Finding | Fix |
+|---|---|
+| CI `Integration tests`: `docker compose up --wait` exited 1 because the seed container exits | `seed` has a profile and runs with `docker compose run --rm seed` (D-M1-14) |
+| CI `Plan dev`: `No value for required variable image_tag` | `image_tag` defaults to `bootstrap` (D-M1-14) |
+| A merge while dev is down would turn the deploy jobs red | The deploy jobs check that the ECS service (web: the web bucket output) exists and skip with a notice (D-M1-14) |
+| Review question: can parallel wrong passwords get around the pause? | No: see the answer in the PR. New test `auth.test.ts` "parallel wrong passwords cannot get around the pause" |

@@ -279,6 +279,7 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - CloudFront and the API share one site, so the browser never makes a cross-origin call. The gateway's CORS (credentials allowed) is set from the variable `cors_allowed_origins`: `http://localhost:5173` in dev, empty in prod. CloudFront's own address cannot be named there, because the distribution's origin is the API, and an API that names the distribution would make a cycle in Terraform.
   - The M0 error pages (403 and 404 become `index.html` with 200) apply to every behaviour, so an API 404 such as "another team's binder" would arrive as a 200 page. They are removed. A CloudFront Function on the web behaviour serves `index.html` for any path without a dot.
 - **Why:** Without both changes the cookie flow works but the 404 rule is hidden from the browser.
+- **Accepted by the person, 2026-10-14:** no CORS origin in prod, `http://localhost:5173` in dev.
 
 ## D-M1-13. Authorizer switch for the first bring-up, native bcrypt, bigger auth task
 
@@ -289,3 +290,13 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - **bcrypt.** The pure-JavaScript library took 1.6 s a hash on the 0.25 vCPU task and, with a transaction held open during the compare, 31 of 40 parallel logins failed with 500. The Auth Service now uses the native `bcrypt` package (228 ms a hash on the laptop) and compares the password before it opens the short transaction that updates the counters. Cost stays 12.
   - **Size.** The Auth Service task is 0.5 vCPU and 1 GB (the others stay 0.25 vCPU and 0.5 GB), because bcrypt is CPU-bound by design.
 - **Why:** A first apply that always fails, and a login that fails under load, are both defects the design did not foresee.
+
+## D-M1-14. Image tag in Terraform, seed as its own compose run, deploy guards
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 0.3 (infra workflow), Launch plan (seed as a deploy step); found on the PR checks.
+- **What:**
+  - `image_tag` in `infra/envs/*` now defaults to `bootstrap`. Terraform only needs a tag to create the task definitions; the services ignore their task definition after the first apply and `scripts/deploy-service.sh` registers revisions with the git SHA. The CI plan therefore needs no value. A new environment still passes the pushed tag on its first apply (README, testing document). A later `terraform apply` registers new revisions with the image `bootstrap`; `deploy-service.sh` replaces the image, so nothing running changes, but `scripts/run-task.sh` on a family needs a deploy first.
+  - The `seed` service in Docker Compose has a profile and is started with `docker compose run --rm seed`, because `docker compose up --wait` counts a container that exits as a failure (found by CI). CI runs it after `up`.
+  - The ECS deploy jobs (`_service.yml`) check that the service is `ACTIVE` first and skip with a notice if it is not. The web deploy jobs do the same on the `web_bucket` output. A merge while dev is down no longer turns red.
+- **Why:** Three defects in the pipeline that the local run did not show.

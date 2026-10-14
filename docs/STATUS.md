@@ -2,14 +2,14 @@
 
 Updated 2026-10-14, at the end of M1 (branch `m1`, pull request open).
 
-**M1 is built and verified locally and on dev, except the browser clicks** (no browser in the agent's session; see Known issues). A user can register, sign in and browse only their own teams, binders and folders. A request with no token gets 401 at the gateway; another team's binder gets 404. Dev AWS is **up** until the person says to tear it down. Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-13). Evidence: `docs/testing/M1-RESULTS.md`. Teaching text: `docs/walkthrough/M1.md`.
+**M1 is built and verified locally and on dev,** including the browser checks done by the person. A user can register, sign in and browse only their own teams, binders and folders. A request with no token gets 401 at the gateway; another team's binder gets 404. Dev AWS is **up** until the person says to tear it down. Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-13). Evidence: `docs/testing/M1-RESULTS.md`. Teaching text: `docs/walkthrough/M1.md`.
 
 ## Milestones
 
 | Milestone | Flow | Estimate | Status |
 |---|---|---|---|
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
-| M1 | Flow 1: Browse destinations | 11 d | Built. PR open. Two items need the person (browser clicks, CORS wording), see Known issues |
+| M1 | Flow 1: Browse destinations | 11 d | Built, 0 NO in the YES/NO check. PR #3 ready to merge by the person |
 | M2 | Flow 2: Upload and distribute | 13 d | Not started |
 | M3 | Flow 3: Track a job | 7 d | Not started |
 | M4 | Flow 4: Download a file | 2 d | Not started |
@@ -23,28 +23,27 @@ Updated 2026-10-14, at the end of M1 (branch `m1`, pull request open).
 - **Public edge:** API Gateway HTTP API, JWT authorizer, VPC Link, ten routes listed one by one, throttles, CloudFront `/api/*` with the prefix stripped.
 - **Web app:** register, sign in, quiet refresh with Web Locks, 12-hour dialog, lazy destination tree, up to 20 destinations.
 - **Infra:** modules `alb`, `ecs-service`, `api-gateway`; scripts `run-task.sh`, `check-internal.sh`, a seed step in `deploy-service.sh`.
-- **Tests:** 93 unit and web tests, 74 integration tests, all green.
+- **Tests:** 93 unit and web tests, 75 integration tests, all green.
 
 ## Decisions taken in M1 (see `docs/DECISIONS.md`)
 
-D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTTP (accepted risk); D-M1-3 seed format; D-M1-4 seed users; D-M1-5 first-bytes check; D-M1-6 ingest field order; D-M1-7 pause details; D-M1-8 new tab refresh; D-M1-9 tree; D-M1-10 DB connection parts; D-M1-11 web tests; D-M1-12 CORS origins and the CloudFront page rewrite; D-M1-13 authorizer switch, native bcrypt, bigger auth task.
+D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTTP (accepted risk); D-M1-3 seed format; D-M1-4 seed users; D-M1-5 first-bytes check; D-M1-6 ingest field order; D-M1-7 pause details; D-M1-8 new tab refresh; D-M1-9 tree; D-M1-10 DB connection parts; D-M1-11 web tests; D-M1-12 CORS origins and the CloudFront page rewrite; D-M1-13 authorizer switch, native bcrypt, bigger auth task; D-M1-14 image tag default, seed as its own compose run, deploy guards.
 
 ## Set up so far
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is applied with image tag `2f825256fee7`. App: `https://d2ii4puto0s1y9.cloudfront.net` (changes if dev is destroyed and applied again).
+- Dev is **up** and applied with image tag `2f825256fee7`. App: `https://d2ii4puto0s1y9.cloudfront.net` (changes if dev is destroyed and applied again).
 - Not yet: `ECS_DEPLOY_ENABLED` (to set after the browser check), `INFRA_APPLY_ENABLED` (keep `false` while dev is down), `LAMBDA_DEPLOY_ENABLED` (M2), `ALARM_EMAIL` (before M2).
 
 ## Known issues
 
-- **Browser checks not run by the agent.** Section 1.3 of `docs/testing/M1-TESTING.md` (and 3.9) needs a person with a browser. API-level checks and component tests pass.
-- **CORS wording (a NO in the YES/NO check).** The TDD says CORS for the web app's origin. CloudFront's address cannot be named on an API that CloudFront points at without a Terraform cycle, and nothing cross-origin calls the gateway (D-M1-12). Dev allows `http://localhost:5173`; prod allows none. Needs the person's acceptance.
-- **First apply of a new environment is two steps** (D-M1-13). A second `terraform apply` with `jwt_authorizer_enabled=true` is needed after the services answer. The README's "Build dev" section should carry this; the testing document has it.
+- **Prod bring-up is not a one-click workflow.** The `infra` workflow's prod job runs one `terraform plan` and `apply` with `jwt_authorizer_enabled` at its default `true`. On a brand-new prod that apply fails at the authorizer exactly as dev did (D-M1-13), and the repositories, images, bootstrap tasks and signing key have to exist in a set order. Prod therefore does **not** do the two-pass apply today. Before the prod apply (after M5), either add a `first_bring_up` input to the `infra` workflow that passes `-var jwt_authorizer_enabled=false` and add the bootstrap steps, or run the sequence in the README "Build dev" against prod by hand with the person's approval. Decide this in the M5 plan.
+- **After the first apply, task definitions in Terraform carry the image `bootstrap`** (D-M1-14). Running `scripts/run-task.sh` on a family needs a `deploy-service.sh` first. The services themselves are unaffected.
 - The first-time `terraform apply` for the web distribution can take 3 minutes and the VPC Link 2 minutes.
 - Internal traffic is plain HTTP inside the VPC (D-M1-2, accepted).
 - The M0 items still stand: no RDS Proxy in dev (D-M0-6), the deploy user has AdministratorAccess, GitHub Free has no required reviewer for prod (D-G3), `npm audit` shows four moderate findings in drizzle-kit's dev chain.
-- The workflow deploy jobs (`_service.yml`, `web.yml`) are still not run: they start after the merge, once `ECS_DEPLOY_ENABLED` is `true`.
+- The workflow deploy jobs (`_service.yml`, `web.yml`) have not run yet: they start after the merge, once `ECS_DEPLOY_ENABLED` is `true`. They now skip with a notice when the service or the environment does not exist (D-M1-14).
 - The first image tag deployed on dev was `2d59b80efe69` for platform and docbeam-api; later builds share `2f825256fee7`. Same code.
 - Credits are limited. Dev costs about 4.5 USD a day while up.
 
@@ -53,6 +52,7 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 ```bash
 scripts/local-env.sh
 docker compose up -d --build --wait
+docker compose run --rm seed
 npm run lint && npm run typecheck && npm test && npm run build
 npm run test:integration
 npm run dev -w @docbeam/web      # http://localhost:5173
@@ -64,7 +64,7 @@ Dev on AWS: `docs/testing/M1-TESTING.md` section 2 (two-step first apply). Tear 
 
 M2 needs from the person:
 - the merge of the M1 pull request;
-- `ECS_DEPLOY_ENABLED=true` after the browser check, and `LAMBDA_DEPLOY_ENABLED` when told;
+- `ECS_DEPLOY_ENABLED=true` (the browser check is done), and `LAMBDA_DEPLOY_ENABLED` when told;
 - the repository variable `ALARM_EMAIL` set before M2's first apply, and the SNS email confirmed;
 - a yes before each dev apply, image push and task run.
 

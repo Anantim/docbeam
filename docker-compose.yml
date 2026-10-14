@@ -130,8 +130,10 @@ services:
       retries: 20
 
   # One-shot: loads the demo and 50-team seed files after auth and platform are healthy (Step 1.2).
-  # Safe to re-run: docker compose run --rm seed
+  # Run it after `up`: docker compose run --rm seed. Safe to re-run. It has a profile because
+  # `up --wait` treats a container that exits as a failure.
   seed:
+    profiles: ["seed"]
     build:
       context: .
       dockerfile: docker/service.Dockerfile

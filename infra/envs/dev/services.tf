@@ -1,8 +1,9 @@
 # The three ECS services, the internal ALB and the public edge (M1). Resource blocks live in the modules.
 
 variable "image_tag" {
-  description = "Tag of the service images in ECR, normally the git SHA that scripts/push-image.sh pushed."
+  description = "Tag of the image in the task definitions Terraform creates. The services ignore it after the first apply, because scripts/deploy-service.sh registers new revisions with the git SHA (D-M1-14). Pass the pushed tag on the first apply of a new environment."
   type        = string
+  default     = "bootstrap"
 }
 
 locals {

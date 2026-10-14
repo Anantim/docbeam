@@ -93,6 +93,25 @@ describe('login', () => {
     expect(after.status).toBe(200);
   });
 
+  it('parallel wrong passwords cannot get around the pause', async () => {
+    const user = await registerAndLogin(uniqueEmail('race'));
+    const attempt = (password: string) => call(AUTH_URL, '/auth/login', { json: { email: user.email, password } });
+    // 15 wrong guesses and the right password, all in flight at once.
+    const burst = await Promise.all([
+      ...Array.from({ length: 15 }, (_, i) => attempt(`wrong-password-number-${i}-x`)),
+      attempt(TEST_PASSWORD),
+    ]);
+    // Only the first five wrong ones are counted. The rest meet the pause inside the row lock.
+    const wrongAnswers = burst.slice(0, 15);
+    expect(wrongAnswers.every((r) => r.status === 401)).toBe(true);
+    const { rows } = await admin.query('SELECT failed_logins, locked_until FROM users WHERE email = $1', [user.email]);
+    expect(rows[0].locked_until).not.toBeNull();
+    expect(new Date(rows[0].locked_until).getTime()).toBeGreaterThan(Date.now());
+    expect(rows[0].failed_logins).toBe(0);
+    // Once the burst is over the right password is refused too.
+    expect((await attempt(TEST_PASSWORD)).status).toBe(401);
+  });
+
   it('a right password resets the wrong-password count', async () => {
     const user = await registerAndLogin(uniqueEmail('reset'));
     for (let i = 0; i < 4; i++) await call(AUTH_URL, '/auth/login', { json: { email: user.email, password: 'wrong-password-number-' + i } });

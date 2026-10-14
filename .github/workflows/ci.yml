@@ -41,6 +41,7 @@ jobs:
       - run: npm ci
       - run: scripts/local-env.sh
       - run: docker compose up -d --build --wait --wait-timeout 600
+      - run: docker compose run --rm seed
       - run: npm run test:integration
       - name: Show container logs on failure
         if: failure()
