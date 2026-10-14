@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { withMigrationUrl } from '@docbeam/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
@@ -12,7 +13,7 @@ const env = z
     MIGRATION_DATABASE_URL: z.string().url(),
     OWNER_ROLE: z.string().regex(/^[a-z_]+$/).default('platform_owner'),
   })
-  .parse(process.env);
+  .parse(withMigrationUrl(process.env));
 
 const migrationsFolder = fileURLToPath(new URL('../migrations', import.meta.url));
 const client = new pg.Client({ connectionString: env.MIGRATION_DATABASE_URL });

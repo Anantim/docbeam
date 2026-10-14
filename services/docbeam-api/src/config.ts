@@ -1,3 +1,4 @@
+import { withDatabaseUrl } from '@docbeam/shared';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -14,5 +15,5 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  return schema.parse(env);
+  return schema.parse(withDatabaseUrl(env));
 }

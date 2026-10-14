@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { withDatabaseUrl } from '@docbeam/shared';
+import { withMigrationUrl } from '@docbeam/shared';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
@@ -16,18 +16,7 @@ const env = z
     MIGRATION_DATABASE_URL: z.string().url(),
     OWNER_ROLE: z.string().regex(/^[a-z_]+$/).default('auth_owner'),
   })
-  .parse(migrationEnv(process.env));
-
-function migrationEnv(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (source.MIGRATION_DATABASE_URL) return source;
-  const withUrl = withDatabaseUrl({
-    ...source,
-    DB_USER: source.MIGRATION_DB_USER,
-    DB_PASSWORD: source.MIGRATION_DB_PASSWORD,
-    DATABASE_URL: undefined,
-  });
-  return { ...source, MIGRATION_DATABASE_URL: withUrl.DATABASE_URL };
-}
+  .parse(withMigrationUrl(process.env));
 
 const migrationsFolder = fileURLToPath(new URL('../migrations', import.meta.url));
 const client = new pg.Client({ connectionString: env.MIGRATION_DATABASE_URL });

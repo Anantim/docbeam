@@ -12,3 +12,19 @@ export function withDatabaseUrl(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const url = `postgres://${user}:${password}@${DB_HOST}:${DB_PORT ?? '5432'}/${DB_NAME}?sslmode=no-verify`;
   return { ...env, DATABASE_URL: url };
 }
+
+/**
+ * The same for the migrate and seed tasks: MIGRATION_DATABASE_URL, or the DB_* parts with the
+ * master user and password from MIGRATION_DB_USER and MIGRATION_DB_PASSWORD (D-M1-10).
+ */
+export function withMigrationUrl(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (env.MIGRATION_DATABASE_URL) return env;
+  const built = withDatabaseUrl({
+    DB_HOST: env.DB_HOST,
+    DB_PORT: env.DB_PORT,
+    DB_NAME: env.DB_NAME,
+    DB_USER: env.MIGRATION_DB_USER,
+    DB_PASSWORD: env.MIGRATION_DB_PASSWORD,
+  });
+  return built.DATABASE_URL ? { ...env, MIGRATION_DATABASE_URL: built.DATABASE_URL } : env;
+}
