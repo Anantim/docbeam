@@ -39,7 +39,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: cp .env.example .env
+      - run: scripts/local-env.sh
       - run: docker compose up -d --build --wait --wait-timeout 600
       - run: npm run test:integration
       - name: Show container logs on failure

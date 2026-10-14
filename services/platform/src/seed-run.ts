@@ -22,7 +22,7 @@ const env = z
 
 const log = createLogger('seed');
 
-async function json(path: string, init: RequestInit): Promise<{ status: number; body: any }> {
+async function json(path: string, init: RequestInit): Promise<{ status: number; body: Record<string, unknown> | null }> {
   const res = await fetch(`${env.AUTH_URL}${path}`, init);
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
@@ -41,7 +41,7 @@ const tokenReply = await post('/auth/token', {
   scope: 'users:read',
 });
 if (tokenReply.status !== 200) throw new Error(`could not get a service token (${tokenReply.status})`);
-const token: string = tokenReply.body.accessToken;
+const token = String(tokenReply.body?.accessToken);
 
 const files = env.SEED_FILES.split(',')
   .map((f) => f.trim())
@@ -64,7 +64,7 @@ try {
     const emails = new Set([...file.users.map((u) => u.email), ...file.teams.flatMap((t) => t.members)]);
     for (const email of emails) {
       const found = await json(`/internal/users?email=${encodeURIComponent(email)}`, { headers: { authorization: `Bearer ${token}` } });
-      if (found.status === 200) ids.set(email.toLowerCase(), found.body.id);
+      if (found.status === 200) ids.set(email.toLowerCase(), String(found.body?.id));
       // Only a 404 means "no account". Any other answer stops the run, so a blip cannot prune memberships.
       else if (found.status !== 404) throw new Error(`user lookup failed (${found.status})`);
     }

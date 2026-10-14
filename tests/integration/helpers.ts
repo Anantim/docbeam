@@ -57,6 +57,8 @@ export const DOCBEAM_URL = 'http://localhost:3003';
 
 export interface Reply {
   status: number;
+  // Tests read fields of JSON bodies directly.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any;
   headers: Headers;
 }

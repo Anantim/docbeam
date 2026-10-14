@@ -43,6 +43,7 @@ interface Options {
   auth?: string | null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ingest(o: Options = {}): Promise<{ status: number; body: any }> {
   const file = o.file ?? pdf();
   const form = new FormData();
