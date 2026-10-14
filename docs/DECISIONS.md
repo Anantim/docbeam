@@ -457,3 +457,17 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** TDD Step 2.5 ("mark the file `failed`", no event), D-M2-8.
 - **What:** When the DLQ Consumer marks a still-pending file `failed`, the same statement writes one `file.refused` audit event: `actor_id` NULL, `detail.reason = "SCAN_FAILED"`, `detail.ownerUserId`, `fileId`, `fileName`. A repeated message changes nothing and writes no second event.
 - **Why:** The other two refusals (MISMATCH, MALWARE) leave an event the owner can see; a file that could not be checked should leave the same trace.
+
+## D-M2-20. Web upload and preview choices
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.6 (no limits or error handling named), D-M2-10.
+- **What:**
+  - **Preview size.** DOCX and XLSX preview up to 50 MB. Above that the dialog says the file is too large to show in the page. PDF and images have no cap (the browser's viewer streams them).
+  - **Sandboxed preview.** The rendered HTML of a DOCX or XLSX goes into an `<iframe sandbox>` with no `allow-scripts` and no `allow-same-origin`, through `srcdoc`, so the same viewer is safe in M4 for files other people sent. PDFs open in the browser's viewer from an object URL; images in an `<img>`.
+  - **Ticks need files.** A destination can be ticked only while the page holds a file that can be sent (mockup). A tick applies to the selected files, or to all files when none are selected.
+  - **Link freshness.** Upload links and part links are refreshed after 13 minutes (2 minutes of margin on 15).
+  - **Storage answers.** A 400 (for example BadDigest or a size mismatch) and a 403 that is not an expired link both give "Refused by storage" with Retry and the message that the file did not match what was checked. A 403 that says the link expired gets one fresh link. A broken connection or a 5xx is retried after 2, 4 and 8 seconds, then the file shows "Upload interrupted"; Retry carries on from the parts already stored.
+  - **Leaving the page.** While any file is being read, waiting or uploading, the browser asks before the page is closed or reloaded (`beforeunload`).
+  - **After Send.** The page clears and shows "Distribution <first 8 characters of the job id> sent. N deliveries queued." The Status page is M3.
+- **Why:** The design left these open, and each one decides what the user sees when something goes wrong.
