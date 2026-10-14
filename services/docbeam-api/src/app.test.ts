@@ -11,6 +11,10 @@ describe('docbeam-api service', () => {
       JWT_ISSUER: 'http://localhost:5173/api',
       JWKS_URL: 'http://localhost:3001/.well-known/jwks.json',
       OBJECT_STORE_BUCKET: 'docbeam-local-object-store',
+      JOB_QUEUE_URL: 'http://localhost:4566/000000000000/docbeam-local-job',
+      AUTH_URL: 'http://localhost:3001',
+      PLATFORM_URL: 'http://localhost:3002',
+      CLIENT_SECRET_DOCBEAM_API: 'unused',
     });
     const { db, pool } = createDb(config.DATABASE_URL);
     const app = await buildApp(config, db);

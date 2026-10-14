@@ -17,6 +17,13 @@ const schema = z.object({
   AWS_ENDPOINT_URL: z.string().url().optional(),
   /** The S3 address the browser can reach, when it differs from AWS_ENDPOINT_URL (D-M2-11). Unset on AWS. */
   S3_PUBLIC_ENDPOINT: z.string().url().optional(),
+  /** The Job Queue that starts fan-out (ADR-008). */
+  JOB_QUEUE_URL: z.string().url(),
+  /** Internal addresses of the Auth Service and the Document Platform (through the ALB on AWS). */
+  AUTH_URL: z.string().url(),
+  PLATFORM_URL: z.string().url(),
+  /** The `docbeam-api` service client secret, injected from Secrets Manager (D-G10). */
+  CLIENT_SECRET_DOCBEAM_API: z.string().min(1),
 });
 
 export type Config = z.infer<typeof schema>;
