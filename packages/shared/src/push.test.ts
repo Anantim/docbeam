@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { pushTaskUpdate, type Poster, type PushDeps } from './push.js';
+import { pushTaskUpdate, pushTaskUpdates, type Poster, type PushDeps } from './push.js';
 
 const update = {
   jobId: 'job-1',
@@ -86,6 +86,14 @@ describe('pushTaskUpdate', () => {
     const broken = setup([], post);
     broken.query.mockRejectedValueOnce(new Error('db down'));
     await expect(pushTaskUpdate(broken.deps, update)).resolves.toBeUndefined();
+  });
+
+  it('reads connections and counts once for a batch of updates', async () => {
+    const post = vi.fn(async () => true);
+    const s = setup([{ connection_id: 'c1', user_id: 'sender', team_ids: [] }], post);
+    await pushTaskUpdates(s.deps, 'job-1', [update, { ...update, taskId: 'task-2' }, { ...update, taskId: 'task-3' }]);
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(s.query).toHaveBeenCalledTimes(3);
   });
 
   it('does nothing when no endpoint is configured', async () => {

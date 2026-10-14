@@ -188,6 +188,8 @@ services:
       CLAMD_HOST: clamav
       # Fan-out sends one message per task here (ADR-008).
       TASK_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-task
+      # The sweeper sends the job message again for a job that did not start.
+      JOB_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-job
       # Delivery streams the staged file to the platform as the delivery-worker client (ADR-013).
       AUTH_URL: http://auth:3001
       PLATFORM_URL: http://platform:3002

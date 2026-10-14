@@ -5,11 +5,11 @@ import {
   createSecretReader,
   createVisibilityChanger,
   lambdaPoolConfig,
+  parseUploadEvents,
   type VisibilityChanger,
 } from '@docbeam/shared';
 import type { SQSBatchItemFailure, SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import pg from 'pg';
-import { parseUploadEvents } from './events.js';
 import { type Deps, processUpload, retryDelaySeconds } from './process.js';
 import { scannerFromEnv } from './scanner.js';
 

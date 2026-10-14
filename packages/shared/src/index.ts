@@ -14,3 +14,4 @@ export * from './push.js';
 export * from './service-token.js';
 export * from './sqs.js';
 export * from './task-outcome.js';
+export * from './upload-events.js';

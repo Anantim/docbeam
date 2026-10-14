@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { finishTask, jobStatus, type Connectable } from './task-outcome.js';
+import { failPendingTasks, finishTask, jobStatus, type Connectable } from './task-outcome.js';
 
 describe('jobStatus', () => {
   const c = (pending: number, inProgress: number, completed: number, failed: number) => ({ pending, inProgress, completed, failed });
@@ -32,6 +32,48 @@ function fakeDb(taskRows: unknown[], closedRows = 1) {
 }
 
 const row = { updated_at: new Date('2026-10-15T00:00:00Z'), team_id: 't', file_id: 'f', destination_path: 'p' };
+
+describe('failPendingTasks', () => {
+  function failDb(failedRows: unknown[]) {
+    const calls: Array<{ text: string; values: unknown[] | undefined }> = [];
+    const query = vi.fn(async (text: string, values?: unknown[]) => {
+      calls.push({ text, values });
+      if (text.includes("SET status = 'failed'")) return { rows: failedRows, rowCount: failedRows.length };
+      if (text.includes('UPDATE jobs')) return { rows: [], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    });
+    const client = { query, release: vi.fn() };
+    return { db: { connect: vi.fn(async () => client) } as unknown as Connectable, calls, client };
+  }
+
+  const failedRow = (id: string) => ({
+    id,
+    team_id: 't',
+    file_id: 'f',
+    destination_path: 'p',
+    original_name: 'a.pdf',
+    failure_reason: 'a.pdf to p: x',
+    updated_at: new Date(),
+  });
+
+  it('fails only pending tasks under the job lock, with one audit event each, and closes the job', async () => {
+    const { db, calls } = failDb([failedRow('k1'), failedRow('k2')]);
+    const out = await failPendingTasks(db, { jobId: 'j', failureCode: 'FANOUT_FAILED', detail: 'x' });
+    expect(out.tasks.map((t) => t.taskId)).toEqual(['k1', 'k2']);
+    expect(out.jobClosed).toBe(true);
+    expect(calls[1]?.text).toContain('FOR UPDATE');
+    expect(calls[2]?.text).toContain("t.status = 'pending'");
+    expect(calls[3]?.values?.[1]).toEqual(['k1', 'k2']);
+    expect(calls.at(-1)?.text).toBe('COMMIT');
+  });
+
+  it('writes no audit events when nothing is pending', async () => {
+    const { db, calls } = failDb([]);
+    const out = await failPendingTasks(db, { jobId: 'j', failureCode: 'FANOUT_FAILED', detail: 'x' });
+    expect(out.tasks).toEqual([]);
+    expect(calls.some((c) => c.text.includes('INSERT INTO audit_events'))).toBe(false);
+  });
+});
 
 describe('finishTask', () => {
   it('locks the job, writes the task and the audit event, closes the job, commits', async () => {

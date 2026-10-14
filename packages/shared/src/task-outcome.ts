@@ -48,6 +48,90 @@ export interface FinishedTask {
   jobClosed: boolean;
 }
 
+export interface FailPendingInput {
+  jobId: string;
+  failureCode: FailureCode;
+  /** Added after "<file name> to <destination>: ". */
+  detail: string;
+}
+
+export interface FailedPendingResult {
+  tasks: Array<{ taskId: string; teamId: string; failureReason: string; updatedAt: Date }>;
+  jobClosed: boolean;
+}
+
+/**
+ * Marks every task of a job that is still `pending` as failed, in one transaction under the job row lock,
+ * with one `task.failed` audit event each (D-G13, Step 2.5). Tasks in progress are left to finish. Used by
+ * the DLQ Consumer for a failed fan-out; the cancel route in M3 does the same with CANCELLED.
+ */
+export async function failPendingTasks(db: Connectable, input: FailPendingInput): Promise<FailedPendingResult> {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT 1 FROM jobs WHERE id = $1 FOR UPDATE', [input.jobId]);
+
+    const failed = await client.query<{
+      id: string;
+      team_id: string;
+      file_id: string;
+      destination_path: string | null;
+      original_name: string;
+      failure_reason: string;
+      updated_at: Date;
+    }>(
+      `UPDATE tasks t
+          SET status = 'failed', failure_code = $2, updated_at = now(),
+              failure_reason = f.original_name || ' to ' || COALESCE(t.destination_path, 'the destination') || ': ' || $3
+         FROM files f
+        WHERE f.id = t.file_id AND t.job_id = $1 AND t.status = 'pending'
+        RETURNING t.id, t.team_id, t.file_id, t.destination_path, f.original_name, t.failure_reason, t.updated_at`,
+      [input.jobId, input.failureCode, input.detail],
+    );
+
+    if (failed.rows.length > 0) {
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, job_id, task_id, team_id, detail)
+         SELECT NULL, 'task.failed', $1::uuid, a.task_id, a.team_id, a.detail::jsonb
+           FROM unnest($2::uuid[], $3::uuid[], $4::text[]) AS a(task_id, team_id, detail)`,
+        [
+          input.jobId,
+          failed.rows.map((r) => r.id),
+          failed.rows.map((r) => r.team_id),
+          failed.rows.map((r) =>
+            JSON.stringify({
+              fileId: r.file_id,
+              fileName: r.original_name,
+              destinationPath: r.destination_path,
+              failureCode: input.failureCode,
+              failureReason: r.failure_reason,
+            }),
+          ),
+        ],
+      );
+    }
+
+    const closed = await client.query(
+      `UPDATE jobs
+          SET completed_at = now(), first_completed_at = COALESCE(first_completed_at, now())
+        WHERE id = $1 AND completed_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM tasks WHERE job_id = $1 AND status IN ('pending', 'in_progress'))`,
+      [input.jobId],
+    );
+    await client.query('COMMIT');
+
+    return {
+      tasks: failed.rows.map((r) => ({ taskId: r.id, teamId: r.team_id, failureReason: r.failure_reason, updatedAt: r.updated_at })),
+      jobClosed: (closed.rowCount ?? 0) > 0,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * One transaction: lock the job row, write the final status only if the task is still open, write the audit
  * event, and close the job if nothing is open. Returns null when another outcome already won, in which case

@@ -7,9 +7,8 @@ import {
   PutObjectTaggingCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
-import type { Logger } from '@docbeam/shared';
+import type { Logger, UploadedObject } from '@docbeam/shared';
 import type pg from 'pg';
-import type { UploadedObject } from './events.js';
 import type { Scanner } from './scanner.js';
 
 export interface Deps {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseUploadEvents } from './events.js';
+import { parseUploadEvents } from './upload-events.js';
 
 const owner = '11111111-1111-4111-8111-111111111111';
 const file = '22222222-2222-4222-8222-222222222222';
