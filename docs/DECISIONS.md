@@ -138,3 +138,35 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** TDD M5 checklist ("removing the sender from one of the 20 destination teams right after submitting, before deliveries start").
 - **What:** The check pauses the Task Queue trigger, re-runs the seed without that membership, then resumes the trigger.
 - **Why:** Deliveries start within seconds of submitting, so without the pause the check races.
+
+## D-M0-1. ecs-cluster and secrets modules
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Repository layout (module list), Step 0.2; D-G11.
+- **What:** Two modules are added: `infra/modules/ecs-cluster` (the ECS cluster, plus the DB bootstrap task definition, its roles and its log group) and `infra/modules/secrets` (the four service client secrets from `random_password`, and the signing-key secret). Terraform creates the signing-key secret empty, with no secret version, and never manages its value, so the private key never lands in Terraform state. The M1 bootstrap task writes it. Database role passwords stay in the `rds` module.
+- **Why:** The layout's module list had no home for the cluster (D-G11) or for secrets that are not database secrets.
+
+## D-M0-2. Migrations run as the owner role through SET ROLE
+
+- **Date:** 2026-10-14
+- **Changes:** D-G8 (owner roles are NOLOGIN and "run migrations").
+- **What:** Each service's migrate entrypoint connects with the migration login (the RDS master user on AWS, `postgres` locally), then runs `SET ROLE <db>_owner` before migrating, so every object is owned by the owner role. The DB bootstrap makes the master user a member of the three owner roles and sets default privileges from each owner role to its app role.
+- **Why:** A NOLOGIN role cannot connect, and the app role must not be a member of the owner role, or it could edit the audit trail.
+
+## D-M0-3. Local stand-ins and build choices
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 0.1 and Step 0.3 (no detail given).
+- **What:**
+  - `ws-local` is a second entrypoint of `packages/worker-runtime`, so the repository layout stays as designed.
+  - In Docker Compose each service container runs its migrations, then starts. On AWS, migrations stay a one-off ECS task.
+  - The Upload Events image is Debian bookworm-slim with Node 22, ClamAV from apt and `aws-lambda-ric`. Amazon Linux 2023 has no ClamAV package.
+  - gitleaks runs from its pinned container image.
+- **Why:** These were open implementation choices with one simple answer each.
+
+## D-M0-4. State bucket access by IAM only, and dev teardown settings
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 0.2 ("only the deploy user and the admin user can read it"); PLAN 0.2a.
+- **What:** The state bucket has versioning, SSE-KMS with a Bucket Key, Block Public Access and a TLS-only policy, but no bucket-policy deny for other principals. Only the admin user and the deploy user exist in the account, so IAM keeps access to those two. In dev only, every secret has a 0-day recovery window, every bucket `force_destroy`, every ECR repository `force_delete`, and RDS skips the final snapshot with deletion protection off. Prod keeps the safe settings. All of these are module variables.
+- **Why:** A wrong deny could lock out the admin user, and this account has no root login to recover. Dev is destroyed and re-created often to save credits, so names must free up at once.
