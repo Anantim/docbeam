@@ -140,6 +140,19 @@ describe('DLQ Consumer', () => {
     // The second message was sent after the first, so give it the same time to be handled.
     await new Promise((r) => setTimeout(r, 2_000));
     expect((await db.query('SELECT scan_status FROM files WHERE id = $1', [clean.id])).rows[0].scan_status).toBe('clean');
+
+    const refusals = async (fileId: string) =>
+      (await db.query(`SELECT actor_id, detail FROM audit_events WHERE action = 'file.refused' AND detail->>'fileId' = $1`, [fileId])).rows;
+    const written = await refusals(pending.id);
+    expect(written).toHaveLength(1);
+    expect(written[0].actor_id).toBeNull();
+    expect(written[0].detail).toMatchObject({ reason: 'SCAN_FAILED', ownerUserId: OWNER, fileName: 'consent.pdf' });
+    expect(await refusals(clean.id)).toHaveLength(0);
+
+    // The same message again: the file is no longer pending, so nothing more is written.
+    await sendTo('upload-events-dlq', event(pending.key));
+    await new Promise((r) => setTimeout(r, 3_000));
+    expect(await refusals(pending.id)).toHaveLength(1);
   }, 60_000);
 });
 

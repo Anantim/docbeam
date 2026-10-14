@@ -450,3 +450,10 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Also:** `terraform init -upgrade` added the `archive` provider (the placeholder zip) and moved the AWS provider from 6.68.0 to 6.69.0 in both lock files.
 - **Found by:** a read-only `terraform plan` of dev from an empty state (251 resources to add, no error), run on 2026-10-15 with `-lock=false`.
 - **Why:** M2 needs the queues, functions, alarms and schedules in code before the first apply.
+
+## D-M2-19. The Upload DLQ writes `file.refused` with reason SCAN_FAILED
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.5 ("mark the file `failed`", no event), D-M2-8.
+- **What:** When the DLQ Consumer marks a still-pending file `failed`, the same statement writes one `file.refused` audit event: `actor_id` NULL, `detail.reason = "SCAN_FAILED"`, `detail.ownerUserId`, `fileId`, `fileName`. A repeated message changes nothing and writes no second event.
+- **Why:** The other two refusals (MISMATCH, MALWARE) leave an event the owner can see; a file that could not be checked should leave the same trace.

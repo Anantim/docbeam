@@ -111,11 +111,24 @@ async function jobDlq(deps: Deps, body: string): Promise<void> {
   );
 }
 
-/** A file whose upload events could not be handled: the page shows that it could not be checked. */
+/**
+ * A file whose upload events could not be handled: the page shows that it could not be checked. One statement
+ * marks the file and writes `file.refused` (same shape as the other refusals, D-M2-8, D-M2-19), so a repeated
+ * message changes nothing and writes no second event.
+ */
 async function uploadDlq(deps: Deps, body: string): Promise<void> {
   for (const object of parseUploadEvents(body)) {
     const out = await deps.db.query(
-      `UPDATE files SET scan_status = 'failed' WHERE id = $1 AND s3_key = $2 AND scan_status = 'pending'`,
+      `WITH failed AS (
+         UPDATE files SET scan_status = 'failed'
+          WHERE id = $1 AND s3_key = $2 AND scan_status = 'pending'
+         RETURNING id, original_name, owner_user_id
+       )
+       INSERT INTO audit_events (actor_id, action, detail)
+       SELECT NULL, 'file.refused',
+              jsonb_build_object('fileId', id, 'fileName', original_name, 'ownerUserId', owner_user_id,
+                                 'reason', 'SCAN_FAILED', 'detail', 'The file could not be checked after 5 attempts.')
+         FROM failed`,
       [object.fileId, object.key],
     );
     deps.log.warn('file could not be checked', { fileId: object.fileId, changed: out.rowCount });
