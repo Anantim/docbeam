@@ -8,16 +8,16 @@ FROM --platform=linux/amd64 clamav/clamav:stable AS definitions
 
 FROM --platform=linux/amd64 node:22-trixie-slim AS build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends g++ make cmake autoconf automake libtool python3 unzip libcurl4-openssl-dev \
+ && apt-get install -y --no-install-recommends g++ make cmake autoconf automake libtool python3 unzip xz-utils libcurl4-openssl-dev \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY workers/upload-events/package.json workers/upload-events/
-RUN npm ci --workspace @docbeam/worker-upload-events --include-workspace-root=false --ignore-scripts
+RUN npm ci --workspace @docbeam/shared --workspace @docbeam/worker-upload-events --include-workspace-root --ignore-scripts
 COPY packages/shared packages/shared
 COPY workers/upload-events workers/upload-events
-RUN npm run bundle --workspace @docbeam/worker-upload-events
+RUN npx tsc -b workers/upload-events && npm run bundle --workspace @docbeam/worker-upload-events
 # The Lambda runtime interface client, built for this image (native module).
 WORKDIR /ric
 RUN npm init -y >/dev/null && npm install aws-lambda-ric@4.0.2

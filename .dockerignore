@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.terraform
+.git
+.github
+.env
+.env.*
+docs
+infra
+bootstrap
+coverage
