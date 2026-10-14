@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 /** bcrypt cost from the TDD (Step 1.1). */
 export const BCRYPT_COST = 12;

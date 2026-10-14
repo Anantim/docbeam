@@ -69,3 +69,9 @@ variable "log_retention_days" {
   type    = number
   default = 30
 }
+
+variable "jwt_authorizer_enabled" {
+  description = "API Gateway fetches <issuer>/.well-known/openid-configuration when it creates the authorizer, so the Auth Service must already answer through CloudFront. Set false only for the first bring-up: the protected routes are then not created (they answer 404), never open (D-M1-13)."
+  type        = bool
+  default     = true
+}

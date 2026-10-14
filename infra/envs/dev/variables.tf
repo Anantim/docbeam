@@ -32,3 +32,9 @@ variable "cors_allowed_origins" {
   type        = list(string)
   default     = ["http://localhost:5173"]
 }
+
+variable "jwt_authorizer_enabled" {
+  description = "false only for the first bring-up of a new environment, until the Auth Service answers through CloudFront (D-M1-13). Apply again with true."
+  type        = bool
+  default     = true
+}

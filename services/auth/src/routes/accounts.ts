@@ -62,17 +62,17 @@ export function registerAccountRoutes(app: FastifyInstance, db: Db, issuer: Toke
     const parsed = loginBody.safeParse(request.body);
     if (!parsed.success) throw badLogin();
     const { email, password } = parsed.data;
+    // The password is compared first, with no database connection held, because bcrypt is slow on purpose.
+    // The counters are then updated in a short transaction that locks the user row, so concurrent wrong
+    // passwords still count one after the other.
+    const [found] = await db.select().from(users).where(eq(users.email, email));
+    const matches = await verifyPassword(password, found?.passwordHash ?? DUMMY_HASH);
+    if (!found) throw badLogin();
     const now = new Date();
 
     const user = await db.transaction(async (tx) => {
-      // The row lock makes concurrent wrong passwords count one after the other.
-      const [row] = await tx.select().from(users).where(eq(users.email, email)).for('update');
-      if (!row) {
-        await verifyPassword(password, DUMMY_HASH);
-        return null;
-      }
-      const matches = await verifyPassword(password, row.passwordHash);
-      if (isPaused(row, now)) return null;
+      const [row] = await tx.select().from(users).where(eq(users.id, found.id)).for('update');
+      if (!row || isPaused(row, now)) return null;
       const state = matches ? afterRightPassword() : afterWrongPassword(row, now);
       await tx.update(users).set(state).where(eq(users.id, row.id));
       return matches ? row : null;

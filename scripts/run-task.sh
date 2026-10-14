@@ -31,7 +31,8 @@ NETWORK="$(aws ecs describe-services --region "$REGION" --cluster "$CLUSTER" --s
 
 OVERRIDES=()
 if [ "$#" -gt 0 ]; then
-  OVERRIDES=(--overrides "$(jq -nc --args '{containerOverrides: [{name: "app", command: $ARGS.positional}]}' "$@")")
+  COMMAND_JSON="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "$@")"
+  OVERRIDES=(--overrides "{\"containerOverrides\":[{\"name\":\"app\",\"command\":${COMMAND_JSON}}]}")
 fi
 
 TASK_ARN="$(aws ecs run-task --region "$REGION" --cluster "$CLUSTER" --task-definition "$FAMILY" \

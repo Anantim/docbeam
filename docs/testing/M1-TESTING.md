@@ -86,12 +86,13 @@ The person says yes once for the whole block. Tear down at the end (section 5).
 | 4 | `terraform -chdir=infra/envs/dev apply -target=module.ecr -var image_tag=$IMAGE_TAG` | 1 repository per image created (`Apply complete!`) |
 | 5 | `for s in auth platform docbeam-api; do scripts/push-image.sh dev $s docker/service.Dockerfile --build-arg SERVICE=$s; done` | Three lines `…/docbeam-dev/<service>:<sha>` |
 | 6 | `scripts/push-image.sh dev db-bootstrap docker/db-bootstrap/Dockerfile` | `…/docbeam-dev/db-bootstrap:<sha>` |
-| 7 | `terraform -chdir=infra/envs/dev plan -var image_tag=$IMAGE_TAG` | `Plan: about 170 to add` (the number can move by a few) |
-| 8 | `terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG` (type `yes`) | `Apply complete!`. About 20 minutes. The ECS services start and fail health checks until steps 9 to 11 are done: that is expected |
+| 7 | `terraform -chdir=infra/envs/dev plan -var image_tag=$IMAGE_TAG -var jwt_authorizer_enabled=false` | `Plan: about 170 to add` (the number can move by a few) |
+| 8 | `terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG -var jwt_authorizer_enabled=false` (type `yes`) | `Apply complete!`. About 20 minutes. API Gateway reads the issuer's OpenID configuration when it creates the authorizer, so the authorizer and the four protected routes wait for step 12b (D-M1-13). The ECS services start and fail health checks until steps 9 to 11 are done: that is expected |
 | 9 | `scripts/run-db-bootstrap.sh dev` | `exit code: 0`, three databases, six roles |
 | 10 | `scripts/run-task.sh dev auth signing-key` | Log `signing key written`, `exit code: 0`. A second run logs `signing key already present, nothing written` |
 | 11 | `scripts/deploy-service.sh dev auth $(…/auth:$IMAGE_TAG)`, then `platform`, then `docbeam-api` (full image URI as the third argument; `terraform output ecr_repository_urls` shows them) | For auth: `Running migrations`, `Updating`, `Deployed`. For platform: also `Running the seed for platform`. Each ends with `Deployed <image> to docbeam-dev-<service>` |
 | 12 | `scripts/check-internal.sh dev` | Three lines `3001 200 {"status":"ok","service":"auth"}`, `3002 200 …`, `3003 200 …`; `exit code: 0` |
+| 12b | `curl -s $APP/api/.well-known/openid-configuration`, then `terraform -chdir=infra/envs/dev apply -var image_tag=$IMAGE_TAG` (type `yes`) | The JSON shows `issuer` `$APP/api`. Apply: `Apply complete! Resources: 5 added` (authorizer and four routes) |
 | 13 | `scripts/deploy-web.sh dev` | `Deployed to https://<id>.cloudfront.net` |
 | 14 | `terraform -chdir=infra/envs/dev plan -var image_tag=$IMAGE_TAG` | `No changes.` |
 

@@ -48,6 +48,8 @@ resource "aws_apigatewayv2_integration" "service" {
 }
 
 resource "aws_apigatewayv2_authorizer" "jwt" {
+  count = var.jwt_authorizer_enabled ? 1 : 0
+
   api_id           = aws_apigatewayv2_api.this.id
   name             = "docbeam-jwt"
   authorizer_type  = "JWT"
@@ -60,13 +62,14 @@ resource "aws_apigatewayv2_authorizer" "jwt" {
 }
 
 resource "aws_apigatewayv2_route" "this" {
-  for_each = var.routes
+  # Without the authorizer only the public routes exist. A protected route is never created without it.
+  for_each = { for k, r in var.routes : k => r if r.public || var.jwt_authorizer_enabled }
 
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = each.key
   target             = "integrations/${aws_apigatewayv2_integration.service[each.value.service].id}"
   authorization_type = each.value.public ? "NONE" : "JWT"
-  authorizer_id      = each.value.public ? null : aws_apigatewayv2_authorizer.jwt.id
+  authorizer_id      = each.value.public ? null : one(aws_apigatewayv2_authorizer.jwt[*].id)
 }
 
 resource "aws_cloudwatch_log_group" "access" {

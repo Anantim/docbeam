@@ -83,6 +83,7 @@ module "api_gateway" {
   issuer                     = local.issuer
   cors_allowed_origins       = var.cors_allowed_origins
   routes                     = local.public_routes
+  jwt_authorizer_enabled     = var.jwt_authorizer_enabled
 }
 
 module "auth" {
@@ -98,6 +99,10 @@ module "auth" {
   desired_count         = var.service_desired_count
   alb_security_group_id = module.alb.security_group_id
   target_group_arn      = module.alb.target_group_arns["auth"]
+
+  # bcrypt at cost 12 is CPU-bound by design, so the Auth Service gets more than the others (D-M1-13).
+  cpu    = 512
+  memory = 1024
 
   environment = local.common_env["auth"]
   secrets = merge(local.db_secrets["auth"], {

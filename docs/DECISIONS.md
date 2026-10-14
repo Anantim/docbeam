@@ -279,3 +279,13 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - CloudFront and the API share one site, so the browser never makes a cross-origin call. The gateway's CORS (credentials allowed) is set from the variable `cors_allowed_origins`: `http://localhost:5173` in dev, empty in prod. CloudFront's own address cannot be named there, because the distribution's origin is the API, and an API that names the distribution would make a cycle in Terraform.
   - The M0 error pages (403 and 404 become `index.html` with 200) apply to every behaviour, so an API 404 such as "another team's binder" would arrive as a 200 page. They are removed. A CloudFront Function on the web behaviour serves `index.html` for any path without a dot.
 - **Why:** Without both changes the cookie flow works but the 404 rule is hidden from the browser.
+
+## D-M1-13. Authorizer switch for the first bring-up, native bcrypt, bigger auth task
+
+- **Date:** 2026-10-14
+- **Changes:** TDD Step 1.1 (bcrypt cost 12, "ECS Fargate, 2 tasks"), Step 1.4 (the JWT authorizer). Found on the first dev apply.
+- **What:**
+  - **Authorizer.** API Gateway fetches `<issuer>/.well-known/openid-configuration` when it creates the JWT authorizer, so the Auth Service has to answer through CloudFront first. Both environments have a variable `jwt_authorizer_enabled` (default `true`). A brand-new environment is applied once with `false`: only the public routes exist, the four protected routes do not exist at all and answer 404 (never open). After the DB bootstrap, the signing-key task and the deploys, it is applied again with `true`. Later applies keep `true`.
+  - **bcrypt.** The pure-JavaScript library took 1.6 s a hash on the 0.25 vCPU task and, with a transaction held open during the compare, 31 of 40 parallel logins failed with 500. The Auth Service now uses the native `bcrypt` package (228 ms a hash on the laptop) and compares the password before it opens the short transaction that updates the counters. Cost stays 12.
+  - **Size.** The Auth Service task is 0.5 vCPU and 1 GB (the others stay 0.25 vCPU and 0.5 GB), because bcrypt is CPU-bound by design.
+- **Why:** A first apply that always fails, and a login that fails under load, are both defects the design did not foresee.
