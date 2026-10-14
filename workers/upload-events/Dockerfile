@@ -32,5 +32,5 @@ WORKDIR /var/task
 COPY --from=build /ric/node_modules /opt/ric/node_modules
 COPY --from=build /repo/workers/upload-events/dist/lambda/ /var/task/
 # Lambda runs the image as a non-root user with a read-only file system except /tmp.
-ENTRYPOINT ["/usr/local/bin/node", "/opt/ric/node_modules/aws-lambda-ric/bin/index.mjs"]
+ENTRYPOINT ["/usr/local/bin/node", "/opt/ric/node_modules/aws-lambda-ric/index.mjs"]
 CMD ["index.handler"]

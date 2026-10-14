@@ -170,3 +170,10 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** TDD Step 0.2 ("only the deploy user and the admin user can read it"); PLAN 0.2a.
 - **What:** The state bucket has versioning, SSE-KMS with a Bucket Key, Block Public Access and a TLS-only policy, but no bucket-policy deny for other principals. Only the admin user and the deploy user exist in the account, so IAM keeps access to those two. In dev only, every secret has a 0-day recovery window, every bucket `force_destroy`, every ECR repository `force_delete`, and RDS skips the final snapshot with deletion protection off. Prod keeps the safe settings. All of these are module variables.
 - **Why:** A wrong deny could lock out the admin user, and this account has no root login to recover. Dev is destroyed and re-created often to save credits, so names must free up at once.
+
+## D-M0-5. LocalStack pinned to 4.14
+
+- **Date:** 2026-10-14
+- **Changes:** PLAN G20 ("check in M0 whether an auth token is needed"); TDD Step 0.1 (LocalStack for S3 and SQS).
+- **What:** The latest LocalStack image (2026.10.0) exits at start without `LOCALSTACK_AUTH_TOKEN`. LocalStack `4.14` runs without a token and covers S3 and SQS, so Compose and CI pin `localstack/localstack:4.14`. No token is needed in `.env` or in GitHub. Checks LocalStack cannot enforce are proved on dev.
+- **Why:** The person did not have to create an account or store another secret. Move to a newer image when a token is set up.
