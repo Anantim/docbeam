@@ -472,3 +472,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - **No bottom-bar summary (deviation from the mockup, 2026-10-16).** The line "N files to N destinations, each uploaded once" is removed from the Send bar. The "This distribution" card and the Send button already show the counts. Decided by the person after the browser run.
   - **After Send.** The page clears and shows "Distribution <first 8 characters of the job id> sent. N deliveries queued." The Status page is M3.
 - **Why:** The design left these open, and each one decides what the user sees when something goes wrong.
+
+## D-M2-21. Demo user Anantim Patil in all three demo teams
+- **Date:** 2026-10-16
+- **Changes:** D-M1-3 and D-M1-4 (seed format and seed users).
+- **What:** `demo.json` gets a fourth user, "Anantim Patil" (`anantim.patil@example.com`), a member of Cardio, Oncology and Neuro. It uses the same seed password as the other users. `seed/generate.mjs` writes it, so every id stays the same. `dev-load.json` is unchanged. The first seed run of `demo.json` now reports `membersAdded 7` (was 4).
+- **Why:** One login that sees every destination makes the browser checks of M2 to M4 shorter. Priya, Raj and Sam keep their old teams, so the isolation checks still hold.

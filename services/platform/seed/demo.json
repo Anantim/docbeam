@@ -11,6 +11,10 @@
     {
       "email": "sam.ito@example.com",
       "name": "Sam Ito"
+    },
+    {
+      "email": "anantim.patil@example.com",
+      "name": "Anantim Patil"
     }
   ],
   "teams": [
@@ -19,7 +23,8 @@
       "name": "Cardio",
       "members": [
         "priya.shah@example.com",
-        "raj.mehta@example.com"
+        "raj.mehta@example.com",
+        "anantim.patil@example.com"
       ],
       "binders": [
         {
@@ -66,7 +71,8 @@
       "id": "a6578412-8359-50f6-94ff-69da1b8974c0",
       "name": "Oncology",
       "members": [
-        "priya.shah@example.com"
+        "priya.shah@example.com",
+        "anantim.patil@example.com"
       ],
       "binders": [
         {
@@ -102,7 +108,8 @@
       "id": "02edc268-1770-5771-a210-b3700510038b",
       "name": "Neuro",
       "members": [
-        "sam.ito@example.com"
+        "sam.ito@example.com",
+        "anantim.patil@example.com"
       ],
       "binders": [
         {

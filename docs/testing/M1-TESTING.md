@@ -13,7 +13,7 @@ Every check is a command or a click with the expected result. Account `346208529
 | 1 | `scripts/local-env.sh` | `.env is ready`. `.env` now holds `JWT_PRIVATE_KEY`, four `CLIENT_SECRET_*` and `SEED_USER_PASSWORD` |
 | 2 | `docker compose up -d --build --wait` | auth, platform, docbeam-api, postgres, localstack, clamav, workers and ws-local are `healthy` |
 | 2b | `docker compose run --rm seed` | Two `seed applied` lines (the seed has its own profile because `up --wait` treats an exited container as a failure) |
-| 3 | The `seed applied` lines from step 2b | Two lines. `demo.json`: `teamsChanged 3`, `bindersChanged 5`, `foldersChanged 9`, `membersAdded 4`. `dev-load.json`: `teamsChanged 50`, `bindersChanged 100`, `foldersChanged 1500` |
+| 3 | The `seed applied` lines from step 2b | Two lines. `demo.json`: `teamsChanged 3`, `bindersChanged 5`, `foldersChanged 9`, `membersAdded 7`. `dev-load.json`: `teamsChanged 50`, `bindersChanged 100`, `foldersChanged 1500` |
 | 4 | `docker compose run --rm seed` again | Both lines show every `…Changed` and `members…` count at `0` (safe to repeat) |
 
 ### 1.2 Run the tests

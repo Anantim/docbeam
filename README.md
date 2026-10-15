@@ -12,7 +12,7 @@ You need Node 22, npm and Docker (Compose v2). Nothing else.
 scripts/local-env.sh              # creates .env: safe defaults, plus a local signing key and secrets
 npm install
 docker compose up -d --build --wait   # every container reports healthy
-docker compose run --rm seed          # demo teams, binders, folders and users; safe to repeat
+docker compose run --rm seed          # demo teams, binders, folders and users (Priya, Raj, Sam, Anantim); safe to repeat
 ```
 
 | What | Address |

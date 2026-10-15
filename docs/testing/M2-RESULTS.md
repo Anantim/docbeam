@@ -64,13 +64,22 @@ So the 129 in the STATUS row for task 7 was 120 (task 6) + 9 (new DLQ tests) wit
 | Delivery's security group only on the Auth and platform listeners | `infra/modules/alb` takes `clients` with an optional `services` list; `terraform validate` passes in both envs. The plan against AWS is not run yet (it reads AWS); the client rules change from 12 (4 clients x 3 listeners) to 11 (Delivery on 2) |
 | Upload DLQ writes `file.refused` (D-M2-19) | `dlq-sweeper.test.ts` checks one event with `reason SCAN_FAILED`, `ownerUserId`, `actor_id` NULL, none for the clean file, still one after the same message again |
 
-### 1.3 Browser checks: waiting on the person
+### 1.3 Browser checks: done by the person on 2026-10-16
 
-Steps 1 to 19 of section 1.3 in `M2-TESTING.md`. None is recorded as YES yet.
+Steps 1 to 19 of section 1.3 in `M2-TESTING.md`.
 
-| Steps | Status |
+| Steps | Status | Evidence |
+|---|---|---|
+| 1 to 19 | YES (all 19), reported by the person | The person ran every step in the browser. Notes from the run: (1) opened at `http://127.0.0.1:5173`, every upload was blocked by CORS because the local bucket allowed only `http://localhost:5173`; fixed, see 1.3b. (2) The bottom-bar line "N files to N destinations, each uploaded once" was removed (D-M2-20). (3) UI polish items went to STATUS "UI polish (after M4)". (4) The demo user Anantim Patil was added (D-M2-21) |
+
+### 1.3b Changes after the browser run (2026-10-16)
+
+| Change | Evidence |
 |---|---|
-| 1 to 19 | waiting on the person |
+| CORS allows `http://localhost:5173` and `http://127.0.0.1:5173` locally (POST, PUT, GET, DELETE, `ETag` exposed) | `docker/localstack/init/ready.d/init.sh`. `localstack.test.ts`: `answers a CORS preflight from the web app at http://localhost:5173`, `... at http://127.0.0.1:5173` and `does not allow another origin in a CORS preflight` pass. Dev preflight is check 16 in M2-TESTING section 3 (not run yet) |
+| Send bar summary line removed | `web/src/components/SendBar.tsx`, `Distribute.tsx`; D-M2-20 |
+| Demo user `anantim.patil@example.com` in Cardio, Oncology, Neuro | `seed/generate.mjs`, `demo.json`; D-M2-21. Login returns 200. Seed on the existing database: `membersAdded 3` (4 existed); on a fresh database it is 7 |
+| Full run after the three changes | lint, typecheck clean; 327 unit tests pass; 129 integration tests in 15 files pass |
 
 ### 1.4 Command line
 

@@ -81,6 +81,24 @@ Task list: `docs/PLAN.md` (M2 task list). Decisions: D-M2-1 to D-M2-14 in `docs/
 | 11 Testing round (local part), `M2-TESTING.md`, `M2-RESULTS.md` | local part done: both documents written, section 1 evidence recorded, browser steps (1.3, 19 steps) **waiting on the person**; sections 2 and 3 not run (AWS) |
 | 12 YES/NO check, walkthrough, STATUS, pull request | not started |
 
+### UI polish (after M4)
+
+Noted by the person after the M2 browser run (2026-10-16). Not done in M2.
+
+- No horizontal scroll in the Documents table: truncate long names with a tooltip, fold Size into the name line.
+- The destinations column shows a count ("3 folders") with a popover listing every path; "+N" chips must not hide information.
+- Short status pills, with the details in a tooltip.
+- One accent colour; red only for errors, amber only for warnings.
+- Fewer repeated hints (step indicator, "or select files below...").
+- Tooltips and consistent sizes on all icon buttons; Remove less prominent than Retry.
+
+### Update 2026-10-16: browser checks passed, three changes made
+
+- The person passed all 19 browser steps (M2-RESULTS 1.3). Waiting-on-the-person status is gone.
+- Done: local CORS for `127.0.0.1:5173` with a preflight integration test and a dev check (M2-TESTING 3, check 16); Send bar summary line removed (D-M2-20); demo user Anantim Patil in all three demo teams (D-M2-21; first seed run of `demo.json` now `membersAdded 7`).
+- Last full run: lint, typecheck, 327 unit tests, 129 integration tests (15 files) green. The `seed` and platform images must be rebuilt (`docker compose up -d --build --wait`) to pick up `demo.json`.
+- **The AWS block has not been started.** It runs in a new session, in the daytime.
+
 ### Handover notes for the next session (written 2026-10-15 after task 10 and the local part of task 11)
 
 - **State:** branch `m2`, local and not pushed. **Nothing in AWS has been touched** (one read-only `terraform plan` of dev, with `-lock=false`, in task 8). The Compose stack is up and healthy; after a worker or service change run `docker compose up -d --build --wait`. Last full runs: 327 unit tests (51 files), 126 integration tests (15 files), lint, typecheck, build, `terraform fmt` and `validate` (dev and prod) green.
