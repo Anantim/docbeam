@@ -154,6 +154,19 @@ The person says yes before each push, apply and task run. The README "Build dev"
 | 13 | Security group of the Delivery Lambda, outbound and the ALB group inbound | The ALB group allows the Delivery group only on ports 3001 and 3002 |
 | 14 | `scripts/deploy-lambda.sh dev fanout workers/fanout/dist/lambda` (second run) | Skips: the package hash is unchanged |
 | 15 | Send a distribution with the page's Network tab open | `POST /api/jobs` answers `201` in well under a second. (The 500 ms p99 is measured in M5, check 5.1) |
+| 16 | **CORS preflight on the dev bucket** (the browser makes this call before every upload; run the commands below) | `HTTP/2 200` and `access-control-allow-origin: https://<id>.cloudfront.net` (the exact origin sent), and `access-control-allow-methods` lists `PUT`. A second call with `Origin: https://evil.example` has no `access-control-allow-origin` header |
+
+Commands for check 16:
+
+```bash
+ORIGIN=$(terraform -chdir=infra/envs/dev output -raw app_url)      # https://<id>.cloudfront.net
+BUCKET=docbeam-dev-object-store
+curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
+  -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: PUT' \
+  -H 'Access-Control-Request-Headers: content-type,x-amz-checksum-sha256' | grep -i '^HTTP\|access-control'
+curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
+  -H 'Origin: https://evil.example' -H 'Access-Control-Request-Method: PUT' | grep -i '^HTTP\|access-control'
+```
 
 Commands for check 2:
 
