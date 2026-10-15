@@ -204,7 +204,6 @@ button { font: inherit; cursor: pointer; }
 .checks { display: flex; flex-wrap: wrap; gap: 6px; }
 .check { padding: 4px 10px; border-radius: 2px; background: #f2f4f7; color: var(--muted); font-size: 12px; font-weight: 600; }
 .check.ok { background: #ecfdf3; color: #067647; }
-.summary-text { font-size: 13px; color: var(--muted); }
 
 /* preview dialog */
 .preview-overlay { background: rgba(16,24,40,.6); z-index: 90; }

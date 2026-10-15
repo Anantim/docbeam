@@ -254,7 +254,6 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
 
       <SendBar
         checks={state.checks}
-        summary={`${plural(usable.length, 'file', 'files')} to ${plural(counts.size, 'destination', 'destinations')}, each uploaded once`}
         deliveries={deliveries}
         ready={state.ready}
         sending={sending}

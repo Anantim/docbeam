@@ -2,7 +2,6 @@ import type { Check } from '../distribute/mapping.js';
 
 interface Props {
   checks: Check[];
-  summary: string;
   deliveries: number;
   ready: boolean;
   sending: boolean;
@@ -12,8 +11,8 @@ interface Props {
   onSend: () => void;
 }
 
-/** The sticky bar: the three checks, a summary, Clear and Send. */
-export function SendBar({ checks, summary, deliveries, ready, sending, error, canClear, onClear, onSend }: Props) {
+/** The sticky bar: the three checks, Clear and Send. */
+export function SendBar({ checks,deliveries, ready, sending, error, canClear, onClear, onSend }: Props) {
   return (
     <div className="sendbar">
       {error && (
@@ -31,7 +30,6 @@ export function SendBar({ checks, summary, deliveries, ready, sending, error, ca
           ))}
         </div>
         <div className="grow" />
-        <div className="summary-text">{summary}</div>
         <button className="btn2" type="button" disabled={!canClear} onClick={onClear}>
           Clear
         </button>
