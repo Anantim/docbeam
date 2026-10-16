@@ -22,10 +22,10 @@ People in the seed: **Priya Shah** (Cardio, Oncology), **Raj Mehta** (Cardio), *
 |---|---|---|
 | 1 | `npm run lint` | No output after `eslint .` |
 | 2 | `npm run typecheck` | No errors |
-| 3 | `npm test` | 68 files, 498 tests pass. (`web/src/upload/hashing.test.ts` has a 5-second limit and can time out when the CPU is busy; it passes on its own and on a second run) |
+| 3 | `npm test` | 71 files, 527 tests pass. (The hashing test has a 20-second limit, so a busy CPU cannot fail it) |
 | 4 | `npm run build` | `✓ built` |
 | 5 | `npm run test:integration` | 17 files, 157 tests pass (the stack must be up and seeded) |
-| 7 | `npm run test:e2e` (the stack up and seeded; Playwright starts the Vite server itself; needs `npx playwright install chromium` once, and `sudo env "PATH=$PATH" npx playwright install-deps chromium` once on WSL) | 10 tests pass in about 2 minutes. Local only, not in CI (D-M3-11). The tests stop and start the `workers` container and `ws-local`, and always start them again |
+| 7 | `npm run test:e2e` (the stack up and seeded; Playwright starts the Vite server itself; needs `npx playwright install chromium` once, and `sudo env "PATH=$PATH" npx playwright install-deps chromium` once on WSL) | 34 tests pass in about 4 minutes: `track.spec.ts` 10, `tooltips.spec.ts` 2, `ui.spec.ts` 7, `m1.spec.ts` 7, `m2.spec.ts` 8 (see 1.3a). Local only, not in CI (D-M3-11). The tests stop and start the `workers` container and `ws-local`, and always start them again |
 | 6 | `terraform fmt -check -recursive infra` and `terraform -chdir=infra/envs/dev validate` and the same for `prod` | No output from fmt; `The configuration is valid.` |
 
 Tests that cover the M3 rules:
@@ -68,38 +68,52 @@ Tests that cover the M3 rules:
 | "the list shows my distributions with their counts" / "the Audit trail page filters by kind of event" | 14, 20: Mine, Open by ID (short id refused, a link opens), the Audit trail's Event filter and the link to a distribution |
 | `tooltips.spec.ts` (2 tests) | 22 and the tooltip rules: Send, Clear and the folder tick say why they are off; icon buttons have matching title and aria-label (checked for every button on the page); the "+N" popover (hover, click keeps it open, Esc, click outside, Tab away) lists only the hidden folders |
 
-### 1.3 By hand in the browser (what Playwright cannot judge)
+### 1.3 The browser steps, one by one (all 22 are covered by Playwright)
 
-Playwright covers most of the steps below (see 1.2b). What is left for the person is the look and feel, and the 30-second list refresh: **steps 1, 4, 21**, and a quick look at steps 2, 3, 14 and 22 for layout and colours. The rest can be skipped locally and are repeated on dev (section 3).
-
-Start the app: `npm run dev -w @docbeam/web`, open <http://localhost:5173>. Use a normal window for Priya and a private window for Raj. Test files as in `M2-TESTING.md` 1.3 (small PDFs).
+Every step below is run by a Playwright test (the test for each is in 1.3a), so each is marked **YES** with its test. Nothing in the numbered steps is left for the person. What a test cannot judge is how the screens look (spacing, colours, whether a chip or a badge is pleasant to read): look at the Distribute and Status screens once, at a normal laptop width and at a wide one (the tests already check the column widths at 1280 and 1920 px). The steps can still be done by hand: start the app with `npm run dev -w @docbeam/web`, open <http://localhost:5173>, use a normal window for Priya and a private window for Raj, and the small PDFs of `M2-TESTING.md` 1.3.
 
 | # | Do | Expect | Done |
 |---|---|---|---|
-| 1 | Sign in as `priya.shah@example.com`. Look at the tabs | **Distribute**, **Status**, **Audit trail** are all enabled | waiting |
-| 2 | Distribute: add 3 PDFs, tick two Cardio folders and one Oncology folder, **Send** | Toast `Distribution <8 characters> sent`. The page opens **Status** on the new distribution (address ends `#/status/<id>`) | waiting |
-| 3 | Watch the counts and the table | Counts (Delivered, Failed, In progress, Waiting) move without a refresh. Rows go `Waiting` → `Delivered`. The chip goes `Pending`/`In progress` → `Completed`. The Status tab shows a number badge while the job runs | waiting |
-| 4 | Click **Copy link**, then Distribute, then Status again | The distribution you sent is in **Mine**. Distribute still holds whatever you had added there (it is hidden, not closed) | waiting |
-| 5 | In a terminal: `docker compose stop workers`. Send another distribution (3 files, 2 folders) | The job opens with all 6 `Waiting` | waiting |
-| 6 | **Refresh the browser** (F5) | You land on the same distribution with the same counts and rows. Nothing is lost | waiting |
-| 7 | Find a staged object and delete it (this will fail one delivery): `aws --endpoint-url http://localhost:4566 s3 ls s3://docbeam-local-object-store/staging/ --recursive` then `aws --endpoint-url http://localhost:4566 s3 rm s3://docbeam-local-object-store/staging/<one of those keys>`. Then `docker compose start workers` | Rows change live. One row shows `Failed`, the code `FILE_NOT_UPLOADED` and the reason in the row (file, destination, detail). The other five are `Delivered`. The chip becomes `Completed with errors` | waiting |
-| 8 | Filter by **Failed** (then **All**) | Only the failed row shows, and the counts on the chips match | waiting |
-| 9 | **Drop the live connection mid-run.** `docker compose stop workers`, send a third distribution, open it, then `docker compose restart ws-local`, then `docker compose start workers` | The page reconnects by itself and ends with every row `Delivered`. (The page fetches once after the reconnect) | waiting |
-| 10 | **Cancel.** `docker compose stop workers`, send a distribution (5 files, 2 folders), open it, click **Cancel distribution** | A question: `The 10 deliveries still waiting will stop…`. Choose **Keep it going**: nothing changes. Click again and confirm: toast `…10 deliveries cancelled.`, rows show `Failed` with `CANCELLED`, the chip reads `Cancelled`. `docker compose start workers`: nothing is delivered. **Retry** is not offered; the note says the distribution was cancelled | waiting |
-| 11 | **Retry.** On a finished distribution mark one task retryable: `docker compose exec postgres psql -U postgres -d docbeam_db -c "update tasks set status='failed', failure_code='RETRIES_EXHAUSTED', failure_reason='x.pdf to Cardio: the platform did not answer', attempt_count=5 where id=(select id from tasks where status='completed' and job_id='<the full job id>' limit 1)"` (the full id is in the address bar). Reload the page | **Retry failed deliveries** is offered, with the yellow box (`1 delivery failed for a reason a retry can fix…`) | waiting |
-| 12 | Click **Retry failed deliveries** | Toast `…1 delivery queued again.` The row goes `Waiting`, then `Delivered`. The chip is `Completed` | waiting |
-| 13 | Open the **Audit** tab of that distribution | Events: sent, each delivery, the cancel/retry, with who and when | waiting |
-| 14 | Open **Audit trail** | Events grouped by day (`TODAY`), with filters **Event** (All, Sent, Deliveries, Retries, Cancels, Downloads, Uploads) and **Distribution**. Pick Deliveries: only delivery events. Click a short id: that distribution opens | waiting |
-| 15 | **Team viewer.** In a private window sign in as `raj.mehta@example.com`. Status → **My teams** | Priya's distributions with deliveries to Cardio are listed, with the count `… deliveries to your teams` (Cardio only) | waiting |
-| 16 | Raj opens one that also went to Oncology | He sees only the Cardio rows. The text: `Sent by Priya Shah … You see N deliveries, the ones to Cardio.` No Cancel, no Retry; the note says only Priya can retry. The header lists only Cardio folders | waiting |
-| 17 | While Raj has that open, Priya sends a new file to Cardio. Raj watches | Raj's counts and rows change live too | waiting |
-| 18 | Raj's **Audit trail** | Priya's `Distribution sent` shows only who and when. Deliveries show for Cardio only. No Oncology delivery, no `File refused` of Priya's | waiting |
-| 19 | Private window as `sam.ito@example.com`. Paste a Priya distribution link into **Open by ID** | `Distribution not found` (the same card as for an id that does not exist). His **My teams** list does not show it | waiting |
-| 20 | Type the short id (8 characters) into **Open by ID** | A message asks for the full id or a link | waiting |
-| 21 | Wait 30 seconds on **Mine** while a distribution runs | The list's counts and bars update by themselves | waiting |
-| 22 | Distribute: add files, tick 5 or more folders for one file | Chips `A`, `B` and a button `+3`. Hover it: a small panel lists **only** the hidden folders, grouped by team with the team colour. Move away: it closes. Click it: it stays; press **Esc**, click outside, or Tab away: it closes. Hovering a visible chip shows only its own full path. No other tooltip repeats the list | waiting |
+| 1 | Sign in as `priya.shah@example.com`. Look at the tabs | **Distribute**, **Status**, **Audit trail** are all enabled | YES |
+| 2 | Distribute: add 3 PDFs, tick two Cardio folders and one Oncology folder, **Send** | Toast `Distribution <8 characters> sent`. The page opens **Status** on the new distribution (address ends `#/status/<id>`) | YES |
+| 3 | Watch the counts and the table | Counts (Delivered, Failed, In progress, Waiting) move without a refresh. Rows go `Waiting` → `Delivered`. The chip goes `Pending`/`In progress` → `Completed`. The Status tab shows a number badge while the job runs | YES |
+| 4 | Click **Copy link**, then Distribute, then Status again | The distribution you sent is in **Mine**. Distribute still holds whatever you had added there (it is hidden, not closed) | YES |
+| 5 | In a terminal: `docker compose stop workers`. Send another distribution (3 files, 2 folders) | The job opens with all 6 `Waiting` | YES |
+| 6 | **Refresh the browser** (F5) | You land on the same distribution with the same counts and rows. Nothing is lost | YES |
+| 7 | Find a staged object and delete it (this will fail one delivery): `aws --endpoint-url http://localhost:4566 s3 ls s3://docbeam-local-object-store/staging/ --recursive` then `aws --endpoint-url http://localhost:4566 s3 rm s3://docbeam-local-object-store/staging/<one of those keys>`. Then `docker compose start workers` | Rows change live. One row shows `Failed`, the code `FILE_NOT_UPLOADED` and the reason in the row (file, destination, detail). The other five are `Delivered`. The chip becomes `Completed with errors` | YES |
+| 8 | Filter by **Failed** (then **All**) | Only the failed row shows, and the counts on the chips match | YES |
+| 9 | **Drop the live connection mid-run.** `docker compose stop workers`, send a third distribution, open it, then `docker compose restart ws-local`, then `docker compose start workers` | The page reconnects by itself and ends with every row `Delivered`. (The page fetches once after the reconnect) | YES |
+| 10 | **Cancel.** `docker compose stop workers`, send a distribution (5 files, 2 folders), open it, click **Cancel distribution** | A question: `The 10 deliveries still waiting will stop…`. Choose **Keep it going**: nothing changes. Click again and confirm: toast `…10 deliveries cancelled.`, rows show `Failed` with `CANCELLED`, the chip reads `Cancelled`. `docker compose start workers`: nothing is delivered. **Retry** is not offered; the note says the distribution was cancelled | YES |
+| 11 | **Retry.** On a finished distribution mark one task retryable: `docker compose exec postgres psql -U postgres -d docbeam_db -c "update tasks set status='failed', failure_code='RETRIES_EXHAUSTED', failure_reason='x.pdf to Cardio: the platform did not answer', attempt_count=5 where id=(select id from tasks where status='completed' and job_id='<the full job id>' limit 1)"` (the full id is in the address bar). Reload the page | **Retry failed deliveries** is offered, with the yellow box (`1 delivery failed for a reason a retry can fix…`) | YES |
+| 12 | Click **Retry failed deliveries** | Toast `…1 delivery queued again.` The row goes `Waiting`, then `Delivered`. The chip is `Completed` | YES |
+| 13 | Open the **Audit** tab of that distribution | Events: sent, each delivery, the cancel/retry, with who and when | YES |
+| 14 | Open **Audit trail** | Events grouped by day (`TODAY`), with filters **Event** (All, Sent, Deliveries, Retries, Cancels, Downloads, Uploads) and **Distribution**. Pick Deliveries: only delivery events. Click a short id: that distribution opens | YES |
+| 15 | **Team viewer.** In a private window sign in as `raj.mehta@example.com`. Status → **My teams** | Priya's distributions with deliveries to Cardio are listed, with the count `… deliveries to your teams` (Cardio only) | YES |
+| 16 | Raj opens one that also went to Oncology | He sees only the Cardio rows. The text: `Sent by Priya Shah … You see N deliveries, the ones to Cardio.` No Cancel, no Retry; the note says only Priya can retry. The header lists only Cardio folders | YES |
+| 17 | While Raj has that open, Priya sends a new file to Cardio. Raj watches | Raj's counts and rows change live too | YES |
+| 18 | Raj's **Audit trail** | Priya's `Distribution sent` shows only who and when. Deliveries show for Cardio only. No Oncology delivery, no `File refused` of Priya's | YES |
+| 19 | Private window as `sam.ito@example.com`. Paste a Priya distribution link into **Open by ID** | `Distribution not found` (the same card as for an id that does not exist). His **My teams** list does not show it | YES |
+| 20 | Type the short id (8 characters) into **Open by ID** | A message asks for the full id or a link | YES |
+| 21 | Wait 30 seconds on **Mine** while a distribution runs | The list's counts and bars update by themselves | YES |
+| 22 | Distribute: add files, tick 5 or more folders for one file | Chips `A`, `B` and a button `+3`. Hover it: a small panel lists **only** the hidden folders, grouped by team with the team colour. Move away: it closes. Click it: it stays; press **Esc**, click outside, or Tab away: it closes. Hovering a visible chip shows only its own full path. No other tooltip repeats the list | YES |
 
-Record each as YES in `M3-RESULTS.md` only after the person reports it.
+### 1.3a Which test covers which step
+
+| Steps | Playwright test |
+|---|---|
+| 1, 4 | `track.spec.ts` "the three tabs are on, Copy link copies the address, and a prepared batch survives a look at Status" (the clipboard holds `http://localhost:5173/#/status/<id>`; the file added on Distribute is still there, still `Verified`, after a visit to Status) |
+| 2, 3, 5, 6 | `track.spec.ts` "counts and rows change live, and a reload mid-run loses nothing" (the Status tab shows its running badge) and `m2.spec.ts` "a file is uploaded and scanned, mapped to a folder, and sent" |
+| 7, 8 | `track.spec.ts` "a failure shows its reason in the row, with what the code means" |
+| 9 | `track.spec.ts` "the live connection drops mid-run and the page catches up without a reload" (this stops `ws-local` instead of restarting it, so the page really misses the pushes) |
+| 10 | `track.spec.ts` "Cancel: waiting deliveries stop, with a question first" |
+| 11, 12, 13 | `track.spec.ts` "Retry sends a failed delivery again" (13 also in the Cancel test: the Audit tab shows `Distribution cancelled`) |
+| 14, 20 | `track.spec.ts` "the Audit trail page filters by kind of event", "the list shows my distributions with their counts" (a short id is refused, a link opens) |
+| 15, 16, 17, 18, 19 | `track.spec.ts` "a team viewer sees only their team's rows, live; an outsider gets not found" (18: Raj's Audit trail has no Oncology and no `File refused` of Priya's, which the earlier malware test of `m2.spec.ts` created) |
+| 21 | `track.spec.ts` "the list updates its counts by itself, every 30 seconds, with no live push for it" |
+| 22 | `tooltips.spec.ts` "the +N chip opens a popover with only the hidden folders" |
+
+The M1 and M2 screens have their own packs: `m1.spec.ts` (7 tests: register and sign in, one generic answer for a used address, each person sees only their teams, the tree loads a level only when opened, another team's binder is 404, a reload and a new tab stay signed in, the 12-hour dialog) and `m2.spec.ts` (8 tests: upload, scan, map and send; a type that is not allowed; the malware test file; ticking for one file only; Review and Preview; the 20-destination limit; the leave warning; sign out leaves nothing).
+The look of the screens has `ui.spec.ts` (7 tests: disabled buttons, Preview and Download on Status, no Cancel on a finished distribution, one chip for every status, type badge colours, the sign-in pause note, content-sized tables at 1280 and 1920 px).
 
 ### 1.4 Checks from the command line
 

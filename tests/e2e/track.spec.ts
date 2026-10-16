@@ -44,7 +44,8 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
     await expect(page.locator('.ttable .status-chip', { hasText: 'Waiting' })).toHaveCount(4);
 
-    // The Status tab shows a badge for the running distribution (the list refreshes every 30 seconds).
+    // The Status tab shows a badge for the running distribution.
+    await expect(page.locator('.tab-badge')).toBeVisible();
     // Refresh the browser mid-run: the same distribution opens, with the same counts and rows.
     await page.reload();
     await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`));

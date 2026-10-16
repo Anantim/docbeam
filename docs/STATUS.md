@@ -6,7 +6,8 @@ Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committe
 
 **Done and committed on `m3`:** every task of the plan except the AWS round and the close. Plan: `docs/PLAN.md` (M3 task list). Decisions: `docs/DECISIONS.md` D-M3-1 to D-M3-8. Local evidence: `docs/testing/M3-RESULTS.md`. Testing document: `docs/testing/M3-TESTING.md`.
 
-- Unit/web: 68 files, 498 tests. Integration: 17 files, 157 tests. **Browser (Playwright, `npm run test:e2e`, local only, D-M3-11): 10 tests, three full runs passed.** Lint, typecheck, build, `terraform fmt/validate` for dev and prod are clean. Read-only dev plan: 275 to add.
+- Unit/web: 71 files, 527 tests. Integration: 17 files, 157 tests. **Browser (Playwright, `npm run test:e2e`, local only, D-M3-11): 34 tests in 5 files (M3 tracking 10, tooltips 2, look 7, M1 pack 7, M2 pack 8), two full runs passed. All 22 browser steps of `M3-TESTING.md` 1.3 are YES by test.** Each suite ran twice in a row, green.
+- UI pass of 2026-10-17 (D-M3-10 amended, D-M3-12, D-M3-13): one disabled look, Cancel only while running, one status chip, content-sized columns (the Documents table is one grid; draggable widths removed), icon Preview/Download on both pages, coloured type badges, the fixed sign-in pause note. Also fixed from screenshots: a CSS class clash, attempts carried by the live push, the open card following live counts. Lint, typecheck, build, `terraform fmt/validate` for dev and prod are clean. Read-only dev plan: 275 to add.
 - Added after the first report: D-M3-9 (the Sweeper's daily run deletes expired `ws_connections` rows), D-M3-10 (tooltip rules, `web/src/explain.ts`), D-M3-11 (Playwright). `scripts/empty-dev-buckets.sh` has `--dry-run` (run for real against LocalStack, M3-RESULTS 1.2c).
 - Playwright needs Chromium (`npx playwright install chromium`) and, on WSL, the system libraries once: `sudo env "PATH=$PATH" npx playwright install-deps chromium`.
 - DocBeam API: `GET /jobs`, `GET /jobs/:id`, `GET /jobs/:id/tasks`, `POST /jobs/:id/cancel`, `/retry`, `GET /audit`, with team visibility and the 60-second teams cache (`services/docbeam-api/src/routes/jobs-read.ts`, `jobs-actions.ts`, `audit.ts`, `job-access.ts`, `tracking.ts`).
@@ -16,7 +17,7 @@ Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committe
 
 **Left to do:**
 1. **The person's yes**, then the AWS round: `M3-TESTING.md` sections 2 and 3 (new dev bring-up; ~25 min apply; ~4.5 USD a day), record in `M3-RESULTS.md`. Then tear down with `scripts/empty-dev-buckets.sh dev` and `terraform destroy` (section 5). The script's JMESPath query has never run against real S3; its first real run is the teardown.
-2. A short look by the person (`M3-TESTING.md` 1.3: steps 1, 4, 21 and the layout; Playwright covers the rest) and on dev the two-browser checks (section 3). On dev, run `scripts/empty-dev-buckets.sh dev --dry-run` after the checks, show the output, and only then run it for real in the teardown.
+2. One look by the person at Distribute and Status (colours and spacing, laptop and wide width; Playwright covers every numbered step) and on dev the two-browser checks (section 3). On dev, run `scripts/empty-dev-buckets.sh dev --dry-run` after the checks, show the output, and only then run it for real in the teardown.
 3. The final YES/NO check (`M3-RESULTS.md` section 4), `docs/walkthrough/M3.md`, this file's final update, push `m3`, `gh pr create`.
 
 **Working-rule slip to note:** a few edits early in the M3 session were made with `cat >>`, `sed -i` and inline Python instead of the Edit/Write tools (AGENTS "Style"); every change is in git and was reviewed in the diff. The rest of the session used Edit/Write only.
