@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+  addPdfs,
   CARDIO_IRB,
   CARDIO_PROTOCOL,
   chip,
@@ -118,6 +119,8 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await expect(audit).toContainText('Distribution sent');
       await expect(audit.locator('.arow', { hasText: 'Distribution sent' }).first()).toContainText('Distribution sent.');
       await expect(audit).not.toContainText('Oncology');
+      // A refusal of Priya's own file (the malware test of m2.spec.ts) is only for her.
+      await expect(audit).not.toContainText('File refused');
     });
   } finally {
     await rajContext.close();
@@ -287,4 +290,46 @@ test('the Audit trail page filters by kind of event', async ({ page }) => {
   // An event opens its distribution.
   await page.locator('.arow').first().getByRole('button').click();
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
+});
+
+test('the three tabs are on, Copy link copies the address, and a prepared batch survives a look at Status', async ({ browser }) => {
+  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  const page = await context.newPage();
+  try {
+    await signIn(page, PRIYA);
+    for (const tab of ['Distribute', 'Status', 'Audit trail']) await expect(page.getByRole('button', { name: new RegExp(`^${tab}`) })).toBeEnabled();
+
+    const [name] = await addPdfs(page, 1, 'keep');
+    await page.getByRole('button', { name: /^Status/ }).click();
+    await page.locator('.jcard').first().click();
+    await expect(page.locator('.status-chip.big')).toBeVisible();
+    const jobId = jobIdOf(page);
+
+    await page.getByRole('button', { name: 'Copy link' }).click();
+    await expect(page.getByText('Link copied.')).toBeVisible();
+    expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
+
+    // Back on Distribute the file is still there: it was hidden, not closed.
+    await page.getByRole('button', { name: /^Distribute/ }).click();
+    await expect(page.locator('.frow', { hasText: name as string })).toHaveCount(1);
+    await expect(page.locator('.frow', { hasText: name as string }).locator('.status-chip')).toHaveText('Verified');
+    await page.getByRole('button', { name: 'Clear' }).click();
+  } finally {
+    await context.close();
+  }
+});
+
+test('the list updates its counts by itself, every 30 seconds, with no live push for it', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await withWorkersStopped(async ({ hold, start }) => {
+    const { jobId } = await sendFiles(page, 1, [CARDIO_IRB], hold);
+    // Leave the distribution: the list alone is on the page, and the list has no live connection (D-M3 / TDD Step 3.4).
+    await page.evaluate("window.location.hash = '#/status'");
+    const card = page.locator('.jcard', { hasText: jobId.slice(0, 8) });
+    await expect(card).toContainText('Pending');
+    await noReload(page);
+    start();
+    await expect(card).toContainText('Completed', { timeout: 60_000 }); // the next refresh, at most 30 seconds later
+    expect(await stillThere(page)).toBe(true);
+  });
 });
