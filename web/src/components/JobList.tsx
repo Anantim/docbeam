@@ -1,4 +1,5 @@
 import { JOB_STATUS_MEANING } from '../explain.js';
+import { statusFromCounts } from '../tracking/apply.js';
 import { StatusChip } from './StatusChip.js';
 import type { JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, plural, shortId } from '../tracking/format.js';
@@ -11,12 +12,14 @@ interface Props {
   error: string;
   selectedId: string | null;
   onOpen: (jobId: string) => void;
+  /** The open distribution's live counts. Its card follows them, so it never disagrees with the page beside it. */
+  live?: { jobId: string; counts: JobSummary['counts'] } | null;
 }
 
 const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
 
 /** The Distributions list of the Status page: Mine and My teams, each card a chip and a progress bar. */
-export function JobList({ scope, onScope, jobs, error, selectedId, onOpen }: Props) {
+export function JobList({ scope, onScope, jobs, error, selectedId, onOpen, live }: Props) {
   return (
     <>
       <div className="seg-group" role="group" aria-label="Whose distributions">
@@ -44,8 +47,11 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen }: Pro
         </div>
       )}
       {jobs?.map((job) => {
-        const chip = jobChip(job.status);
-        const c = job.counts;
+        // The open distribution follows its live counts; the others show what the 30-second refresh read.
+        const following = live && live.jobId === job.jobId ? live.counts : null;
+        const c = following ?? job.counts;
+        const status = following ? statusFromCounts(following, job.status === 'cancelled') : job.status;
+        const chip = jobChip(status);
         return (
           <button
             key={job.jobId}
@@ -59,7 +65,7 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen }: Pro
                 {shortId(job.jobId)}
               </span>
               <span className="grow" />
-              <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[job.status]} />
+              <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
             </div>
             <div className="jcard-by">
               {scope === 'team' ? `${job.submittedBy.name}, ` : ''}

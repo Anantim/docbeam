@@ -120,7 +120,7 @@ export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480
     };
   }, [live, jobId, status, load]);
 
-  const columns = columnsFor([...pages.values()].flat().map((t) => t.destinationPath));
+  const columns = columnsFor([...pages.values()].flat());
   const rows: Array<{ index: number; task: TaskRow | undefined }> = [];
   for (let i = range.start; i < range.end; i++) {
     rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
@@ -170,7 +170,7 @@ function TaskCells({ task }: { task: TaskRow }) {
         {task.fileName}
       </div>
       <div role="cell" className="ellipsis" title={task.destinationPath}>
-        {task.destinationPath}
+        <span className="dest-text">{task.destinationPath}</span>
       </div>
       <div role="cell">
         <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[task.status]} />
@@ -220,13 +220,19 @@ function FileButtons({ name }: { name: string }) {
   );
 }
 
+const CHAR_PX = 7; // the average width of a character at 13 px, for sizing columns before they are drawn
+
 /**
- * The columns size to what is in them (D-M3-12): the file name gets the spare room, the destination only as
- * much as its longest path (up to 48 characters), and the rest are fixed to their chips. Rows are drawn one by
- * one, so the widths come from the rows loaded so far, not from the rows in view.
+ * The columns size to what is in them (D-M3-12). The file name takes the spare room. The destination takes as
+ * much as its longest path needs (at most 400 px). The details column is narrow while it holds only the two
+ * icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is loaded.
+ * The status and attempts columns are fixed to their chips. Rows are drawn one by one, so the widths come from
+ * the rows loaded so far, not from the rows in view.
  */
-export function columnsFor(destinationPaths: readonly string[]): string {
-  const longest = destinationPaths.reduce((n, p) => Math.max(n, p.length), 0);
-  const dest = Math.min(48, Math.max(12, longest + 1));
-  return `minmax(160px, 1fr) minmax(0, ${dest}ch) 124px 112px minmax(200px, 34ch)`;
+export function columnsFor(rows: readonly Pick<TaskRow, 'destinationPath' | 'status' | 'fileExpired'>[]): string {
+  const longest = rows.reduce((n, r) => Math.max(n, r.destinationPath.length), 0);
+  const dest = Math.min(400, Math.max(96, longest * CHAR_PX + 16));
+  const wordy = rows.some((r) => r.status === 'failed' || (r.status === 'completed' && r.fileExpired));
+  const details = wordy ? 280 : 128;
+  return `minmax(140px, 1fr) ${dest}px 116px 104px ${details}px`;
 }

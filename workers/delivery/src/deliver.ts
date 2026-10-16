@@ -150,6 +150,7 @@ async function finishAndPush(
       failureCode: finished.failureCode,
       failureReason: finished.failureReason,
       updatedAt: finished.updatedAt,
+      attemptCount: finished.attemptCount,
     },
   );
 }

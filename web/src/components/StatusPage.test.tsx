@@ -350,6 +350,29 @@ describe('the list and Open by ID', () => {
     expect(onOpen).toHaveBeenCalledWith('aaaaaaaa-0000-4000-8000-000000000000');
   });
 
+  it('keeps the open distribution\'s card in step with its live counts, and leaves the others alone', async () => {
+    const job = (jobId: string): JobSummary => ({
+      jobId,
+      submittedBy: { userId: 'u', name: 'Priya Shah' },
+      createdAt: '2026-10-16T10:00:00Z',
+      taskCount: 10,
+      counts: counts({ pending: 10 }),
+      status: 'pending',
+    });
+    const other = 'bbbbbbbb-0000-4000-8000-000000000000';
+    const page = renderPage({ mine: mine([job(JOB), job(other)]) });
+    await act(async () => page.release());
+    await screen.findByRole('heading', { name: '3f1c2a9e' });
+    const card = (id: string) => screen.getByText(id.slice(0, 8), { selector: '.jid' }).closest('.jcard') as HTMLElement;
+    // The list says Pending for both, but the open one follows the detail it is showing (4 delivered, 1 running).
+    expect(card(JOB).textContent).toContain('In progress');
+    expect(card(other).textContent).toContain('Pending');
+
+    await page.push({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T10:05:10.000Z', counts: counts({ completed: 10 }) });
+    expect(card(JOB).textContent).toContain('Completed');
+    expect(card(other).textContent).toContain('Pending');
+  });
+
   it('says so when there is nothing to list', async () => {
     renderPage({ jobId: null, mine: mine([]) });
     expect(screen.getByText(/You have not sent a distribution yet/)).toBeTruthy();

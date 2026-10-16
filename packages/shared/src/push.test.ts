@@ -56,6 +56,16 @@ describe('pushTaskUpdate', () => {
     expect(sent['c-sender']).toMatchObject({ type: 'task_update', jobId: 'job-1', taskId: 'task-1', status: 'completed' });
   });
 
+  it('sends the attempt count when it is known and leaves it out when it is not', async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const post: Poster = async (_id, body) => (sent.push(JSON.parse(body)), true);
+    const s = setup([{ connection_id: 'c', user_id: 'sender', team_ids: [] }], post);
+    await pushTaskUpdate(s.deps, { ...update, attemptCount: 3 });
+    await pushTaskUpdate(s.deps, update);
+    expect(sent[0]?.attemptCount).toBe(3);
+    expect('attemptCount' in (sent[1] as object)).toBe(false);
+  });
+
   it('skips a viewer whose teams do not include the delivery team', async () => {
     const post = vi.fn(async () => true);
     const s = setup([{ connection_id: 'c-other', user_id: 'viewer', team_ids: ['team-b'] }], post);

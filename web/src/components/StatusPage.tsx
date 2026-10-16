@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
-import type { JobSummary } from '../tracking/api.js';
+import type { Counts, JobSummary } from '../tracking/api.js';
 import { extractJobId } from '../tracking/route.js';
 import { usePolledJobs } from '../tracking/usePolledJobs.js';
 import { JobDetailView } from './JobDetailView.js';
@@ -21,6 +21,8 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
   const [scope, setScope] = useState<'mine' | 'team'>('mine');
   const [typed, setTyped] = useState('');
   const [typedError, setTypedError] = useState('');
+  const [liveCounts, setLiveCounts] = useState<{ jobId: string; counts: Counts } | null>(null);
+  const followCounts = useCallback((id: string, counts: Counts) => setLiveCounts({ jobId: id, counts }), []);
   const team = usePolledJobs('team', scope === 'team');
   const list = scope === 'mine' ? mine : team;
 
@@ -40,7 +42,7 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
     <div className="status-page">
       <aside className="status-side">
         <h1>Distributions</h1>
-        <JobList scope={scope} onScope={setScope} jobs={list.jobs} error={list.error} selectedId={jobId} onOpen={onOpen} />
+        <JobList scope={scope} onScope={setScope} jobs={list.jobs} error={list.error} selectedId={jobId} onOpen={onOpen} live={jobId ? liveCounts : null} />
         <form className="openid" onSubmit={openTyped}>
           <label className="sr" htmlFor="job-id">
             Open by ID
@@ -72,6 +74,7 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
             jobId={jobId}
             live={live}
             notify={notify}
+            onCounts={followCounts}
             onChanged={() => {
               void mine.refresh();
               if (scope === 'team') void team.refresh();

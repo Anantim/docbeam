@@ -39,6 +39,8 @@ export function applyTaskUpdate(row: TaskRow, message: Extract<LiveMessage, { ty
     status: message.status,
     failureCode: message.failureCode ?? null,
     failureReason: message.failureReason ?? null,
+    // A delivery that completed took at least one attempt, even if this push does not say how many.
+    attemptCount: message.attemptCount ?? (message.status === 'completed' ? Math.max(row.attemptCount, 1) : row.attemptCount),
     updatedAt: message.updatedAt,
   };
 }

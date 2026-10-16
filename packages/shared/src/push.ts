@@ -36,6 +36,8 @@ export interface TaskUpdate {
   failureCode?: FailureCode | undefined;
   failureReason?: string | undefined;
   updatedAt: Date;
+  /** Attempts the task took. Left out when it is not known (a task failed before it ever ran). */
+  attemptCount?: number | undefined;
 }
 
 interface Connection {
@@ -145,6 +147,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
           status: update.status,
           ...(update.failureCode ? { failureCode: update.failureCode } : {}),
           ...(update.failureReason ? { failureReason: update.failureReason } : {}),
+          ...(update.attemptCount !== undefined ? { attemptCount: update.attemptCount } : {}),
           updatedAt: update.updatedAt.toISOString(),
           counts: isSender ? sum(counts.rows) : sum(counts.rows, new Set(c.team_ids)),
         });

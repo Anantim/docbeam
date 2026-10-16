@@ -80,6 +80,7 @@ async function taskDlq(deps: Deps, body: string): Promise<void> {
     failureCode: finished.failureCode,
     failureReason: finished.failureReason,
     updatedAt: finished.updatedAt,
+    attemptCount: finished.attemptCount,
   });
 }
 

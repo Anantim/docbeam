@@ -66,7 +66,7 @@ export function AuditList({ events, hasMore, loading, error, onLoadMore, empty }
       ))}
       {loading && events.length === 0 && <div className="empty-line">Loading…</div>}
       {hasMore && (
-        <div className="more">
+        <div className="load-more">
           <button className="btn2" type="button" disabled={loading} onClick={onLoadMore}>
             {loading ? 'Loading…' : 'Load more events'}
           </button>

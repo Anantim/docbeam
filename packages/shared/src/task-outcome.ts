@@ -44,6 +44,8 @@ export interface FinishedTask {
   failureCode?: FailureCode;
   failureReason?: string;
   updatedAt: Date;
+  /** How many attempts the task took, so a dashboard that updates the row live shows it. */
+  attemptCount: number;
   /** True when this write closed the job. */
   jobClosed: boolean;
 }
@@ -164,11 +166,11 @@ export async function finishTask(db: Connectable, input: FinishInput): Promise<F
     await client.query('BEGIN');
     await client.query('SELECT 1 FROM jobs WHERE id = $1 FOR UPDATE', [input.jobId]);
 
-    const updated = await client.query<{ updated_at: Date; team_id: string; file_id: string; destination_path: string | null }>(
+    const updated = await client.query<{ updated_at: Date; team_id: string; file_id: string; destination_path: string | null; attempt_count: number }>(
       `UPDATE tasks
           SET status = $2, failure_code = $3, failure_reason = $4, platform_document_id = $5, updated_at = now()
         WHERE id = $1 AND job_id = $6 AND status IN ('pending', 'in_progress')
-        RETURNING updated_at, team_id, file_id, destination_path`,
+        RETURNING updated_at, team_id, file_id, destination_path, attempt_count`,
       [
         input.taskId,
         input.status,
@@ -218,6 +220,7 @@ export async function finishTask(db: Connectable, input: FinishInput): Promise<F
       ...(input.failureCode ? { failureCode: input.failureCode } : {}),
       ...(input.failureReason ? { failureReason: input.failureReason } : {}),
       updatedAt: row.updated_at,
+      attemptCount: row.attempt_count,
       jobClosed: (closed.rowCount ?? 0) > 0,
     };
   } catch (error) {

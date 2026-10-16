@@ -86,7 +86,7 @@ export function AuditTrailPage({ onOpenJob }: { onOpenJob: (jobId: string) => vo
         </div>
       ))}
       {hasMore && (
-        <div className="more">
+        <div className="load-more">
           <button className="btn2" type="button" disabled={loading} onClick={() => void loadMore()}>
             {loading ? 'Loading…' : 'Load more events'}
           </button>

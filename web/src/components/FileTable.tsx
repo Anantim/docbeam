@@ -84,9 +84,6 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
             Status
           </div>
           <div className="hcell right" role="columnheader">
-            Size
-          </div>
-          <div className="hcell right" role="columnheader">
             Actions
           </div>
         </div>
@@ -125,6 +122,9 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                     {f.name}
                   </button>
                 )}
+                <span className="size" title={`${f.sizeBytes.toLocaleString('en-US')} bytes`}>
+                  {formatSize(f.sizeBytes)}
+                </span>
               </div>
               <div className="chips">
                 {infected ? (
@@ -132,7 +132,7 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                 ) : paths.length === 0 ? (
                   <span className="dot-text warn">No destination yet</span>
                 ) : (
-                  <DestinationChips paths={paths} />
+                  <DestinationChips paths={paths} visible={1} />
                 )}
               </div>
               <div className="fstatus">
@@ -144,7 +144,6 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                 <StatusChip tone={view.tone} label={view.text} title={UPLOAD_STATUS_MEANING[f.status]} />
                 {f.message && <div className="fmsg">{f.message}</div>}
               </div>
-              <div className="right size">{formatSize(f.sizeBytes)}</div>
               <div className="actions">
                 {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} />}
                 {canRetry && (

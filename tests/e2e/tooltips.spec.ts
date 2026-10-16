@@ -53,32 +53,32 @@ test('a button that is off says why, and a button with only an icon says what it
 test('the +N chip opens a popover with only the hidden folders', async ({ page }) => {
   await signIn(page, PRIYA);
   const [name] = await addPdfs(page, 1, 'pop');
-  const shown = [CARDIO_IRB, CARDIO_PROTOCOL];
-  const hidden = [CARDIO_DELEGATION, CARDIO_TRAINING, ONC_ETHICS];
+  // The Documents table shows one folder chip and "+N" for the rest (D-M3-12).
+  const shown = [CARDIO_IRB];
+  const hidden = [CARDIO_PROTOCOL, CARDIO_DELEGATION, CARDIO_TRAINING, ONC_ETHICS];
   for (const path of [...shown, ...hidden]) await tick(page, path);
 
   const row = page.locator('.frow', { hasText: name as string });
   const chips = row.locator('.chips .chip:not(.more)');
-  await expect(chips).toHaveCount(2);
-  // Each visible chip's title is its own full path, and nothing repeats the whole list.
+  await expect(chips).toHaveCount(1);
+  // The visible chip's title is its own full path, and nothing repeats the whole list.
   await expect(chips.nth(0)).toHaveAttribute('title', shown[0] as string);
-  await expect(chips.nth(1)).toHaveAttribute('title', shown[1] as string);
   await expect(row.locator('.chips')).not.toHaveAttribute('title', /.+/);
 
-  const more = row.getByRole('button', { name: 'Show 3 more folders' });
-  await expect(more).toHaveText('+3');
+  const more = row.getByRole('button', { name: 'Show 4 more folders' });
+  await expect(more).toHaveText('+4');
   await expect(more).not.toHaveAttribute('title', /.+/);
 
-  // Hover opens it. It lists only the three hidden folders, grouped by team.
+  // Hover opens it. It lists only the four hidden folders, grouped by team.
   await more.hover();
-  const panel = page.getByRole('dialog', { name: '3 more folders' });
+  const panel = page.getByRole('dialog', { name: '4 more folders' });
   await expect(panel).toBeVisible();
   await expect(panel.locator('.popover-team')).toHaveText([/Cardio/, /Oncology/]);
+  await expect(panel).toContainText('CARDIO-301 Regulatory / Protocol amendments');
   await expect(panel).toContainText('CARDIO-301 Site files / Delegation logs');
   await expect(panel).toContainText('CARDIO-301 Site files / Training records');
   await expect(panel).toContainText('ONC-118 Regulatory / Ethics committee');
   await expect(panel).not.toContainText('IRB approvals');
-  await expect(panel).not.toContainText('Protocol amendments');
 
   // Moving away closes a hover.
   await page.getByRole('heading', { name: 'New distribution' }).hover();

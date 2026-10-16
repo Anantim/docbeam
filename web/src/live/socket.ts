@@ -30,6 +30,8 @@ export type LiveMessage =
       status: 'completed' | 'failed';
       failureCode?: string;
       failureReason?: string;
+      /** Attempts the task took, when the server knows. */
+      attemptCount?: number;
       updatedAt: string;
       counts: Counts;
     }

@@ -49,6 +49,13 @@ describe('applyTaskUpdate', () => {
     expect(out.failureReason).toContain('checksum');
   });
 
+  it('takes the attempt count from the push, and counts a completed delivery as at least one attempt', () => {
+    expect(applyTaskUpdate(row, { ...failed('2026-10-16T10:00:05.000Z'), attemptCount: 5 }).attemptCount).toBe(5);
+    expect(applyTaskUpdate(row, { ...failed('2026-10-16T10:00:05.000Z'), status: 'completed' }).attemptCount).toBe(1);
+    expect(applyTaskUpdate({ ...row, attemptCount: 3 }, { ...failed('2026-10-16T10:00:05.000Z'), status: 'completed' }).attemptCount).toBe(3);
+    expect(applyTaskUpdate(row, failed('2026-10-16T10:00:05.000Z')).attemptCount).toBe(0);
+  });
+
   it('ignores a push that is older than, or the same as, the row', () => {
     expect(applyTaskUpdate(row, failed('2026-10-16T09:59:59.000Z'))).toBe(row);
     expect(applyTaskUpdate(row, failed('2026-10-16T10:00:00.000Z'))).toBe(row);
