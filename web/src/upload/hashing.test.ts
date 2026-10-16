@@ -24,5 +24,6 @@ describe('hashFile', () => {
     expect(result.parts).toEqual([sha(bytes.slice(0, part)), sha(bytes.slice(part, part * 2)), sha(bytes.slice(part * 2))]);
     expect(progress.at(-1)).toBe(1);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
-  });
+    // 32 MiB is built and hashed twice in this test, which takes seconds on a busy CPU: allow 20 s, not the default 5 s.
+  }, 20_000);
 });
