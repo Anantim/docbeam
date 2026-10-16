@@ -22,6 +22,8 @@ const schema = z.object({
   /** Internal addresses of the Auth Service and the Document Platform (through the ALB on AWS). */
   AUTH_URL: z.string().url(),
   PLATFORM_URL: z.string().url(),
+  /** The WebSocket management address that pushes go to after a cancel or retry (ADR-007). Unset: no pushes. */
+  WS_MANAGEMENT_ENDPOINT: z.string().url().optional(),
   /** The `docbeam-api` service client secret, injected from Secrets Manager (D-G10). */
   CLIENT_SECRET_DOCBEAM_API: z.string().min(1),
 });

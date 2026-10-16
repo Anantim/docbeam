@@ -1,4 +1,4 @@
-import { jwtAuth, registerErrorHandler } from '@docbeam/shared';
+import { createPoster, jwtAuth, registerErrorHandler, type Poster } from '@docbeam/shared';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
@@ -6,6 +6,9 @@ import { createPlatformClient, type PlatformClient } from './platform.js';
 import { createJobQueue, type JobQueue } from './queue.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerJobRoutes } from './routes/jobs.js';
+import { registerAuditRoutes } from './routes/audit.js';
+import { registerJobActionRoutes } from './routes/jobs-actions.js';
+import { registerJobReadRoutes } from './routes/jobs-read.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { createObjectStore, type ObjectStore } from './s3.js';
 
@@ -14,6 +17,8 @@ export interface Deps {
   store?: ObjectStore;
   platform?: PlatformClient;
   queue?: JobQueue;
+  /** Posts to a WebSocket connection. The server builds one from WS_MANAGEMENT_ENDPOINT. */
+  post?: Poster;
 }
 
 export async function buildApp(config: Config, db: Db, deps: Deps = {}): Promise<FastifyInstance> {
@@ -32,6 +37,11 @@ export async function buildApp(config: Config, db: Db, deps: Deps = {}): Promise
   registerUploadRoutes(app, db, store);
   registerFileRoutes(app, db);
   registerJobRoutes(app, db, { platform, queue });
+  registerJobReadRoutes(app, db, { platform });
+  const post = deps.post ?? (config.WS_MANAGEMENT_ENDPOINT ? createPoster(config.WS_MANAGEMENT_ENDPOINT) : undefined);
+  if (!post) app.log.info('WS_MANAGEMENT_ENDPOINT is not set; no pushes');
+  registerJobActionRoutes(app, db, { platform, queue, post });
+  registerAuditRoutes(app, db, { platform });
 
   // The service token is fetched now and renewed in the background, so no request waits for the Auth
   // Service (ADR-013). A failure here is logged, not fatal: the first request that needs a token asks again.

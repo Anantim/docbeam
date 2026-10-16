@@ -53,6 +53,11 @@ export interface FailPendingInput {
   failureCode: FailureCode;
   /** Added after "<file name> to <destination>: ". */
   detail: string;
+  /**
+   * Set by the cancel route. The job is marked cancelled and a `job.cancelled` event is written in the same
+   * transaction; each task event names the sender. When no task is pending nothing is written (NOTHING_TO_CANCEL).
+   */
+  cancelledBy?: { userId: string; name: string; email: string };
 }
 
 export interface FailedPendingResult {
@@ -89,10 +94,16 @@ export async function failPendingTasks(db: Connectable, input: FailPendingInput)
       [input.jobId, input.failureCode, input.detail],
     );
 
+    const by = input.cancelledBy;
+    if (by && failed.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { tasks: [], jobClosed: false };
+    }
+
     if (failed.rows.length > 0) {
       await client.query(
         `INSERT INTO audit_events (actor_id, action, job_id, task_id, team_id, detail)
-         SELECT NULL, 'task.failed', $1::uuid, a.task_id, a.team_id, a.detail::jsonb
+         SELECT $5::uuid, 'task.failed', $1::uuid, a.task_id, a.team_id, a.detail::jsonb
            FROM unnest($2::uuid[], $3::uuid[], $4::text[]) AS a(task_id, team_id, detail)`,
         [
           input.jobId,
@@ -105,9 +116,19 @@ export async function failPendingTasks(db: Connectable, input: FailPendingInput)
               destinationPath: r.destination_path,
               failureCode: input.failureCode,
               failureReason: r.failure_reason,
+              ...(by ? { actorName: by.name, actorEmail: by.email } : {}),
             }),
           ),
+          by?.userId ?? null,
         ],
+      );
+    }
+
+    if (by) {
+      await client.query('UPDATE jobs SET cancelled_at = now() WHERE id = $1', [input.jobId]);
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, job_id, detail) VALUES ($1, 'job.cancelled', $2, $3::jsonb)`,
+        [by.userId, input.jobId, JSON.stringify({ actorName: by.name, actorEmail: by.email, cancelled: failed.rows.length })],
       );
     }
 

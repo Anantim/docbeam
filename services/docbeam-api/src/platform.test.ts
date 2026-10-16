@@ -65,3 +65,33 @@ describe('platform client', () => {
     await expect(createPlatformClient(config, impl).checkDestinations('u1', dest)).rejects.toMatchObject({ code: 'PLATFORM_UNAVAILABLE' });
   });
 });
+
+describe('platform client: user teams', () => {
+  it('asks the platform once and reuses the answer for 60 seconds', async () => {
+    const f = fakeFetch(json(200, { teamIds: ['t1', 't2'] }), json(200, { teamIds: ['t3'] }));
+    let clock = 1_000;
+    const client = createPlatformClient(config, f.impl, () => clock);
+    expect(await client.userTeams('u1')).toEqual(['t1', 't2']);
+    clock += 59_000;
+    expect(await client.userTeams('u1')).toEqual(['t1', 't2']);
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]).toEqual({ url: 'http://platform/users/u1/teams', auth: 'Bearer token-1' });
+    clock += 2_000;
+    expect(await client.userTeams('u1')).toEqual(['t3']);
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it('keeps each user\'s teams apart', async () => {
+    const f = fakeFetch(json(200, { teamIds: ['a'] }), json(200, { teamIds: ['b'] }));
+    const client = createPlatformClient(config, f.impl);
+    expect(await client.userTeams('u1')).toEqual(['a']);
+    expect(await client.userTeams('u2')).toEqual(['b']);
+  });
+
+  it('does not cache a failure and answers 503 PLATFORM_UNAVAILABLE', async () => {
+    const f = fakeFetch(json(500, {}), json(200, { teamIds: ['a'] }));
+    const client = createPlatformClient(config, f.impl);
+    await expect(client.userTeams('u1')).rejects.toMatchObject({ statusCode: 503, code: 'PLATFORM_UNAVAILABLE' });
+    expect(await client.userTeams('u1')).toEqual(['a']);
+  });
+});

@@ -73,6 +73,33 @@ describe('failPendingTasks', () => {
     expect(out.tasks).toEqual([]);
     expect(calls.some((c) => c.text.includes('INSERT INTO audit_events'))).toBe(false);
   });
+
+  describe('as a cancel', () => {
+    const by = { userId: 'u1', name: 'Priya Shah', email: 'priya@example.com' };
+
+    it('marks the job cancelled and writes the sender into the task events and a job.cancelled event', async () => {
+      const { db, calls } = failDb([failedRow('k1'), failedRow('k2')]);
+      const out = await failPendingTasks(db, { jobId: 'j', failureCode: 'CANCELLED', detail: 'x', cancelledBy: by });
+      expect(out.tasks).toHaveLength(2);
+      const taskEvents = calls.find((c) => c.text.includes("'task.failed'"));
+      expect(taskEvents?.values?.[4]).toBe('u1');
+      expect(JSON.parse(String((taskEvents?.values?.[3] as string[])[0]))).toMatchObject({ failureCode: 'CANCELLED', actorName: 'Priya Shah' });
+      expect(calls.some((c) => c.text.includes('SET cancelled_at = now()'))).toBe(true);
+      const jobEvent = calls.find((c) => c.text.includes("'job.cancelled'"));
+      expect(jobEvent?.values?.[0]).toBe('u1');
+      expect(JSON.parse(String(jobEvent?.values?.[2]))).toMatchObject({ cancelled: 2, actorEmail: 'priya@example.com' });
+      expect(calls.at(-1)?.text).toBe('COMMIT');
+    });
+
+    it('writes and commits nothing when no delivery is pending', async () => {
+      const { db, calls } = failDb([]);
+      const out = await failPendingTasks(db, { jobId: 'j', failureCode: 'CANCELLED', detail: 'x', cancelledBy: by });
+      expect(out).toEqual({ tasks: [], jobClosed: false });
+      expect(calls.some((c) => c.text.includes('cancelled_at'))).toBe(false);
+      expect(calls.some((c) => c.text.includes('INSERT INTO audit_events'))).toBe(false);
+      expect(calls.at(-1)?.text).toBe('ROLLBACK');
+    });
+  });
 });
 
 describe('finishTask', () => {
