@@ -161,7 +161,24 @@ The person says yes before each push, apply and task run. M3 changes: the WebSoc
 | 16 | After 15 minutes on the page | A new connection is made after the token refresh (Network tab → WS: a new `?token=` request). The page keeps updating |
 | 17 | **Cancel during a run** (100 files × 14 folders): click Cancel at about 30% | Waiting deliveries show `CANCELLED`; running ones finish; the chip reads `Cancelled`; nothing is delivered afterwards (Delivery logs show no new `task delivered` for it) |
 | 18 | SQS Console (read only) | Task queue drains to 0. DLQs at 0 |
-| 19 | A distribution with deliveries more than 33 days old | Not testable in one session; covered by `tracking.test.ts` "marks a delivery whose staged file is past 33 days" and the row message in the table |
+| 19 | **A real push, seen in the browser.** Chrome DevTools → Network → filter `WS`, then open the `…execute-api…/v1?token=…` request → Messages. Send a distribution (100 small files to 14 folders) and open it | `subscribe` goes out and `{"type":"subscribed",…}` comes back **before** the first `GET /api/jobs/<id>/tasks`. Then `task_update` frames arrive, each with `status`, `updatedAt` and `counts`, and the counts on the page change with no reload and no new `GET …/tasks`. Save a screenshot of the frames |
+| 20 | **One log line of a 410 cleanup.** Make a connection row whose socket does not exist, then trigger a push to it (commands below) | `aws logs filter-log-events --log-group-name /aws/lambda/docbeam-dev-delivery --filter-pattern '"connection gone"' --start-time <ms>` shows `connection gone (410); row deleted` with `connectionId` `ghost-…`. Paste the line into `M3-RESULTS.md` |
+| 21 | A distribution with deliveries more than 33 days old | Not testable in one session; covered by `tracking.test.ts` "marks a delivery whose staged file is past 33 days" and the row message in the table |
+
+Commands for check 20 (a ghost connection: a database row for a socket that API Gateway does not have; the Delivery Lambda's first push to it gets 410, deletes the row and logs the line). `TOKEN` is Priya's access token as in M2 check 2; `JOB` is the full id of a distribution that is still running (send 100 files to 14 folders first):
+
+```bash
+WS=$(terraform -chdir=infra/envs/dev output -raw ws_url)            # wss://<id>.execute-api.ap-southeast-2.amazonaws.com/v1
+HOST=${WS#wss://}; HOST=${HOST%%/*}
+call() { aws lambda invoke --function-name docbeam-dev-ws --cli-binary-format raw-in-base64-out --payload "$1" /tmp/ws-out.json --query StatusCode --output text; cat /tmp/ws-out.json; echo; }
+START=$(($(date +%s) * 1000))
+call "{\"requestContext\":{\"routeKey\":\"\$connect\",\"connectionId\":\"ghost-1\",\"domainName\":\"$HOST\",\"stage\":\"v1\"},\"queryStringParameters\":{\"token\":\"$TOKEN\"}}"      # {"statusCode":200}
+call "{\"requestContext\":{\"routeKey\":\"subscribe\",\"connectionId\":\"ghost-1\",\"domainName\":\"$HOST\",\"stage\":\"v1\"},\"body\":\"{\\\"action\\\":\\\"subscribe\\\",\\\"jobId\\\":\\\"$JOB\\\"}\"}"   # {"statusCode":200}
+sleep 20
+aws logs filter-log-events --log-group-name /aws/lambda/docbeam-dev-delivery --filter-pattern '"connection gone"' --start-time $START --query 'events[].message' --output text
+```
+
+If the distribution has already finished, no push comes: send another and repeat the `subscribe` call with its id. The log line proves the cleanup; `/aws/lambda/docbeam-dev-ws` shows the `subscribe` event for `ghost-1`.
 
 ## 4. Prod (to run later)
 

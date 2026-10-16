@@ -99,6 +99,7 @@ export async function pushJobUpdate(deps: PushDeps, jobId: string, updatedAt: Da
       try {
         if (!(await deps.post(c.connection_id, body))) {
           await deps.db.query('DELETE FROM ws_connections WHERE connection_id = $1', [c.connection_id]);
+          deps.log.info('connection gone (410); row deleted', { jobId, connectionId: c.connection_id });
         }
       } catch (error) {
         deps.log.warn('push failed', { jobId, connectionId: c.connection_id, error: String(error) });
@@ -152,6 +153,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
           if (!delivered) {
             gone.add(c.connection_id);
             await deps.db.query('DELETE FROM ws_connections WHERE connection_id = $1', [c.connection_id]);
+            deps.log.info('connection gone (410); row deleted', { jobId, connectionId: c.connection_id });
           }
         } catch (error) {
           deps.log.warn('push failed', { jobId, connectionId: c.connection_id, error: String(error) });

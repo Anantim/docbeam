@@ -73,6 +73,7 @@ describe('pushTaskUpdate', () => {
     const s = setup([{ connection_id: 'c-gone', user_id: 'sender', team_ids: [] }], async () => false);
     await pushTaskUpdate(s.deps, update);
     expect(s.deleted).toEqual(['c-gone']);
+    expect(s.log.info).toHaveBeenCalledWith('connection gone (410); row deleted', { jobId: 'job-1', connectionId: 'c-gone' });
   });
 
   it('logs and carries on when a post fails, and when the database fails', async () => {
@@ -131,5 +132,6 @@ describe('pushJobUpdate', () => {
     const gone = setup([{ connection_id: 'c1', user_id: 'sender', team_ids: [] }], async () => false);
     await pushJobUpdate(gone.deps, 'job-1', new Date());
     expect(gone.deleted).toEqual(['c1']);
+    expect(gone.log.info).toHaveBeenCalledWith('connection gone (410); row deleted', { jobId: 'job-1', connectionId: 'c1' });
   });
 });
