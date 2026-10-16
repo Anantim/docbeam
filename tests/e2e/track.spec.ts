@@ -180,8 +180,12 @@ test('a failure shows its reason in the row, with what the code means', async ({
     await expect(codes).toHaveCount(2);
     await expect(codes.first()).toHaveAttribute('title', 'The file was not in storage when the delivery started.');
     // The reason names the file and the destination.
-    await expect(page.locator('.ttable .reason').first()).toContainText(names[0] as string);
-    await expect(page.locator('.ttable .reason').first()).toContainText('IRB approvals');
+    // (Rows sort by file name, and the names have a random part, so look each one up.)
+    for (const fileName of names) {
+      const reason = page.locator('.ttable .reason').filter({ hasText: fileName });
+      await expect(reason).toHaveCount(1);
+      await expect(reason).toContainText('IRB approvals');
+    }
 
     // Filter by Failed, then All.
     await page.getByRole('button', { name: /^Failed, 2 deliveries/ }).click();

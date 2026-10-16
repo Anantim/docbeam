@@ -22,9 +22,10 @@ People in the seed: **Priya Shah** (Cardio, Oncology), **Raj Mehta** (Cardio), *
 |---|---|---|
 | 1 | `npm run lint` | No output after `eslint .` |
 | 2 | `npm run typecheck` | No errors |
-| 3 | `npm test` | 65 files, 473 tests pass. (`web/src/upload/hashing.test.ts` has a 5-second limit and can time out when the CPU is busy; it passes on its own and on a second run) |
+| 3 | `npm test` | 68 files, 498 tests pass. (`web/src/upload/hashing.test.ts` has a 5-second limit and can time out when the CPU is busy; it passes on its own and on a second run) |
 | 4 | `npm run build` | `✓ built` |
-| 5 | `npm run test:integration` | 17 files, 156 tests pass (the stack must be up and seeded) |
+| 5 | `npm run test:integration` | 17 files, 157 tests pass (the stack must be up and seeded) |
+| 7 | `npm run test:e2e` (the stack up and seeded; Playwright starts the Vite server itself; needs `npx playwright install chromium` once, and `sudo env "PATH=$PATH" npx playwright install-deps chromium` once on WSL) | 10 tests pass in about 2 minutes. Local only, not in CI (D-M3-11). The tests stop and start the `workers` container and `ws-local`, and always start them again |
 | 6 | `terraform fmt -check -recursive infra` and `terraform -chdir=infra/envs/dev validate` and the same for `prod` | No output from fmt; `The configuration is valid.` |
 
 Tests that cover the M3 rules:
@@ -54,7 +55,22 @@ Tests that cover the M3 rules:
 | Teardown script refuses prod and any bucket not `docbeam-dev-…-<account id>`, never the state bucket, deletes in batches of 1,000 | `tests/scripts/empty-dev-buckets.test.ts` |
 | The dev connection budget stays at 79 | `packages/shared/src/db.test.ts` |
 
-### 1.3 By hand in the browser (waiting on the person)
+### 1.2b Browser tests by Playwright (`tests/e2e/`, `npm run test:e2e`)
+
+| Test | Covers steps of 1.3 |
+|---|---|
+| `track.spec.ts` "counts and rows change live, and a reload mid-run loses nothing" | 2, 3, 5, 6: send, Pending with 4 Waiting, **reload mid-run** (same distribution, same counts), then the workers start and the counts move to 4 Delivered **with no reload** (a marker set on the page survives) |
+| "a team viewer sees only their team's rows, live; an outsider gets not found" | 15 to 19: Raj (Cardio) and Priya in two browser contexts; Raj sees 2 of 4 rows, no Oncology text anywhere, no Cancel or Retry, live updates; Sam gets `Distribution not found` (same for an id that does not exist) and does not see it in My teams; Raj's Audit trail has no Oncology |
+| "Cancel: waiting deliveries stop, with a question first" | 10: Keep it going changes nothing; confirm gives 6 `CANCELLED`, chip `Cancelled`, Retry and Cancel off with reasons; starting the workers delivers nothing; the Audit tab shows the cancel |
+| "a failure shows its reason in the row, with what the code means" | 7, 8: staged files deleted, `FILE_NOT_UPLOADED` in both rows with the reason (file and destination), the code's meaning as its title, the Failed / Delivered / All filters, Retry off with its reason |
+| "Retry sends a failed delivery again" | 11, 12, 13: a delivery marked `RETRIES_EXHAUSTED`, Retry offered with the yellow box, click, back to Delivered with no reload, the Audit tab shows `Retry requested` |
+| "the live connection drops mid-run and the page catches up without a reload" | 9: `ws-local` stopped, deliveries run while the page cannot hear them (counts still 0 delivered), `ws-local` started, the page reconnects, subscribes and fetches once and shows 2 Delivered, no reload |
+| "the list shows my distributions with their counts" / "the Audit trail page filters by kind of event" | 14, 20: Mine, Open by ID (short id refused, a link opens), the Audit trail's Event filter and the link to a distribution |
+| `tooltips.spec.ts` (2 tests) | 22 and the tooltip rules: Send, Clear and the folder tick say why they are off; icon buttons have matching title and aria-label (checked for every button on the page); the "+N" popover (hover, click keeps it open, Esc, click outside, Tab away) lists only the hidden folders |
+
+### 1.3 By hand in the browser (what Playwright cannot judge)
+
+Playwright covers most of the steps below (see 1.2b). What is left for the person is the look and feel, and the 30-second list refresh: **steps 1, 4, 21**, and a quick look at steps 2, 3, 14 and 22 for layout and colours. The rest can be skipped locally and are repeated on dev (section 3).
 
 Start the app: `npm run dev -w @docbeam/web`, open <http://localhost:5173>. Use a normal window for Priya and a private window for Raj. Test files as in `M2-TESTING.md` 1.3 (small PDFs).
 
