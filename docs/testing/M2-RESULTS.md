@@ -85,6 +85,21 @@ Steps 1 to 19 of section 1.3 in `M2-TESTING.md`.
 
 Covered by the integration runs above (the three commands in section 1.4 are the same tests).
 
+### 1.5 Full re-run after the dev findings (2026-10-16, HEAD `d81ff17`)
+
+Run after D-M2-22 (platform ingest limiter, 5 MB upload parts), the leave-warning change and the favicon:
+
+| Command | Result |
+|---|---|
+| `npm run lint` | clean |
+| `npm run typecheck` | clean |
+| `npm test` | **53 test files, 334 tests passed** (327 before; new: `ingest-limiter.test.ts` 5, `documents.test.ts` 2) |
+| `npm run build` | all workspaces built; `web/dist` has `favicon.svg` and the `<link rel="icon">` |
+| `docker compose up -d --build --wait` | every container healthy (platform rebuilt with the limiter) |
+| `docker compose run --rm seed` | both files `seed applied` with every count 0 (already seeded) |
+| `npm run test:integration` | **15 test files, 129 tests passed** |
+| `terraform fmt -check -recursive infra`; `validate` in dev and prod | exit 0; both valid |
+
 ## 2. Deploy to dev on AWS (2026-10-16)
 
 Dev was down at the start (empty state, no repositories). Each push, apply and task run was approved by the person. Region `ap-southeast-2`, account `346208529537`. Images are tagged with the commit.
@@ -145,9 +160,18 @@ Dev was down at the start (empty state, no repositories). Each push, apply and t
 | 15. `POST /jobs` time | Three single-file jobs from the session machine: `0.93 s`, `0.97 s`, `0.86 s` end to end. This includes a new TLS connection from outside AWS to CloudFront, so it is not the server-side p99. **The 500 ms p99 is measured in M5 (check 5.1).** |
 | 16. CORS preflight on the dev bucket | **PASS.** `Origin: https://d20vwpie25gfdb.cloudfront.net` with `Access-Control-Request-Method` POST, PUT, GET and DELETE: each `HTTP/1.1 200 OK`, `Access-Control-Allow-Origin: https://d20vwpie25gfdb.cloudfront.net`, `Access-Control-Allow-Methods: POST, GET, DELETE, PUT`. `Origin: https://evil.example`: `403 AccessForbidden`, no allow-origin header |
 
-### 3.1 Browser steps on dev
+### 3.1 Browser steps on dev: done by the person on 2026-10-16
 
-Waiting on the person. The steps are in `M2-TESTING.md` section 3.1. None is recorded as YES yet.
+All 9 steps of `M2-TESTING.md` section 3.1 passed, at https://d20vwpie25gfdb.cloudfront.net as `anantim.patil@example.com`.
+
+| Steps | Status | Evidence |
+|---|---|---|
+| 1 (sign in, three teams), 2 (add four files, no CORS error), 3 (EICAR refused), 4 (map to three folders), 5 (preview), 6 (Send, toast, `POST /api/jobs` 201), 7 (**remove the 120 MB file mid-upload: the `DELETE` abort works, no CORS error**), 8 (leave warning on reload during an upload), 9 (sign out and in, page empty) | **YES (all 9)**, reported by the person | The person ran every step. Notes: the leave warning appeared when the page was reloaded during an upload; the console warnings from `contentscript.js` come from a browser extension, not DocBeam |
+
+Two changes followed from the run:
+
+- **Leave warning (D-M2-20):** it fired only while files were uploading, so a reload with everything `Verified` lost the prepared batch without a warning. It now fires whenever the page holds files that were not sent. Test: `Distribute.test.tsx` > "asks before the page is closed whenever it holds files that were not sent, and not when it is empty" (uploading, verified, refused, then empty). Step 8 in `M2-TESTING.md` now also reloads after `Verified`; the person has not repeated it yet.
+- **Favicon:** `web/public/favicon.svg` and `<link rel="icon">` in `web/index.html`. Redeployed to dev: `/favicon.svg` answers `200 image/svg+xml` and the page carries the link. **`/favicon.ico` still answers `403`** (there is no such file in the bucket; a browser that sees the `<link>` does not ask for it). A binary `.ico` cannot be written with the Write tool; see STATUS known issues.
 
 ### 3.2 The platform out of memory, and the stress check (F5)
 
@@ -167,3 +191,82 @@ Two real runs sent tasks to the Task DLQ (both because the platform kept running
 - Job `36b51817…`: 50 tasks. 50 distinct `retries exhausted`; the last logged `"jobClosed":true`.
 
 Both times the queue and its DLQ were empty again after the Consumer ran, and the `task-dlq-not-empty` alarm stayed `OK` (the Consumer drains the DLQ faster than the alarm's evaluation period).
+
+## 4. Final check: YES / NO (2026-10-16)
+
+Each line of the M2 prompt (`docs/agent/PROMPTS.md`, Session 3) and of TDD Steps 2.1 to 2.6. **All are YES except the lines marked NO or "at hand-over"; every NO is an accepted gap with its reason in 4.3.** Test names are in `tests/integration` unless a path is given. "Dev" means the checks of section 3.
+
+### 4.1 The M2 prompt: outputs
+
+| # | Requirement | YES / NO | Evidence |
+|---|---|---|---|
+| P1 | Upload routes: single-part POST policy, multipart start, re-sign, complete; file rows; `GET /files?ids=` | YES | `services/docbeam-api/src/routes/uploads.ts:55` (`POST /uploads`), `:93` (start), `:130` (re-sign), `:149` (complete); `routes/files.ts:11`. `uploads.test.ts` (18 tests, e.g. "starts, uploads every part, re-signs one, and completes with the combined checksum", "reports the state of the caller's own files only"). Dev: check 0, check 2 |
+| P2 | Upload Events Lambda as a container image with ClamAV, sizes/timeout/queue visibility/concurrency per Step 2.1 | YES | `workers/upload-events/Dockerfile`; `infra/envs/dev/async.tf:49-51` (3008 MB, 10240 MB storage, 600 s), `:59` (concurrency 10); `infra/modules/sqs/main.tf:27-28` (visibility 3600, receive 5); `modules/lambda/variables.tf:83` (batch 1). Dev: Lambda ran with `Max Memory Used 1446 MB`, 49 s for 120 MB |
+| P3 | The clean tag, the conditional update, the `file.refused` event | YES | `workers/upload-events/src/process.ts:127-136` (tag first, then `UPDATE files … scan_status = 'clean'`), `:83-118` (`refuse`). "a clean file is tagged scan-status=clean and confirmed, and a repeated event changes nothing"; "EICAR is refused as infected by the real ClamAV" |
+| P4 | The daily image rebuild wired to it | YES | `.github/workflows/upload-events-image.yml:17-18` (cron `17 3 * * *`), `:49` (`no-cache` on schedule), `:57` (deploy job, skipped until `LAMBDA_DEPLOY_ENABLED`). The workflow has not yet run against dev (it needs the merge) |
+| P5 | `POST /jobs` with every check, one transaction, queue message after commit | YES | `routes/jobs.ts:97`, transaction with `unnest` at `:174`, `queue.sendJob` after it at `:213`. `jobs.test.ts` (13 tests: 201, each 4xx creates nothing, repeated and parallel same key, 100 x 20, platform down). Dev: jobs `c2b89c35…`, `2a8166a3…`, `b5455c82…` |
+| P6 | Job and Task queues and DLQs in Terraform with exact limits | YES | `infra/modules/sqs/main.tf:15-28,37-48` (14-day retention, SSE-SQS, visibility 360/720, receive 3/5); `async.tf:78` (Fan-out 60 s), `:104-105` (Delivery 1024 MB, 120 s). Dev: `terraform plan` = `No changes` |
+| P7 | Fan-out, Delivery (claim, checksum, service token, permanent and temporary errors, retry gaps, job row lock, pushes), DLQ Consumer, Sweeper (every minute and daily) | YES | `workers/fanout/src/index.ts`; `workers/delivery/src/deliver.ts:57` (claim), `:184` (HEAD with checksum), `:108` (401 once), `classify.ts:11-37` (errors and gaps 30/120/300/600/0); `packages/shared/src/task-outcome.ts:72,144` (job row lock); `push.ts`; `workers/dlq/src/process.ts`; `workers/sweeper/src/index.ts`; `modules/scheduler` (`rate(1 minute)`, `rate(1 day)` on dev). Tests: `fanout.test.ts`, `delivery.test.ts` (9), `dlq-sweeper.test.ts` (9) |
+| P8 | Delivery capped at 50, Upload Events at 10, by trigger maximum concurrency | YES | `async.tf:117` (`max_concurrency = 50`), `:59` (`10`). Dev stress run: 50 concurrent deliveries |
+| P9 | Web app part 2: allow-list, SHA-256 in a Web Worker, parallel uploads with resume, Checking/Verified/Refused, mapping as in the mockup with live task count, Review with Preview and remove, Send | YES | `web/src/distribute/files.ts:22` (`acceptFiles`, 100 cap, allow-list), `web/src/upload/worker-hash.ts:5`, `hash.worker.ts`, `manager.ts:89` (waves of 20, 4 at once, resume), `distribute/mapping.ts:44` (`deliveryCount`), `components/Review.tsx`, `Preview.tsx`, `SendBar.tsx`. 334 unit tests; `web-upload.test.ts`; local browser steps 1 to 19 and dev browser steps 1 to 9: YES (the person) |
+| P10 | Platform draining: target group deregistration delay and container `stopTimeout` of 120 s in dev and prod (module variable, default 30) | YES | `infra/envs/dev/services.tf:76,164`, same lines in `prod/services.tf`; `modules/alb/variables.tf:24` (default 30); `modules/ecs-service/main.tf:139`. `platform-drain.test.ts` "finishes an upload that is running when it gets SIGTERM". Dev check 12: a forced deploy during a 14-destination ingest, `deploy exit=0`, 14 of 14 delivered |
+| P11 | The four alarms and their SNS topic sending to `ALARM_EMAIL` | YES | `infra/modules/alarms/main.tf:20-21,27,45`. Dev: four alarms `OK`; subscription confirmed (check 8) |
+| P12 | Lambda deploy jobs that skip with a notice when dev does not exist or the function runs that code | YES | `scripts/deploy-lambda.sh:38,45,59`; `workers.yml:66`, `upload-events-image.yml:57`; `tests/scripts/deploy-lambda.test.ts`. Dev: check 14 "already runs this code. Nothing to do" |
+| P13 | Plan: whether to keep `image_tag` required | YES | D-M2-1 (`docs/DECISIONS.md:316`): it stays optional (default `bootstrap`); one-off tasks run only marked revisions. Approved in the plan |
+| P14 | Tests: EICAR by the real scanner | YES | `upload-events.test.ts:65` |
+| P15 | Tests: the same task message twice | YES | `delivery.test.ts:139` "stores one document and writes one audit event when the same message arrives twice" |
+| P16 | Tests: a temporary error puts a task back to pending | YES | `delivery.test.ts:160` "puts a task back to pending when the platform is down, and finishes it when it returns" |
+| P17 | Tests: two last tasks finishing together | YES | `delivery.test.ts:182` "closes the job exactly once when its last two tasks finish together" |
+| P18 | Tests: the sweeper re-sending a job | YES | `dlq-sweeper.test.ts:160` "sends the job message again for a job whose fan-out never started" |
+| P19 | `M2-TESTING.md`, `M2-RESULTS.md`, `STATUS.md` updated | YES | `docs/testing/M2-TESTING.md`, this file, `docs/STATUS.md` |
+
+### 4.2 The M2 prompt: "Done when" and TDD Steps 2.1 to 2.6
+
+| # | Requirement | YES / NO | Evidence |
+|---|---|---|---|
+| D1 | The demo works locally: pick files, upload, map, submit, see the documents in the platform | YES | Local browser steps 1 to 19 (the person, 2026-10-16); `web-upload.test.ts` |
+| D2 | The demo works on dev | YES | Dev browser steps 1 to 9 (the person); checks 0, 5, 6 |
+| D3 | Stopping the platform mid-run and watching the backlog drain | YES | Check 11, third attempt: 1,400 tasks, platform stopped at 11:25:07 UTC, 538 delivered before, **1,400 of 1,400 delivered by 11:33:49**, DLQs 0 |
+| D4 | Tell the person when to set `LAMBDA_DEPLOY_ENABLED`; remind them to merge while dev is up | At hand-over | In the hand-over message after the PR checks are green |
+| D5 | Plan first and wait for approval; branch `m2`; YES/NO check; pull request | YES | `docs/PLAN.md` M2 task list (approved); branch `m2`; this section; the PR (see STATUS) |
+| 2.1a | Four upload routes; file rows; single-part `s3_checksum` = declared SHA-256 | YES | See P1; `uploads.test.ts` "returns one form per file, in order, and stores a pending file row"; dev check 2: wrong bytes `400 BadDigest`, right bytes `204` |
+| 2.1b | S3 events on `staging/` to the Upload Events Queue (receive 5, Upload DLQ); the Lambda checks size and checksum against the row, then scans; clean file tagged and confirmed in one conditional update; infected file deleted, marked, `file.refused`; repeat changes nothing | YES | Dev check 10 (notification on `staging/`); `process.ts:38-48` (`checkAgainstRow`), `:127-136`; `upload-events.test.ts` (6 tests incl. "refuses a file whose stored size is smaller than declared", "refuses bytes that differ from the declared SHA-256…", "ignores an event for a file that has no row"). Dev check 3: `file refused`, `MALWARE` |
+| 2.1c | Scanner image, limits raised to 1 GB, 3,008 MB, 10 GB, 600 s, batch 1, visibility 3,600, concurrency 10; daily rebuild | YES | `scanner.ts:22,116-117` (1100 MB); see P2 and P4. **Image format finding F1** (provenance flag in `push-image.sh`) |
+| 2.2a | `POST /jobs` checks: limits, ownership, age, fingerprints, upload checks, one destination check call | YES | `jobs.test.ts` (422 INVALID_BATCH, FILE_NOT_READY, FILE_TOO_OLD, 409 FILE_ALREADY_SUBMITTED, CHECKSUM_MISMATCH, ownership, DESTINATION_NOT_FOUND) |
+| 2.2b | Service token fetched at startup and renewed in the background | YES | `packages/shared/src/service-token.ts`; `service-token.test.ts` |
+| 2.2c | One transaction; `job_id IS NULL` claim gives 409; tasks in one `unnest` statement; `job.submitted` audit event | YES | `jobs.ts:174`; "creates the job, claims the files, writes one pending task per delivery and one audit event" |
+| 2.2d | After commit one message; a failed send still returns 201 and the sweeper re-sends | YES | `jobs.ts:213`; "sends the job message again for a job whose fan-out never started" |
+| 2.3a | Queues and DLQs, receive 3 and 5, 14-day retention, SSE-SQS on all five, Fan-out 60 s, Job visibility 360, Delivery 1,024 MB / 120 s (platform call limit 100 s), Task visibility 720, batch 1 with ReportBatchItemFailures | YES | See P6; `modules/lambda/main.tf:172-173`; `deliver.ts:17` (`PLATFORM_TIMEOUT_MS = 100_000`) |
+| 2.3b | Fan-out: set `fanned_out_at`, `SendMessageBatch` in groups of 10, body is the task id only | YES | `fanout.test.ts` "sends one task message per pending task, and again for a redelivered job message" |
+| 2.4a | Claim; already final: acknowledge and stop | YES | `deliver.ts:57-58`; "stores one document and writes one audit event when the same message arrives twice" |
+| 2.4b | HEAD with checksum mode; missing: FILE_NOT_UPLOADED; different: CHECKSUM_MISMATCH | YES | `deliver.ts:184-195`; "fails FILE_NOT_UPLOADED when the staged file is gone", "fails CHECKSUM_MISMATCH when the stored checksum is not the declared one". Dev check 0 (real S3 returns the checksum) |
+| 2.4c | Cached service token, 401 gets a new token once | YES | `deliver.ts:108`; `deliver.test.ts` |
+| 2.4d | 200/201 complete; 403 NOT_A_MEMBER, 404, 422 permanent; everything else temporary with `last_error`, ChangeMessageVisibility gaps 30 s, 2, 5, 10 min, then at once | YES | `classify.ts:11-37`, `classify.test.ts` ("[30, 120, 300, 600, 0, 0]"); "fails UNSUPPORTED_TYPE when the bytes are not a PDF"; dev: 1,724 `temporary delivery error` lines in the outage run, none lost |
+| 2.4e | Each final status: one transaction, job row lock, conditional write, audit event, close job | YES | `task-outcome.ts:72,144`; "closes the job exactly once when its last two tasks finish together" |
+| 2.4f | Pushes to subscribers; errors never fail a delivery | YES (code and local) | `push.ts`, `push.test.ts`; "deletes a dead connection after a push, and leaves an expired one alone". **On AWS no push is sent yet** (see N1) |
+| 2.4g | Dev: one connection per Lambda copy; Task Queue concurrency 50 | YES | `lambda-db.ts`; `async.tf:117`. Dev stress run used the full 50 |
+| 2.5a | DLQ Consumer: Task DLQ RETRIES_EXHAUSTED with `last_error`; Job DLQ FANOUT_FAILED; Upload DLQ marks the file failed; closes the job and pushes | YES | `workers/dlq/src/process.ts:67,74,95-107`; `dlq-sweeper.test.ts` (6 consumer tests). **Dev: 14 and 50 tasks went through the Task DLQ, all marked `retries exhausted`, the job closed (3.3)** |
+| 2.5b | Sweeper: re-send after 2 minutes, daily cleanup of unsubmitted files older than 24 hours, objects deleted, multipart aborted; partial indexes | YES | `sweeper/src/index.ts:23,37,58-63`; `0000_docbeam_schema.sql:78` (`idx_files_unsubmitted … WHERE job_id IS NULL`); "deletes unsubmitted files older than 24 hours with their objects, and aborts open multipart uploads". Dev: both schedules `ENABLED` (check 9) |
+| 2.6a | File picker capped at 100 with the allow-list; SHA-256 in a Web Worker | YES | `files.ts:22`, `files.test.ts`; `worker-hash.ts`, `hashing.test.ts` |
+| 2.6b | Queue: 4 to 6 parallel uploads, waves of 20, progress, multipart resume | YES (4) | `manager.ts:89`, `manager.test.ts`. 4 parallel uploads (see N3) |
+| 2.6c | Mapping as in the mockup with a live task count; the same batch limits as the API | YES | `mapping.ts:44`, `mapping.test.ts`; `packages/shared/src/batch.ts` shared with the API |
+| 2.6d | Checking until scanned, then Verified or Refused with the reason; Send enabled once every file is verified | YES | `Distribute.test.tsx`; browser steps (local 1 to 19, dev 1 to 9) |
+| 2.6e | Full-width Review: every destination with its files, Preview and a cross; a file left with no folder drops out; Preview from the browser copy | YES | `Review.tsx`, `Preview.tsx`; "removes a file from one folder with the cross in Review, and drops a file left with no folder"; sandboxed iframe (D-M2-20) |
+
+### 4.3 Accepted NOs and deviations (each with its reason)
+
+| # | Gap | Reason |
+|---|---|---|
+| N1 | **NO live push on AWS.** Delivery logs `WS_MANAGEMENT_ENDPOINT is not set; no pushes`; its role has no `execute-api:ManageConnections` | The WebSocket API is M3, Step 3.2. Code and tests are in place (2.4f) |
+| N2 | `POST /jobs` 500 ms p99 not measured | M5, check 5.1. From a laptop outside AWS one job took 0.86 to 0.97 s including a new TLS connection (check 15) |
+| N3 | 4 parallel uploads, parts of one file one after another | TDD says 4 to 6 and does not say whether parts run in parallel. Four is the low end of the range |
+| N4 | A failed file shows Retry and Remove together | The mockup shows Retry alone, which would leave a refused file that cannot be removed except with Clear |
+| N5 | **Platform sizing differs from TDD Step 1.4** (1 vCPU / 2 GB, at most 6 ingests at once, 503 after 30 s) | The dev stress run with 50 concurrent 120 MB deliveries killed the 0.25 vCPU task three times. D-M2-22. The platform is a stand-in; the real platform's capacity is the client's to confirm |
+| N6 | The 503 for a long wait is sent when 30 s are up, not predicted on arrival | No reliable estimate of the wait exists; D-M2-22 says so |
+| N7 | `/favicon.ico` answers `403` on dev | Only `favicon.svg` exists; browsers that see `<link rel="icon">` do not ask for `/favicon.ico`. A binary `.ico` cannot be written with the Write tool (STATUS known issues) |
+| N8 | The `task-dlq-not-empty` alarm did not fire in the two DLQ runs | The DLQ Consumer drains the queue faster than the alarm's one-minute evaluation. The alarm itself is `OK` and wired (check 8); a slower consumer would raise it |
+| N9 | The daily Upload Events rebuild workflow has not run on AWS | It deploys only after the merge and `LAMBDA_DEPLOY_ENABLED=true`; the deploy path itself (`deploy-lambda.sh` with an image) was run by hand (check 18) |
+| N10 | The AWS provider moved to 6.69.0 by `terraform init -upgrade` | Recorded in STATUS (M2 task 8) |
+| N11 | Dev load tests (3 x 3, 1,400 tasks, 50 x 120 MB) used driver scripts, not a browser | A browser cannot be driven here. The browser path was run by the person (3.1) |
+| N12 | The leave warning change (step 8, reload after `Verified`) has not been re-run in a browser | Unit test passes; the person has not repeated step 8 since the change |
+| N13 | UI polish list (STATUS) | The person's decision: after M4 |
