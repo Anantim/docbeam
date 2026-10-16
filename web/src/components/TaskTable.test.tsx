@@ -2,12 +2,13 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
+import type * as ApiModule from '../tracking/api.js';
 import type { TaskPage, TaskRow } from '../tracking/api.js';
 import { TaskTable } from './TaskTable.js';
 
 const api = vi.hoisted(() => ({ tasks: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../tracking/api.js')>()),
+  ...(await importOriginal<typeof ApiModule>()),
   trackingApi: { tasks: api.tasks },
 }));
 

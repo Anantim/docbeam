@@ -57,14 +57,11 @@ class FakeManager {
   clear = vi.fn(() => this.set([]));
 }
 
-const claims = { sub: 'u1', name: 'Priya Nair', email: 'priya@example.test', exp: 0 };
 const notify = vi.fn();
 
 function screenWith(manager: FakeManager, submit = vi.fn(async () => ({ jobId: '0123456789abcdef', taskCount: 2 }))) {
   render(
     <Distribute
-      claims={claims}
-      teams={['Cardio']}
       onTeams={() => {}}
       notify={notify}
       manager={manager as unknown as UploadManager}

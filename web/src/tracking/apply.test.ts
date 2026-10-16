@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import type { LiveMessage } from '../live/socket.js';
 import type { TaskRow } from './api.js';
-import { applyCounts, applyTaskUpdate, countsFromFetch } from './apply.js';
+import { applyCounts, applyTaskUpdate, countsFromFetch, statusFromCounts } from './apply.js';
+
+describe('statusFromCounts', () => {
+  const c = (pending: number, in_progress: number, completed: number, failed: number) => ({ pending, in_progress, completed, failed });
+  it.each([
+    [c(3, 0, 0, 0), false, 'pending'],
+    [c(1, 1, 1, 0), false, 'in_progress'],
+    [c(0, 0, 3, 0), false, 'completed'],
+    [c(0, 0, 2, 1), false, 'completed_with_errors'],
+    [c(0, 0, 2, 1), true, 'cancelled'],
+    [c(0, 1, 2, 1), true, 'in_progress'],
+  ])('%j cancelled=%s is %s', (counts, cancelled, expected) => {
+    expect(statusFromCounts(counts, cancelled)).toBe(expected);
+  });
+});
 
 const counts = (completed: number, pending = 0) => ({ pending, in_progress: 0, completed, failed: 0 });
 const row: TaskRow = {
