@@ -224,7 +224,25 @@ Demo: a user registers, logs in and browses only their own teams, binders and fo
 
 Demo: pick files, upload, map, submit, see documents land in the platform, including stopping the platform mid-run and watching the backlog drain.
 
-Reminder for the M2 plan: **the person sets the repo variable `ALARM_EMAIL` before M2's first apply** (G12), then confirms the SNS email.
+Reminder for the M2 plan: **the person sets the repo variable `ALARM_EMAIL` before M2's first apply** (G12), then confirms the SNS email. (Set on 2026-10-14.)
+
+**M2 task list, approved 2026-10-15.** The steps below stay as the reference. The work is done in these tasks, one commit each. Decisions D-M2-1 to D-M2-12 are in `docs/DECISIONS.md`.
+
+| # | Task | Covers |
+|---|---|---|
+| 0 | Branch `m2`, plan and decision records | |
+| 1 | Shared building blocks: limits, `validateBatch`, file types moved to shared, service-token client, secrets, checksum helpers | 2.1 to 2.4 |
+| 2 | Upload routes and `GET /files` | 2.1a |
+| 3 | Upload Events Lambda, scanner interface, EICAR refused locally | 2.1b |
+| 4 | `POST /jobs` | 2.2 |
+| 5 | Fan-out | 2.3 |
+| 6 | Delivery, push, platform draining | 2.4 |
+| 7 | DLQ Consumer and Sweeper | 2.5 |
+| 8 | Terraform: `sqs`, `lambda`, `alarms`, S3 wiring, draining variables, routes | 2.1 to 2.5 |
+| 9 | Pipelines: `deploy-lambda.sh`, guards, `run-task.sh` marker rule | 0.3 follow-up |
+| 10 | Web app part 2 | 2.6 |
+| 11 | Testing round, `M2-TESTING.md`, `M2-RESULTS.md` | |
+| 12 | YES/NO check, walkthrough, STATUS, pull request | |
 
 **2.1a Upload routes**
 - Inputs: TDD Step 2.1, DocBeam API contract, multipart notes; ADR-002, ADR-004.

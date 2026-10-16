@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../auth/session.js';
+import { teamColour } from '../destinations/colour.js';
 import { destinationKey, MAX_DESTINATIONS, type Destination } from '../destinations/selection.js';
 import { destinationFor, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
+import type { TickState } from '../distribute/mapping.js';
 
-const TEAM_COLOURS = ['#B5452B', '#6B4FA8', '#1F7A6E', '#2B59C3', '#8A6D1E', '#A23B72'];
 /** With a few teams the tree opens them at once; with 50 it waits for a click, so the page sends few requests. */
 const AUTO_OPEN_TEAMS = 5;
 
 interface Props {
+  /** The destinations in use (the count in the header, and the ticks when `stateOf` is not given). */
   selected: Destination[];
   onToggle: (destination: Destination) => void;
   onTeams: (names: string[]) => void;
+  /** Tick state for the files in scope. Without it a destination is on when it is in `selected`. */
+  stateOf?: (destination: Destination) => TickState;
+  /** How many files go to a destination, shown as a badge. */
+  countOf?: (destination: Destination) => number;
+  /** What a tick sends, for example "all 3 files" or "the 1 selected file". */
+  scopeTitle?: string;
+  /** Shows "Use all files" in the banner while some files are selected. */
+  onUseAll?: () => void;
+  /** No file can be sent yet, so nothing can be ticked. */
+  disabled?: boolean;
 }
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
@@ -27,7 +39,7 @@ async function loadChildren(node: TreeNode): Promise<TreeNode[]> {
   return folderNodes(node, contents.folders);
 }
 
-export function Destinations({ selected, onToggle, onTeams }: Props) {
+export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, scopeTitle = 'your files', onUseAll, disabled = false }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -95,8 +107,10 @@ export function Destinations({ selected, onToggle, onTeams }: Props) {
     const isOpen = keep ? keep.has(node.id) && (children?.length ?? 0) > 0 : open.has(node.id);
     const canExpand = children === undefined || children.length > 0;
     const destination = destinationFor(node);
-    const on = destination ? chosen.has(destinationKey(destination)) : false;
-    const colour = TEAM_COLOURS[(roots?.indexOf(node) ?? 0) % TEAM_COLOURS.length];
+    const tick: TickState = !destination ? 'off' : stateOf ? stateOf(destination) : chosen.has(destinationKey(destination)) ? 'on' : 'off';
+    const on = tick !== 'off';
+    const badge = destination && countOf ? countOf(destination) : 0;
+    const colour = teamColour(node.name);
 
     return (
       <div key={node.id}>
@@ -127,15 +141,20 @@ export function Destinations({ selected, onToggle, onTeams }: Props) {
               <button
                 type="button"
                 role="checkbox"
-                aria-checked={on}
+                aria-checked={tick === 'mixed' ? 'mixed' : on}
                 className="ck"
-                aria-label={`Send your files to ${destination?.path ?? node.name}`}
+                disabled={disabled}
+                aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
                 onClick={() => destination && onToggle(destination)}
               >
-                <span className="box">{on ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</span> : null}</span>
+                <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
+                  {tick === 'on' ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</span> : null}
+                  {tick === 'mixed' ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>–</span> : null}
+                </span>
               </button>
               <span aria-hidden="true">{node.kind === 'binder' ? '📘' : '📁'}</span>
               <span className="name">{node.name}</span>
+              {badge > 0 && <span className="badge">{badge === 1 ? '1 file' : `${badge} files`}</span>}
             </>
           )}
         </div>
@@ -163,7 +182,16 @@ export function Destinations({ selected, onToggle, onTeams }: Props) {
           {selected.length} of {MAX_DESTINATIONS} destinations
         </span>
       </div>
-      <div className="banner">Ticking a folder sends your files there</div>
+      <div className={`banner ${onUseAll ? 'scoped' : ''}`}>
+        <span>
+          Ticking a folder sends <strong>{scopeTitle}</strong> there
+        </span>
+        {onUseAll && (
+          <button className="link" type="button" onClick={onUseAll}>
+            Use all files
+          </button>
+        )}
+      </div>
       <div className="filter">
         <label className="sr" htmlFor="dq">
           Filter destinations

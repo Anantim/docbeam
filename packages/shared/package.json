@@ -8,9 +8,16 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
     }
   },
   "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.1152.0",
+    "@aws-sdk/client-secrets-manager": "^3.1151.0",
+    "@aws-sdk/client-sqs": "^3.1152.0",
     "fastify-plugin": "^5.0.1",
     "jose": "^6.2.12"
   },

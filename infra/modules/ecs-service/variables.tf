@@ -93,6 +93,12 @@ variable "one_off_tasks" {
   default = {}
 }
 
+variable "stop_timeout" {
+  description = "Seconds the container gets between SIGTERM and SIGKILL. Fargate allows at most 120. The platform uses 120 to finish a running ingest (D-M2-17)."
+  type        = number
+  default     = 30
+}
+
 variable "log_retention_days" {
   type    = number
   default = 30

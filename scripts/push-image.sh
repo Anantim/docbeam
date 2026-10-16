@@ -47,7 +47,8 @@ aws ecr get-login-password --region "$REGION" | docker login --username AWS --pa
 if aws ecr describe-images --repository-name "$REPO_NAME" --image-ids "imageTag=${TAG}" --region "$REGION" >/dev/null 2>&1; then
   echo "${IMAGE}:${TAG} is already in ECR."
 else
-  docker build --platform linux/amd64 -f "${ROOT}/${DOCKERFILE}" -t "${IMAGE}:${TAG}" "$@" "$ROOT"
+  # No provenance or SBOM attestation: it turns the image into an OCI index, which Lambda refuses as a container image.
+  docker build --platform linux/amd64 --provenance=false --sbom=false -f "${ROOT}/${DOCKERFILE}" -t "${IMAGE}:${TAG}" "$@" "$ROOT"
   docker push "${IMAGE}:${TAG}"
 fi
 

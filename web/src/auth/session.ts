@@ -1,3 +1,4 @@
+import { ApiFailure } from './errors.js';
 import { decodeClaims, isUsable, msUntilRefresh, type Claims } from './token.js';
 
 // The access token lives in sessionStorage, so reloading keeps the session; the refresh token lives only in
@@ -136,13 +137,34 @@ export async function startSession(): Promise<void> {
   if (result !== 'ok') clear(false);
 }
 
-async function readError(res: Response, fallback: string): Promise<string> {
+interface ErrorBody {
+  error?: { code?: string; message?: string };
+  [key: string]: unknown;
+}
+
+async function readBody(res: Response): Promise<ErrorBody> {
   try {
-    const body = (await res.json()) as { error?: { message?: string } };
-    return body.error?.message ?? fallback;
+    return (await res.json()) as ErrorBody;
   } catch {
-    return fallback;
+    return {};
   }
+}
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  return (await readBody(res)).error?.message ?? fallback;
+}
+
+/** Resolves when the session is signed in (at once if it already is). Uploads wait here behind the sign-in dialog. */
+export function whenSignedIn(): Promise<void> {
+  if (state.status === 'signedIn') return Promise.resolve();
+  return new Promise((resolve) => {
+    const stop = sessionStore.subscribe(() => {
+      if (state.status === 'signedIn') {
+        stop();
+        resolve();
+      }
+    });
+  });
 }
 
 export async function login(email: string, password: string): Promise<void> {
@@ -177,14 +199,7 @@ export async function logout(): Promise<void> {
   }
 }
 
-export class ApiFailure extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { ApiFailure };
 
 /**
  * Calls the API with the access token. A 401 triggers one refresh and one retry; if that fails the
@@ -208,6 +223,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       throw new ApiFailure(401, 'Your sign-in has ended.');
     }
   }
-  if (!res.ok) throw new ApiFailure(res.status, await readError(res, 'Something went wrong.'));
+  if (!res.ok) {
+    const body = await readBody(res);
+    throw new ApiFailure(res.status, body.error?.message ?? 'Something went wrong.', body.error?.code, body);
+  }
   return (await res.json()) as T;
 }

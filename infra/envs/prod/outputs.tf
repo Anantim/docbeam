@@ -99,3 +99,22 @@ output "service_security_group_ids" {
     docbeam_api = module.docbeam_api.security_group_id
   }
 }
+
+output "lambda_function_names" {
+  description = "Read by scripts/deploy-lambda.sh and the worker workflow."
+  value = {
+    upload_events = module.upload_events.function_name
+    fanout        = module.fanout.function_name
+    delivery      = module.delivery.function_name
+    dlq           = module.dlq_consumer.function_name
+    sweeper       = module.sweeper.function_name
+  }
+}
+
+output "queue_urls" {
+  value = module.sqs.queue_urls
+}
+
+output "alarm_topic_arn" {
+  value = module.alarms.topic_arn
+}

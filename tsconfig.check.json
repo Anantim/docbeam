@@ -5,6 +5,7 @@
     "declaration": false,
     "declarationMap": false,
     "paths": {
+      "@docbeam/shared/browser": ["./packages/shared/src/browser.ts"],
       "@docbeam/shared": ["./packages/shared/src/index.ts"],
       "@docbeam/worker-runtime": ["./packages/worker-runtime/src/index.ts"],
       "@docbeam/worker-fanout": ["./workers/fanout/src/index.ts"],

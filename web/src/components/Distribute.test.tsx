@@ -1,0 +1,208 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { FileStatus, PageFile, UploadManager } from '../upload/manager.js';
+
+const apiFetch = vi.fn();
+vi.mock('../auth/session.js', () => ({
+  apiFetch: (path: string) => apiFetch(path),
+  logout: vi.fn(),
+  whenSignedIn: async () => undefined,
+}));
+vi.mock('../upload/instance.js', () => ({ uploadManager: {} }));
+
+const { Distribute } = await import('./Distribute.js');
+const { Submission } = await import('../distribute/submit.js');
+
+const answers: Record<string, unknown> = {
+  '/teams': [{ id: 't-cardio', name: 'Cardio' }],
+  '/teams/t-cardio/binders': [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }],
+  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [] },
+};
+
+const pageFile = (name: string, status: FileStatus): PageFile => ({
+  id: `id-${name}`,
+  file: new File([new Uint8Array(1)], name),
+  name,
+  sizeBytes: 1000,
+  contentType: 'application/pdf',
+  status,
+  progress: status === 'verified' ? 1 : 0.4,
+  partsDone: 0,
+  partCount: 0,
+  sha256: 'a'.repeat(64),
+  serverId: `server-${name}`,
+});
+
+/** Just enough of the upload queue for the screen: a list the test can change. */
+class FakeManager {
+  files: PageFile[];
+  listeners = new Set<() => void>();
+  constructor(files: PageFile[]) {
+    this.files = files;
+  }
+  subscribe = (l: () => void) => {
+    this.listeners.add(l);
+    return () => this.listeners.delete(l);
+  };
+  getSnapshot = () => this.files;
+  set(files: PageFile[]) {
+    this.files = files;
+    for (const l of this.listeners) l();
+  }
+  add = vi.fn();
+  remove = vi.fn((id: string) => this.set(this.files.filter((f) => f.id !== id)));
+  retry = vi.fn();
+  clear = vi.fn(() => this.set([]));
+}
+
+const claims = { sub: 'u1', name: 'Priya Nair', email: 'priya@example.test', exp: 0 };
+const notify = vi.fn();
+
+function screenWith(manager: FakeManager, submit = vi.fn(async () => ({ jobId: '0123456789abcdef', taskCount: 2 }))) {
+  render(
+    <Distribute
+      claims={claims}
+      teams={['Cardio']}
+      onTeams={() => {}}
+      notify={notify}
+      manager={manager as unknown as UploadManager}
+      submission={new Submission(submit, () => 'key-1')}
+    />,
+  );
+  return submit;
+}
+
+const tickTop = async (user: ReturnType<typeof userEvent.setup>, scope: string) =>
+  user.click(await screen.findByRole('checkbox', { name: `Send ${scope} to Cardio / CARDIO-301 Regulatory (top level)` }));
+
+beforeEach(() => {
+  apiFetch.mockReset();
+  notify.mockReset();
+  apiFetch.mockImplementation(async (path: string) => {
+    if (!(path in answers)) throw new Error(`unexpected ${path}`);
+    return answers[path];
+  });
+});
+afterEach(cleanup);
+
+describe('Distribute', () => {
+  it('keeps Send off until every file is verified and mapped', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'checking')]);
+    screenWith(manager);
+
+    await tickTop(user, 'all 2 files');
+    const send = screen.getByRole('button', { name: /^Send 2 deliveries$/ });
+    expect((send as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Uploads in progress or being checked')).toBeTruthy();
+
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    await waitFor(() => expect((screen.getByRole('button', { name: /^Send 2 deliveries$/ }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('does not allow ticks before there is a file', async () => {
+    screenWith(new FakeManager([]));
+    const box = await screen.findByRole('checkbox', { name: /to Cardio \/ CARDIO-301 Regulatory \(top level\)/ });
+    expect((box as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('No documents yet')).toBeTruthy();
+  });
+
+  it('applies a tick to the selected files only, and shows the folder as mixed for the others', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    screenWith(manager);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select a.pdf' }));
+    expect(screen.getByText(/1 selected\. Destinations you tick apply to these only\./)).toBeTruthy();
+    await tickTop(user, 'the 1 selected file');
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('1 file')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Use all files' }));
+    const box = await screen.findByRole('checkbox', { name: 'Send all 2 files to Cardio / CARDIO-301 Regulatory (top level)' });
+    expect(box.getAttribute('aria-checked')).toBe('mixed');
+    expect(screen.getByText('1 file has no destination')).toBeTruthy();
+  });
+
+  it('removes a file from one folder with the cross in Review, and drops a file left with no folder', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    await tickTop(user, 'all 1 file');
+
+    const review = screen.getByRole('region', { name: 'Review' });
+    await user.click(within(review).getByRole('button', { name: 'Remove a.pdf from CARDIO-301 Regulatory' }));
+    expect(manager.remove).toHaveBeenCalledWith('id-a.pdf');
+    expect(notify).toHaveBeenCalledWith('a.pdf had no other destination, so it was removed from this distribution.');
+  });
+
+  it('asks before the page is closed whenever it holds files that were not sent, and not when it is empty', async () => {
+    const manager = new FakeManager([pageFile('a.pdf', 'uploading')]);
+    screenWith(manager);
+    const asks = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(asks()).toBe(true);
+
+    // Everything uploaded and verified, nothing sent yet: a reload would lose the prepared batch.
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    await waitFor(() => expect(asks()).toBe(true));
+
+    // A refused file is still on the page.
+    manager.set([pageFile('a.pdf', 'infected')]);
+    await waitFor(() => expect(asks()).toBe(true));
+
+    manager.set([]);
+    await waitFor(() => expect(asks()).toBe(false));
+  });
+
+  it('sends the batch, then clears the page and names the job by its first 8 characters', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    const submit = screenWith(manager);
+    await tickTop(user, 'all 2 files');
+
+    await user.click(screen.getByRole('button', { name: 'Send 2 deliveries' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Distribution 01234567 sent. 2 deliveries queued.'));
+    expect(submit).toHaveBeenCalledWith(
+      {
+        files: [
+          { fileId: 'server-a.pdf', sha256: 'a'.repeat(64) },
+          { fileId: 'server-b.pdf', sha256: 'a'.repeat(64) },
+        ],
+        mappings: [
+          { fileId: 'server-a.pdf', destinations: [{ binderId: 'b-reg' }] },
+          { fileId: 'server-b.pdf', destinations: [{ binderId: 'b-reg' }] },
+        ],
+      },
+      'key-1',
+    );
+    expect(manager.clear).toHaveBeenCalled();
+  });
+
+  it('shows the platform message and keeps the page as it is when the platform is down', async () => {
+    const { ApiFailure } = await import('../auth/errors.js');
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    const submit = vi.fn().mockRejectedValue(new ApiFailure(503, 'down', 'PLATFORM_UNAVAILABLE'));
+    screenWith(manager, submit);
+    await tickTop(user, 'all 1 file');
+    await user.click(screen.getByRole('button', { name: 'Send 1 delivery' }));
+    expect(await screen.findByText('The platform is not answering. Try again.')).toBeTruthy();
+    expect(manager.clear).not.toHaveBeenCalled();
+    expect(manager.files).toHaveLength(1);
+  });
+
+  it('turns picked files into the queue and lists the ones it refused', async () => {
+    const manager = new FakeManager([]);
+    screenWith(manager);
+    const input = screen.getByLabelText('Choose files');
+    fireEvent.change(input, { target: { files: [new File(['x'], 'ok.pdf'), new File(['x'], 'setup.exe')] } });
+    expect(manager.add).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/setup\.exe/)).toBeTruthy();
+    expect(screen.getByText(/This type is not allowed/)).toBeTruthy();
+  });
+});

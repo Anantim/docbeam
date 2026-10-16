@@ -24,6 +24,12 @@ variable "object_store_role_arns" {
   default     = []
 }
 
+variable "upload_events_enabled" {
+  description = "true once the Upload Events queue and role exist (M2). Switches on the bucket notification and the clean-tag rule. A separate flag because the ARNs are unknown until apply."
+  type        = bool
+  default     = false
+}
+
 variable "upload_events_role_arn" {
   description = "The only role that may read an object before it is tagged clean. Null until Step 2.1."
   type        = string

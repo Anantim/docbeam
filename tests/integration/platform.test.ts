@@ -58,7 +58,10 @@ describe('browse: only your own teams (flow 1, "Who can see what")', () => {
     const top = await call(PLATFORM_URL, `/binders/${binder('Cardio', 'CARDIO-301 Regulatory').id}/contents`, { token: priya.token });
     expect(top.status).toBe(200);
     expect(top.body.folders.map((f: { name: string }) => f.name)).toEqual(['IRB approvals', 'Protocol amendments']);
-    expect(top.body.documents).toEqual([]);
+    // Delivered documents may sit here (M2: the job tests deliver to the top level), so the level is
+    // checked for its shape, not for being empty.
+    expect(Array.isArray(top.body.documents)).toBe(true);
+    for (const d of top.body.documents) expect(Object.keys(d).sort()).toEqual(['contentType', 'createdAt', 'id', 'name', 'sizeBytes']);
 
     const neuro = binder('Neuro', 'NEU-207 Regulatory').id;
     const denied = await call(PLATFORM_URL, `/binders/${neuro}/contents`, { token: priya.token });

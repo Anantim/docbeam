@@ -312,3 +312,181 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   - A manual run from `main` without the prod confirmation now deploys dev (so `force` can be used there). With `confirm=deploy-prod` it deploys prod only, as before.
   - `tests/scripts/deploy-service.test.ts` runs the script against a fake `aws` and covers: skipped when already deployed, deploys on another image, deploys on a first run without the marker, deploys with `--force` and with `FORCE_DEPLOY=true`.
 - **Why:** The PR was merged twice and every service ran migrations, the seed and a rolling update twice. The result was harmless but wasteful, and a re-run or a duplicate event must not roll a service.
+
+## D-M2-1. `image_tag` stays optional; one-off tasks run only marked revisions
+
+- **Date:** 2026-10-15
+- **Changes:** D-M1-14 follow-up (a later apply registers task definitions with the image `bootstrap`).
+- **What:** `image_tag` keeps its default `bootstrap`. `scripts/run-task.sh` runs the newest revision of a family that carries the tag `deployed-by=deploy-service.sh` (D-M1-15) and stops with "deploy the service first" if none does. `deploy-service.sh` marks the `-seed` family too. `tests/scripts/run-task.test.ts` covers both cases.
+- **Why:** The services are path-filtered and run different tags, so one required tag would still register revisions with an image a service does not run, and CI does not know a real tag. Fixing the consumer removes the harm at its source.
+
+## D-M2-2. Alarms module, email from `ALARM_EMAIL`
+
+- **Date:** 2026-10-15
+- **Changes:** TDD repository layout (module list), D-G12.
+- **What:** `infra/modules/alarms` holds the SNS topic, the email subscription (`alarm_email`, no default) and the four alarms: Job, Task and Upload DLQ depth above 0 for 5 minutes, and Delivery Errors over Invocations above 1% for 15 minutes. CI passes `TF_VAR_alarm_email` from the repository variable.
+- **Why:** No module held them, and the address must come from the variable the person set.
+
+## D-M2-3. File age is measured from `files.created_at`
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Submission checks ("uploaded more than 24 hours ago").
+- **What:** FILE_TOO_OLD is decided from `created_at`, inside the same conditional claim `UPDATE`, the column the daily cleanup deletes on.
+- **Why:** One column for both sides makes "claimed or deleted, never both" exact.
+
+## D-M2-4. 503 PLATFORM_UNAVAILABLE on submit; the web retries with the same key
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Submission checks (no answer for a platform that is down).
+- **What:** When `POST /destinations/check` fails or times out, `POST /jobs` returns 503 `PLATFORM_UNAVAILABLE` and creates nothing. The web app shows "The platform is not answering. Try again." and the next Send reuses the same Idempotency-Key, so a retry can never create a second job.
+- **Why:** The design did not say what the caller sees, and a retry must be safe.
+
+## D-M2-5. Lambda secrets are fetched by ARN
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.2 (secrets "injected at runtime"; Lambda has no ECS-style injection).
+- **What:** A Lambda's environment holds only secret ARNs. `packages/shared/src/secrets.ts` reads them with GetSecretValue on a cold start and caches them. Locally the plain env names from `.env` are used.
+- **Why:** Keeps secret values out of Terraform state and the function configuration.
+
+## D-M2-6. Terraform creates Lambdas from a placeholder; a script deploys the code
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.3 (Worker workflow), PLAN "Small choices" ("Terraform deploys each Lambda once from a local build").
+- **What:** Zip Lambdas start from a tiny placeholder built by `archive_file`. The Upload Events Lambda starts from the pushed `upload-events` image. Both ignore later code changes in Terraform. `scripts/deploy-lambda.sh` deploys the real code, as `deploy-service.sh` does for ECS, and skips with a notice when the function does not exist or already runs that code.
+- **Why:** CI has no bundles at plan time, and the ECS split already works.
+
+## D-M2-7. Checksum encodings
+
+- **Date:** 2026-10-15
+- **Changes:** TDD DocBeam DB `files.checksum_sha256` and `s3_checksum` (encoding not stated).
+- **What:** `checksum_sha256` is hex (as the browser sends it and as `POST /documents` takes it). `s3_checksum` is what S3 reports: base64, and `<base64>-<parts>` for a multipart file. A single-part file stores the base64 of its declared SHA-256.
+- **Why:** The two columns meet at the Delivery check and must compare exactly.
+
+## D-M2-8. A mismatched upload is refused and the object deleted
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 (size and checksum "checked against the file row", no outcome for a difference).
+- **What:** On a size or checksum difference the Upload Events Lambda deletes the object, sets `scan_status = 'failed'` and writes `file.refused` with `detail.reason = "MISMATCH"`. Malware gives `reason = "MALWARE"` plus the signature name. `actor_id` is NULL and `detail.ownerUserId` names the owner, so only the owner sees it.
+- **Also:** The Lambda computes the SHA-256 of the bytes during the scan pass and compares it with the declared `checksum_sha256`, besides comparing S3's reported checksum. This covers a multipart file's whole-file checksum (S3 reports only a combined one) and a store that does not enforce the checksum of a presigned POST (LocalStack 4.14).
+- **Retry timing:** The queue's visibility timeout is 3,600 s, so the handler sets its own gap with ChangeMessageVisibility: 30 s while a multipart upload is not yet recorded, and 30 s, 1, 2 and 5 minutes after an error.
+- **Why:** The page needs a reason, and the user adds the file again.
+
+## D-M2-9. Concurrency of the smaller Lambdas
+
+- **Date:** 2026-10-15
+- **Changes:** D-M0-6 (budget numbers), TDD Step 2.5.
+- **What:** SQS triggers cannot have a maximum concurrency below 2, so three DLQ triggers would allow 6. The DLQ Consumer gets reserved concurrency 2 and the Sweeper 1. Fan-out has trigger maximum 2. Delivery 50 and Upload Events 10 stay as designed. The 79-connection budget in `db.test.ts` does not change.
+- **Why:** Keeps the dev connection budget true.
+
+## D-M2-10. Web libraries
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.6 (no libraries named).
+- **What:** `@noble/hashes` for the incremental SHA-256 in the Web Worker (`crypto.subtle` cannot hash in parts). Local preview: PDF in the browser's own viewer, PNG and JPG as images, DOCX with `docx-preview`, XLSX with `exceljs`, both loaded only when used (and reused in M4).
+- **Why:** A 1 GB file cannot be hashed in one call, and M4 needs the same viewers.
+
+## D-M2-11. Presigned links locally
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 (links "signed locally").
+- **What:** docbeam-api signs with a second S3 client on `S3_PUBLIC_ENDPOINT` (`http://localhost:4566` in Compose) so the browser can reach LocalStack. Unset on AWS.
+- **Why:** The browser cannot resolve `localstack`.
+
+## D-M2-12. ClamAV scan limits
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.1 ("scan limits raised to 1 GB").
+- **What:** The limit is 1100 MB, a little above the 1 GiB file limit, so no valid file reaches it. Lambda: `clamscan --max-filesize=1100M --max-scansize=1100M --alert-exceeds-max=yes`. Compose: the clamav image's `CLAMD_CONF_*` environment (`StreamMaxLength`, `MaxFileSize`, `MaxScanSize` 1100M, `AlertExceedsMax yes`), so no mounted config file. A file or archive over a limit is reported as found and refused; a scan that could not finish throws and the event is retried. Neither reads as clean.
+- **Why:** The default limits are far below 1 GB, and without `AlertExceedsMax` ClamAV skips an over-limit file and reports it clean.
+
+## D-M2-13. The daily ClamAV rebuild skips while dev is down; the image repository keeps 3 images
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 0.3 (scheduled rebuild), `infra/modules/ecr` (`keep_images` 20 for every repository).
+- **What:** The scheduled build in `upload-events-image.yml` first checks that the `docbeam-dev/upload-events` repository and the `docbeam-dev-upload-events` function exist, and skips with a notice if either does not (dev destroyed). The `ecr` module takes `keep_images_by_repository`; `upload-events` keeps the last 3 images, the others keep 20.
+- **Why:** Dev's repository is deleted on destroy, so a daily build would fail every day, and a new 1 GB image every day would otherwise pile up.
+
+## D-M2-14. Working rule for a large milestone
+
+- **Date:** 2026-10-15
+- **Changes:** AGENTS "How to work" (handover only at the end).
+- **What:** After each M2 task: commit, then update `docs/STATUS.md` with "done" and "next task", so a new session can continue. All local tasks (0 to 10 and the local part of 11) come first; the session stops before the first AWS step and waits for the person.
+- **Why:** M2 is too large for one conversation.
+
+## D-M2-15. A missing S3 checksum fails delivery on AWS, and is allowed only locally
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.4 ("A checksum different from `files.s3_checksum`: CHECKSUM_MISMATCH", silent on no checksum).
+- **What:** On AWS the POST policy and the part links require a SHA-256, so every staged object has one. Delivery treats a HEAD answer with no checksum as CHECKSUM_MISMATCH. LocalStack 4.14 stores none for a presigned POST, so Compose alone sets `S3_CHECKSUM_OPTIONAL=true`, which skips the comparison only when the checksum is absent. A present checksum that differs always fails.
+- **Why:** Nothing is left unchecked locally: Upload Events hashed the bytes and the platform recomputes the SHA-256. On AWS an object without a checksum must not pass.
+
+## D-M2-16. A push follows each final status only
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.4 and "WebSocket API" (when a push is sent).
+- **What:** Delivery and the DLQ Consumer push `task_update` after a final write (completed or failed), never at the claim or when a task goes back to pending. The sender gets counts for the whole job; a team viewer only for their teams. An unset `WS_MANAGEMENT_ENDPOINT` means no push. `finishTask` and `pushTaskUpdate` live in `packages/shared` so both workers share them.
+- **Why:** The dashboard shows counts and reasons, and a pending-to-in-progress flip carries neither.
+
+## D-M2-17. Draining: the platform finishes what it started
+
+- **Date:** 2026-10-15
+- **Changes:** STATUS "Draining" (D-M1-14 follow-up), Compose commands.
+- **What:** On SIGTERM the platform stops accepting requests, lets running ones finish and closes connections as they go idle (every 250 ms), then exits. Without that, Fastify's 72 s keep-alive held the process for about a minute after the last response. Compose runs `exec node dist/server.js`, so node is PID 1 and receives the signal (an `sh -c` wrapper did not pass it on). `tests/integration/platform-drain.test.ts` sends SIGTERM during a 4 s upload and expects 201 and the stored document. The 120 s target group delay and `stopTimeout` are set in Terraform (task 8).
+- **Why:** A rolling deploy must not cut a delivery that streams a large file.
+
+## D-M2-18. Terraform for the asynchronous half: modules, flags and one widening
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Steps 2.1 to 2.5 (infrastructure), D-M2-2, D-M2-6, D-M2-9, D-M2-13.
+- **What:**
+  - New modules `sqs` (three queues with DLQs, SSE-SQS, 14 days, visibility 360, 720 and 3,600 s, redrive 3, 5 and 5, a queue policy for S3), `lambda` (one VPC function with its role, group, log group and SQS triggers; code changes ignored, D-M2-6), `alarms` (D-M2-2) and `scheduler` (the Sweeper's two schedules). `infra/envs/*/async.tf` wires them; dev and prod are identical there.
+  - Trigger limits: Upload Events 10, Fan-out 2, Delivery 50. The DLQ Consumer has three triggers of 2 and reserved concurrency 2. The Sweeper has reserved concurrency 1 (D-M2-9).
+  - The `s3` module gets `upload_events_enabled`. The notification's `count` and the clean-tag rule depended on ARNs that are unknown until apply, which `terraform plan` rejected; a flag known at plan time fixes it.
+  - The queue policy takes the bucket ARN built from its name, so the queue does not wait for the bucket's notification (which waits for the queue).
+  - The platform's target group drains for 120 s and its container has `stopTimeout` 120 (D-M2-17). Others stay at 30 s.
+  - The ECR repository `upload-events` keeps 3 images (D-M2-13).
+  - The DocBeam API routes of M2 are public routes with the JWT authorizer. The infra workflow passes `TF_VAR_alarm_email` from `ALARM_EMAIL`.
+- **Widening, narrowed on 2026-10-15:** the Delivery Lambda's security group was first allowed on every ALB listener. The `alb` module now takes `clients`, each with an optional `services` list, and Delivery is allowed only on the Auth Service and platform listeners (3001 and 3002). The other clients keep every listener.
+- **Also:** `terraform init -upgrade` added the `archive` provider (the placeholder zip) and moved the AWS provider from 6.68.0 to 6.69.0 in both lock files.
+- **Found by:** a read-only `terraform plan` of dev from an empty state (251 resources to add, no error), run on 2026-10-15 with `-lock=false`.
+- **Why:** M2 needs the queues, functions, alarms and schedules in code before the first apply.
+
+## D-M2-19. The Upload DLQ writes `file.refused` with reason SCAN_FAILED
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.5 ("mark the file `failed`", no event), D-M2-8.
+- **What:** When the DLQ Consumer marks a still-pending file `failed`, the same statement writes one `file.refused` audit event: `actor_id` NULL, `detail.reason = "SCAN_FAILED"`, `detail.ownerUserId`, `fileId`, `fileName`. A repeated message changes nothing and writes no second event.
+- **Why:** The other two refusals (MISMATCH, MALWARE) leave an event the owner can see; a file that could not be checked should leave the same trace.
+
+## D-M2-20. Web upload and preview choices
+
+- **Date:** 2026-10-15
+- **Changes:** TDD Step 2.6 (no limits or error handling named), D-M2-10.
+- **What:**
+  - **Preview size.** DOCX and XLSX preview up to 50 MB. Above that the dialog says the file is too large to show in the page. PDF and images have no cap (the browser's viewer streams them).
+  - **Sandboxed preview.** The rendered HTML of a DOCX or XLSX goes into an `<iframe sandbox>` with no `allow-scripts` and no `allow-same-origin`, through `srcdoc`, so the same viewer is safe in M4 for files other people sent. PDFs open in the browser's viewer from an object URL; images in an `<img>`.
+  - **Ticks need files.** A destination can be ticked only while the page holds a file that can be sent (mockup). A tick applies to the selected files, or to all files when none are selected.
+  - **Link freshness.** Upload links and part links are refreshed after 13 minutes (2 minutes of margin on 15).
+  - **Storage answers.** A 400 (for example BadDigest or a size mismatch) and a 403 that is not an expired link both give "Refused by storage" with Retry and the message that the file did not match what was checked. A 403 that says the link expired gets one fresh link. A broken connection or a 5xx is retried after 2, 4 and 8 seconds, then the file shows "Upload interrupted"; Retry carries on from the parts already stored.
+  - **Leaving the page.** Whenever the page holds a file that has not been sent (any file on it, whatever its state, until Send clears the page), the browser asks before the page is closed or reloaded (`beforeunload`). First written for files still uploading only; changed on 2026-10-16 after the dev browser run showed that a reload with everything `Verified` lost the prepared batch without a warning.
+  - **No bottom-bar summary (deviation from the mockup, 2026-10-16).** The line "N files to N destinations, each uploaded once" is removed from the Send bar. The "This distribution" card and the Send button already show the counts. Decided by the person after the browser run.
+  - **After Send.** The page clears and shows "Distribution <first 8 characters of the job id> sent. N deliveries queued." The Status page is M3.
+- **Why:** The design left these open, and each one decides what the user sees when something goes wrong.
+
+## D-M2-21. Demo user Anantim Patil in all three demo teams
+- **Date:** 2026-10-16
+- **Changes:** D-M1-3 and D-M1-4 (seed format and seed users).
+- **What:** `demo.json` gets a fourth user, "Anantim Patil" (`anantim.patil@example.com`), a member of Cardio, Oncology and Neuro. It uses the same seed password as the other users. `seed/generate.mjs` writes it, so every id stays the same. `dev-load.json` is unchanged. The first seed run of `demo.json` now reports `membersAdded 7` (was 4).
+- **Why:** One login that sees every destination makes the browser checks of M2 to M4 shorter. Priya, Raj and Sam keep their old teams, so the isolation checks still hold.
+
+## D-M2-22. Platform memory under many large deliveries
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 1.4 (the Document Platform runs on 0.25 vCPU and 0.5 GB), TDD Step 2.4 (Delivery streams the file to the platform), ADR-011 (Delivery cap of 50).
+- **What:**
+  - The platform's upload to the Platform File Store holds one 5 MB part at a time (`queueSize` 1, `partSize` 5 MB; `UPLOAD_BUFFER` in `documents.ts`).
+  - The platform task has 1 vCPU and 2 GB (was 0.25 vCPU and 0.5 GB) in dev and prod. A first step to 1 GB did not pass the stress check (see below).
+  - The platform ingests at most 6 files at once (`IngestLimiter`, `MAX_CONCURRENT_INGESTS`). More requests wait inside the process for their turn. A request that has waited 30 s (`MAX_INGEST_WAIT_MS`) is answered `503 PLATFORM_BUSY` with `Retry-After: 30` and the connection closed, before any of its bytes are read. Delivery already treats any 503 as temporary and retries with its own gaps, and its platform call times out only after 100 s, so a waiting call is never cut off. The check is made at the moment the 30 s are up, not predicted when the request arrives.
+  - Delivery's cap of 50 is unchanged.
+  - **The platform is a stand-in** for the client's real Document Platform. These numbers size the stand-in only. The real platform's ingest capacity (how many large files it takes at once, and how it answers when it is busy) is for the client to confirm.
+- **Why:** The first dev run with 14 deliveries of a 120 MB file at once killed three platform tasks in a row (exit 137, `OutOfMemoryError`), and the 14 tasks got `The platform answered 502` while the platform restarted. The SDK default held about 20 MB per upload, so 50 at once needed about 1 GB of buffers alone, on a task with 512 MB. The design bounded the number of deliveries but not the memory of each. Found by the dev check "forced platform deploy during a slow ingest" (M2-RESULTS 3). The agreed stress check is 50 concurrent large deliveries (5 files of 120 MB to 10 folders) with peak MemoryUtilization under 80%, no OOM, and every task `completed`.
+  - **Second run (1 GB, one 5 MB part at a time):** failed. Memory reached 95 to 98% and CPU 100% on 0.25 vCPU, and three tasks were killed. Memory is not only the upload buffer: a task with 0.25 vCPU cannot hash and re-upload 50 streams as fast as they arrive. So the work is bounded (6 at once) and the task gets more CPU.

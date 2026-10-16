@@ -83,7 +83,7 @@ resource "aws_s3_bucket_cors_configuration" "object_store" {
 
   cors_rule {
     allowed_origins = var.cors_allowed_origins
-    allowed_methods = ["GET", "POST", "PUT"]
+    allowed_methods = ["GET", "POST", "PUT", "DELETE"]
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
@@ -161,7 +161,7 @@ data "aws_iam_policy_document" "object_store" {
       values   = ["clean"]
     }
     dynamic "condition" {
-      for_each = var.upload_events_role_arn != null ? [1] : []
+      for_each = var.upload_events_enabled ? [1] : []
       content {
         test     = "ArnNotEquals"
         variable = "aws:PrincipalArn"
@@ -179,7 +179,8 @@ resource "aws_s3_bucket_policy" "object_store" {
 
 # Every new object under staging/ goes to the Upload Events Queue (ADR-016). The queue arrives in Step 2.1.
 resource "aws_s3_bucket_notification" "object_store" {
-  count  = var.upload_events_queue_arn != null ? 1 : 0
+  # A flag, not a test on the ARN: the ARN is not known until apply, and `count` must be.
+  count  = var.upload_events_enabled ? 1 : 0
   bucket = aws_s3_bucket.object_store.id
 
   queue {

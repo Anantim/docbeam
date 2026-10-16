@@ -41,13 +41,15 @@ resource "aws_vpc_security_group_ingress_rule" "alb_from_link" {
 }
 
 locals {
-  client_rules = {
-    for pair in setproduct(keys(var.client_security_group_ids), keys(var.services)) :
-    "${pair[0]}-${pair[1]}" => {
-      security_group_id = var.client_security_group_ids[pair[0]]
-      port              = var.services[pair[1]].port
+  client_rules = merge([
+    for name, client in var.clients : {
+      for service in coalesce(client.services, keys(var.services)) :
+      "${name}-${service}" => {
+        security_group_id = client.security_group_id
+        port              = var.services[service].port
+      }
     }
-  }
+  ]...)
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_from_clients" {
@@ -103,7 +105,7 @@ resource "aws_lb_target_group" "service" {
   target_type = "ip"
   vpc_id      = var.vpc_id
 
-  deregistration_delay = 30
+  deregistration_delay = each.value.deregistration_delay
 
   health_check {
     path                = "/health"

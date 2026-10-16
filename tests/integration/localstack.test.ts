@@ -21,6 +21,32 @@ describe('local LocalStack', () => {
     expect(versioning.Status).toBe('Enabled');
   });
 
+  it.each(['http://localhost:5173', 'http://127.0.0.1:5173'])(
+    'answers a CORS preflight from the web app at %s',
+    async (origin) => {
+      // A browser sends this before an upload. A missing header here blocks every upload in the page.
+      const res = await fetch(`http://localhost:4566/${PREFIX}-object-store`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: origin,
+          'Access-Control-Request-Method': 'PUT',
+          'Access-Control-Request-Headers': 'content-type,x-amz-checksum-sha256',
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('access-control-allow-origin')).toBe(origin);
+      expect(res.headers.get('access-control-allow-methods')).toMatch(/PUT/);
+    },
+  );
+
+  it('does not allow another origin in a CORS preflight', async () => {
+    const res = await fetch(`http://localhost:4566/${PREFIX}-object-store`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://evil.example', 'Access-Control-Request-Method': 'PUT' },
+    });
+    expect(res.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
   it.each([
     ['job', '360', 'job-dlq', 3],
     ['task', '720', 'task-dlq', 5],
@@ -39,10 +65,14 @@ describe('local LocalStack', () => {
     expect(config.QueueConfigurations?.[0]?.QueueArn).toMatch(/:docbeam-local-upload-events$/);
 
     const since = new Date(Date.now() - 1000);
-    const key = `staging/test-user/${crypto.randomUUID()}`;
+    const fileId = crypto.randomUUID();
+    const key = `staging/${crypto.randomUUID()}/${fileId}`;
     await s3.send(new PutObjectCommand({ Bucket: `${PREFIX}-object-store`, Key: key, Body: 'hello' }));
+    // No file row exists for this key, so the handler reads the event and acknowledges it as unknown.
     await eventually(() =>
-      logLines('workers', since).find((l) => l.name === 'upload-events' && l.msg === 'upload event received'),
+      logLines('workers', since).find(
+        (l) => l.name === 'upload-events' && l.msg === 'upload event for an unknown file' && l.fileId === fileId,
+      ),
     );
   });
 });

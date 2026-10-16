@@ -51,6 +51,13 @@ services:
 
   clamav:
     image: clamav/clamav:1.4
+    environment:
+      # Scan limits raised to a little above the 1 GiB file limit (D-M2-12). A file or archive over a
+      # limit is reported as found, never as clean.
+      CLAMD_CONF_StreamMaxLength: 1100M
+      CLAMD_CONF_MaxFileSize: 1100M
+      CLAMD_CONF_MaxScanSize: 1100M
+      CLAMD_CONF_AlertExceedsMax: "yes"
     ports: ["3310:3310"]
     healthcheck:
       test: ["CMD", "clamdcheck.sh"]
@@ -65,7 +72,8 @@ services:
       context: .
       dockerfile: docker/service.Dockerfile
       args: { SERVICE: auth }
-    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    # exec: node becomes PID 1 and gets SIGTERM, so a stop drains in-flight requests (D-M2-17).
+    command: ["sh", "-c", "node dist/migrate.js && exec node dist/server.js"]
     environment:
       PORT: 3001
       DATABASE_URL: postgres://auth_app:${AUTH_APP_PASSWORD}@postgres:5432/auth_db
@@ -90,7 +98,8 @@ services:
       context: .
       dockerfile: docker/service.Dockerfile
       args: { SERVICE: platform }
-    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    # exec: node becomes PID 1 and gets SIGTERM, so a stop drains in-flight requests (D-M2-17).
+    command: ["sh", "-c", "node dist/migrate.js && exec node dist/server.js"]
     environment:
       PORT: 3002
       DATABASE_URL: postgres://platform_app:${PLATFORM_APP_PASSWORD}@postgres:5432/platform_db
@@ -115,13 +124,27 @@ services:
       context: .
       dockerfile: docker/service.Dockerfile
       args: { SERVICE: docbeam-api }
-    command: ["sh", "-c", "node dist/migrate.js && node dist/server.js"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      localstack: { condition: service_healthy }
+      auth: { condition: service_healthy }
+      platform: { condition: service_healthy }
+    # exec: node becomes PID 1 and gets SIGTERM, so a stop drains in-flight requests (D-M2-17).
+    command: ["sh", "-c", "node dist/migrate.js && exec node dist/server.js"]
     environment:
       PORT: 3003
       DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
       MIGRATION_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/docbeam_db
       JWT_ISSUER: ${JWT_ISSUER}
       JWKS_URL: http://auth:3001/.well-known/jwks.json
+      <<: *aws-env
+      OBJECT_STORE_BUCKET: docbeam-local-object-store
+      # Links go to the browser, which reaches LocalStack on the host (D-M2-11).
+      S3_PUBLIC_ENDPOINT: http://localhost:4566
+      JOB_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-job
+      AUTH_URL: http://auth:3001
+      PLATFORM_URL: http://platform:3002
+      CLIENT_SECRET_DOCBEAM_API: ${CLIENT_SECRET_DOCBEAM_API}
     ports: ["3003:3003"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
@@ -159,10 +182,31 @@ services:
     environment:
       <<: *aws-env
       QUEUE_PREFIX: docbeam-local
+      # The Lambdas connect as the DocBeam app role, one connection each (D-M0-6).
+      DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
+      # The Upload Events handler scans through the clamav container (ADR-016).
+      CLAMD_HOST: clamav
+      # Fan-out sends one message per task here (ADR-008).
+      TASK_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-task
+      # The sweeper sends the job message again for a job that did not start.
+      JOB_QUEUE_URL: http://localstack:4566/000000000000/docbeam-local-job
+      # Delivery streams the staged file to the platform as the delivery-worker client (ADR-013).
+      AUTH_URL: http://auth:3001
+      PLATFORM_URL: http://platform:3002
+      CLIENT_SECRET_DELIVERY_WORKER: ${CLIENT_SECRET_DELIVERY_WORKER}
+      OBJECT_STORE_BUCKET: docbeam-local-object-store
+      # Pushes go to the local stand-in for the API Gateway management API.
+      WS_MANAGEMENT_ENDPOINT: http://ws-local:3004
+      # LocalStack stores no checksum for a presigned POST (D-M2-15). Never set on AWS.
+      S3_CHECKSUM_OPTIONAL: "true"
     depends_on:
       localstack: { condition: service_healthy }
       postgres: { condition: service_healthy }
       clamav: { condition: service_healthy }
+      auth: { condition: service_healthy }
+      platform: { condition: service_healthy }
+      # The DocBeam API runs the migrations that create the tables the workers use.
+      docbeam-api: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3005/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 5s

@@ -43,20 +43,22 @@ function team(name, members, binders) {
 const priya = { email: 'priya.shah@example.com', name: 'Priya Shah' };
 const raj = { email: 'raj.mehta@example.com', name: 'Raj Mehta' };
 const sam = { email: 'sam.ito@example.com', name: 'Sam Ito' };
+// Belongs to all three demo teams, so one login shows every destination.
+const anantim = { email: 'anantim.patil@example.com', name: 'Anantim Patil' };
 
 // The teams, binders and folders of the UI mockup (docs/design/ui/Main.dc.html).
 const demo = {
-  users: [priya, raj, sam],
+  users: [priya, raj, sam, anantim],
   teams: [
-    team('Cardio', [priya.email, raj.email], [
+    team('Cardio', [priya.email, raj.email, anantim.email], [
       ['CARDIO-301 Regulatory', ['IRB approvals', ['Protocol amendments', ['2026']]]],
       ['CARDIO-301 Site files', ['Delegation logs', 'Training records']],
     ]),
-    team('Oncology', [priya.email], [
+    team('Oncology', [priya.email, anantim.email], [
       ['ONC-118 Regulatory', ['Ethics committee', 'Investigator CVs']],
       ['ONC-118 Pharmacy', ['Temperature logs']],
     ]),
-    team('Neuro', [sam.email], [['NEU-207 Regulatory', ['Site approvals']]]),
+    team('Neuro', [sam.email, anantim.email], [['NEU-207 Regulatory', ['Site approvals']]]),
   ],
 };
 

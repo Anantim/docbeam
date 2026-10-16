@@ -20,6 +20,12 @@ variable "keep_images" {
   default = 20
 }
 
+variable "keep_images_by_repository" {
+  description = "Images to keep in a repository, where it differs from keep_images. upload-events keeps 3: each image is about 1 GB and one is built every day (D-M2-13)."
+  type        = map(number)
+  default     = {}
+}
+
 variable "force_delete" {
   description = "true in dev so destroy works with images inside, false in prod (D-M0-4)."
   type        = bool

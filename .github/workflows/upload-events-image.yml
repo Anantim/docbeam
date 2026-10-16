@@ -65,7 +65,20 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
+      # Dev is destroyed between test rounds, and its repository goes with it. A daily build into nothing
+      # would fail every day, so the job skips with a notice (D-M2-13).
+      - name: Check that dev exists
+        id: dev
+        run: |
+          if aws ecr describe-repositories --repository-names docbeam-dev/upload-events >/dev/null 2>&1 \
+            && aws lambda get-function-configuration --function-name docbeam-dev-upload-events >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Upload Events image skipped::docbeam-dev has no upload-events repository or function (dev is down)."
+          fi
       - name: Push the image and update the function
+        if: steps.dev.outputs.exists == 'true'
         env:
           IMAGE_TAG_BASE: ${{ github.sha }}
         run: |
@@ -73,9 +86,7 @@ jobs:
           today="$(date -u +%Y%m%d)"
           export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-${today}"
           image="$(scripts/push-image.sh dev upload-events workers/upload-events/Dockerfile | tail -n 1)"
-          aws lambda update-function-code --function-name docbeam-dev-upload-events --image-uri "$image" \
-            --query LastUpdateStatus --output text
-          aws lambda wait function-updated --function-name docbeam-dev-upload-events
+          scripts/deploy-lambda.sh dev upload-events "$image"
 
   # Prod runs only by hand from main with the typed confirmation (D-G3).
   deploy-prod:
@@ -101,6 +112,4 @@ jobs:
           today="$(date -u +%Y%m%d)"
           export IMAGE_TAG="${IMAGE_TAG_BASE:0:12}-${today}"
           image="$(scripts/push-image.sh prod upload-events workers/upload-events/Dockerfile | tail -n 1)"
-          aws lambda update-function-code --function-name docbeam-prod-upload-events --image-uri "$image" \
-            --query LastUpdateStatus --output text
-          aws lambda wait function-updated --function-name docbeam-prod-upload-events
+          scripts/deploy-lambda.sh prod upload-events "$image"
