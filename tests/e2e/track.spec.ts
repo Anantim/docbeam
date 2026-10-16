@@ -149,13 +149,11 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
     await expect(page.locator('.ttable .code').first()).toHaveAttribute('title', /sender cancelled/);
 
-    // Both buttons are off, and say why.
+    // A cancelled distribution has no Cancel button (D-M3-10), and Retry is off and says why.
     const retry = page.getByRole('button', { name: 'Retry failed deliveries' });
     await expect(retry).toBeDisabled();
     await expect(retry).toHaveAttribute('title', 'A cancelled distribution cannot be retried');
-    const cancel = page.getByRole('button', { name: 'Cancel distribution' });
-    await expect(cancel).toBeDisabled();
-    await expect(cancel).toHaveAttribute('title', 'This distribution was already cancelled');
+    await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
 
     // The workers start: the queued messages stop at the claim and nothing is delivered.
     start();
