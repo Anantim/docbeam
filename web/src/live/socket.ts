@@ -184,14 +184,14 @@ export class LiveClient {
       return;
     }
     if (message.type === 'subscribed' || message.type === 'subscribe_error') {
-      if (message.jobId !== this.watching) return; // an answer for a job the page has moved on from
+      const jobId = message.jobId;
+      if (!jobId || jobId !== this.watching) return; // an answer for a job the page has moved on from
       const result: WatchResult =
         message.type === 'subscribed' ? 'subscribed' : message.code === 'NOT_FOUND' ? 'not_found' : 'unavailable';
-      if (this.pending && this.pending.jobId === message.jobId) {
+      if (this.pending && this.pending.jobId === jobId) {
         this.settle(result);
       } else {
         // Nobody is waiting: this is the answer to a subscribe sent after a reconnect (or a late one).
-        const jobId = message.jobId;
         for (const l of this.resyncListeners) l(jobId);
       }
       return;
