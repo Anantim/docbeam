@@ -31,7 +31,7 @@ test('a button that is off says why, and a button with only an icon says what it
   }
   // A file name that is cut short shows in full; the status explains itself.
   await expect(page.getByRole('button', { name: name as string, exact: true })).toHaveAttribute('title', new RegExp(`^${name}\\.`));
-  await expect(page.locator('.frow .status', { hasText: 'Verified' })).toHaveAttribute('title', 'Stored, intact and scanned clean.');
+  await expect(page.locator('.frow .status-chip', { hasText: 'Verified' })).toHaveAttribute('title', 'Stored, intact and scanned clean.');
 
   // Every button on the page that shows only a symbol has an aria-label and a matching title.
   // (This script runs in the browser.)

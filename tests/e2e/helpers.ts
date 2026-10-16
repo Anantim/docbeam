@@ -119,7 +119,7 @@ export async function readCounts(page: Page): Promise<number[]> {
 }
 
 /** The status chip in the header of the open distribution. */
-export const chip = (page: Page) => page.locator('.jchip.big');
+export const chip = (page: Page) => page.locator('.status-chip.big');
 
 // --- the database and storage, for states the page cannot make ---
 

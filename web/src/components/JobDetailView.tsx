@@ -9,6 +9,7 @@ import { useAudit } from '../tracking/useAudit.js';
 import { useJob } from '../tracking/useJob.js';
 import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { StatusChip, TONES } from './StatusChip.js';
 import { DestinationChips } from './DestinationChips.js';
 import { TaskTable } from './TaskTable.js';
 
@@ -66,7 +67,10 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
   const teams = teamsOf(detail.destinations);
   const bar = (n: number): number => (total > 0 ? (n / total) * 100 : 0);
 
-  const canCancel = detail.isSender && !!detail.cancel?.open && c.pending > 0;
+  // Cancel is for a distribution that is still running: hidden once it has finished or was cancelled (D-M3-10).
+  const running = status === 'pending' || status === 'in_progress';
+  const showCancel = detail.isSender && running;
+  const canCancel = showCancel && !!detail.cancel?.open && c.pending > 0;
   const canRetry = detail.isSender && !!detail.retry?.open;
   const retryable = detail.retry?.retryable ?? 0;
   const retryNote = !canRetry && c.failed > 0 ? retryNoteFor(detail) : '';
@@ -107,9 +111,7 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
               <h2 className="mono" title={jobId}>
                 {shortId(jobId)}
               </h2>
-              <span className="jchip big" style={{ background: chip.bg, color: chip.fg }} role="status" title={JOB_STATUS_MEANING[status]}>
-                {chip.label}
-              </span>
+              <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} big role="status" />
               <button className="link" type="button" onClick={copyLink}>
                 Copy link
               </button>
@@ -130,7 +132,7 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
             </div>
           </div>
           {/* The sender always sees the buttons; one that is off says why in its title (D-M3-10). */}
-          {detail.isSender && (
+          {showCancel && (
             <button
               className="btn2"
               type="button"
@@ -219,7 +221,7 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
                     aria-label={`${f.label}, ${plural(n, 'delivery', 'deliveries')}`}
                     onClick={() => setFilter(f.id)}
                   >
-                    {f.id !== 'all' && <span className="tdot" style={{ background: taskLook(f.id).dot }} />}
+                    {f.id !== 'all' && <span className="tdot" style={{ background: TONES[taskLook(f.id).tone].dot }} />}
                     {f.label}
                     <span className="num">{n}</span>
                   </button>

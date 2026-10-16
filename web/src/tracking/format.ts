@@ -1,31 +1,28 @@
-// Words, colours and times for the Status and Audit screens. Colours follow the mockup.
+// Words, tones and times for the Status and Audit screens. The colours themselves live in StatusChip (D-M3-12).
+import type { Tone } from '../components/StatusChip.js';
 import type { AuditEvent, JobStatus, TaskStatus } from './api.js';
 
 export interface Chip {
   label: string;
-  bg: string;
-  fg: string;
+  tone: Tone;
 }
 
 const JOB_CHIPS: Record<JobStatus, Chip> = {
-  pending: { label: 'Pending', bg: '#F2F4F7', fg: '#344054' },
-  in_progress: { label: 'In progress', bg: '#EEF3FF', fg: '#1F45A0' },
-  completed: { label: 'Completed', bg: '#ECFDF3', fg: '#067647' },
-  completed_with_errors: { label: 'Completed with errors', bg: '#FEF3F2', fg: '#B42318' },
-  cancelled: { label: 'Cancelled', bg: '#F2F4F7', fg: '#344054' },
+  pending: { label: 'Pending', tone: 'idle' },
+  in_progress: { label: 'In progress', tone: 'busy' },
+  completed: { label: 'Completed', tone: 'ok' },
+  completed_with_errors: { label: 'Completed with errors', tone: 'bad' },
+  cancelled: { label: 'Cancelled', tone: 'idle' },
 };
 export const jobChip = (status: JobStatus): Chip => JOB_CHIPS[status];
 
-export interface TaskLook extends Chip {
-  dot: string;
-}
-const TASK_LOOKS: Record<TaskStatus, TaskLook> = {
-  completed: { label: 'Delivered', bg: '#ECFDF3', fg: '#067647', dot: '#12B76A' },
-  failed: { label: 'Failed', bg: '#FEF3F2', fg: '#B42318', dot: '#F04438' },
-  in_progress: { label: 'In progress', bg: '#EEF3FF', fg: '#1F45A0', dot: '#2B59C3' },
-  pending: { label: 'Waiting', bg: '#F2F4F7', fg: '#344054', dot: '#98A2B3' },
+const TASK_LOOKS: Record<TaskStatus, Chip> = {
+  completed: { label: 'Delivered', tone: 'ok' },
+  failed: { label: 'Failed', tone: 'bad' },
+  in_progress: { label: 'In progress', tone: 'busy' },
+  pending: { label: 'Waiting', tone: 'idle' },
 };
-export const taskLook = (status: TaskStatus): TaskLook => TASK_LOOKS[status];
+export const taskLook = (status: TaskStatus): Chip => TASK_LOOKS[status];
 
 /** The first 8 characters of the id, which is how a distribution is named on screen (D-G16). */
 export const shortId = (jobId: string): string => jobId.slice(0, 8);

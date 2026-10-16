@@ -23,7 +23,13 @@ button { font: inherit; cursor: pointer; }
 
 .btn { background: #111827; color: #fff; border: 0; border-radius: 4px; min-height: 38px; padding: 0 16px; font-weight: 600; }
 .btn:hover { background: #1f2937; }
-.btn:disabled { background: #d0d5dd; cursor: not-allowed; }
+/* One disabled look for every button (D-M3-12): greyed, not-allowed cursor, still showing its title. */
+button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
+.btn:disabled, .btn2:disabled, .btn.danger:disabled, .btn2.btnsm:disabled { background: #f2f4f7; color: #98a2b3; border: 1px solid #e4e7ec; box-shadow: none; }
+.icon:disabled { color: #c0c7d2; background: none; }
+.icon:disabled:hover { background: none; }
+.link:disabled { color: #98a2b3; text-decoration: none; }
+.seg:disabled, .tfilter:disabled, .pill:disabled { color: #98a2b3; }
 .btn2 { background: #fff; color: var(--text); border: 1px solid #d0d5dd; border-radius: 4px; min-height: 38px; padding: 0 16px; font-weight: 500; }
 .btn2:hover { background: #f9fafb; border-color: #98a2b3; }
 .link { background: none; border: 0; padding: 0; color: var(--brand); }
@@ -142,15 +148,18 @@ button { font: inherit; cursor: pointer; }
 .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 64px 24px; color: var(--muted); text-align: center; }
 .empty-state strong { color: var(--text); }
 .table-scroll { overflow-x: auto; }
-.ftable { min-width: 760px; }
-.frow { display: grid; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #f2f4f7; }
+/* The Documents table is one grid, so its columns size to their content: the name takes the spare room (D-M3-12). */
+.ftable { display: grid; grid-template-columns: 32px minmax(180px, 1fr) fit-content(320px) fit-content(230px) max-content max-content; column-gap: 12px; min-width: 0; }
+.frow { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f2f4f7; }
+.fstatus { min-width: 0; }
 .frow.sel { background: #f7f9ff; }
 .frow.thead { background: #fafbfc; padding-top: 8px; padding-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .hcell { position: relative; padding-right: 10px; }
 .hcell.right, .size.right, .right { text-align: right; }
-.rsz { position: absolute; right: 0; top: -4px; bottom: -4px; width: 6px; cursor: col-resize; border-right: 1px solid #d0d5dd; }
 .fname { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fname .link.plain { min-width: 0; }
 .struck { color: #98a2b3; text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The badge colours come from web/src/fileTypes.ts, set on each badge. */
 .typetile { min-width: 36px; padding: 2px 4px; border-radius: 2px; background: #eef3ff; color: var(--brand-dark); font-size: 10px; font-weight: 700; text-align: center; flex: none; }
 .typetile.big { min-width: 44px; padding: 4px 0; font-size: 11px; }
 .ck.locked { cursor: not-allowed; color: #d92d20; font-size: 11px; }
@@ -172,15 +181,10 @@ button { font: inherit; cursor: pointer; }
 .dot-text.bad { color: #b42318; }
 .bar { height: 4px; border-radius: 2px; background: #eaecf0; overflow: hidden; margin-bottom: 5px; }
 .bar > div { height: 4px; background: var(--brand); }
-.status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
-.status .sdot { width: 6px; height: 6px; border-radius: 50%; background: #98a2b3; }
-.status.warn { color: #b54708; }
-.status.warn .sdot { background: #f79009; }
-.status.busy .sdot { background: var(--brand); }
-.status.ok { color: #1e7a46; }
-.status.ok .sdot { background: #12b76a; }
-.status.bad { color: #b42318; }
-.status.bad .sdot { background: #f04438; }
+/* The one status chip (StatusChip.tsx): the colours are set on each chip from its tone. */
+.status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 2px; font-size: 12px; font-weight: 600; white-space: nowrap; max-width: 100%; }
+.status-chip.big { padding: 3px 10px; font-size: 12px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .fmsg { margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.4; }
 .size { font-size: 13px; color: var(--muted); }
 .actions { display: flex; justify-content: flex-end; gap: 2px; }
@@ -256,8 +260,6 @@ button { font: inherit; cursor: pointer; }
 .jcard-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .jid { font-weight: 500; font-size: 13px; }
 .jcard-by { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.jchip { padding: 2px 8px; border-radius: 2px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.jchip.big { padding: 3px 10px; font-size: 12px; }
 .jbar { display: flex; height: 5px; border-radius: 2px; overflow: hidden; background: #eaecf0; }
 .jbar.thick { height: 6px; margin-top: 12px; }
 .jbar > div { transition: width .3s ease; }
@@ -294,12 +296,11 @@ button { font: inherit; cursor: pointer; }
 
 /* deliveries table: only the rows in view are drawn */
 .ttable { min-width: 820px; }
-.trow { display: grid; grid-template-columns: minmax(150px, 1.3fr) minmax(170px, 1.5fr) 130px 130px minmax(220px, 2fr); gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #f2f4f7; }
+.trow { display: grid; grid-template-columns: var(--cols, minmax(160px, 1fr) minmax(0, 40ch) 124px 112px minmax(200px, 34ch)); gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #f2f4f7; }
 .trow.thead { padding-top: 9px; padding-bottom: 9px; background: #fafbfc; font-size: 12px; font-weight: 600; color: var(--muted); }
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: #fff; }
 .tfile { font-weight: 500; }
-.tchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 2px; font-size: 12px; font-weight: 600; }
 .tdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .attempts { display: flex; align-items: center; gap: 8px; }
 .segs { display: inline-flex; gap: 2px; }
@@ -332,3 +333,4 @@ button { font: inherit; cursor: pointer; }
 .adetail { color: var(--text-2); line-height: 1.5; margin-top: 2px; overflow-wrap: anywhere; }
 .more { display: flex; justify-content: center; padding: 10px 0; }
 .dialog-body p { color: var(--muted); line-height: 1.5; }
+.pause-note { margin-top: 6px; font-size: 12px; font-weight: 400; line-height: 1.4; }

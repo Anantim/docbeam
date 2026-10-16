@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { AuthError, login, register } from '../auth/session.js';
 import { Logo } from './Logo.js';
+import { PauseNote } from './PauseNote.js';
 
 /** Sign in, and the register card in the same style (D-G17). */
 export function AuthCard() {
@@ -47,6 +48,7 @@ export function AuthCard() {
           {error && (
             <div role="alert" className="alert">
               {error}
+              {!registering && <PauseNote />}
             </div>
           )}
           {registering && (

@@ -41,7 +41,7 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     await expect(page.getByRole('heading', { name: jobId.slice(0, 8) })).toBeVisible();
     await expect(chip(page)).toHaveText('Pending');
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
-    await expect(page.locator('.ttable .tchip', { hasText: 'Waiting' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Waiting' })).toHaveCount(4);
 
     // The Status tab shows a badge for the running distribution (the list refreshes every 30 seconds).
     // Refresh the browser mid-run: the same distribution opens, with the same counts and rows.
@@ -49,19 +49,19 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`));
     await expect(chip(page)).toHaveText('Pending');
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
-    await expect(page.locator('.ttable .tchip', { hasText: 'Waiting' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Waiting' })).toHaveCount(4);
 
     // Deliveries start. The page is not reloaded: the numbers move because pushes arrive.
     await noReload(page);
     start();
     await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
     expect(await readCounts(page)).toEqual([4, 0, 0, 0]);
-    await expect(page.locator('.ttable .tchip', { hasText: 'Delivered' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Delivered' })).toHaveCount(4);
     expect(await stillThere(page)).toBe(true);
 
     // The chip explains itself.
     await expect(chip(page)).toHaveAttribute('title', 'Every delivery arrived.');
-    await expect(page.locator('.ttable .tchip').first()).toHaveAttribute('title', 'Delivered to the folder in the platform.');
+    await expect(page.locator('.ttable .status-chip').first()).toHaveAttribute('title', 'Delivered to the folder in the platform.');
   });
 });
 
@@ -85,7 +85,7 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await expect(raj.getByText(/Sent by Priya Shah/)).toBeVisible();
       await expect(raj.getByText(/You see 2 deliveries, the ones to Cardio\./)).toBeVisible();
       await expect(raj.getByText(/Deliveries to other teams are hidden from you/)).toBeVisible();
-      await expect(raj.locator('.ttable .tchip')).toHaveCount(2);
+      await expect(raj.locator('.ttable .status-chip')).toHaveCount(2);
       await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
       await expect(raj.locator('.jhead')).not.toContainText('Oncology');
@@ -189,11 +189,11 @@ test('a failure shows its reason in the row, with what the code means', async ({
 
     // Filter by Failed, then All.
     await page.getByRole('button', { name: /^Failed, 2 deliveries/ }).click();
-    await expect(page.locator('.ttable .tchip')).toHaveCount(2);
+    await expect(page.locator('.ttable .status-chip')).toHaveCount(2);
     await page.getByRole('button', { name: /^Delivered, 0 deliveries/ }).click();
     await expect(page.getByText('No deliveries with this status.')).toBeVisible();
     await page.getByRole('button', { name: /^All, 2 deliveries/ }).click();
-    await expect(page.locator('.ttable .tchip')).toHaveCount(2);
+    await expect(page.locator('.ttable .status-chip')).toHaveCount(2);
 
     // A permanent failure cannot be retried, and Retry says so.
     const retry = page.getByRole('button', { name: 'Retry failed deliveries' });

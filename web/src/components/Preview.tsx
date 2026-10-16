@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { typeLabel } from '../distribute/files.js';
+import { TypeBadge } from './TypeBadge.js';
 import { docxSrcdoc, xlsxSheets } from '../preview/office.js';
 import { sheetHtml, type SheetModel } from '../preview/render.js';
 
@@ -75,7 +75,7 @@ export function Preview({ name, contentType, sizeBytes, blob, meta, note, onClos
       <div className="overlay preview-overlay" onClick={onClose} />
       <div className="preview" role="dialog" aria-modal="true" aria-label="File preview">
         <div className="preview-head">
-          <span className="typetile big">{typeLabel(contentType)}</span>
+          <TypeBadge contentType={contentType} big />
           <div className="grow">
             <div className="pv-name" title={name}>
               {name}

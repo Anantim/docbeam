@@ -209,10 +209,8 @@ describe('Cancel and Retry', () => {
     const page = renderPage();
     await act(async () => page.release());
     await user.click(await screen.findByRole('button', { name: 'Retry failed deliveries' }));
-    // Nothing is waiting, so Cancel is shown but off, and says why.
-    const cancel = screen.getByRole('button', { name: 'Cancel distribution' }) as HTMLButtonElement;
-    expect(cancel.disabled).toBe(true);
-    expect(cancel.title).toBe('Nothing is waiting to be delivered');
+    // The distribution has finished, so there is no Cancel at all.
+    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith(JOB));
     expect(notify).toHaveBeenCalledWith('3f1c2a9e: 2 deliveries queued again.');
   });
@@ -258,9 +256,26 @@ describe('Cancel and Retry', () => {
     const retry = screen.getByRole('button', { name: 'Retry failed deliveries' }) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
     expect(retry.title).toBe('A cancelled distribution cannot be retried');
-    const cancel = screen.getByRole('button', { name: 'Cancel distribution' }) as HTMLButtonElement;
+    // A cancelled distribution has no Cancel button.
+    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
+  });
+
+  it('shows Cancel, off with its reason, while deliveries run but none is waiting', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 8, in_progress: 2 }), status: 'in_progress', cancel: { open: false, waiting: 0 } }));
+    const page = renderPage();
+    await act(async () => page.release());
+    const cancel = (await screen.findByRole('button', { name: 'Cancel distribution' })) as HTMLButtonElement;
     expect(cancel.disabled).toBe(true);
-    expect(cancel.title).toBe('This distribution was already cancelled');
+    expect(cancel.title).toBe('Nothing is waiting to be delivered');
+  });
+
+  it('has no Cancel button on a completed distribution', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 10 }), status: 'completed', cancel: { open: false, waiting: 0 } }));
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByText('3f1c2a9e');
+    expect(screen.getByRole('status').textContent).toBe('Completed');
+    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
   });
 
   it('says why Retry is off when the window has closed', async () => {

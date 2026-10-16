@@ -94,7 +94,7 @@ describe('TaskTable', () => {
     expect(screen.getByText(/the platform did not answer/)).toBeTruthy();
     // The code and the status chip each carry a one-line meaning (D-M3-10).
     expect(code.getAttribute('title')).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
-    expect(screen.getByText('Failed').closest('.tchip')?.getAttribute('title')).toBe('This delivery ended with a failure. The reason is shown.');
+    expect(screen.getByText('Failed').closest('.status-chip')?.getAttribute('title')).toBe('This delivery ended with a failure. The reason is shown.');
     // Cut-short text shows in full.
     expect(screen.getByText(name(2)).getAttribute('title')).toBe(name(2));
     expect(api.tasks).toHaveBeenCalledTimes(1); // no fetch for a push
@@ -157,9 +157,13 @@ describe('TaskTable', () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} />);
     await screen.findByText(/more than 33 days old/);
-    const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
+    // Icon buttons, as on Distribute, off until the next version, and saying so in the title and the label.
+    const download = screen.getByRole('button', { name: `Download ${name(1)}. Available in the next version` }) as HTMLButtonElement;
     expect(download.disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: `Download ${name(0)}` })).toBeNull();
+    expect(download.title).toBe(`Download ${name(1)}. Available in the next version`);
+    const preview = screen.getByRole('button', { name: `Preview ${name(1)}. Available in the next version` }) as HTMLButtonElement;
+    expect(preview.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: new RegExp(`Download ${name(0)}`) })).toBeNull();
   });
 
   it('shows an error when the deliveries cannot be loaded', async () => {

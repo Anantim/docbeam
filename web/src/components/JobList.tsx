@@ -1,4 +1,5 @@
 import { JOB_STATUS_MEANING } from '../explain.js';
+import { StatusChip } from './StatusChip.js';
 import type { JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, plural, shortId } from '../tracking/format.js';
 
@@ -58,9 +59,7 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen }: Pro
                 {shortId(job.jobId)}
               </span>
               <span className="grow" />
-              <span className="jchip" style={{ background: chip.bg, color: chip.fg }} title={JOB_STATUS_MEANING[job.status]}>
-                {chip.label}
-              </span>
+              <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[job.status]} />
             </div>
             <div className="jcard-by">
               {scope === 'team' ? `${job.submittedBy.name}, ` : ''}

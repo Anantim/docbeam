@@ -4,6 +4,8 @@ import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskRow, type TaskStatus } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
+import { DownloadButton, NOT_YET, PreviewButton } from './FileActions.js';
+import { StatusChip, TONES } from './StatusChip.js';
 import { taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
@@ -118,13 +120,14 @@ export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480
     };
   }, [live, jobId, status, load]);
 
+  const columns = columnsFor([...pages.values()].flat().map((t) => t.destinationPath));
   const rows: Array<{ index: number; task: TaskRow | undefined }> = [];
   for (let i = range.start; i < range.end; i++) {
     rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
   }
 
   return (
-    <div className="ttable" role="table" aria-label="Deliveries" aria-rowcount={total + 1}>
+    <div className="ttable" role="table" aria-label="Deliveries" aria-rowcount={total + 1} style={{ ['--cols' as string]: columns }}>
       <div className="trow thead" role="row">
         <div role="columnheader">File</div>
         <div role="columnheader">Destination</div>
@@ -170,15 +173,12 @@ function TaskCells({ task }: { task: TaskRow }) {
         {task.destinationPath}
       </div>
       <div role="cell">
-        <span className="tchip" style={{ background: look.bg, color: look.fg }} title={TASK_STATUS_MEANING[task.status]}>
-          <span className="tdot" style={{ background: look.dot }} />
-          {look.label}
-        </span>
+        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[task.status]} />
       </div>
       <div role="cell" className="attempts" title={used === 0 ? 'Not attempted yet' : `${used} of the ${MAX_ATTEMPTS} allowed attempts`}>
         <span aria-hidden="true" className="segs">
           {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
-            <span key={i} style={{ background: i < used ? look.dot : '#E4E7EC' }} />
+            <span key={i} style={{ background: i < used ? TONES[look.tone].dot : '#E4E7EC' }} />
           ))}
         </span>
         <span className="num">{used} of {MAX_ATTEMPTS}</span>
@@ -210,16 +210,23 @@ function ExpiredNote() {
   );
 }
 
-/** Preview and Download are wired up in M4 (TDD Step 3.4). They are shown, and wait. */
+/** Preview and Download are wired up in M4 (TDD Step 3.4). They are shown as on Distribute, and wait. */
 function FileButtons({ name }: { name: string }) {
   return (
     <div className="tbuttons">
-      <button className="btn2 btnsm" type="button" disabled title="Opens in the next release" aria-label={`Preview ${name}`}>
-        Preview
-      </button>
-      <button className="btn2 btnsm" type="button" disabled title="Opens in the next release" aria-label={`Download ${name}`}>
-        Download
-      </button>
+      <PreviewButton name={name} offBecause={NOT_YET} />
+      <DownloadButton name={name} offBecause={NOT_YET} />
     </div>
   );
+}
+
+/**
+ * The columns size to what is in them (D-M3-12): the file name gets the spare room, the destination only as
+ * much as its longest path (up to 48 characters), and the rest are fixed to their chips. Rows are drawn one by
+ * one, so the widths come from the rows loaded so far, not from the rows in view.
+ */
+export function columnsFor(destinationPaths: readonly string[]): string {
+  const longest = destinationPaths.reduce((n, p) => Math.max(n, p.length), 0);
+  const dest = Math.min(48, Math.max(12, longest + 1));
+  return `minmax(160px, 1fr) minmax(0, ${dest}ch) 124px 112px minmax(200px, 34ch)`;
 }
