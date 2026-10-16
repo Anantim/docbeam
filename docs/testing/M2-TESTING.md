@@ -139,6 +139,7 @@ The person says yes before each push, apply and task run. The README "Build dev"
 
 | # | Check | Expect |
 |---|---|---|
+| 0 | **First, after the first upload on dev: the checksum comes back from real S3.** Single-part: `aws s3api list-objects-v2 --bucket docbeam-dev-object-store --prefix staging/ --query 'Contents[].Key'`, then `aws s3api head-object --bucket docbeam-dev-object-store --key <key> --checksum-mode ENABLED --query ChecksumSHA256`. Multipart (the 120 MB file): the same `head-object` | Single-part: `ChecksumSHA256` equals the base64 of the declared SHA-256 (`echo <hex> \| xxd -r -p \| base64`). Multipart: a composite value ending in `-8`. **If a single-part object returns no checksum, stop**: Delivery fails such a task with `CHECKSUM_MISMATCH` on AWS (D-M2-15) and the design must change |
 | 1 | Browser at `$APP`: repeat section 1.3 steps 1 to 13 | Same results. The 120 MB file uploads in 8 parts |
 | 2 | **A swapped upload body is refused** (LocalStack does not enforce this): run the commands below | The wrong bytes give `400` (BadDigest), the right bytes give `204`. This is the check the local suite cannot make |
 | 3 | EICAR through the page (step 5 of 1.3) | `Refused: malware found`. CloudWatch Logs `/aws/lambda/docbeam-dev-upload-events`: `file refused` with `reason MALWARE` |
@@ -154,16 +155,19 @@ The person says yes before each push, apply and task run. The README "Build dev"
 | 13 | Security group of the Delivery Lambda, outbound and the ALB group inbound | The ALB group allows the Delivery group only on ports 3001 and 3002 |
 | 14 | `scripts/deploy-lambda.sh dev fanout workers/fanout/dist/lambda` (second run) | Skips: the package hash is unchanged |
 | 15 | Send a distribution with the page's Network tab open | `POST /api/jobs` answers `201` in well under a second. (The 500 ms p99 is measured in M5, check 5.1) |
-| 16 | **CORS preflight on the dev bucket** (the browser makes this call before every upload; run the commands below) | `HTTP/2 200` and `access-control-allow-origin: https://<id>.cloudfront.net` (the exact origin sent), and `access-control-allow-methods` lists `PUT`. A second call with `Origin: https://evil.example` has no `access-control-allow-origin` header |
+| 16 | **CORS preflight on the dev bucket** (the browser makes this call before every upload; run the commands below) | For each of `POST`, `PUT`, `GET` and `DELETE`: `HTTP/2 200` and `access-control-allow-origin: https://<id>.cloudfront.net` (the exact origin sent). The `DELETE` preflight is the multipart abort link, which the page calls when a file is removed mid-upload. A call with `Origin: https://evil.example` has no `access-control-allow-origin` header |
 
 Commands for check 16:
 
 ```bash
 ORIGIN=$(terraform -chdir=infra/envs/dev output -raw app_url)      # https://<id>.cloudfront.net
 BUCKET=docbeam-dev-object-store
-curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
-  -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: PUT' \
-  -H 'Access-Control-Request-Headers: content-type,x-amz-checksum-sha256' | grep -i '^HTTP\|access-control'
+for M in POST PUT GET DELETE; do
+  echo "== $M"
+  curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
+    -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: $M" \
+    -H 'Access-Control-Request-Headers: content-type,x-amz-checksum-sha256' | grep -i '^HTTP\|access-control'
+done
 curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
   -H 'Origin: https://evil.example' -H 'Access-Control-Request-Method: PUT' | grep -i '^HTTP\|access-control'
 ```
@@ -201,6 +205,7 @@ Never from a session (D-G3). After M5 and the move to the Paid plan, from `main`
 ## 5. Tear down
 
 ```bash
+export TF_VAR_alarm_email=$(gh variable get ALARM_EMAIL)
 terraform -chdir=infra/envs/dev destroy -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG
 ```
 
