@@ -310,6 +310,7 @@ Demo: submit a job, watch counts and rows change live, see failure reasons inlin
 | 9 | Terraform: WebSocket API, `ws` Lambda, push permissions, new gateway routes | 3.2 |
 | 10 | Web WebSocket client and catch-up | 3.3 |
 | 11 | Web app part 3: list, detail, Audit tab, Audit trail page | 3.4 |
+| 11b | Destinations cell: one small `Popover` component (no library) for the "+N" chip, used in the M2 documents table and in the M3 job tables; own-path title on the visible chip, no whole-list tooltip; vitest that it lists only hidden folders and closes on Esc (added by the person 2026-10-16) | M2 screen, 3.4 |
 | 12 | Integration tests (cancel while running, team-scoped visibility, push) | 3.1 to 3.3 |
 | 13 | Testing document, local testing round, results | |
 | 14 | AWS round (asks first), then teardown | |

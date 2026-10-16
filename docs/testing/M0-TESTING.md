@@ -109,7 +109,9 @@ Not run in M0. After M5 passes and the account is on the Paid plan, run the `inf
 ## 5. Tear down
 
 ```bash
-# Dev (AWS). Takes about 10 to 15 minutes (CloudFront and RDS).
+# Dev (AWS). Empty the two data buckets first (D-M2-23); destroy cannot do it once they hold many versions.
+scripts/empty-dev-buckets.sh dev
+# Takes about 10 to 15 minutes (CloudFront and RDS).
 terraform -chdir=infra/envs/dev destroy
 
 # Check that nothing billable is left. Every command should return nothing or 0:
