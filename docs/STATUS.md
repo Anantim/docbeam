@@ -2,7 +2,7 @@
 
 Updated 2026-10-16, at the end of M2 (branch `m2`, pull request open).
 
-**M2 is built and verified locally and on dev,** including the browser checks done by the person (19 local steps, 9 dev steps). A user can pick up to 100 files, upload them (single-part and multipart), have them scanned for malware, map them to up to 20 folders, send them and see the documents arrive in the platform. Stopping the platform mid-run and starting it again drains the backlog (1,400 tasks, all delivered once). **Dev AWS is UP** (cost about 4.5 USD a day); the person merges while it is up and then tells me to destroy it. Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-15, D-M2-1 to D-M2-22). Evidence: `docs/testing/M2-RESULTS.md` (YES/NO check in its section 4). Teaching text: `docs/walkthrough/M1.md`, `docs/walkthrough/M2.md`.
+**M2 is built and verified locally and on dev,** including the browser checks done by the person (19 local steps, 9 dev steps). A user can pick up to 100 files, upload them (single-part and multipart), have them scanned for malware, map them to up to 20 folders, send them and see the documents arrive in the platform. Stopping the platform mid-run and starting it again drains the backlog (1,400 tasks, all delivered once). **Merged (PR #5) on 2026-10-16; the deploy jobs ran green against dev, and dev AWS is now DESTROYED** (see "Set up so far"; the two data buckets needed emptying by hand first, D-M2-23). Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-15, D-M2-1 to D-M2-22). Evidence: `docs/testing/M2-RESULTS.md` (YES/NO check in its section 4). Teaching text: `docs/walkthrough/M1.md`, `docs/walkthrough/M2.md`.
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated 2026-10-16, at the end of M2 (branch `m2`, pull request open).
 |---|---|---|---|
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
 | M1 | Flow 1: Browse destinations | 11 d | Merged (PR #3, #4) |
-| M2 | Flow 2: Upload and distribute | 13 d | Built, verified on dev. 12 accepted NOs (M2-RESULTS 4.3). Pull request open; the person merges while dev is up |
+| M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
 | M3 | Flow 3: Track a job | 7 d | Not started |
 | M4 | Flow 4: Download a file | 2 d | Not started |
 | M5 | Hardening and end-to-end checks | 2 d | Not started |
@@ -46,9 +46,9 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is **UP** (brought up 2026-10-16). App: `https://d20vwpie25gfdb.cloudfront.net` (distribution `E19G06V1T65GK8`). Image tags in use: auth, docbeam-api and db-bootstrap `e1ff11c2506a`; **platform `ce2d4a97030e`** (task definition `docbeam-dev-platform:12`, 1 vCPU / 2 GB); **upload-events `cf4b70e89ead`** (the first push, `e1ff11c2506a`, was an OCI index and Lambda refused it). Terraform's own service task definitions still name `e1ff11c2506a`; the services ignore that after the first apply. The SNS subscription for `ALARM_EMAIL` is confirmed. The web app on dev has the leave-warning change and the favicon.
-- Set: `ECS_DEPLOY_ENABLED=true`, `INFRA_APPLY_ENABLED=false` (keep `false`: a merge must not apply infra), `ALARM_EMAIL`. **Not yet: `LAMBDA_DEPLOY_ENABLED`**; the person sets it to `true` before the merge so the `workers` and `upload-events-image` deploy jobs run once against dev.
-- To destroy dev after the merge (the person decides when): `terraform -chdir=infra/envs/dev destroy -var image_tag=e1ff11c2506a -var upload_events_image_tag=cf4b70e89ead -var alarm_email="$(gh variable get ALARM_EMAIL)"`. In an agent session add `-auto-approve`, after the person agrees.
+- Dev is **DOWN** (brought up and checked 2026-10-16, destroyed the same day after the merge). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda or RDS instance is left. The last dev app was `https://d20vwpie25gfdb.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tags: services `e1ff11c2506a`, platform `ce2d4a97030e`, upload-events `cf4b70e89ead`.
+- **Teardown needs one extra step** (D-M2-23): `terraform destroy` fails on the two data buckets once they hold many versions (`bufio.Scanner: token too long`). Empty `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with the AWS CLI first (all versions and delete markers, 1,000 at a time), never the tfstate bucket, then destroy. A script for this is proposed for M3.
+- Set: `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true` (the person set it before the M2 merge), `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL`. With dev down the deploy jobs skip with a notice.
 
 ## Known issues
 
@@ -97,8 +97,9 @@ Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sectio
 ## Next: M3 (Track a job)
 
 M3 needs from the person:
-- the merge of the M2 pull request (with `LAMBDA_DEPLOY_ENABLED=true` set first, while dev is up), and then the word to destroy dev;
-- a yes before each dev apply, image push and task run, as before.
+- a yes before each dev apply, image push and task run, as before;
+- the M3 plan to include the teardown helper of D-M2-23 (`scripts/empty-dev-buckets.sh`, or a dev-only lifecycle rule), so the next destroy does not stop on the data buckets;
+- a new dev bring-up for the M3 AWS checks (README "Build dev": push images with the provenance flag, two-step apply, bootstrap, signing key, deploys, confirm the SNS email again).
 
 M3 builds on:
 - the `tasks`, `jobs` and `ws_connections` tables and the audit trail from M1 and M2;
