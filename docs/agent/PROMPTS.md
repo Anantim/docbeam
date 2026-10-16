@@ -131,16 +131,18 @@ Start with the plan and wait for my approval. Work on branch m2. Finish with the
 ## Session 4: M3, Track a job (Steps 3.1 to 3.4)
 
 ```text
-Implement M3: Track a job, Steps 3.1 to 3.4 in docs/design/05-technical-design.md. Follow AGENTS.md. Read docs/STATUS.md and docs/PLAN.md first.
+Implement M3: Track a job, Steps 3.1 to 3.4 in docs/design/05-technical-design.md. Follow AGENTS.md. Read docs/STATUS.md, docs/PLAN.md and docs/DECISIONS.md first.
 
 Inputs: the technical design (DocBeam API and WebSocket API contracts, the DocBeam DB tables for audit events and WebSocket connections, Steps 3.1 to 3.4, Concurrency, Security and access), ADR-007, the Track a Job flow, the job list, job detail, audit tab and audit trail screens in docs/design/ui/Main.dc.html.
 
 Outputs:
 - GET /jobs, GET /jobs/:jobId, GET /jobs/:jobId/tasks with paging and counts; team visibility with the 60-second team cache; POST /jobs/:jobId/retry and POST /jobs/:jobId/cancel with their pushes.
-- WebSocket API in Terraform and the WS Handlers for $connect, subscribe and $disconnect, through RDS Proxy.
+- WebSocket API in Terraform and the WS Handlers for $connect, subscribe and $disconnect, connecting directly in dev (no RDS Proxy on the Free plan) inside the 79-connection budget in `packages/shared/src/db.test.ts` (D-M0-6, D-M2-9).
 - Catch-up: connect, subscribe, then fetch; reconnect after every token refresh; refetch once on every reconnect.
 - Web app part 3: job list with Mine / My teams and 30-second count refresh, job detail with the virtualized task table, filters, inline failure reasons, Retry and Cancel for the sender, the Audit tab and the Audit trail page.
 - Unit and integration tests the testing strategy lists for these parts, including cancel while deliveries run and team-scoped visibility. docs/testing/M3-TESTING.md and M3-RESULTS.md, docs/STATUS.md updated.
+- Teardown script (D-M2-23, option 1): `scripts/empty-dev-buckets.sh`, run before every dev destroy. It refuses `prod` and any bucket not named `docbeam-dev-…-<account id>`, never touches the `…-tfstate-…` bucket, reads the bucket names from the Terraform outputs, deletes all versions and delete markers in batches of 1,000 with the AWS CLI, and has a test in `tests/scripts` with a fake `aws`. Update the README and the Tear down section of every testing document.
+- M2 leftover (accepted NO N7): `/favicon.ico` answers 403. Serve the SVG for it (in the web behaviour's CloudFront Function or with a real .ico in `web/public`), and say which in DECISIONS.md.
 
 Done when: the M3 demo works locally and on dev: submit a job, watch counts and rows change live, see failure reasons inline, refresh mid-run without losing anything.
 
@@ -152,6 +154,7 @@ Start with the plan and wait for my approval. Work on branch m3. Finish with the
 - A viewer who is not the sender sees only their teams' deliveries and gets 404 for a job with none.
 - Cancel: running deliveries finish, waiting ones show CANCELLED, Retry on a cancelled job is refused.
 - After it reports: open one job in two browsers (sender and a team member) on dev and watch both update.
+- `scripts/empty-dev-buckets.sh prod` and a bucket name outside the pattern both stop with an error; the teardown at the end of M3 uses the script and `terraform destroy` finishes in one run.
 
 ---
 
@@ -190,11 +193,13 @@ Outputs:
 - scripts/m5-submit-load.sh and any other scripts the checks need, so every check can be re-run.
 - Each M5 check run on dev, with its result and evidence (CloudWatch numbers measured server-side, test output, screenshots described in words). Fixes for anything that fails, then the check run again.
 - docs/testing/M5-TESTING.md and M5-RESULTS.md, including the manual checks I must do in the browser (slow-connection upload, multipart resume, WebSocket reconnect) as step-by-step instructions.
-- The prod first bring-up (Launch plan, Rollout; D-M1-13) as a workflow input or a written runbook, proved by bringing dev up from nothing with it.
+- docs/RUNBOOK-first-bring-up.md: the first bring-up of a new environment (Launch plan, Rollout; D-M1-13), proved by bringing dev up from nothing with it. It is written for dev and prod alike, but prod is not deployed in this project.
 - Database TLS that checks the certificate chain: the services load the RDS certificate authority bundle (Launch plan, Build decisions; D-M1-10).
-- docs/STATUS.md updated with a release summary: what passed, any limits found, what prod needs.
+- The showcase: the root README.md rewritten for someone seeing the project for the first time (the problem, the architecture diagram, key decisions with links to the ADRs and DECISIONS.md, how to run it locally, the test and M5 numbers, a placeholder for the demo video link), and docs/DEMO-SCRIPT.md: a 3 to 5 minute screen-recording script on dev (upload, the EICAR file refused, a 2,000-delivery send, live tracking, stopping the platform and the backlog draining, download), with the commands to bring dev up for it and tear it down after.
+- A check that the repository is safe to make public: gitleaks over the whole git history, no .env or keys ever committed, no real email addresses outside the seed's example.com users.
+- docs/STATUS.md updated with a release summary: what passed, any limits found, and what deploying prod would need (Paid plan, RDS Proxy, the runbook).
 
-Before the checks: the account must be on the Paid plan and dev applied with enable_rds_proxy = true, so the checks test the prod setup (D-M0-6); stop and ask me if it is not.
+This project is shown on dev only and stays on the Free plan, so M5 runs on dev without RDS Proxy (enable_rds_proxy = false) and prod is never deployed. Record this first as D-M5-1 in docs/DECISIONS.md (it changes D-M0-6, which planned M5 with the proxy). The failover drill switches dev to Multi-AZ for the drill only; if the Free plan blocks that, stop and ask me.
 
 Done when: every item on the M5 checklist is YES with evidence. Do not deploy to prod.
 
@@ -205,7 +210,9 @@ Start with the plan (the order of checks, what each costs in time and AWS credit
 - The 2,000-task submit is measured server-side (API Gateway or CloudWatch), not from your laptop.
 - The database failover and platform outage drills were actually run, not described.
 - You ran the manual checks yourself.
-- Only then: move the account to the Paid plan and do the prod step in the setup guide.
+- The README and demo script read well to someone who has never seen the project.
+- gitleaks over the whole history is clean before the repository is made public.
+- Then: record the demo video on dev, add its link to the README, tear dev down.
 
 ---
 

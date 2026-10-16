@@ -49,7 +49,7 @@ Document Platform > Platform File Store: store delivered files
 
 // Upload checks
 Object Store > Upload Checks: file stored
-Upload Checks > Object Store: scan, tag clean or delete infected file
+Upload Checks > Object Store: check and scan, tag clean, or delete a file that does not match or is infected
 Upload Checks > Databases: mark file verified or refused
 
 // Sending

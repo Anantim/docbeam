@@ -94,8 +94,8 @@ Diagram: Document Distribution Flow
 2. The Object Store checks the upload against the link: size, type and fingerprint. If anything does not match, it refuses the upload (403) and stores nothing. Web Client marks that file as failed so the user can retry it.
 3. For a large file, the parts are joined as described above.
 4. Once a file is stored, the Object Store puts an event on the Upload Events Queue. The Upload Events Lambda checks the stored file's size and fingerprint, then scans the file for malware with ClamAV.
-5. If the file is clean, the Lambda tags it clean and marks it uploaded and clean. If a threat is found, it deletes the file and marks it infected. The Object Store refuses to hand out any file that is not tagged clean.
-6. While any file is being checked, Web Client asks the DocBeam API every 2 seconds (GET /files?ids=) and shows each file as Checking, Verified, or Refused with the reason (infected, or could not be checked).
+5. If the file is clean, the Lambda tags it clean and marks it uploaded and clean. If its size or fingerprint does not match what the browser declared, it deletes the file and marks it failed. If a threat is found, it deletes the file and marks it infected. Each refusal leaves an audit entry that only the file's owner sees. The Object Store refuses to hand out any file that is not tagged clean.
+6. While any file is being checked, Web Client asks the DocBeam API every 2 seconds (GET /files?ids=) and shows each file as Checking, Verified, or Refused with the reason (infected, did not match, or could not be checked).
 7. The Send button turns on only when every file is verified.
 
 #### Submit the job
@@ -106,10 +106,11 @@ Diagram: Document Distribution Flow
 4. Next it must ask the Document Platform about the destinations. For that it uses a service token, which the DocBeam API got from the Auth Service when it started and keeps renewing in the background, so no submission waits for one.
 5. The DocBeam API sends all the destinations to the Document Platform in one request. For each one the platform checks that the binder exists, that the folder is inside that binder, and that the user belongs to the binder's team. It answers with each destination's team, or lists the ones that failed. The team is never taken from the browser.
 6. If any destination fails, the DocBeam API returns 422 DESTINATION_NOT_FOUND, names the bad destinations and creates nothing. A deleted folder and a folder in someone else's team get the same answer, so nobody can learn what exists outside their teams.
-7. In **one database transaction**, the DocBeam API creates the job, links the files to it, creates one task for every file and destination pair (all marked pending, in one statement) and writes "job submitted" to the audit trail. Either all of this is saved or none of it is.
-8. It puts one message on the Job Queue. The message holds only the job ID.
-9. It replies "job accepted", with the job ID and number of tasks, in under 500 ms. The user is free to leave; everything below happens in the background.
-10. **If that queue message is lost** (the send fails, or the API crashes just after saving), the Sweeper Lambda catches it. Every minute it looks for jobs that have not started 2 minutes after they were queued and sends their message again (ADR-014). The job starts within about 3 minutes instead of never.
+7. If the Document Platform does not answer, the DocBeam API returns 503 PLATFORM_UNAVAILABLE and creates nothing. Web Client shows "The platform is not answering. Try again." and the next Send reuses the same key, so a retry can never create a second job.
+8. In **one database transaction**, the DocBeam API creates the job, links the files to it, creates one task for every file and destination pair (all marked pending, in one statement) and writes "job submitted" to the audit trail. Either all of this is saved or none of it is.
+9. It puts one message on the Job Queue. The message holds only the job ID.
+10. It replies "job accepted", with the job ID and number of tasks, in under 500 ms. The user is free to leave; everything below happens in the background.
+11. **If that queue message is lost** (the send fails, or the API crashes just after saving), the Sweeper Lambda catches it. Every minute it looks for jobs that have not started 2 minutes after they were queued and sends their message again (ADR-014). The job starts within about 3 minutes instead of never.
 
 #### Split the job into tasks (fan-out)
 
@@ -134,7 +135,7 @@ These steps run separately for every task. One slow or failed task never holds u
    3. **Destination gone:** the binder or folder was deleted after the job was submitted. The platform replies 404 and the task fails with **DESTINATION_NOT_FOUND**.
    4. **Fingerprint does not match:** the platform deletes what it received, replies 422, and the task fails with **CHECKSUM_MISMATCH**.
    5. **Contents are not the declared type** (for example a renamed program): the platform replies 422 and the task fails with **UNSUPPORTED_TYPE**.
-   6. **Platform down, too slow or any other error:** the Delivery Lambda gives up on this attempt after at most 100 seconds and asks the queue to hand the message back after a short wait: 30 seconds after the first try, then 2, 5 and 10 minutes. The task goes back to pending until then.
+   6. **Platform down, busy, too slow or any other error:** the Delivery Lambda gives up on this attempt after at most 100 seconds (a busy platform holds the request for up to 30 seconds, then answers 503 PLATFORM_BUSY) and asks the queue to hand the message back after a short wait: 30 seconds after the first try, then 2, 5 and 10 minutes. The task goes back to pending until then.
 7. Once the task is completed or failed, the Delivery Lambda locks the job record, saves the result and an audit entry, and checks whether every task in the job is now finished. If so, it marks the job finished (`completed_at`). The lock makes sure that when the last two tasks finish together, one of them always closes the job.
 8. It looks up which open dashboards are watching this job (`ws_connections`) and pushes the new status through the WebSocket API to the sender and to viewers in that delivery's team. If a dashboard has gone away, its record is deleted. A failed push never fails the delivery.
 

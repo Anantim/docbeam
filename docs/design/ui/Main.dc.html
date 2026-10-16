@@ -268,7 +268,6 @@ a{color:#2B59C3}a:hover{color:#1F45A0}
 <sc-for list="{{checks}}" as="c" hint-placeholder-count="3"><span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 2px; background: {{c.bg}}; color: {{c.color}}; font-size: 12px; font-weight: 600"><sc-if value="{{c.ok}}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M2.5 7.2l2.8 2.8L11.5 4"></path></svg></sc-if><sc-if value="{{c.notOk}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="7" cy="7" r="5"></circle></svg></sc-if>{{c.label}}</span></sc-for>
 </div>
 <div style="flex: 1"></div>
-<div style="font-size: 13px; color: #475467">{{reviewSummary}}</div>
 <button class="btn2" type="button" onClick="{{clearAll}}" disabled="{{clearDisabled}}">Clear</button>
 <button class="btn" type="button" onClick="{{send}}" disabled="{{sendDisabled}}"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 10l14-7-5 14-2.5-5.5z"></path><path d="M9.5 11.5L17 3"></path></svg>{{sendLabel}}</button>
 </div>
@@ -1133,7 +1132,6 @@ class Component extends DCLogic {
       tMinW: 230 + 32 + 48 + s.colsT.reduce(function (a, b) { return a + b; }, 0),
       reviewOpen: s.reviewOpen, reviewRows: reviewRows, noChosen: destIds.length === 0, sendToCount: destIds.length + (destIds.length === 1 ? ' destination, ' : ' destinations, ') + taskCount + (taskCount === 1 ? ' delivery' : ' deliveries'), rvFiles: s.files.length, rvDests: destIds.length, rvTasks: taskCount, rvTeams: (function () { var tn = []; destIds.forEach(function (d) { var n = TEAMS[NODES[d].team].name; if (tn.indexOf(n) < 0) tn.push(n); }); return tn.join(', '); })(),
       pv: self.previewModel(s),
-      reviewSummary: s.files.length + (s.files.length === 1 ? ' file' : ' files') + ' to ' + destIds.length + (destIds.length === 1 ? ' destination' : ' destinations') + ', each uploaded once',
       openReview: function () { if (ready) self.setState({ reviewOpen: true }); },
       closeReview: function () { self.setState({ reviewOpen: false }); },
       sending: !!s.sending,

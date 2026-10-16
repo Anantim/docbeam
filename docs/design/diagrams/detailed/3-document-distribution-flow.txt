@@ -64,21 +64,25 @@ Object Store > Upload Events Queue: New object event
 loop [label: each new file, icon: repeat] {
   Upload Events Queue > Upload Events Lambda: Trigger
   Upload Events Lambda > Object Store: Read the file, check stored size and checksum
-  Upload Events Lambda > Upload Events Lambda: Scan with ClamAV
+  Upload Events Lambda > Upload Events Lambda: Scan with ClamAV, work out SHA-256 in the same pass
   alt [label: clean] {
     Upload Events Lambda > Object Store: Tag scan-status=clean
     Upload Events Lambda > DocBeam DB: Set uploaded_at and scan_status clean (conditional, safe to repeat)
   }
+  else [label: size or SHA-256 differs from what was declared] {
+    Upload Events Lambda > Object Store: Delete the file
+    Upload Events Lambda > DocBeam DB: scan_status failed, file.refused audit event (MISMATCH)
+  }
   else [label: threat found] {
     Upload Events Lambda > Object Store: Delete the file
-    Upload Events Lambda > DocBeam DB: scan_status infected, file.refused audit event
+    Upload Events Lambda > DocBeam DB: scan_status infected, file.refused audit event (MALWARE)
   }
 }
 
 opt [label: an event fails 5 times] {
   Upload Events Queue > Upload DLQ: Move message
   Upload DLQ > DLQ Consumer: Trigger
-  DLQ Consumer > DocBeam DB: Mark the file failed (could not be checked)
+  DLQ Consumer > DocBeam DB: Mark the file failed, file.refused audit event (SCAN_FAILED)
 }
 
 loop [label: every 2 s while any file is being checked, icon: repeat] {
@@ -114,6 +118,10 @@ opt [label: a file check fails] {
 DocBeam API > Document Platform: Check all destinations (binderId, folderId, user), with the service token fetched at startup
 Document Platform > Platform DB: Binder exists, folder is in that binder, user is in the binder's team
 Document Platform --> DocBeam API: Team of each destination, or the list that failed
+
+opt [label: platform fails or times out] {
+  DocBeam API --> Web Client: 503 PLATFORM_UNAVAILABLE, nothing is created (Send again reuses the same key)
+}
 
 opt [label: any destination missing or outside the user's teams] {
   DocBeam API --> Web Client: 422 DESTINATION_NOT_FOUND, nothing is created
@@ -162,6 +170,7 @@ loop [label: each task message, icon: repeat] {
     }
     Delivery Lambda > Object Store: Read file
     Delivery Lambda > Document Platform: Deliver file (taskId, on behalf of user, 100 s limit)
+    Document Platform > Document Platform: Wait for one of 6 ingest slots (503 PLATFORM_BUSY after 30 s)
     Document Platform > Platform DB: Check destination exists, user still in its team, task not already stored
 
     alt [label: member, type and SHA-256 match on receipt] {
@@ -185,12 +194,12 @@ loop [label: each task message, icon: repeat] {
     else [label: service token rejected (401)] {
       Delivery Lambda > Auth Service: Get a new service token, try once more at once
     }
-    else [label: anything else (5xx, 429, timeout, network)] {
+    else [label: anything else (5xx including PLATFORM_BUSY, 429, timeout, network)] {
       Delivery Lambda > DocBeam DB: Set task back to pending with last_error (only if still in_progress)
       Delivery Lambda > Task Queue: ChangeMessageVisibility by receive count (30 s, 2, 5, 10 min), report failed item
     }
   }
-  else [label: file missing or checksum mismatch in Object Store] {
+  else [label: file missing, or its checksum missing or different, in Object Store] {
     Delivery Lambda > DocBeam DB: Mark failed (FILE_NOT_UPLOADED or CHECKSUM_MISMATCH)
   }
 

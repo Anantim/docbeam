@@ -43,8 +43,8 @@ Write all code yourself from these documents. Do not copy code from any other re
 
 - **Secrets.** Never write a secret, key, password or token into a file, a commit, a log or the chat. Local values go in `.env` (git-ignored), with a `.env.example` holding only names and safe local defaults. In AWS, secrets are generated (Terraform `random_password`, RDS-managed master password, a bootstrap task for the signing key) and live in Secrets Manager. gitleaks runs in CI and must stay clean.
 - **AWS changes need a yes.** Before any command that creates, changes or deletes AWS resources (`terraform apply`, `terraform destroy`, `aws ... create/put/delete/update`, image pushes), say in one or two lines what it will do and what it costs, and wait for the person to agree.
-- **Cost.** Dev costs about 3 to 5 USD a day while it is up, paid from Free plan credits. When AWS testing for a task is done, remind the person to tear dev down (`terraform -chdir=infra/envs/dev destroy`) unless they want it kept up.
-- **Prod.** Never apply or deploy to prod. Prod goes through the GitHub `infra` workflow with the person's approval, after M5 passes and the account is on the Paid plan.
+- **Cost.** Dev costs about 3 to 5 USD a day while it is up, paid from Free plan credits. When AWS testing for a task is done, remind the person to tear dev down unless they want it kept up. Teardown is: empty the two dev data buckets (`scripts/empty-dev-buckets.sh dev`, from M3; until then the AWS CLI by hand, D-M2-23), then `terraform -chdir=infra/envs/dev destroy`. Never empty the `…-tfstate-…` bucket or any prod bucket.
+- **Prod.** Never apply or deploy to prod. This is a portfolio project shown on dev only, on the Free plan; prod stays ready as code (`infra/envs/prod` and the `deploy-prod` workflows) and is checked with `terraform plan` at most. Keep the prod code correct, but do not run it.
 - **Console.** The AWS Console is for reading only. Every AWS resource is created by Terraform (ADR-012).
 - **Design documents.** Do not edit `docs/design/`. If the design must change, stop, explain why, and wait. After the person agrees, record the change in `docs/DECISIONS.md` (date, what, why) and in the code.
 
@@ -56,7 +56,7 @@ Write all code yourself from these documents. Do not copy code from any other re
    1. Local: start the stack, run the tests, check each demo behaviour by hand.
    2. Deploy to dev on AWS: exact commands in order.
    3. Verify on dev: exact checks, including what to look for in the AWS Console (Sydney).
-   4. Prod (to run later): what to check after the prod deploy.
+   4. Prod (not deployed in this project): what would be checked after a prod deploy, kept short.
    5. Tear down.
 4. **Run the testing round yourself** before reporting: everything in sections 1 to 3 of the testing document (ask before the AWS commands). Fix what fails and run it again. Record the evidence (command, short output, test names) in `docs/testing/M{n}-RESULTS.md`. You have no browser: write the browser checks as numbered steps for the person (section 1.3), mark them as waiting on the person, and record them as YES only after the person reports what passed.
 5. **Final check.** Walk the milestone's prompt and the milestone's steps in the technical design line by line. Give every requirement YES or NO with evidence: a file and line, a test name, or a command with its output. **One unaddressed requirement means the milestone FAILS.** Fix it, or report it clearly as a NO with the reason; never hide it.

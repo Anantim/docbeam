@@ -72,7 +72,7 @@ DocBeam API > Object Store: start and complete multipart upload (part SHA-256s, 
 Object Store > Upload Events Queue: new object in staging/
 Upload Events Queue > Upload Events Lambda: trigger
 Upload Events Queue --> Upload DLQ: after 5 failed attempts
-Upload Events Lambda > Object Store: check size and checksum, scan with ClamAV, tag clean or delete infected file
+Upload Events Lambda > Object Store: check size and SHA-256, scan with ClamAV, tag clean, or delete a file that does not match or is infected
 
 // Service-to-service calls
 DocBeam API > Document Platform: destination check, user's teams
@@ -90,7 +90,7 @@ Task Queue > Delivery Lambda: trigger (max 50 at a time)
 // Delivery
 Delivery Lambda > Object Store: HEAD checksum, stream file
 Delivery Lambda > Auth Service: service token
-Delivery Lambda > Document Platform: deliver (platform checks member, type, SHA-256)
+Delivery Lambda > Document Platform: deliver (platform checks member, type, SHA-256; takes 6 at once, 503 when busy)
 Delivery Lambda > WebSocket API: push update (sender and that team's viewers)
 
 // Failure handling

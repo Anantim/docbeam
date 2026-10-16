@@ -134,7 +134,7 @@ The full diagrams are in the [Eraser workspace](https://app.eraser.io/workspace/
 | Async | **Scheduler and Sweeper Lambda** | Runs on a schedule. Every minute it re-sends any job that was saved but not split into tasks after 2 minutes. Once a day it deletes uploaded files still not submitted 24 hours after upload (ADR-014). |
 | Async | **WS Handlers** | Run when a browser connects, subscribes to a job, or disconnects. Keep track of who is watching which job. |
 | Async | **Upload Events Queue and Upload DLQ** | One message each time a file lands in the Object Store. |
-| Async | **Upload Events Lambda** | Confirms each uploaded file (size and fingerprint), scans it for malware with ClamAV and tags it clean. Deletes infected files. Only confirmed, clean files can be sent (ADR-016). |
+| Async | **Upload Events Lambda** | Confirms each uploaded file (size and fingerprint), scans it for malware with ClamAV and tags it clean. Deletes infected files and files that do not match. Only confirmed, clean files can be sent (ADR-016). |
 | Async | **Malware scanner (ClamAV)** | Open source virus scanner packed into the Upload Events Lambda. A daily rebuild keeps its virus definitions current. |
 
 Components and responsibilities only. Schemas, endpoints and internals are in the Technical Design tab.
