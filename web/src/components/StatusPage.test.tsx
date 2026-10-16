@@ -209,7 +209,10 @@ describe('Cancel and Retry', () => {
     const page = renderPage();
     await act(async () => page.release());
     await user.click(await screen.findByRole('button', { name: 'Retry failed deliveries' }));
-    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
+    // Nothing is waiting, so Cancel is shown but off, and says why.
+    const cancel = screen.getByRole('button', { name: 'Cancel distribution' }) as HTMLButtonElement;
+    expect(cancel.disabled).toBe(true);
+    expect(cancel.title).toBe('Nothing is waiting to be delivered');
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith(JOB));
     expect(notify).toHaveBeenCalledWith('3f1c2a9e: 2 deliveries queued again.');
   });
@@ -251,7 +254,31 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     await screen.findByText(/This distribution was cancelled, so Retry is off/);
     expect(screen.getByRole('status').textContent).toBe('Cancelled');
-    expect(screen.queryByRole('button', { name: /Retry failed|Cancel distribution/ })).toBeNull();
+    expect(screen.getByRole('status').getAttribute('title')).toBe('The sender cancelled it and nothing is still running.');
+    const retry = screen.getByRole('button', { name: 'Retry failed deliveries' }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(true);
+    expect(retry.title).toBe('A cancelled distribution cannot be retried');
+    const cancel = screen.getByRole('button', { name: 'Cancel distribution' }) as HTMLButtonElement;
+    expect(cancel.disabled).toBe(true);
+    expect(cancel.title).toBe('This distribution was already cancelled');
+  });
+
+  it('says why Retry is off when the window has closed', async () => {
+    api.job.mockResolvedValue(
+      detail({ counts: counts({ completed: 7, failed: 3 }), status: 'completed_with_errors', retry: { open: false, retryable: 3, reason: 'RETRY_WINDOW_CLOSED' }, cancel: { open: false, waiting: 0 } }),
+    );
+    const page = renderPage();
+    await act(async () => page.release());
+    const retry = (await screen.findByRole('button', { name: 'Retry failed deliveries' })) as HTMLButtonElement;
+    expect(retry.disabled).toBe(true);
+    expect(retry.title).toContain('The retry window closed');
+  });
+
+  it('does not show Retry when nothing failed', async () => {
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByText('3f1c2a9e');
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
   });
 
   it('shows the error when the server refuses, and reads the state again', async () => {

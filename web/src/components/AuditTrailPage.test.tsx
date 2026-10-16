@@ -93,7 +93,7 @@ describe('AuditTrailPage', () => {
     const user = userEvent.setup();
     render(<AuditTrailPage onOpenJob={onOpenJob} />);
     await screen.findByText('Distribution sent');
-    await user.click(screen.getAllByTitle('Open this distribution')[0] as HTMLElement);
+    await user.click(screen.getAllByTitle(`Open distribution ${JOB_A}`)[0] as HTMLElement);
     expect(onOpenJob).toHaveBeenCalledWith(JOB_A);
   });
 

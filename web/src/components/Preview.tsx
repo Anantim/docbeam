@@ -77,7 +77,9 @@ export function Preview({ name, contentType, sizeBytes, blob, meta, note, onClos
         <div className="preview-head">
           <span className="typetile big">{typeLabel(contentType)}</span>
           <div className="grow">
-            <div className="pv-name">{name}</div>
+            <div className="pv-name" title={name}>
+              {name}
+            </div>
             <div className="pv-meta">{meta}</div>
           </div>
           {sheets.length > 1 && (
@@ -89,7 +91,7 @@ export function Preview({ name, contentType, sizeBytes, blob, meta, note, onClos
               ))}
             </select>
           )}
-          <button className="icon" type="button" aria-label="Close preview" onClick={onClose}>
+          <button className="icon" type="button" aria-label="Close preview" title="Close preview" onClick={onClose}>
             ✕
           </button>
         </div>

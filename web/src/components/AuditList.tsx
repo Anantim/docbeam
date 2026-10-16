@@ -34,7 +34,7 @@ export function AuditRow({ event, onOpenJob }: RowProps) {
         <div className="adetail">{line.detail}</div>
       </div>
       {event.jobId && onOpenJob && (
-        <button className="link mono" type="button" onClick={() => onOpenJob(event.jobId as string)} title="Open this distribution">
+        <button className="link mono" type="button" onClick={() => onOpenJob(event.jobId as string)} title={`Open distribution ${event.jobId}`}>
           {shortId(event.jobId)}
         </button>
       )}

@@ -560,3 +560,21 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** D-M0-6 (budget: WS Handlers 3).
 - **What:** The `ws` Lambda has reserved concurrency 3, the number the 79-connection budget counts (`packages/shared/src/db.test.ts` is unchanged and passes). API Gateway invokes it for each connect, subscribe and disconnect. If a burst needs more than 3 at once, the extra events are throttled and a browser sees a failed connect or no `subscribed` answer; it reconnects with a back-off, or fetches without the live connection after 5 seconds. With RDS Proxy on (prod, M5), this number can rise.
 - **Why:** The dev budget is a hard limit (D-M0-6), and every part of the page has a path that works without the live connection.
+
+## D-M3-9. The Sweeper's daily run deletes expired connection rows
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 2.5 (the Sweeper's daily run deletes old unsubmitted files only).
+- **What:** The daily `cleanup` also runs `DELETE FROM ws_connections WHERE expires_at < now()`. A browser that vanished without a `$disconnect` (a closed laptop, a lost network) would otherwise leave its row for ever. The pushes already skip such rows, so this only keeps the table small. A live browser reconnects with a new token before its old one runs out, so it never loses a row it needs. The result of a run is `{files, connections}`.
+- **Why:** The design says a row is deleted on `$disconnect` and on a `410` from a push, which a silent disappearance never triggers.
+
+## D-M3-10. Tooltip rules for every screen
+- **Date:** 2026-10-16
+- **Changes:** The mockup and TDD Step 3.4 (no tooltip rules). Applied to the M2 screens as well as the M3 ones.
+- **What:**
+  1. Every icon-only button (a cross, an eye, an arrow) has a `title` and an `aria-label` with the same text, and the text names what it acts on ("Remove a.pdf", "Retry upload of a.pdf", "Sign out", "Close preview", "Dismiss all"). A checkbox drawn as a button needs the `aria-label`; its title may say why it is off instead.
+  2. Text cut short with an ellipsis (file names, destination paths, the short job id, the chips' own path) shows the full text in a `title`.
+  3. A disabled control says why in its title: Send ("Waiting for 2 files to be verified", "Add a file first", "1 file has no destination yet. Tick a folder", or the batch limit), Clear ("Nothing to clear"), a folder tick ("Add a file first"), Cancel ("Nothing is waiting to be delivered", "This distribution was already cancelled"), Retry ("The retry window closed: it lasts 24 hours after the distribution finished, and its files must be under 2 days old", "A cancelled distribution cannot be retried", "No failed delivery can be retried…"). The sender therefore now sees Cancel always, and Retry whenever something failed, each off with its reason (the mockup hid them).
+  4. Status chips and failure codes carry a one-line plain-English meaning, all from one map, `web/src/explain.ts` (for example RETRIES_EXHAUSTED: "Tried 5 times over about 17 minutes; the platform did not accept it."). It covers the 8 failure codes, 4 delivery states, 5 distribution states and 9 upload states, and a test fails if a code is added without a line.
+  5. Text that is already fully visible and self-explanatory (a button labelled "Load more events", the tabs, the filter pills, the counts) gets no tooltip.
+  6. `web/src/components/IconButtons.test.tsx` renders the shell, the Documents table in every file state, Review, the Not added list, the Destinations tree and the preview dialog, and fails for an icon-only button with no aria-label or a different title.
+- **Why:** An icon alone does not say what it does or on what; a disabled button that does not say why looks broken.

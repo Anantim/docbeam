@@ -90,8 +90,13 @@ describe('TaskTable', () => {
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:05.000Z'));
-    await screen.findByText('RETRIES_EXHAUSTED');
+    const code = await screen.findByText('RETRIES_EXHAUSTED');
     expect(screen.getByText(/the platform did not answer/)).toBeTruthy();
+    // The code and the status chip each carry a one-line meaning (D-M3-10).
+    expect(code.getAttribute('title')).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
+    expect(screen.getByText('Failed').closest('.tchip')?.getAttribute('title')).toBe('This delivery ended with a failure. The reason is shown.');
+    // Cut-short text shows in full.
+    expect(screen.getByText(name(2)).getAttribute('title')).toBe(name(2));
     expect(api.tasks).toHaveBeenCalledTimes(1); // no fetch for a push
   });
 

@@ -1,3 +1,4 @@
+import { JOB_STATUS_MEANING } from '../explain.js';
 import type { JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, plural, shortId } from '../tracking/format.js';
 
@@ -53,9 +54,11 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen }: Pro
             onClick={() => onOpen(job.jobId)}
           >
             <div className="jcard-top">
-              <span className="mono jid">{shortId(job.jobId)}</span>
+              <span className="mono jid" title={job.jobId}>
+                {shortId(job.jobId)}
+              </span>
               <span className="grow" />
-              <span className="jchip" style={{ background: chip.bg, color: chip.fg }}>
+              <span className="jchip" style={{ background: chip.bg, color: chip.fg }} title={JOB_STATUS_MEANING[job.status]}>
                 {chip.label}
               </span>
             </div>

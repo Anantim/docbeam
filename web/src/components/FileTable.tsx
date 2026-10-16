@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { isUsable, type Mapping } from '../distribute/mapping.js';
+import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { DestinationChips } from './DestinationChips.js';
 import { formatSize, typeLabel } from '../distribute/files.js';
 import type { PageFile } from '../upload/manager.js';
@@ -86,6 +87,7 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
             role="checkbox"
             aria-checked={someOn ? 'mixed' : allOn}
             aria-label="Select all files"
+            title="Select all files"
             onClick={onToggleAll}
           >
             <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? '✓' : someOn ? '–' : ''}</span>
@@ -124,20 +126,27 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
           return (
             <div className={`frow ${on ? 'sel' : ''}`} role="row" key={f.id} style={{ gridTemplateColumns: grid }}>
               {infected ? (
-                <span className="ck locked" role="img" aria-label={`${f.name} was refused for malware and cannot be selected or sent`} title="Refused for malware: cannot be selected">
+                <span
+                  className="ck locked"
+                  role="img"
+                  aria-label={`${f.name} was refused for malware and cannot be selected or sent`}
+                  title={`${f.name} was refused for malware and cannot be selected or sent`}
+                >
                   ✕
                 </span>
               ) : (
-                <button className="ck" type="button" role="checkbox" aria-checked={on} aria-label={`Select ${f.name}`} onClick={() => onToggleSelected(f.id)}>
+                <button className="ck" type="button" role="checkbox" aria-checked={on} aria-label={`Select ${f.name}`} title={`Select ${f.name}`} onClick={() => onToggleSelected(f.id)}>
                   <span className="box">{on ? '✓' : ''}</span>
                 </button>
               )}
               <div className="fname">
                 <span className="typetile">{typeLabel(f.contentType)}</span>
                 {infected ? (
-                  <span className="struck">{f.name}</span>
+                  <span className="struck" title={f.name}>
+                    {f.name}
+                  </span>
                 ) : (
-                  <button className="link plain" type="button" title="Map only this file" onClick={() => onOnly(f.id)}>
+                  <button className="link plain" type="button" title={`${f.name}. Click to map only this file.`} onClick={() => onOnly(f.id)}>
                     {f.name}
                   </button>
                 )}
@@ -157,7 +166,7 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                     <div style={{ width: `${Math.round(f.progress * 100)}%` }} />
                   </div>
                 )}
-                <span className={`status ${view.tone}`}>
+                <span className={`status ${view.tone}`} title={UPLOAD_STATUS_MEANING[f.status]}>
                   <span className="sdot" />
                   {view.text}
                 </span>
@@ -166,16 +175,16 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
               <div className="right size">{formatSize(f.sizeBytes)}</div>
               <div className="actions">
                 {!infected && (
-                  <button className="icon" type="button" aria-label={`Preview ${f.name}`} title="Preview" onClick={() => onPreview(f.id)}>
+                  <button className="icon" type="button" aria-label={`Preview ${f.name}`} title={`Preview ${f.name}`} onClick={() => onPreview(f.id)}>
                     👁
                   </button>
                 )}
                 {canRetry && (
-                  <button className="icon retry" type="button" aria-label={`Retry ${f.name}`} title="Retry upload" onClick={() => onRetry(f.id)}>
+                  <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} title={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
                     ↻
                   </button>
                 )}
-                <button className="icon" type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => onRemove(f.id)}>
+                <button className="icon" type="button" aria-label={`Remove ${f.name}`} title={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
                   ✕
                 </button>
               </div>

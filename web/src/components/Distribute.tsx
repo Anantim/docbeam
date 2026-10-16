@@ -256,6 +256,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         checks={state.checks}
         deliveries={deliveries}
         ready={state.ready}
+        reason={state.reason}
         sending={sending}
         error={sendError}
         canClear={files.length > 0}

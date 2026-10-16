@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
 import type { LiveClient } from '../live/socket.js';
 import { trackingApi, type Counts, type JobDetail, type TaskStatus } from '../tracking/api.js';
+import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { useAudit } from '../tracking/useAudit.js';
@@ -103,8 +104,10 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
         <div className="jhead-top">
           <div className="grow">
             <div className="jtitle">
-              <h2 className="mono">{shortId(jobId)}</h2>
-              <span className="jchip big" style={{ background: chip.bg, color: chip.fg }} role="status">
+              <h2 className="mono" title={jobId}>
+                {shortId(jobId)}
+              </h2>
+              <span className="jchip big" style={{ background: chip.bg, color: chip.fg }} role="status" title={JOB_STATUS_MEANING[status]}>
                 {chip.label}
               </span>
               <button className="link" type="button" onClick={copyLink}>
@@ -126,13 +129,26 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
               <DestinationChips paths={detail.destinations} visible={3} />
             </div>
           </div>
-          {canCancel && (
-            <button className="btn2" type="button" onClick={() => setConfirmCancel(true)}>
+          {/* The sender always sees the buttons; one that is off says why in its title (D-M3-10). */}
+          {detail.isSender && (
+            <button
+              className="btn2"
+              type="button"
+              disabled={!canCancel}
+              title={canCancel ? undefined : cancelReason(detail, c)}
+              onClick={() => setConfirmCancel(true)}
+            >
               Cancel distribution
             </button>
           )}
-          {canRetry && (
-            <button className="btn" type="button" disabled={busy} onClick={() => void act('retry')}>
+          {detail.isSender && (canRetry || c.failed > 0) && (
+            <button
+              className="btn"
+              type="button"
+              disabled={!canRetry || busy}
+              title={canRetry ? undefined : retryReason(detail)}
+              onClick={() => void act('retry')}
+            >
               Retry failed deliveries
             </button>
           )}
@@ -237,6 +253,27 @@ export function JobDetailView({ jobId, live, notify, onChanged }: Props) {
       )}
     </>
   );
+}
+
+/** Why Cancel is off, for the button's title. */
+function cancelReason(detail: JobDetail, c: Counts): string {
+  if (detail.cancelledAt !== null) return 'This distribution was already cancelled';
+  if (c.pending === 0) return 'Nothing is waiting to be delivered';
+  return 'Cancel is not available right now';
+}
+
+/** Why Retry is off, for the button's title. */
+function retryReason(detail: JobDetail): string {
+  switch (detail.retry?.reason) {
+    case 'JOB_CANCELLED':
+      return 'A cancelled distribution cannot be retried';
+    case 'RETRY_WINDOW_CLOSED':
+      return 'The retry window closed: it lasts 24 hours after the distribution finished, and its files must be under 2 days old';
+    case 'NOTHING_TO_RETRY':
+      return 'No failed delivery can be retried. Only RETRIES_EXHAUSTED and FANOUT_FAILED can';
+    default:
+      return 'Retry is not available right now';
+  }
 }
 
 function retryNoteFor(detail: JobDetail): string {

@@ -3,6 +3,7 @@ import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskRow, type TaskStatus } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
+import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
@@ -169,7 +170,7 @@ function TaskCells({ task }: { task: TaskRow }) {
         {task.destinationPath}
       </div>
       <div role="cell">
-        <span className="tchip" style={{ background: look.bg, color: look.fg }}>
+        <span className="tchip" style={{ background: look.bg, color: look.fg }} title={TASK_STATUS_MEANING[task.status]}>
           <span className="tdot" style={{ background: look.dot }} />
           {look.label}
         </span>
@@ -185,7 +186,9 @@ function TaskCells({ task }: { task: TaskRow }) {
       <div role="cell" className="tdetail">
         {task.status === 'failed' && (
           <>
-            <div className="code">{task.failureCode}</div>
+            <div className="code" title={failureMeaning(task.failureCode)}>
+              {task.failureCode}
+            </div>
             <div className="reason" title={task.failureReason ?? undefined}>
               {task.failureReason}
             </div>
