@@ -28,18 +28,28 @@ export const startWorkers = (): void => compose('start', 'workers');
 export const stopLive = (): void => compose('stop', 'ws-local');
 export const startLive = (): void => compose('start', 'ws-local');
 
-/** Runs a test body with the workers stopped, and always starts them again. */
-export async function withWorkersStopped<T>(body: (start: () => void) => Promise<T>): Promise<T> {
-  stopWorkers();
-  let started = false;
+/**
+ * Runs a test body that holds deliveries, and always starts the workers again. The workers also scan uploads
+ * (the Upload Events queue), so they must run while files are added and stop only just before Send:
+ * the body calls `hold()` for that (`sendFiles` does it) and `start()` to let deliveries go.
+ */
+export async function withWorkersStopped<T>(body: (control: { hold: () => Promise<void>; start: () => void }) => Promise<T>): Promise<T> {
+  let state: 'running' | 'held' = 'running';
+  const hold = async (): Promise<void> => {
+    stopWorkers();
+    state = 'held';
+    // A stopped worker's last long-poll (10 s) can still be open in LocalStack, which would hand it the next
+    // message and leave that message invisible for the queue's whole visibility timeout. Wait it out.
+    await new Promise((resolve) => setTimeout(resolve, 11_000));
+  };
   const start = (): void => {
-    if (!started) {
+    if (state === 'held') {
       startWorkers();
-      started = true;
+      state = 'running';
     }
   };
   try {
-    return await body(start);
+    return await body({ hold, start });
   } finally {
     start();
   }
@@ -91,10 +101,11 @@ export async function send(page: Page): Promise<string> {
 export const jobIdOf = (page: Page): string => page.url().split('/status/')[1] as string;
 
 /** Distribute: add `files` new PDFs and tick the folders, then send. */
-export async function sendFiles(page: Page, files: number, folders: string[], prefix = 'e2e'): Promise<{ jobId: string; names: string[] }> {
+export async function sendFiles(page: Page, files: number, folders: string[], beforeSend?: () => Promise<void>): Promise<{ jobId: string; names: string[] }> {
   await page.getByRole('button', { name: 'Distribute' }).click();
-  const names = await addPdfs(page, files, prefix);
+  const names = await addPdfs(page, files);
   for (const folder of folders) await tick(page, folder);
+  await beforeSend?.(); // for example: hold the deliveries
   const jobId = await send(page);
   return { jobId, names };
 }

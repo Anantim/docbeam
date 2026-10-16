@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Empties the two dev data buckets, all versions and delete markers, before `terraform destroy` (D-M2-23).
 #
-#   scripts/empty-dev-buckets.sh dev
+#   scripts/empty-dev-buckets.sh dev [--dry-run]
 #
 # The AWS provider's own emptying fails on buckets with many versions ("token too long"), so this does it
 # with the AWS CLI, 1,000 objects at a time. The bucket names come from the Terraform outputs of infra/envs/dev.
+#
+# --dry-run lists each bucket and how many versions and delete markers it would delete, and deletes nothing.
+# Run it first and read the names and numbers; then run the script without the flag.
 #
 # Safety:
 #   - only `dev` is accepted; `prod` is refused;
@@ -13,7 +16,17 @@
 # Safe to run twice: an empty or missing bucket is a notice, not an error.
 set -euo pipefail
 
-ENV_NAME="${1:?usage: scripts/empty-dev-buckets.sh dev}"
+ENV_NAME="${1:?usage: scripts/empty-dev-buckets.sh dev [--dry-run]}"
+DRY_RUN=false
+for arg in "${@:2}"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=true ;;
+    *)
+      echo "Unknown argument '${arg}'. usage: scripts/empty-dev-buckets.sh dev [--dry-run]" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if [ "$ENV_NAME" = "prod" ]; then
   echo "Refusing: prod buckets are never emptied by this script." >&2
@@ -52,10 +65,24 @@ for output in object_store_bucket platform_files_bucket; do
   BUCKETS+=("$name")
 done
 
+count_bucket() {
+  local bucket="$1" pages versions markers
+  # One "versions markers" line per page of results; the CLI pages through the whole bucket.
+  pages="$(aws s3api list-object-versions --bucket "$bucket" --region "$REGION" \
+    --query '[length(Versions || `[]`), length(DeleteMarkers || `[]`)]' --output text)"
+  versions="$(echo "$pages" | awk '{ v += $1 } END { print v + 0 }')"
+  markers="$(echo "$pages" | awk '{ m += $2 } END { print m + 0 }')"
+  echo "${bucket}: would delete ${versions} versions and ${markers} delete markers ($((versions + markers)) in total)."
+}
+
 empty_bucket() {
   local bucket="$1" total=0 batch="$TMP/batch.json"
   if ! aws s3api head-bucket --bucket "$bucket" --region "$REGION" >/dev/null 2>&1; then
     echo "${bucket}: not found, nothing to do."
+    return 0
+  fi
+  if [ "$DRY_RUN" = true ]; then
+    count_bucket "$bucket"
     return 0
   fi
   while true; do
@@ -85,4 +112,8 @@ for bucket in "${BUCKETS[@]}"; do
   empty_bucket "$bucket"
 done
 
-echo "Done. Now run: terraform -chdir=infra/envs/${ENV_NAME} destroy (README, Tear down)."
+if [ "$DRY_RUN" = true ]; then
+  echo "Dry run: nothing was deleted. Run it again without --dry-run to empty these buckets."
+else
+  echo "Done. Now run: terraform -chdir=infra/envs/${ENV_NAME} destroy (README, Tear down)."
+fi

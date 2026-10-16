@@ -135,7 +135,8 @@ Never from a session (D-G3). After M5 and the move to the Paid plan, from `main`
 ## 5. Tear down
 
 ```bash
-scripts/empty-dev-buckets.sh dev      # first: destroy cannot empty large versioned buckets (D-M2-23)
+scripts/empty-dev-buckets.sh dev --dry-run   # read the names and counts first; deletes nothing
+scripts/empty-dev-buckets.sh dev      # then: destroy cannot empty large versioned buckets (D-M2-23)
 terraform -chdir=infra/envs/dev destroy -var image_tag=$IMAGE_TAG
 ```
 

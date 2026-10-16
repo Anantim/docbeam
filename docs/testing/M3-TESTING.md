@@ -161,9 +161,10 @@ Never from a session (D-G3). After M5 and the move to the Paid plan, from `main`
 ## 5. Tear down
 
 ```bash
-scripts/empty-dev-buckets.sh dev      # first: destroy cannot empty large versioned buckets (D-M2-23)
+scripts/empty-dev-buckets.sh dev --dry-run   # first: read the two names and the counts; nothing is deleted
+scripts/empty-dev-buckets.sh dev      # then: destroy cannot empty large versioned buckets (D-M2-23)
 export TF_VAR_alarm_email=$(gh variable get ALARM_EMAIL)
 terraform -chdir=infra/envs/dev destroy -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG
 ```
 
-Expect the script to end `Done.` and print each bucket as `empty`, and `Destroy complete!`. Then `terraform -chdir=infra/envs/dev state list` prints nothing, `aws s3 ls` shows only `docbeam-tfstate-346208529537`, `aws ecs list-clusters` is empty, and `aws apigatewayv2 get-apis --query 'Items[].Name'` shows no `docbeam-dev-ws`. Dev costs about 4.5 USD a day while it is up.
+Expect the dry run to name exactly `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with their counts and end `Dry run: nothing was deleted.` Check the names, then run it for real. Expect the script to end `Done.` and print each bucket as `empty`, and `Destroy complete!`. Then `terraform -chdir=infra/envs/dev state list` prints nothing, `aws s3 ls` shows only `docbeam-tfstate-346208529537`, `aws ecs list-clusters` is empty, and `aws apigatewayv2 get-apis --query 'Items[].Name'` shows no `docbeam-dev-ws`. Dev costs about 4.5 USD a day while it is up.

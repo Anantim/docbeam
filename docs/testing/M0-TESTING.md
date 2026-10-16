@@ -110,6 +110,7 @@ Not run in M0. After M5 passes and the account is on the Paid plan, run the `inf
 
 ```bash
 # Dev (AWS). Empty the two data buckets first (D-M2-23); destroy cannot do it once they hold many versions.
+scripts/empty-dev-buckets.sh dev --dry-run   # read the names and counts first; deletes nothing
 scripts/empty-dev-buckets.sh dev
 # Takes about 10 to 15 minutes (CloudFront and RDS).
 terraform -chdir=infra/envs/dev destroy

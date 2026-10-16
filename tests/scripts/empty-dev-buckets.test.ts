@@ -20,7 +20,14 @@ case "$*" in
     [ -f "$(state "$bucket")" ] || exit 254 ;;
   "s3api list-object-versions"*)
     bucket="$(echo "$*" | sed -E 's/.*--bucket ([^ ]+).*/\\1/')"
-    n="$(cat "$(state "$bucket")")"; [ "$n" -gt 1000 ] && n=1000
+    n="$(cat "$(state "$bucket")")"
+    if [[ "$*" == *"length("* ]]; then
+      # The counting query: one "versions markers" line per page of 1,000, then a last page that holds the markers.
+      while [ "$n" -gt 0 ]; do c=$n; [ "$c" -gt 1000 ] && c=1000; echo "$c 0"; n=$((n - c)); done
+      echo "0 \${STUB_MARKERS:-0}"
+      exit 0
+    fi
+    [ "$n" -gt 1000 ] && n=1000
     printf '{"Objects":['
     for ((i = 0; i < n; i++)); do [ $i -gt 0 ] && printf ','; printf '{"Key":"k%s","VersionId":"v%s"}' "$i" "$i"; done
     printf ']}\\n' ;;
@@ -52,6 +59,10 @@ interface Options {
   platformFiles?: string;
   /** Objects in each bucket; a bucket with no entry does not exist. */
   counts?: Record<string, number>;
+  /** Extra arguments after the environment, for example --dry-run. */
+  flags?: string[];
+  /** Delete markers the counting query reports for every bucket. */
+  markers?: number;
 }
 
 function run(options: Options = {}) {
@@ -68,7 +79,7 @@ function run(options: Options = {}) {
   writeFileSync(join(dir, 'batches'), '');
   const log = join(dir, 'calls.log');
   writeFileSync(log, '');
-  const result = spawnSync('bash', [SCRIPT, options.env ?? 'dev'], {
+  const result = spawnSync('bash', [SCRIPT, options.env ?? 'dev', ...(options.flags ?? [])], {
     encoding: 'utf8',
     env: {
       PATH: `${dir}:${process.env.PATH}`,
@@ -78,6 +89,7 @@ function run(options: Options = {}) {
       STUB_ACCOUNT: ACCOUNT,
       STUB_OBJECT_STORE: objectStore,
       STUB_PLATFORM_FILES: platformFiles,
+      STUB_MARKERS: String(options.markers ?? 0),
     },
   });
   const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
@@ -132,6 +144,51 @@ describe('scripts/empty-dev-buckets.sh (D-M2-23)', () => {
     expect(r.status, r.stderr).toBe(0);
     expect(r.batches).toEqual([]);
     expect(r.stdout).toContain('not found, nothing to do');
+  });
+
+  describe('--dry-run', () => {
+    const store = `docbeam-dev-object-store-${ACCOUNT}`;
+    const files = `docbeam-dev-platform-files-${ACCOUNT}`;
+
+    it('lists each bucket with its versions and delete markers, and deletes nothing', () => {
+      const r = run({ counts: { [store]: 2_500, [files]: 40 }, markers: 7, flags: ['--dry-run'] });
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout).toContain(`${store}: would delete 2500 versions and 7 delete markers (2507 in total).`);
+      expect(r.stdout).toContain(`${files}: would delete 40 versions and 7 delete markers (47 in total).`);
+      expect(r.stdout).toContain('Dry run: nothing was deleted.');
+      expect(r.calls.some((c) => c.startsWith('s3api delete-objects'))).toBe(false);
+      expect(r.left(store)).toBe(2_500);
+      expect(r.left(files)).toBe(40);
+    });
+
+    it('says so for a bucket that does not exist, and for an empty one', () => {
+      const r = run({ counts: { [store]: 0 }, flags: ['--dry-run'] });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain(`${store}: would delete 0 versions and 0 delete markers (0 in total).`);
+      expect(r.stdout).toContain(`${files}: not found, nothing to do.`);
+    });
+
+    it('keeps every refusal: prod, the state bucket, a wrong name', () => {
+      expect(run({ env: 'prod', flags: ['--dry-run'] }).status).toBe(1);
+      const state = `docbeam-tfstate-${ACCOUNT}`;
+      const bad = run({ objectStore: state, counts: { [state]: 5 }, flags: ['--dry-run'] });
+      expect(bad.status).toBe(1);
+      expect(bad.calls.some((c) => c.startsWith('s3api list-object-versions'))).toBe(false);
+    });
+
+    it('rejects a flag it does not know before touching AWS', () => {
+      const r = run({ flags: ['--dryrun'] });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('Unknown argument');
+      expect(r.calls).toEqual([]);
+    });
+
+    it('does not delete in a dry run and then deletes without the flag', () => {
+      const first = run({ counts: { [store]: 1_500, [files]: 0 }, flags: ['--dry-run'] });
+      expect(first.batches).toEqual([]);
+      const second = run({ counts: { [store]: 1_500, [files]: 0 } });
+      expect(second.batches).toEqual([1000, 500]);
+    });
   });
 
   it('never names the state bucket in any AWS call', () => {

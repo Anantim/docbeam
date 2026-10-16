@@ -36,8 +36,8 @@ const stillThere = async (page: Page): Promise<boolean> => (await page.evaluate(
 
 test('counts and rows change live, and a reload mid-run loses nothing', async ({ page }) => {
   await signIn(page, PRIYA);
-  await withWorkersStopped(async (start) => {
-    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS]); // 2 files x 2 folders = 4 deliveries
+  await withWorkersStopped(async ({ hold, start }) => {
+    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS], hold); // 2 files x 2 folders = 4 deliveries
     await expect(page.getByRole('heading', { name: jobId.slice(0, 8) })).toBeVisible();
     await expect(chip(page)).toHaveText('Pending');
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
@@ -75,8 +75,8 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
     await signIn(raj, RAJ);
     await signIn(sam, SAM);
 
-    await withWorkersStopped(async (start) => {
-      const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS]);
+    await withWorkersStopped(async ({ hold, start }) => {
+      const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS], hold);
 
       // Raj: Status, My teams, open it.
       await raj.getByRole('button', { name: 'Status' }).click();
@@ -127,8 +127,8 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
 
 test('Cancel: waiting deliveries stop, with a question first', async ({ page }) => {
   await signIn(page, PRIYA);
-  await withWorkersStopped(async (start) => {
-    const { jobId } = await sendFiles(page, 3, [CARDIO_IRB, CARDIO_PROTOCOL]); // 6 deliveries
+  await withWorkersStopped(async ({ hold, start }) => {
+    const { jobId } = await sendFiles(page, 3, [CARDIO_IRB, CARDIO_PROTOCOL], hold); // 6 deliveries
     expect(await readCounts(page)).toEqual([0, 0, 0, 6]);
 
     await page.getByRole('button', { name: 'Cancel distribution' }).click();
@@ -169,8 +169,8 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
 
 test('a failure shows its reason in the row, with what the code means', async ({ page }) => {
   await signIn(page, PRIYA);
-  await withWorkersStopped(async (start) => {
-    const { jobId, names } = await sendFiles(page, 2, [CARDIO_IRB]);
+  await withWorkersStopped(async ({ hold, start }) => {
+    const { jobId, names } = await sendFiles(page, 2, [CARDIO_IRB], hold);
     expect(await deleteStagedFiles(jobId)).toBe(2); // the files are gone before any delivery starts
     start();
 
@@ -230,8 +230,8 @@ test('Retry sends a failed delivery again', async ({ page }) => {
 
 test('the live connection drops mid-run and the page catches up without a reload', async ({ page }) => {
   await signIn(page, PRIYA);
-  await withWorkersStopped(async (start) => {
-    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB]);
+  await withWorkersStopped(async ({ hold, start }) => {
+    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB], hold);
     expect(await readCounts(page)).toEqual([0, 0, 0, 2]);
     await noReload(page);
 
