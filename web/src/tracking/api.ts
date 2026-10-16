@@ -19,6 +19,8 @@ export interface JobDetail extends JobSummary {
   isSender: boolean;
   /** The server's clock when these counts were read. Pushes older than this are ignored. */
   asOf: string;
+  /** The folders the caller may see in this distribution, as full paths. */
+  destinations: string[];
   completedAt: string | null;
   cancelledAt: string | null;
   /** Sender only. */

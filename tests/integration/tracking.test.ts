@@ -106,6 +106,7 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
       counts: { pending: 1, in_progress: 1, completed: 2, failed: 1 },
       status: 'in_progress',
       fileCount: 5,
+      destinations: ['Cardio / Regulatory', 'Oncology / Imaging'],
       retry: { open: true, retryable: 1 },
       cancel: { open: true, waiting: 1 },
     });
@@ -125,6 +126,7 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     expect(detail.body).toMatchObject({ isSender: false, taskCount: 2, counts: { pending: 0, in_progress: 0, completed: 1, failed: 1 }, status: 'completed_with_errors' });
     expect(detail.body.retry).toBeUndefined();
     expect(detail.body.cancel).toBeUndefined();
+    expect(detail.body.destinations).toEqual(['Cardio / Regulatory']); // Oncology is hidden from Raj
 
     const list = await get(raj, '/jobs?scope=team');
     const entry = list.body.find((j: { jobId: string }) => j.jobId === job.jobId);

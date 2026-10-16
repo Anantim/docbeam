@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { describeDestination, isUsable, type Mapping } from '../distribute/mapping.js';
+import { isUsable, type Mapping } from '../distribute/mapping.js';
+import { DestinationChips } from './DestinationChips.js';
 import { formatSize, typeLabel } from '../distribute/files.js';
 import type { PageFile } from '../upload/manager.js';
 
@@ -116,7 +117,7 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
         {files.map((f) => {
           const view = statusView(f);
           const keys = isUsable(f) ? (mapping.files[f.id] ?? []) : [];
-          const names = keys.map((k) => ({ key: k, ...describeDestination(mapping.destinations[k]?.path ?? '') }));
+          const paths = keys.map((k) => mapping.destinations[k]?.path ?? '');
           const on = selected.has(f.id);
           const infected = f.status === 'infected';
           const canRetry = f.status === 'refused' || f.status === 'interrupted' || f.status === 'unchecked';
@@ -144,17 +145,10 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
               <div className="chips">
                 {infected ? (
                   <span className="dot-text bad">Will not be sent</span>
-                ) : names.length === 0 ? (
+                ) : paths.length === 0 ? (
                   <span className="dot-text warn">No destination yet</span>
                 ) : (
-                  <>
-                    {names.slice(0, 2).map((n) => (
-                      <span className="chip" key={n.key} title={mapping.destinations[n.key]?.path}>
-                        {n.name}
-                      </span>
-                    ))}
-                    {names.length > 2 && <span className="chip more">+{names.length - 2}</span>}
-                  </>
+                  <DestinationChips paths={paths} />
                 )}
               </div>
               <div>

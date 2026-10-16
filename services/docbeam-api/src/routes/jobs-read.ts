@@ -97,6 +97,12 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
        GROUP BY status`);
     for (const r of rows.rows) addCount(counts, r.status, r.n);
 
+    // The folders the caller may see in this distribution (all of them for the sender), for the header's chips.
+    const dests = await db.execute<{ destination_path: string }>(sql`
+      SELECT DISTINCT destination_path FROM tasks
+       WHERE job_id = ${jobId} AND (${isSender}::boolean OR team_id = ANY(${pgArray(teams ?? [], 'uuid')}))
+       ORDER BY destination_path`);
+
     const now = new Date();
     const view = {
       // The counts were read just now. The page ignores pushes older than this (TDD "WebSocket API").
@@ -107,6 +113,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
       completedAt: job.completedAt?.toISOString() ?? null,
       cancelledAt: job.cancelledAt?.toISOString() ?? null,
       isSender,
+      destinations: dests.rows.map((d) => d.destination_path),
       taskCount: totalOf(counts),
       counts,
       status: statusOf(counts, job.cancelledAt !== null),
