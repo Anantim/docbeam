@@ -478,3 +478,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** D-M1-3 and D-M1-4 (seed format and seed users).
 - **What:** `demo.json` gets a fourth user, "Anantim Patil" (`anantim.patil@example.com`), a member of Cardio, Oncology and Neuro. It uses the same seed password as the other users. `seed/generate.mjs` writes it, so every id stays the same. `dev-load.json` is unchanged. The first seed run of `demo.json` now reports `membersAdded 7` (was 4).
 - **Why:** One login that sees every destination makes the browser checks of M2 to M4 shorter. Priya, Raj and Sam keep their old teams, so the isolation checks still hold.
+
+## D-M2-22. Platform memory under many large deliveries
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 1.4 (the Document Platform runs on 0.25 vCPU and 0.5 GB), TDD Step 2.4 (Delivery streams the file to the platform), ADR-011 (Delivery cap of 50).
+- **What:**
+  - The platform's upload to the Platform File Store holds one 5 MB part at a time (`queueSize` 1, `partSize` 5 MB; `UPLOAD_BUFFER` in `documents.ts`).
+  - The platform task has 1 GB of memory (cpu stays 256) in dev and prod.
+  - Delivery's cap of 50 is unchanged.
+- **Why:** The first dev run with 14 deliveries of a 120 MB file at once killed three platform tasks in a row (exit 137, `OutOfMemoryError`), and the 14 tasks got `The platform answered 502` while the platform restarted. The SDK default held about 20 MB per upload, so 50 at once needed about 1 GB of buffers alone, on a task with 512 MB. The design bounded the number of deliveries but not the memory of each. Found by the dev check "forced platform deploy during a slow ingest" (M2-RESULTS 3). The agreed stress check is 50 concurrent large deliveries with peak MemoryUtilization under 80%.

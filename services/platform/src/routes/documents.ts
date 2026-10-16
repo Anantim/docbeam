@@ -12,6 +12,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256 = /^[0-9a-f]{64}$/i;
 /** The hard size limit of the design (1 GiB). */
 export const MAX_FILE_BYTES = LIMITS.maxFileBytes;
+/**
+ * How the Platform File Store upload buffers: one part of 5 MB (the smallest S3 allows) at a time, so one upload holds
+ * about 5 MB however big the file is. The SDK default (4 parts at once) held about 20 MB, and 14 large deliveries at
+ * once ran a 512 MB task out of memory on dev (D-M2-22).
+ */
+export const UPLOAD_BUFFER = { queueSize: 1, partSize: 5 * 1024 * 1024 } as const;
 
 interface Fields {
   taskId: string;
@@ -126,7 +132,11 @@ export function registerDocumentRoutes(app: FastifyInstance, db: Db, s3: S3Clien
 
       const documentId = randomUUID();
       const storageKey = `documents/${documentId}`;
-      await new Upload({ client: s3, params: { Bucket: bucket, Key: storageKey, Body: body, ContentType: fields.contentType } }).done();
+      await new Upload({
+        client: s3,
+        ...UPLOAD_BUFFER,
+        params: { Bucket: bucket, Key: storageKey, Body: body, ContentType: fields.contentType },
+      }).done();
 
       // The platform recomputes the whole SHA-256 itself (integrity chain).
       if (hash.digest('hex') !== fields.checksumSha256 || file.file.truncated) {
