@@ -7,6 +7,7 @@ import {
   lambdaPoolConfig,
   type Poster,
 } from '@docbeam/shared';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import pg from 'pg';
 import { createHandler, type WsDeps, type WsEvent } from './handler.js';
 
@@ -75,4 +76,4 @@ function runtimeFromEnv(): Promise<WsDeps> {
 }
 
 /** WS Handlers for $connect, subscribe and $disconnect (ADR-007). */
-export const handler = createHandler(runtimeFromEnv) as (event: WsEvent) => Promise<import('aws-lambda').APIGatewayProxyResultV2>;
+export const handler: (event: WsEvent) => Promise<APIGatewayProxyResultV2> = createHandler(runtimeFromEnv);

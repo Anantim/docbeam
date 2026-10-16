@@ -221,6 +221,7 @@ services:
     restart: unless-stopped
     command: ["node", "dist/ws-local-main.js"]
     environment:
+      <<: *aws-env
       WS_LOCAL_PORT: 3004
       # The WS Handlers run inside this container (ADR-007). They connect as the DocBeam app role, check the
       # browser's token against the Auth Service, and read a viewer's teams from the platform as `ws-handlers`.
