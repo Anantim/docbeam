@@ -170,7 +170,7 @@ All 9 steps of `M2-TESTING.md` section 3.1 passed, at https://d20vwpie25gfdb.clo
 
 Two changes followed from the run:
 
-- **Leave warning (D-M2-20):** it fired only while files were uploading, so a reload with everything `Verified` lost the prepared batch without a warning. It now fires whenever the page holds files that were not sent. Test: `Distribute.test.tsx` > "asks before the page is closed whenever it holds files that were not sent, and not when it is empty" (uploading, verified, refused, then empty). Step 8 in `M2-TESTING.md` now also reloads after `Verified`; the person has not repeated it yet.
+- **Leave warning (D-M2-20):** it fired only while files were uploading, so a reload with everything `Verified` lost the prepared batch without a warning. It now fires whenever the page holds files that were not sent. Test: `Distribute.test.tsx` > "asks before the page is closed whenever it holds files that were not sent, and not when it is empty" (uploading, verified, refused, then empty). Step 8 in `M2-TESTING.md` now also reloads after `Verified`. **YES (the person, 2026-10-16): with one `Verified`, unsent file on the dev page, pressing F5 shows the leave warning.**
 - **Favicon:** `web/public/favicon.svg` and `<link rel="icon">` in `web/index.html`. Redeployed to dev: `/favicon.svg` answers `200 image/svg+xml` and the page carries the link. **`/favicon.ico` still answers `403`** (there is no such file in the bucket; a browser that sees the `<link>` does not ask for it). A binary `.ico` cannot be written with the Write tool; see STATUS known issues.
 
 ### 3.2 The platform out of memory, and the stress check (F5)
@@ -268,5 +268,4 @@ Each line of the M2 prompt (`docs/agent/PROMPTS.md`, Session 3) and of TDD Steps
 | N9 | The daily Upload Events rebuild workflow has not run on AWS | It deploys only after the merge and `LAMBDA_DEPLOY_ENABLED=true`; the deploy path itself (`deploy-lambda.sh` with an image) was run by hand (check 18) |
 | N10 | The AWS provider moved to 6.69.0 by `terraform init -upgrade` | Recorded in STATUS (M2 task 8) |
 | N11 | Dev load tests (3 x 3, 1,400 tasks, 50 x 120 MB) used driver scripts, not a browser | A browser cannot be driven here. The browser path was run by the person (3.1) |
-| N12 | The leave warning change (step 8, reload after `Verified`) has not been re-run in a browser | Unit test passes; the person has not repeated step 8 since the change |
-| N13 | UI polish list (STATUS) | The person's decision: after M4 |
+| N12 | UI polish list (STATUS) | The person's decision: after M4 |

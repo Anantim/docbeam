@@ -10,7 +10,7 @@ Updated 2026-10-16, at the end of M2 (branch `m2`, pull request open).
 |---|---|---|---|
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
 | M1 | Flow 1: Browse destinations | 11 d | Merged (PR #3, #4) |
-| M2 | Flow 2: Upload and distribute | 13 d | Built, verified on dev. 13 accepted NOs (M2-RESULTS 4.3). Pull request open; the person merges while dev is up |
+| M2 | Flow 2: Upload and distribute | 13 d | Built, verified on dev. 12 accepted NOs (M2-RESULTS 4.3). Pull request open; the person merges while dev is up |
 | M3 | Flow 3: Track a job | 7 d | Not started |
 | M4 | Flow 4: Download a file | 2 d | Not started |
 | M5 | Hardening and end-to-end checks | 2 d | Not started |
