@@ -41,12 +41,14 @@ resource "aws_cloudfront_origin_access_control" "web" {
 resource "aws_cloudfront_function" "spa" {
   name    = "${var.name}-spa-rewrite"
   runtime = "cloudfront-js-2.0"
-  comment = "Serve index.html for page paths"
+  comment = "Serve index.html for page paths; /favicon.ico is the SVG icon"
   publish = true
   code    = <<-EOT
     function handler(event) {
       var request = event.request;
-      if (request.uri.indexOf('.') === -1) {
+      if (request.uri === '/favicon.ico') {
+        request.uri = '/favicon.svg';
+      } else if (request.uri.indexOf('.') === -1) {
         request.uri = '/index.html';
       }
       return request;

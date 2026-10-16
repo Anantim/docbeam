@@ -502,3 +502,15 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   2. **Alternative: a dev-only lifecycle rule** (a variable on the `s3` module, on in dev and off in prod) that expires noncurrent versions and delete markers after 1 day. It keeps buckets small between sessions but does not empty a bucket that was filled today, so it would not remove the need for a script before a same-day teardown.
   3. **Not recommended:** pinning an older AWS provider, which would fix the listing but trades one problem for another.
 - **Why this matters:** the bucket sizes grow with every test run, so each dev teardown will hit it again unless one of the above is built. Until then, teardown is: empty the two buckets with the CLI, then `terraform destroy`. Prod buckets must never be emptied this way; prod is not deployed in this project.
+
+## D-M3-1. `/favicon.ico` is served from the SVG by the CloudFront Function
+- **Date:** 2026-10-16
+- **Changes:** Nothing in the design. Closes M2 accepted NO N7 (`/favicon.ico` answered 403).
+- **What:** The CloudFront Function on the web behaviour (`spa`, in `infra/modules/cloudfront`) rewrites `/favicon.ico` to `/favicon.svg`. No `.ico` file is added to `web/public`.
+- **Why:** A binary `.ico` cannot be written with the Write tool, and the rewrite needs no new file. Browsers accept an SVG answer for `/favicon.ico`.
+
+## D-M3-2. One Popover for the "+N" chip in destination cells
+- **Date:** 2026-10-16
+- **Changes:** M2 Distribute screen (destinations cell), mockup. Asked for by the person after the M2 browser runs.
+- **What:** The tooltip that repeated the whole folder list is removed. A visible folder chip's title is its own full path. The "+N" chip is a button (`aria-label="Show N more folders"`) that opens a small `Popover` component with only the hidden folders, grouped by team with the team colour, scrolling after about 8 rows. Hover or click opens it; click keeps it open; Esc, a click outside or Tab away closes it. No library. The same component is used in the M3 job tables.
+- **Why:** A native `title` cannot be reached by keyboard or touch and hid information.
