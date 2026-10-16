@@ -35,7 +35,7 @@ export function AuthCard() {
         </div>
         <div>
           <h1>One upload. Every binder that needs it.</h1>
-          <p>Send trial documents to many team folders at once, and know exactly which deliveries succeeded and why any did not.</p>
+          <p>Send trial documents to every team that needs them, in one go.</p>
         </div>
         <div className="foot">Clinical trial document distribution</div>
       </div>
