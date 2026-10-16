@@ -1,6 +1,25 @@
 # DocBeam status
 
-Updated 2026-10-16, at the end of M2 (branch `m2`, pull request open).
+Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committed; stopped before the first AWS step, D-M2-14).
+
+## M3 progress (read this first)
+
+**Done and committed on `m3`:** every task of the plan except the AWS round and the close. Plan: `docs/PLAN.md` (M3 task list). Decisions: `docs/DECISIONS.md` D-M3-1 to D-M3-8. Local evidence: `docs/testing/M3-RESULTS.md`. Testing document: `docs/testing/M3-TESTING.md`.
+
+- Unit/web: 65 files, 473 tests. Integration: 17 files, 156 tests. Lint, typecheck, build, `terraform fmt/validate` for dev and prod are clean. Read-only dev plan: 275 to add.
+- DocBeam API: `GET /jobs`, `GET /jobs/:id`, `GET /jobs/:id/tasks`, `POST /jobs/:id/cancel`, `/retry`, `GET /audit`, with team visibility and the 60-second teams cache (`services/docbeam-api/src/routes/jobs-read.ts`, `jobs-actions.ts`, `audit.ts`, `job-access.ts`, `tracking.ts`).
+- WS Handlers (`workers/ws/src/handler.ts`), Terraform `infra/modules/websocket-api`, the `ws` Lambda (reserved concurrency 3), push permissions for Delivery, the DLQ Consumer and the DocBeam API, six new gateway routes (both envs).
+- Web: `web/src/live/` (client with catch-up), `web/src/tracking/`, `StatusPage`, `JobDetailView`, `TaskTable` (virtualized), `AuditTrailPage`, `Popover`/`DestinationChips` (the "+N" chip, D-M3-2), hash routing in `App.tsx`.
+- `scripts/empty-dev-buckets.sh` with its test; README and every Tear down section updated. `/favicon.ico` served from the SVG by the CloudFront Function (D-M3-1).
+
+**Left to do:**
+1. **The person's yes**, then the AWS round: `M3-TESTING.md` sections 2 and 3 (new dev bring-up; ~25 min apply; ~4.5 USD a day), record in `M3-RESULTS.md`. Then tear down with `scripts/empty-dev-buckets.sh dev` and `terraform destroy` (section 5). The script's JMESPath query has never run against real S3; its first real run is the teardown.
+2. The browser checks of `M3-TESTING.md` 1.3 (22 steps) and 3 (two browsers on dev), done by the person.
+3. The final YES/NO check (`M3-RESULTS.md` section 4), `docs/walkthrough/M3.md`, this file's final update, push `m3`, `gh pr create`.
+
+**Working-rule slip to note:** a few edits early in the M3 session were made with `cat >>`, `sed -i` and inline Python instead of the Edit/Write tools (AGENTS "Style"); every change is in git and was reviewed in the diff. The rest of the session used Edit/Write only.
+
+## Previous status (end of M2)
 
 **M2 is built and verified locally and on dev,** including the browser checks done by the person (19 local steps, 9 dev steps). A user can pick up to 100 files, upload them (single-part and multipart), have them scanned for malware, map them to up to 20 folders, send them and see the documents arrive in the platform. Stopping the platform mid-run and starting it again drains the backlog (1,400 tasks, all delivered once). **Merged (PR #5) on 2026-10-16; the deploy jobs ran green against dev, and dev AWS is now DESTROYED** (see "Set up so far"; the two data buckets needed emptying by hand first, D-M2-23). Plan: `docs/PLAN.md`. Decisions: `docs/DECISIONS.md` (D-M1-1 to D-M1-15, D-M2-1 to D-M2-22). Evidence: `docs/testing/M2-RESULTS.md` (YES/NO check in its section 4). Teaching text: `docs/walkthrough/M1.md`, `docs/walkthrough/M2.md`.
 
@@ -11,7 +30,7 @@ Updated 2026-10-16, at the end of M2 (branch `m2`, pull request open).
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
 | M1 | Flow 1: Browse destinations | 11 d | Merged (PR #3, #4) |
 | M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
-| M3 | Flow 3: Track a job | 7 d | Not started |
+| M3 | Flow 3: Track a job | 7 d | Built and tested locally on branch `m3`; AWS round, browser checks and the pull request still to do |
 | M4 | Flow 4: Download a file | 2 d | Not started |
 | M5 | Hardening and end-to-end checks | 2 d | Not started |
 
