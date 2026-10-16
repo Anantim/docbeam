@@ -221,4 +221,20 @@ describe('Sweeper', () => {
     const open = await s3.send(new ListMultipartUploadsCommand({ Bucket: BUCKET, Prefix: multipartKey }));
     expect(open.Uploads ?? []).toHaveLength(0);
   }, 60_000);
+
+  it('deletes connection rows past their token expiry and keeps the others (D-M3-9)', async () => {
+    const stale = `stale-${randomUUID()}`;
+    const live = `live-${randomUUID()}`;
+    await db.query(
+      `INSERT INTO ws_connections (connection_id, user_id, expires_at) VALUES
+         ($1, $3, now() - interval '1 minute'), ($2, $3, now() + interval '10 minutes')`,
+      [stale, live, OWNER],
+    );
+    const result = await cleanup({ db, sqs, s3, jobQueueUrl: '', bucket: BUCKET, log: { debug() {}, info() {}, warn() {}, error() {} } });
+    expect(result.connections).toBeGreaterThanOrEqual(1);
+    const rows = async (id: string) => (await db.query('SELECT 1 FROM ws_connections WHERE connection_id = $1', [id])).rowCount;
+    expect(await rows(stale)).toBe(0);
+    expect(await rows(live)).toBe(1);
+    await db.query('DELETE FROM ws_connections WHERE connection_id = $1', [live]);
+  });
 });
