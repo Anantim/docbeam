@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
 import type * as ApiModule from '../tracking/api.js';
 import type { TaskPage, TaskRow } from '../tracking/api.js';
-import { TaskTable } from './TaskTable.js';
+import { columnsFor, TaskTable } from './TaskTable.js';
 
 const api = vi.hoisted(() => ({ tasks: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
@@ -59,6 +59,26 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+describe('columnsFor: columns size to their content (D-M3-12)', () => {
+  const r = (destinationPath: string, status: TaskRow['status'] = 'completed', fileExpired = false) => ({ destinationPath, status, fileExpired });
+
+  it('gives the file name the spare room, and the destination what its longest path needs', () => {
+    const cols = columnsFor([r('Cardio / A'), r('Cardio / CARDIO-301 Regulatory / IRB approvals')]);
+    expect(cols).toBe('minmax(140px, 1fr) 338px 116px 104px 104px');
+  });
+
+  it('keeps the details column narrow until a failure reason or the expired note is loaded', () => {
+    expect(columnsFor([r('Cardio / A', 'completed'), r('Cardio / B', 'pending')])).toMatch(/ 104px$/);
+    expect(columnsFor([r('Cardio / A'), r('Cardio / B', 'failed')])).toMatch(/ 280px$/);
+    expect(columnsFor([r('Cardio / A', 'completed', true)])).toMatch(/ 280px$/);
+  });
+
+  it('caps the destination column and gives it a floor', () => {
+    expect(columnsFor([r('x'.repeat(200))])).toContain(' 400px ');
+    expect(columnsFor([])).toContain(' 96px ');
+  });
 });
 
 describe('TaskTable', () => {

@@ -110,6 +110,40 @@ export async function sendFiles(page: Page, files: number, folders: string[], be
   return { jobId, names };
 }
 
+/** `#rrggbb` as the browser reports a computed colour, for example `rgb(180, 35, 24)`. */
+export function rgb(hex: string): string {
+  const n = (i: number): number => parseInt(hex.slice(i, i + 2), 16);
+  return `rgb(${n(1)}, ${n(3)}, ${n(5)})`;
+}
+
+export interface ColumnReport {
+  /** How far the table scrolls sideways, in pixels. Zero or one means it does not. */
+  overflow: number;
+  /** Per column: the header, the width it has, and the width its widest content needs. */
+  columns: Array<{ header: string; width: number; need: number }>;
+}
+
+/** Measures a table's columns in the page: what each has, and what its content needs (even when it is cut short). */
+export async function columnReport(page: Page, head: string, rows: string): Promise<ColumnReport> {
+  return (await page.evaluate(`((head, rows) => {
+    const h = document.querySelector(head);
+    const body = [...document.querySelectorAll(rows)];
+    const scroller = h.closest('.table-scroll');
+    const columns = [...h.children].map((cell, i) => {
+      let need = 0;
+      for (const r of body) {
+        const c = r.children[i];
+        if (!c) continue;
+        const range = document.createRange();
+        range.selectNodeContents(c);
+        need = Math.max(need, range.getBoundingClientRect().width);
+      }
+      return { header: cell.textContent.trim(), width: Math.round(cell.getBoundingClientRect().width), need: Math.round(need) };
+    });
+    return { overflow: scroller.scrollWidth - scroller.clientWidth, columns };
+  })(${JSON.stringify(head)}, ${JSON.stringify(rows)})`)) as ColumnReport;
+}
+
 export const counts = (page: Page) => page.getByLabel('Counts');
 
 /** The four numbers of the counts panel: Delivered, Failed, In progress, Waiting. */

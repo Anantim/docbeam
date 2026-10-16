@@ -300,7 +300,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 
 /* deliveries table: only the rows in view are drawn */
 .ttable { min-width: 820px; }
-.trow { display: grid; grid-template-columns: var(--cols, minmax(140px, 1fr) 280px 116px 104px 128px); gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #f2f4f7; }
+.trow { display: grid; grid-template-columns: var(--cols, minmax(140px, 1fr) 280px 116px 104px 104px); gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #f2f4f7; }
 .trow.thead { padding-top: 9px; padding-bottom: 9px; background: #fafbfc; font-size: 12px; font-weight: 600; color: var(--muted); }
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: #fff; }

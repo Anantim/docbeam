@@ -224,8 +224,8 @@ const CHAR_PX = 7; // the average width of a character at 13 px, for sizing colu
 
 /**
  * The columns size to what is in them (D-M3-12). The file name takes the spare room. The destination takes as
- * much as its longest path needs (at most 400 px). The details column is narrow while it holds only the two
- * icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is loaded.
+ * much as its longest path needs (at most 400 px). The details column is narrow (104 px) while it holds only the
+ * two icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is loaded.
  * The status and attempts columns are fixed to their chips. Rows are drawn one by one, so the widths come from
  * the rows loaded so far, not from the rows in view.
  */
@@ -233,6 +233,6 @@ export function columnsFor(rows: readonly Pick<TaskRow, 'destinationPath' | 'sta
   const longest = rows.reduce((n, r) => Math.max(n, r.destinationPath.length), 0);
   const dest = Math.min(400, Math.max(96, longest * CHAR_PX + 16));
   const wordy = rows.some((r) => r.status === 'failed' || (r.status === 'completed' && r.fileExpired));
-  const details = wordy ? 280 : 128;
+  const details = wordy ? 280 : 104;
   return `minmax(140px, 1fr) ${dest}px 116px 104px ${details}px`;
 }
