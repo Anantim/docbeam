@@ -514,3 +514,49 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** M2 Distribute screen (destinations cell), mockup. Asked for by the person after the M2 browser runs.
 - **What:** The tooltip that repeated the whole folder list is removed. A visible folder chip's title is its own full path. The "+N" chip is a button (`aria-label="Show N more folders"`) that opens a small `Popover` component with only the hidden folders, grouped by team with the team colour, scrolling after about 8 rows. Hover or click opens it; click keeps it open; Esc, a click outside or Tab away closes it. No library. The same component is used in the M3 job tables.
 - **Why:** A native `title` cannot be reached by keyboard or touch and hid information.
+- **Where it is used:** the Documents table of the Distribute screen and the "Sent to" line in the header of a distribution (the job detail). A delivery row has one destination, so it needs no "+N".
+
+## D-M3-3. A retry also pushes a `job_update`
+- **Date:** 2026-10-16
+- **Changes:** TDD API contracts (`POST /jobs/:jobId/retry` names no push) and "WebSocket API" (a `job_update` is sent after a cancel).
+- **What:** After the retry commits, the DocBeam API sends one `job_update` to the job's open dashboards, with the counts each viewer may see, as it does after a cancel. The pages reload their deliveries. The sender asked for "retry and cancel with their pushes".
+- **Why:** A retry moves tasks from failed to pending. Another tab or a team viewer would otherwise keep showing them as failed until the next fetch.
+
+## D-M3-4. Subscribe is answered over the connection; the management address comes from the event
+- **Date:** 2026-10-16
+- **Changes:** TDD "WebSocket API" (`subscribe`: "allowed: sets job_id and team_ids; not allowed: rejects").
+- **What:**
+  - The WS Handler answers a `subscribe` with a message on the same connection: `{type: "subscribed", jobId}`, or `{type: "subscribe_error", jobId, code}` with `NOT_FOUND` (a missing job and a hidden one give the same answer), `VALIDATION_ERROR` or `UNAVAILABLE` (the platform could not be asked). A refused subscribe also clears the connection's earlier job.
+  - The page subscribes, waits for `subscribed`, and only then fetches (TDD Step 3.3). Without an answer the order could not be kept: the fetch could run before the row is updated. If no answer comes within 5 seconds the page fetches anyway, and a late answer makes it fetch once more.
+  - The handler finds its management address in the event (`https://<domain>/<stage>`), so the WS Lambda does not need the API's address in its own configuration (that would be a Terraform cycle). Locally `WS_MANAGEMENT_ENDPOINT` names ws-local itself. Its permission to post is `execute-api:ManageConnections` on every API of the account in the region, because naming this API would be the same cycle. Delivery, the DLQ Consumer and the DocBeam API get the exact address and the exact resource.
+  - `$connect` has no gateway authorizer: the handler checks the token in the query string against the keys, and answers 401. A service token is refused.
+- **Why:** The design says the browser subscribes before fetching but gives the handler no way to say when it has finished.
+
+## D-M3-5. Small additions to the read routes
+- **Date:** 2026-10-16
+- **Changes:** TDD API contracts (`GET /jobs/:jobId`, `GET /jobs/:jobId/tasks`, `GET /audit`).
+- **What:**
+  - Job detail adds `asOf` (the server's clock when the counts were read, so the page can ignore pushes older than its fetch without trusting the browser's clock), `destinations` (the folders the caller may see, for the header), `isSender`, and for the sender only `fileCount`, `retry` (`open`, `retryable`, `reason`) and `cancel` (`open`, `waiting`). The Retry and Cancel rules live on the server, so the page and the routes cannot disagree.
+  - Counts are `{pending, in_progress, completed, failed}` everywhere, as in the pushes.
+  - Tasks come as `{page, limit, total, tasks}`; each task adds `fileName`, `destinationPath`, `attemptCount` and `fileExpired` (the staged file is past 33 days) so the table needs no second call. They sort by file name, destination and id, so paging is stable. Page size 100.
+  - `GET /jobs` pages 20 by default, at most 100. `GET /audit` pages 50 by default, at most 200, and returns `{page, limit, hasMore, events}`. `action` takes one action or several separated by commas (the page's Deliveries filter is two actions).
+  - A job-wide event of someone else's distribution shows only `actorName`.
+- **Why:** The design lists the fields but not the envelope, the paging or the sort.
+
+## D-M3-6. Page position in the URL hash; Distribute stays mounted
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 3.4 (no routing named); D-M2-20 (leave warning).
+- **What:** The tab and the open distribution are in the URL hash (`#/status/<job id>`, `#/audit`). A reload mid-run opens the same distribution and catches up, and the link can be shared ("Copy link"; Open by ID takes the full id or a link, not the 8-character short id). The Distribute screen stays mounted (hidden) while Status or Audit shows, so a prepared batch is not lost by looking at a distribution. After Send the page opens the new distribution.
+- **Why:** "Refresh mid-run without losing anything" needs the page to know where it was.
+
+## D-M3-7. The task table is virtualized by hand
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 3.4 ("a virtualized table for up to 2,000 tasks").
+- **What:** A fixed 64 px row, a window of the rows in view plus six either side, and the 100-row page of any row that scrolls into view is loaded when needed. About 100 lines in `web/src/tracking/virtual.ts` and `TaskTable.tsx`, no library. Pushes change a loaded row in place (an older push is ignored); with a status filter on, the loaded pages are fetched again after the pushes go quiet, because a row may leave the list.
+- **Why:** One small, fully tested piece is cheaper than a new dependency.
+
+## D-M3-8. The WS Handlers' reserved concurrency is 3, and they answer 503 when throttled
+- **Date:** 2026-10-16
+- **Changes:** D-M0-6 (budget: WS Handlers 3).
+- **What:** The `ws` Lambda has reserved concurrency 3, the number the 79-connection budget counts (`packages/shared/src/db.test.ts` is unchanged and passes). API Gateway invokes it for each connect, subscribe and disconnect. If a burst needs more than 3 at once, the extra events are throttled and a browser sees a failed connect or no `subscribed` answer; it reconnects with a back-off, or fetches without the live connection after 5 seconds. With RDS Proxy on (prod, M5), this number can rise.
+- **Why:** The dev budget is a hard limit (D-M0-6), and every part of the page has a path that works without the live connection.
