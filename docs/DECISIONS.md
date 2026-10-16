@@ -578,3 +578,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   5. Text that is already fully visible and self-explanatory (a button labelled "Load more events", the tabs, the filter pills, the counts) gets no tooltip.
   6. `web/src/components/IconButtons.test.tsx` renders the shell, the Documents table in every file state, Review, the Not added list, the Destinations tree and the preview dialog, and fails for an icon-only button with no aria-label or a different title.
 - **Why:** An icon alone does not say what it does or on what; a disabled button that does not say why looks broken.
+
+## D-M3-11. Browser tests with Playwright, local only
+- **Date:** 2026-10-16
+- **Changes:** TDD "Testing strategy" (no browser layer; M1 to M3 browser checks were steps for the person).
+- **What:** `@playwright/test` 1.64.1 is a dev dependency, with Chromium downloaded into `~/.cache/ms-playwright` (approved by the person). The tests are in `tests/e2e/` and run with `npm run test:e2e` against the local Docker Compose stack and the Vite dev server (started by Playwright if it is not already running). They are **not** part of the CI workflows and not part of `npm test`; a CI job can be added later. Chromium needs system libraries that WSL does not have by default; the person installs them with one `sudo` command (the session never runs `sudo`). The tests stop and start the `workers` container and restart `ws-local` to hold a job in a known state; a `finally` always starts them again. Steps that only make sense on AWS stay as steps for the person in `M3-TESTING.md` section 3.
+- **Why:** The live behaviour (counts moving without a reload, a reload mid-run, a second person's view, Cancel and Retry, the popover) can only be seen in a real browser, and the tests make those checks repeatable.

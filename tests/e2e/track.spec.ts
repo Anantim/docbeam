@@ -1,0 +1,286 @@
+import { expect, test, type Page } from '@playwright/test';
+import {
+  CARDIO_IRB,
+  CARDIO_PROTOCOL,
+  chip,
+  deleteStagedFiles,
+  jobIdOf,
+  ONC_ETHICS,
+  PRIYA,
+  RAJ,
+  readCounts,
+  SAM,
+  sendFiles,
+  signIn,
+  sql,
+  startLive,
+  startWorkers,
+  stopLive,
+  withWorkersStopped,
+} from './helpers.js';
+
+// Flow 3, Track a job, in a real browser against the local stack (D-M3-11).
+//   Priya Shah: Cardio + Oncology.  Raj Mehta: Cardio only.  Sam Ito: Neuro only.
+// Deliveries are held by stopping the `workers` container, so each test starts from a known state.
+test.describe.configure({ mode: 'serial' });
+
+test.afterAll(() => {
+  // Never leave the stack stopped, whatever failed.
+  startWorkers();
+  startLive();
+});
+
+/** Sets a marker on the page. If the page is reloaded the marker is gone, so `stillThere` proves it was not. */
+const noReload = (page: Page) => page.evaluate('window.__kept = 1');
+const stillThere = async (page: Page): Promise<boolean> => (await page.evaluate('window.__kept === 1')) === true;
+
+test('counts and rows change live, and a reload mid-run loses nothing', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await withWorkersStopped(async (start) => {
+    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS]); // 2 files x 2 folders = 4 deliveries
+    await expect(page.getByRole('heading', { name: jobId.slice(0, 8) })).toBeVisible();
+    await expect(chip(page)).toHaveText('Pending');
+    expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
+    await expect(page.locator('.ttable .tchip', { hasText: 'Waiting' })).toHaveCount(4);
+
+    // The Status tab shows a badge for the running distribution (the list refreshes every 30 seconds).
+    // Refresh the browser mid-run: the same distribution opens, with the same counts and rows.
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`));
+    await expect(chip(page)).toHaveText('Pending');
+    expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
+    await expect(page.locator('.ttable .tchip', { hasText: 'Waiting' })).toHaveCount(4);
+
+    // Deliveries start. The page is not reloaded: the numbers move because pushes arrive.
+    await noReload(page);
+    start();
+    await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+    expect(await readCounts(page)).toEqual([4, 0, 0, 0]);
+    await expect(page.locator('.ttable .tchip', { hasText: 'Delivered' })).toHaveCount(4);
+    expect(await stillThere(page)).toBe(true);
+
+    // The chip explains itself.
+    await expect(chip(page)).toHaveAttribute('title', 'Every delivery arrived.');
+    await expect(page.locator('.ttable .tchip').first()).toHaveAttribute('title', 'Delivered to the folder in the platform.');
+  });
+});
+
+test('a team viewer sees only their team\'s rows, live; an outsider gets not found', async ({ browser, page }) => {
+  const rajContext = await browser.newContext();
+  const samContext = await browser.newContext();
+  const raj = await rajContext.newPage();
+  const sam = await samContext.newPage();
+  try {
+    await signIn(page, PRIYA);
+    await signIn(raj, RAJ);
+    await signIn(sam, SAM);
+
+    await withWorkersStopped(async (start) => {
+      const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS]);
+
+      // Raj: Status, My teams, open it.
+      await raj.getByRole('button', { name: 'Status' }).click();
+      await raj.getByRole('button', { name: 'My teams' }).click();
+      await raj.getByRole('button', { name: new RegExp(jobId.slice(0, 8)) }).click();
+      await expect(raj.getByText(/Sent by Priya Shah/)).toBeVisible();
+      await expect(raj.getByText(/You see 2 deliveries, the ones to Cardio\./)).toBeVisible();
+      await expect(raj.getByText(/Deliveries to other teams are hidden from you/)).toBeVisible();
+      await expect(raj.locator('.ttable .tchip')).toHaveCount(2);
+      await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
+      await expect(raj.locator('.ttable')).not.toContainText('Oncology');
+      await expect(raj.locator('.jhead')).not.toContainText('Oncology');
+      await expect(raj.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
+      await expect(raj.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
+      expect(await readCounts(raj)).toEqual([0, 0, 0, 2]);
+      expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
+
+      // Both pages move without a reload.
+      await noReload(raj);
+      start();
+      await expect(chip(raj)).toHaveText('Completed', { timeout: 90_000 });
+      await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+      expect(await readCounts(raj)).toEqual([2, 0, 0, 0]);
+      expect(await readCounts(page)).toEqual([4, 0, 0, 0]);
+      expect(await stillThere(raj)).toBe(true);
+
+      // Sam is in neither team: the same "not found" as for an id that does not exist.
+      await sam.evaluate(`window.location.hash = '#/status/${jobId}'`);
+      await expect(sam.getByText('Distribution not found')).toBeVisible();
+      await sam.evaluate("window.location.hash = '#/status/00000000-0000-4000-8000-000000000000'");
+      await expect(sam.getByText('Distribution not found')).toBeVisible();
+      await sam.getByRole('button', { name: 'My teams' }).click();
+      await expect(sam.getByRole('button', { name: new RegExp(jobId.slice(0, 8)) })).toHaveCount(0);
+
+      // Raj's Audit trail: Cardio deliveries, nothing about Oncology.
+      await raj.getByRole('button', { name: 'Audit trail' }).click();
+      const audit = raj.locator('.audit-page');
+      await expect(audit).toContainText('Delivered');
+      await expect(audit).toContainText('Distribution sent');
+      await expect(audit.locator('.arow', { hasText: 'Distribution sent' }).first()).toContainText('Distribution sent.');
+      await expect(audit).not.toContainText('Oncology');
+    });
+  } finally {
+    await rajContext.close();
+    await samContext.close();
+  }
+});
+
+test('Cancel: waiting deliveries stop, with a question first', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await withWorkersStopped(async (start) => {
+    const { jobId } = await sendFiles(page, 3, [CARDIO_IRB, CARDIO_PROTOCOL]); // 6 deliveries
+    expect(await readCounts(page)).toEqual([0, 0, 0, 6]);
+
+    await page.getByRole('button', { name: 'Cancel distribution' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Cancel this distribution?' });
+    await expect(dialog).toContainText('The 6 deliveries still waiting will stop');
+    await dialog.getByRole('button', { name: 'Keep it going' }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(await readCounts(page)).toEqual([0, 0, 0, 6]);
+
+    await page.getByRole('button', { name: 'Cancel distribution' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel distribution' }).click();
+    await expect(page.getByText(/6 deliveries cancelled\./)).toBeVisible();
+    await expect(chip(page)).toHaveText('Cancelled');
+    expect(await readCounts(page)).toEqual([0, 6, 0, 0]);
+    await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
+    await expect(page.locator('.ttable .code').first()).toHaveAttribute('title', /sender cancelled/);
+
+    // Both buttons are off, and say why.
+    const retry = page.getByRole('button', { name: 'Retry failed deliveries' });
+    await expect(retry).toBeDisabled();
+    await expect(retry).toHaveAttribute('title', 'A cancelled distribution cannot be retried');
+    const cancel = page.getByRole('button', { name: 'Cancel distribution' });
+    await expect(cancel).toBeDisabled();
+    await expect(cancel).toHaveAttribute('title', 'This distribution was already cancelled');
+
+    // The workers start: the queued messages stop at the claim and nothing is delivered.
+    start();
+    await page.waitForTimeout(6_000);
+    expect(await readCounts(page)).toEqual([0, 6, 0, 0]);
+    const rows = await sql<{ n: number }>("SELECT count(*)::int AS n FROM tasks WHERE job_id = $1 AND status = 'completed'", [jobId]);
+    expect(rows[0]?.n).toBe(0);
+
+    // The Audit tab has the cancel.
+    await page.getByRole('tab', { name: 'Audit' }).click();
+    await expect(page.locator('.audit-tab')).toContainText('Distribution cancelled');
+  });
+});
+
+test('a failure shows its reason in the row, with what the code means', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await withWorkersStopped(async (start) => {
+    const { jobId, names } = await sendFiles(page, 2, [CARDIO_IRB]);
+    expect(await deleteStagedFiles(jobId)).toBe(2); // the files are gone before any delivery starts
+    start();
+
+    await expect(chip(page)).toHaveText('Completed with errors', { timeout: 90_000 });
+    expect(await readCounts(page)).toEqual([0, 2, 0, 0]);
+    const codes = page.locator('.ttable .code', { hasText: 'FILE_NOT_UPLOADED' });
+    await expect(codes).toHaveCount(2);
+    await expect(codes.first()).toHaveAttribute('title', 'The file was not in storage when the delivery started.');
+    // The reason names the file and the destination.
+    await expect(page.locator('.ttable .reason').first()).toContainText(names[0] as string);
+    await expect(page.locator('.ttable .reason').first()).toContainText('IRB approvals');
+
+    // Filter by Failed, then All.
+    await page.getByRole('button', { name: /^Failed, 2 deliveries/ }).click();
+    await expect(page.locator('.ttable .tchip')).toHaveCount(2);
+    await page.getByRole('button', { name: /^Delivered, 0 deliveries/ }).click();
+    await expect(page.getByText('No deliveries with this status.')).toBeVisible();
+    await page.getByRole('button', { name: /^All, 2 deliveries/ }).click();
+    await expect(page.locator('.ttable .tchip')).toHaveCount(2);
+
+    // A permanent failure cannot be retried, and Retry says so.
+    const retry = page.getByRole('button', { name: 'Retry failed deliveries' });
+    await expect(retry).toBeDisabled();
+    await expect(retry).toHaveAttribute('title', /No failed delivery can be retried/);
+  });
+});
+
+test('Retry sends a failed delivery again', async ({ page }) => {
+  await signIn(page, PRIYA);
+  const { jobId } = await sendFiles(page, 1, [CARDIO_IRB]);
+  await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+
+  // Make the delivery look like one that ran out of retries (a state a short test cannot reach by waiting).
+  await sql(
+    `UPDATE tasks SET status = 'failed', failure_code = 'RETRIES_EXHAUSTED', attempt_count = 5,
+            failure_reason = 'x.pdf to Cardio: the platform did not answer', updated_at = now() WHERE job_id = $1`,
+    [jobId],
+  );
+  await page.reload();
+  await expect(chip(page)).toHaveText('Completed with errors');
+  await expect(page.getByText(/1 delivery failed for a reason a retry can fix/)).toBeVisible();
+  const code = page.locator('.ttable .code');
+  await expect(code).toHaveText('RETRIES_EXHAUSTED');
+  await expect(code).toHaveAttribute('title', 'Tried 5 times over about 17 minutes; the platform did not accept it.');
+
+  await noReload(page);
+  await page.getByRole('button', { name: 'Retry failed deliveries' }).click();
+  await expect(page.getByText(/1 delivery queued again\./)).toBeVisible();
+  await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+  expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
+  expect(await stillThere(page)).toBe(true);
+
+  await page.getByRole('tab', { name: 'Audit' }).click();
+  await expect(page.locator('.audit-tab')).toContainText('Retry requested');
+  expect(jobIdOf(page)).toBe(jobId);
+});
+
+test('the live connection drops mid-run and the page catches up without a reload', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await withWorkersStopped(async (start) => {
+    const { jobId } = await sendFiles(page, 2, [CARDIO_IRB]);
+    expect(await readCounts(page)).toEqual([0, 0, 0, 2]);
+    await noReload(page);
+
+    // The live connection goes away, then the deliveries run: their pushes cannot reach the page.
+    stopLive();
+    start();
+    await expect
+      .poll(async () => (await sql<{ n: number }>("SELECT count(*)::int AS n FROM tasks WHERE job_id = $1 AND status = 'completed'", [jobId]))[0]?.n, {
+        timeout: 90_000,
+      })
+      .toBe(2);
+    expect(await readCounts(page)).toEqual([0, 0, 0, 2]); // the page has not heard
+
+    // The connection returns. The page connects again, subscribes again, and fetches once: it is right.
+    startLive();
+    await expect(chip(page)).toHaveText('Completed', { timeout: 60_000 });
+    expect(await readCounts(page)).toEqual([2, 0, 0, 0]);
+    expect(await stillThere(page)).toBe(true);
+  });
+});
+
+test('the list shows my distributions with their counts', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Status' }).click();
+  const cards = page.locator('.jcard');
+  await expect(cards.first()).toBeVisible();
+  await expect(cards.first()).toContainText(/deliver/);
+  await expect(page.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
+  // A short id does not open anything; a full id or a link does.
+  await page.getByLabel('Open by ID').fill('3f1c2a9e');
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('full distribution id');
+  const firstTitle = (await cards.first().locator('.jid').getAttribute('title')) as string;
+  await page.getByLabel('Open by ID').fill(`http://localhost:5173/#/status/${firstTitle.toUpperCase()}`);
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`#/status/${firstTitle}$`));
+});
+
+test('the Audit trail page filters by kind of event', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Audit trail' }).click();
+  await expect(page.getByRole('heading', { name: 'Audit trail' })).toBeVisible();
+  await expect(page.locator('.arow').first()).toBeVisible();
+  await page.getByRole('group', { name: 'Event' }).getByRole('button', { name: 'Cancels' }).click();
+  await expect(page.locator('.arow').first()).toContainText('Distribution cancelled');
+  await expect(page.locator('.arow', { hasText: 'Distribution sent' })).toHaveCount(0);
+  await page.getByRole('group', { name: 'Event' }).getByRole('button', { name: 'Sent' }).click();
+  await expect(page.locator('.arow').first()).toContainText('Distribution sent');
+  // An event opens its distribution.
+  await page.locator('.arow').first().getByRole('button').click();
+  await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
+});
