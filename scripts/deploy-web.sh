@@ -18,8 +18,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF="terraform -chdir=${ROOT}/infra/envs/${ENV_NAME}"
 BUCKET="$($TF output -raw web_bucket)"
 DISTRIBUTION="$($TF output -raw cloudfront_distribution_id)"
+# The page connects to the WebSocket API directly, so its address is set at build time (D-G5).
+WS_URL="$($TF output -raw ws_url)"
 
-(cd "$ROOT" && npm run build -w @docbeam/web)
+(cd "$ROOT" && VITE_WS_URL="$WS_URL" npm run build -w @docbeam/web)
 
 DIST="${ROOT}/web/dist"
 # Hashed assets never change, so they can be cached for a year. Everything else is revalidated.
