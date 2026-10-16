@@ -133,13 +133,18 @@ The person says yes before each push, apply and task run. The README "Build dev"
 | 21 | `terraform -chdir=infra/envs/dev plan -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG` | `No changes.` |
 | 22 | After the person sees the Lambdas exist: `gh variable set LAMBDA_DEPLOY_ENABLED --body true` | The `workers` workflow now deploys on a merge |
 
+Notes from the first run (see M2-RESULTS section 2):
+- From an agent session `terraform apply` cannot ask for `yes` (no stdin). Add `-auto-approve` after the person has approved the command.
+- `push-image.sh` builds with `--provenance=false --sbom=false`. Without that BuildKit pushes an OCI index and Lambda refuses the Upload Events image (`The image manifest, config or layer media type … is not supported`). ECR tags are immutable, so a rejected image needs a new tag: the Upload Events tag can differ from the service tag (`-var upload_events_image_tag=<tag>`).
+- The platform task is 1 vCPU and 2 GB with a limit of 6 ingests at once (D-M2-22). After a platform code change push a new image tag, `apply`, then `scripts/deploy-service.sh dev platform $R/platform:<new tag>`; the service picks up the latest task definition.
+
 ## 3. Verify on dev
 
 `APP=$(terraform -chdir=infra/envs/dev output -raw app_url)`. Read the seed password into a variable from Secrets Manager (`docbeam-dev/seed/user-password`); never paste it into a file or the chat.
 
 | # | Check | Expect |
 |---|---|---|
-| 0 | **First, after the first upload on dev: the checksum comes back from real S3.** Single-part: `aws s3api list-objects-v2 --bucket docbeam-dev-object-store --prefix staging/ --query 'Contents[].Key'`, then `aws s3api head-object --bucket docbeam-dev-object-store --key <key> --checksum-mode ENABLED --query ChecksumSHA256`. Multipart (the 120 MB file): the same `head-object` | Single-part: `ChecksumSHA256` equals the base64 of the declared SHA-256 (`echo <hex> \| xxd -r -p \| base64`). Multipart: a composite value ending in `-8`. **If a single-part object returns no checksum, stop**: Delivery fails such a task with `CHECKSUM_MISMATCH` on AWS (D-M2-15) and the design must change |
+| 0 | **First, after the first upload on dev: the checksum comes back from real S3.** The Object Store policy lets only the four service roles read objects (D-M2-18), so the admin user gets `403` on `head-object`. Use Delivery, which makes the same `HeadObject` with `ChecksumMode ENABLED`: upload one small PDF and the 120 MB file through the dev API (one to a folder each), send them, then read the log: `aws logs tail /aws/lambda/docbeam-dev-delivery --since 10m` | `task delivered` for both. The Delivery Lambda has no `S3_CHECKSUM_OPTIONAL` on AWS, so it fails a task whose staged object has no matching SHA-256 (`CHECKSUM_MISMATCH`, D-M2-15). `task delivered` therefore proves S3 returned the SHA-256 for the POST object and the composite value for the 8-part one. **If a task fails with `CHECKSUM_MISMATCH`, stop and report**: the design would have to change |
 | 1 | Browser at `$APP`: repeat section 1.3 steps 1 to 13 | Same results. The 120 MB file uploads in 8 parts |
 | 2 | **A swapped upload body is refused** (LocalStack does not enforce this): run the commands below | The wrong bytes give `400` (BadDigest), the right bytes give `204`. This is the check the local suite cannot make |
 | 3 | EICAR through the page (step 5 of 1.3) | `Refused: malware found`. CloudWatch Logs `/aws/lambda/docbeam-dev-upload-events`: `file refused` with `reason MALWARE` |
@@ -149,9 +154,10 @@ The person says yes before each push, apply and task run. The README "Build dev"
 | 7 | SQS (Console, read only), queues `docbeam-dev-job`, `-task`, `-upload-events` and their `-dlq` queues | Main queues at 0 messages. Every DLQ at 0 |
 | 8 | CloudWatch, Alarms | Four alarms, state `OK`: `docbeam-dev-job-dlq-not-empty`, `…-task-dlq-not-empty`, `…-upload-events-dlq-not-empty`, `docbeam-dev-delivery-error-rate` |
 | 9 | EventBridge, Scheduler, schedules `docbeam-dev-sweeper-*` | Two schedules: every minute, and daily |
-| 10 | S3, `docbeam-dev-object-store`, Properties, Event notifications | One for `staging/` to the upload-events queue. Objects under `staging/` carry the tag `scan-status=clean` after a scan |
-| 11 | **Stop the platform mid-run.** With a 3 x 5 distribution just sent: `aws ecs update-service --cluster docbeam-dev-cluster --service docbeam-dev-platform --desired-count 0 --query 'service.desiredCount'`, wait 5 minutes, then `--desired-count 1` (ask first: this changes AWS) | Tasks go back to pending and are retried; after the platform is `1/1` and healthy, every task is `completed`. DLQs stay at 0 because the retries span about 17 minutes |
-| 12 | A rolling deploy during an upload: start the 120 MB file, then `scripts/deploy-service.sh dev platform $R/platform:$IMAGE_TAG --force` | The upload and its delivery finish. The old task drains for up to 120 seconds |
+| 10 | S3, `docbeam-dev-object-store-<account id>`, Properties, Event notifications | One for `staging/` to the upload-events queue. Objects under `staging/` carry the tag `scan-status=clean` after a scan |
+| 11 | **Stop the platform mid-run.** A 3 x 5 distribution (15 tasks) is delivered in a few seconds, before the stop takes effect, and so is 30 x 5. Use **100 small files to all 14 destinations (1,400 tasks)**: send, then at once `aws ecs update-service --cluster docbeam-dev-cluster --service docbeam-dev-platform --desired-count 0 --query 'service.desiredCount'`, wait 5 minutes, then `--desired-count 1` (ask first: this changes AWS). Count with `aws logs tail /aws/lambda/docbeam-dev-delivery --since 30m \| grep -c "task delivered"` | Some tasks are delivered before the stop; the rest go back to the queue (`temporary delivery error`) and are retried. After the platform is `1/1`, every task is delivered exactly once (1,400 distinct task ids). DLQs stay at 0 because the retries span about 17 minutes |
+| 11b | **Stress: 50 large deliveries at once** (the Delivery cap, D-M2-22): upload 5 files of 120 MB, send them to 10 destinations. Then `aws cloudwatch get-metric-statistics --namespace AWS/ECS --metric-name MemoryUtilization --dimensions Name=ClusterName,Value=docbeam-dev-cluster Name=ServiceName,Value=docbeam-dev-platform --start-time <start> --end-time <end> --period 60 --statistics Maximum` (same for `CPUUtilization`) | All 50 tasks `task delivered`, none `retries exhausted`, no platform task stopped with exit 137, peak `MemoryUtilization` under 80%. Some `The platform answered 503 PLATFORM_BUSY` retries are normal (the platform takes 6 ingests at once and turns a request away after 30 s of waiting) |
+| 12 | A rolling deploy during an ingest: upload one 120 MB file, start `scripts/deploy-service.sh dev platform $R/platform:$PLATFORM_TAG --force`, and send the file to 14 destinations about 30 seconds after `Updating` is printed | The deploy ends `Deployed …`. All 14 tasks are delivered and the Task DLQ stays at 0. The old task drains for up to 120 seconds |
 | 13 | Security group of the Delivery Lambda, outbound and the ALB group inbound | The ALB group allows the Delivery group only on ports 3001 and 3002 |
 | 14 | `scripts/deploy-lambda.sh dev fanout workers/fanout/dist/lambda` (second run) | Skips: the package hash is unchanged |
 | 15 | Send a distribution with the page's Network tab open | `POST /api/jobs` answers `201` in well under a second. (The 500 ms p99 is measured in M5, check 5.1) |
@@ -161,7 +167,7 @@ Commands for check 16:
 
 ```bash
 ORIGIN=$(terraform -chdir=infra/envs/dev output -raw app_url)      # https://<id>.cloudfront.net
-BUCKET=docbeam-dev-object-store
+BUCKET=docbeam-dev-object-store-$(aws sts get-caller-identity --query Account --output text)
 for M in POST PUT GET DELETE; do
   echo "== $M"
   curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
@@ -171,6 +177,24 @@ done
 curl -si -X OPTIONS "https://$BUCKET.s3.ap-southeast-2.amazonaws.com/" \
   -H 'Origin: https://evil.example' -H 'Access-Control-Request-Method: PUT' | grep -i '^HTTP\|access-control'
 ```
+
+### 3.1 Browser steps on dev (for the person)
+
+Open `$APP` (the `app_url` output, `https://<id>.cloudfront.net`) in a browser. Password: `aws secretsmanager get-secret-value --secret-id docbeam-dev/seed/user-password --query SecretString --output text` in your own terminal; do not paste it anywhere. Have these files ready: a small PDF, a small `.docx`, a PNG, a PDF of about 120 MB, and `eicar.pdf` (made as in section 1.3 step 5). Keep DevTools open on the **Console** and **Network** tabs.
+
+| # | Do this | Expect | Result |
+|---|---|---|---|
+| 1 | Sign in as `anantim.patil@example.com` | Header `Anantim Patil`, and `Cardio, Oncology, Neuro`. The tree shows all three teams | waiting |
+| 2 | Open **Distribute**. Add the small PDF, the `.docx`, the PNG and the 120 MB PDF | Each shows `Checking`, `Uploading` (the 120 MB one counts parts up to 8 of 8), `Checking for malware`, then `Ready`. No red line in the Console, and no CORS error | waiting |
+| 3 | Add `eicar.pdf` | `Refused: malware found`; Send stays off until you remove it. Remove it | waiting |
+| 4 | Tick **Cardio / IRB approvals**, **Oncology / Ethics committee** and **Neuro / Site approvals** for all ready files | Review lists each file with its three folders; the `This distribution` card counts files, destinations and deliveries | waiting |
+| 5 | Preview the `.docx` and the PDF | A dialog shows each; for the DOCX the `<iframe>` has `sandbox=""` | waiting |
+| 6 | Click **Send** | A toast `Distribution <8 characters> sent. N deliveries queued.`; the page clears. In the Network tab `POST /api/jobs` is `201` | waiting |
+| 7 | **Remove a big file mid-upload.** Add the 120 MB PDF again; when it says `Uploading` and some parts are done, click **Remove** (the cross) on it | The row goes. In the Network tab a `DELETE` to `…s3.ap-southeast-2.amazonaws.com/…?uploadId=…` answers `204`, and the preflight before it is `200`. **No CORS error in the Console** | waiting |
+| 8 | Add the 120 MB file again, and while it uploads reload the page | The browser asks before leaving (`Leave site?`). Cancel and let it finish | waiting |
+| 9 | Sign out and in again | The page is empty | waiting |
+
+Afterwards, in your terminal: `aws logs tail /aws/lambda/docbeam-dev-delivery --since 15m` shows 12 `task delivered` lines for step 6 (4 files x 3 folders).
 
 Commands for check 2:
 
