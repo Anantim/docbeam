@@ -99,6 +99,8 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
 
     const now = new Date();
     const view = {
+      // The counts were read just now. The page ignores pushes older than this (TDD "WebSocket API").
+      asOf: now.toISOString(),
       jobId: job.id,
       submittedBy: { userId: job.submittedByUserId, name: job.submittedByName },
       createdAt: job.createdAt.toISOString(),
