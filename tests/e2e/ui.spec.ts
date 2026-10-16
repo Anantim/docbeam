@@ -210,3 +210,43 @@ test('the tables size to their content at 1280 and 1920 px, with long text cut s
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   await check('.ttable .trow.thead', '.ttable .tscroll .trow', '.ttable .tfile', 'Deliveries');
 });
+
+// Words on each line of a text, from the position of every word. Runs in the browser.
+interface BrowserRange {
+  setStart(node: unknown, offset: number): void;
+  setEnd(node: unknown, offset: number): void;
+  getBoundingClientRect(): { top: number };
+}
+interface BrowserText {
+  data: string;
+}
+declare const document: { createRange(): BrowserRange };
+
+const wordsPerLine = (el: BrowserElement & { firstChild: BrowserText }): number[] => {
+  const text = el.firstChild;
+  const lines = new Map<number, number>();
+  for (const m of text.data.matchAll(/\S+/g)) {
+    const range = document.createRange();
+    range.setStart(text, m.index);
+    range.setEnd(text, m.index + m[0].length);
+    const top = Math.round(range.getBoundingClientRect().top);
+    lines.set(top, (lines.get(top) ?? 0) + 1);
+  }
+  return [...lines.entries()].sort((a, b) => a[0] - b[0]).map((l) => l[1]);
+};
+
+test('the sign-in heading and subtext wrap in balance: no line ends with a single word', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'One upload. Every binder that needs it.' })).toBeVisible();
+  await expect(page.getByText('Pick your files, tick the folders, and follow every delivery.')).toBeVisible();
+  for (const width of [375, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const selector of ['.auth-brand h1', '.auth-brand p']) {
+      await expect(page.locator(selector)).toHaveCSS('text-wrap-style', 'balance');
+      const lines = await page.locator(selector).evaluate(wordsPerLine as (el: BrowserElement) => number[]);
+      const where = `${selector} at ${width}: words per line ${JSON.stringify(lines)}`;
+      console.log(where);
+      if (lines.length > 1) expect(lines.at(-1), where).toBeGreaterThanOrEqual(2);
+    }
+  }
+});

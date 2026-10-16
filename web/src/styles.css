@@ -43,8 +43,8 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .auth { flex: 1; display: flex; flex-wrap: wrap; }
 .auth-brand { flex: 1 1 420px; background: var(--navy); color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; }
 .auth-brand .name { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; }
-.auth-brand h1 { font-size: 34px; line-height: 1.2; font-weight: 600; margin-bottom: 14px; }
-.auth-brand p { font-size: 16px; line-height: 1.6; color: #c2ccdd; max-width: 440px; }
+.auth-brand h1 { font-size: 34px; line-height: 1.2; font-weight: 600; margin-bottom: 14px; text-wrap: balance; }
+.auth-brand p { font-size: 16px; line-height: 1.6; color: #c2ccdd; max-width: 440px; text-wrap: balance; }
 .auth-brand .foot { font-size: 13px; color: #8f9db5; }
 .auth-form-wrap { flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: 48px 24px; background: #fff; }
 .auth-form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; }
