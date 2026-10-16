@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { pushTaskUpdate, pushTaskUpdates, type Poster, type PushDeps } from './push.js';
+import { pushJobUpdate, pushTaskUpdate, pushTaskUpdates, type Poster, type PushDeps } from './push.js';
 
 const update = {
   jobId: 'job-1',
@@ -100,5 +100,36 @@ describe('pushTaskUpdate', () => {
     const s = setup([{ connection_id: 'c1', user_id: 'sender', team_ids: [] }], undefined);
     await pushTaskUpdate(s.deps, update);
     expect(s.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('pushJobUpdate', () => {
+  it('sends each dashboard the counts it may see and no task', async () => {
+    const sent: Record<string, { type: string; counts: unknown; taskId?: string }> = {};
+    const post: Poster = async (id, body) => {
+      sent[id] = JSON.parse(body);
+      return true;
+    };
+    const s = setup(
+      [
+        { connection_id: 'c-sender', user_id: 'sender', team_ids: [] },
+        { connection_id: 'c-viewer', user_id: 'viewer', team_ids: ['team-b'] },
+      ],
+      post,
+    );
+    await pushJobUpdate(s.deps, 'job-1', new Date('2026-10-16T00:00:00Z'));
+    expect(sent['c-sender']).toMatchObject({ type: 'job_update', jobId: 'job-1', counts: { pending: 1, in_progress: 0, completed: 8, failed: 2 } });
+    expect(sent['c-viewer']?.counts).toEqual({ pending: 0, in_progress: 0, completed: 5, failed: 2 });
+    expect(sent['c-sender']?.taskId).toBeUndefined();
+  });
+
+  it('does nothing without a poster and deletes a connection that returns 410', async () => {
+    const none = setup([{ connection_id: 'c1', user_id: 'sender', team_ids: [] }], undefined);
+    await pushJobUpdate(none.deps, 'job-1', new Date());
+    expect(none.query).not.toHaveBeenCalled();
+
+    const gone = setup([{ connection_id: 'c1', user_id: 'sender', team_ids: [] }], async () => false);
+    await pushJobUpdate(gone.deps, 'job-1', new Date());
+    expect(gone.deleted).toEqual(['c1']);
   });
 });

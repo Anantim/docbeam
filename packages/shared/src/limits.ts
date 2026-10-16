@@ -27,6 +27,19 @@ export const LIMITS = {
   maxFileAgeMs: 24 * 60 * 60 * 1000,
   /** Uploads that run at the same time in the browser. */
   parallelUploads: 4,
+  /** Jobs per page of `GET /jobs`: the default and the most a caller may ask for. */
+  jobsPageDefault: 20,
+  jobsPageMax: 100,
+  /** Tasks per page of `GET /jobs/:jobId/tasks`. */
+  tasksPage: 100,
+  /** Audit events per page of `GET /audit`: the default and the most a caller may ask for. */
+  auditPageDefault: 50,
+  auditPageMax: 200,
+  /** The Object Store keeps a staged file for 33 days from upload (TDD "Retention"). */
+  stagedFileDays: 33,
+  /** Retry is allowed within 24 hours of the first finish, while all files are under 2 days old. */
+  retryWindowMs: 24 * 60 * 60 * 1000,
+  retryMaxFileAgeMs: 2 * 24 * 60 * 60 * 1000,
 } as const;
 
 /** Number of parts a multipart upload of this size has. */

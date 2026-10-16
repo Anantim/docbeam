@@ -68,6 +68,48 @@ export async function pushTaskUpdate(deps: PushDeps, update: TaskUpdate): Promis
 }
 
 /**
+ * One `job_update` to each open dashboard of the job, after a cancel (TDD "WebSocket API"). It carries the
+ * counts that viewer may see and no task, so the page reloads its tasks. The sender gets the whole job; a team
+ * viewer only their teams' deliveries. Problems are logged and never fail the caller.
+ */
+export async function pushJobUpdate(deps: PushDeps, jobId: string, updatedAt: Date): Promise<void> {
+  if (!deps.post) return;
+  try {
+    const { rows: connections } = await deps.db.query<Connection>(
+      `SELECT c.connection_id, c.user_id, c.team_ids::text[] AS team_ids
+         FROM ws_connections c
+        WHERE c.job_id = $1 AND c.expires_at > now()`,
+      [jobId],
+    );
+    if (connections.length === 0) return;
+    const sender = await deps.db.query<{ submitted_by_user_id: string }>('SELECT submitted_by_user_id FROM jobs WHERE id = $1', [jobId]);
+    const senderId = sender.rows[0]?.submitted_by_user_id;
+    const counts = await deps.db.query<CountRow>(
+      'SELECT team_id, status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY team_id, status',
+      [jobId],
+    );
+    for (const c of connections) {
+      const isSender = c.user_id === senderId;
+      const body = JSON.stringify({
+        type: 'job_update',
+        jobId,
+        updatedAt: updatedAt.toISOString(),
+        counts: isSender ? sum(counts.rows) : sum(counts.rows, new Set(c.team_ids)),
+      });
+      try {
+        if (!(await deps.post(c.connection_id, body))) {
+          await deps.db.query('DELETE FROM ws_connections WHERE connection_id = $1', [c.connection_id]);
+        }
+      } catch (error) {
+        deps.log.warn('push failed', { jobId, connectionId: c.connection_id, error: String(error) });
+      }
+    }
+  } catch (error) {
+    deps.log.warn('push skipped', { jobId, error: String(error) });
+  }
+}
+
+/**
  * Several updates of one job (for example every task a failed fan-out marked). The connections and the
  * counts are read once, so 2,000 updates cost three queries, not 6,000.
  */
