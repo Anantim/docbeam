@@ -7,6 +7,7 @@ import { ApiError, isAllowedType, LIMITS, matchesSignature, SIGNATURE_BYTES } fr
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db.js';
+import { IngestLimiter, RETRY_AFTER_SECONDS } from '../ingest-limiter.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256 = /^[0-9a-f]{64}$/i;
@@ -39,7 +40,13 @@ function parseFields(raw: Record<string, string>): Fields {
   return { taskId, binderId, folderId: folderId || null, name, contentType, checksumSha256: checksumSha256.toLowerCase(), onBehalfOf };
 }
 
-export function registerDocumentRoutes(app: FastifyInstance, db: Db, s3: S3Client, bucket: string): void {
+export function registerDocumentRoutes(
+  app: FastifyInstance,
+  db: Db,
+  s3: S3Client,
+  bucket: string,
+  limiter: IngestLimiter = new IngestLimiter(),
+): void {
   const remove = (key: string) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 
   async function existingDocument(taskId: string): Promise<string | undefined> {
@@ -90,6 +97,18 @@ export function registerDocumentRoutes(app: FastifyInstance, db: Db, s3: S3Clien
       if (!isAllowedType(fields.contentType)) {
         stream.resume();
         throw new ApiError(422, 'UNSUPPORTED_TYPE', 'This file type is not allowed.');
+      }
+
+      // Only a few files are read at once. A request that waits too long is turned away before its bytes are read,
+      // with the connection closed so the unread body is dropped (D-M2-22).
+      try {
+        const release = await limiter.acquire();
+        // A caller that gave up while waiting has already closed; its turn must not be held for ever.
+        if (reply.raw.destroyed || reply.raw.closed) release();
+        else reply.raw.once('close', release);
+      } catch (error) {
+        reply.header('retry-after', String(RETRY_AFTER_SECONDS)).header('connection', 'close');
+        throw error;
       }
 
       // Read until the signature can be checked, then stream everything, head included, to the store.

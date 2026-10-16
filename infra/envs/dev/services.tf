@@ -163,8 +163,10 @@ module "platform" {
   # Long enough to finish an ingest that is running when a deploy replaces the task (D-M2-17).
   stop_timeout = 120
 
-  # Delivery can stream up to 50 large files in at once. 1 GB leaves room for that (D-M2-22).
-  memory = 1024
+  # Each ingest hashes and re-uploads a whole file, which needs CPU as well as memory. 1 vCPU and 2 GB, with at
+  # most 6 ingests at once (D-M2-22).
+  cpu    = 1024
+  memory = 2048
 
   environment = merge(local.common_env["platform"], {
     PLATFORM_FILES_BUCKET = module.s3.platform_files_bucket

@@ -62,5 +62,6 @@ export const ERROR_CODES = [
   'NOTHING_TO_CANCEL',
   'JOB_CANCELLED',
   'PLATFORM_UNAVAILABLE',
+  'PLATFORM_BUSY',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
