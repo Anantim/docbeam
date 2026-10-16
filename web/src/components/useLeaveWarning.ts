@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-/** While `active`, the browser asks before the page is closed or reloaded, so a running upload is not lost by accident. */
+/** While `active`, the browser asks before the page is closed or reloaded, so a prepared batch is not lost by accident. */
 export function useLeaveWarning(active: boolean): void {
   useEffect(() => {
     if (!active) return;

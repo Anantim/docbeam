@@ -137,19 +137,26 @@ describe('Distribute', () => {
     expect(notify).toHaveBeenCalledWith('a.pdf had no other destination, so it was removed from this distribution.');
   });
 
-  it('asks before the page is closed while a file is uploading, and not otherwise', async () => {
+  it('asks before the page is closed whenever it holds files that were not sent, and not when it is empty', async () => {
     const manager = new FakeManager([pageFile('a.pdf', 'uploading')]);
     screenWith(manager);
-    const running = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(running);
-    expect(running.defaultPrevented).toBe(true);
+    const asks = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(asks()).toBe(true);
 
-    manager.set([pageFile('a.pdf', 'checking')]);
-    await waitFor(() => {
-      const idle = new Event('beforeunload', { cancelable: true });
-      window.dispatchEvent(idle);
-      expect(idle.defaultPrevented).toBe(false);
-    });
+    // Everything uploaded and verified, nothing sent yet: a reload would lose the prepared batch.
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    await waitFor(() => expect(asks()).toBe(true));
+
+    // A refused file is still on the page.
+    manager.set([pageFile('a.pdf', 'infected')]);
+    await waitFor(() => expect(asks()).toBe(true));
+
+    manager.set([]);
+    await waitFor(() => expect(asks()).toBe(false));
   });
 
   it('sends the batch, then clears the page and names the job by its first 8 characters', async () => {

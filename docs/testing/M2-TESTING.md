@@ -191,7 +191,7 @@ Open `$APP` (the `app_url` output, `https://<id>.cloudfront.net`) in a browser. 
 | 5 | Preview the `.docx` and the PDF | A dialog shows each; for the DOCX the `<iframe>` has `sandbox=""` | waiting |
 | 6 | Click **Send** | A toast `Distribution <8 characters> sent. N deliveries queued.`; the page clears. In the Network tab `POST /api/jobs` is `201` | waiting |
 | 7 | **Remove a big file mid-upload.** Add the 120 MB PDF again; when it says `Uploading` and some parts are done, click **Remove** (the cross) on it | The row goes. In the Network tab a `DELETE` to `…s3.ap-southeast-2.amazonaws.com/…?uploadId=…` answers `204`, and the preflight before it is `200`. **No CORS error in the Console** | waiting |
-| 8 | Add the 120 MB file again, and while it uploads reload the page | The browser asks before leaving (`Leave site?`). Cancel and let it finish | waiting |
+| 8 | Add the 120 MB file again, and while it uploads reload the page. Cancel, let it finish (`Verified`), and reload again | The browser asks before leaving (`Leave site?`) both times: also when every file is `Verified` and nothing is sent. Cancel | waiting |
 | 9 | Sign out and in again | The page is empty | waiting |
 
 Afterwards, in your terminal: `aws logs tail /aws/lambda/docbeam-dev-delivery --since 15m` shows 12 `task delivered` lines for step 6 (4 files x 3 folders).

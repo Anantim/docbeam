@@ -54,7 +54,8 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
   const [sendError, setSendError] = useState<string | null>(null);
   const submit = useMemo(() => submission ?? new Submission(submitJob), [submission]);
 
-  useLeaveWarning(files.some((f) => f.status === 'hashing' || f.status === 'waiting' || f.status === 'uploading'));
+  // Files on the page have not been sent (Send clears the page), and a reload loses the prepared batch.
+  useLeaveWarning(files.length > 0);
 
   const usable = files.filter(isUsable);
   const scope = scopeOf([...files], selected);
