@@ -179,6 +179,18 @@ The person says yes before each push, apply and task run. M3 changes: the WebSoc
 | 20 | **One log line of a 410 cleanup.** Make a connection row for a socket that API Gateway issued and has closed, then trigger a push to it (commands below). A made-up id such as `ghost-1` does **not** work: API Gateway answers `Invalid connectionId` (400), not 410 | `aws logs filter-log-events --log-group-name /aws/lambda/docbeam-dev-delivery --filter-pattern '"connection gone"' --start-time <ms>` shows `connection gone (410); row deleted` with the closed connection's `connectionId`. Paste the line into `M3-RESULTS.md` |
 | 21 | A distribution with deliveries more than 33 days old | Not testable in one session; covered by `tracking.test.ts` "marks a delivery whose staged file is past 33 days" and the row message in the table |
 
+### 3a. Results on dev (2026-10-17; details and evidence in `M3-RESULTS.md` sections 2, 3, 5, 6 and 7)
+
+| Checks | Result |
+|---|---|
+| 1 to 11, 17, 18, 20 | **YES**, run by the session. Peak `DatabaseConnections` over six hours of runs (distributions of 1,100 to 1,300 deliveries): **67** (budget 79). All queues and DLQs at 0. Check 20 needed a real, closed connection id (a made-up id gets 400, not 410): the checks above now say so |
+| 5, 6, 19 | **YES** with wscat, no screenshot: `subscribed` before the first `task_update`, 417 and 364 frames with moving counts, and a `job_update` after a cancel with `cancelled` and `failed` apart |
+| 12 | **YES**, by the person (Raj sees Cardio rows only, live, no Cancel or Retry) |
+| 13, 14, 15, 16 | **Reported done by the person** ("Browser checks are done"). Not itemised in the last message: Sam's "not found" after the fix (D-M3-16), the F5 mid-run, the Offline switch, 15 minutes on the page. The person to confirm them one by one |
+| Findings from the person's browser checks | all fixed, redeployed and **rechecked by the person**: Open by ID and the empty Status page (D-M3-16); re-sign-in clears page errors, File column width (D-M3-17); cancelled is its own grey count, the "+N" popover stays open and pins, Preview and Download text and greyed look (D-M3-17). Result on 148eaed7: Delivered 507, Failed 0, Cancelled 793; both bars green and grey; Cancelled filter 793 grey rows; Failed 0 |
+| 21 | Not testable in one session (covered by a test) |
+| SNS email | still **PendingConfirmation**: the alarm email link was never clicked on this bring-up |
+
 Commands for check 20 (a ghost connection: a database row for a socket that API Gateway issued and closed; the Delivery Lambda's first push to it gets 410, deletes the row and logs the line). `TOKEN` is Priya's access token as in M2 check 2; `JOB` is the full id of a distribution that is still running (send 100 files to 14 folders first):
 
 ```bash
