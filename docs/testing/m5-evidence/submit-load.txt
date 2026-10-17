@@ -1,1 +1,13 @@
 [12:05:56] 100 jobs, 775 files, up to 20 destinations each
+file:///home/anantim/docbeam/scripts/m5/lib.ts:283
+      if (r.status !== 200) throw new Error(`GET /files gave ${r.status}`);
+                                  ^
+
+Error: GET /files gave 401
+    at waitScanned (file:///home/anantim/docbeam/scripts/m5/lib.ts:283:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async uploadClean (file:///home/anantim/docbeam/scripts/m5/lib.ts:294:18)
+    at async submit-load (file:///home/anantim/docbeam/scripts/m5/checks.ts:75:18)
+    at async file:///home/anantim/docbeam/scripts/m5/checks.ts:697:1
+
+Node.js v22.23.3

@@ -174,6 +174,8 @@ export interface Reply {
 export class Api {
   readonly base: string;
   token: string;
+  /** Signs in again when a call gets 401 because the 15-minute token ran out during a long check. */
+  renew?: () => Promise<string>;
 
   constructor(base: string, token = '') {
     this.base = base;
@@ -181,6 +183,15 @@ export class Api {
   }
 
   async call(method: string, path: string, options: { json?: unknown; headers?: Record<string, string>; token?: string | null; cookie?: string } = {}): Promise<Reply> {
+    const reply = await this.send(method, path, options);
+    if (reply.status === 401 && options.token === undefined && this.renew) {
+      this.token = await this.renew();
+      return this.send(method, path, options);
+    }
+    return reply;
+  }
+
+  private async send(method: string, path: string, options: { json?: unknown; headers?: Record<string, string>; token?: string | null; cookie?: string }): Promise<Reply> {
     const headers: Record<string, string> = { ...options.headers };
     const token = options.token === undefined ? this.token : options.token;
     if (token) headers.authorization = `Bearer ${token}`;
@@ -214,6 +225,11 @@ export async function login(email: string, password = seedPassword()): Promise<{
 export async function mustLogin(email: string): Promise<Api> {
   const { api, reply } = await login(email);
   if (reply.status !== 200) throw new Error(`Sign-in as ${email} gave ${reply.status}`);
+  api.renew = async () => {
+    const again = await login(email);
+    if (again.reply.status !== 200) throw new Error(`Sign-in again as ${email} gave ${again.reply.status}`);
+    return again.api.token;
+  };
   return api;
 }
 
