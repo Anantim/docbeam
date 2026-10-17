@@ -2,7 +2,7 @@
 
 How to build a DocBeam environment from nothing, in the one order that works. It is written for dev and prod alike. **Dev** is built from a laptop session as shown here. **Prod is not deployed in this project** (D-M5-1): its differences are in section 9, and it never runs from a laptop or an agent session (D-G3).
 
-This runbook was proved on 2026-10-17 by bringing dev up from nothing with it (`docs/testing/M5-RESULTS.md`, section 1). Every deviation found was fixed here.
+This runbook was proved on 2026-10-17 by bringing dev up from nothing with it (`docs/testing/M5-RESULTS.md`, section 2): an empty state at 09:21 UTC, `terraform plan` showing `No changes.` and the site answering at 11:08 UTC. About 20 of those 107 minutes were the image pushes from a home connection, and about 35 minutes went on two failed attempts at the database bootstrap, because the RDS certificate bundle in the images could not be read by the non-root user (fixed in the Dockerfiles, D-M5-4). The order below did not have to change.
 
 ## 0. Before you start
 
@@ -54,7 +54,7 @@ Every image carries the RDS certificate bundle (`packages/shared/certs/rds-ca-bu
 ## 3. First apply, without the JWT authorizer
 
 ```bash
-terraform -chdir=infra/envs/$ENV_NAME plan  $TFVARS -var jwt_authorizer_enabled=false     # read it: about 280 to add, 0 to destroy
+terraform -chdir=infra/envs/$ENV_NAME plan  $TFVARS -var jwt_authorizer_enabled=false     # read it: 247 to add, 0 to destroy (dev, 2026-10-17)
 terraform -chdir=infra/envs/$ENV_NAME apply -auto-approve $TFVARS -var jwt_authorizer_enabled=false
 ```
 
@@ -93,7 +93,7 @@ Terraform creates each Lambda from a placeholder (D-M2-6); this step replaces it
 ## 7. Second apply with the authorizer, then the web app
 
 ```bash
-terraform -chdir=infra/envs/$ENV_NAME apply -auto-approve $TFVARS                # the authorizer and the routes that need it
+terraform -chdir=infra/envs/$ENV_NAME apply -auto-approve $TFVARS                # the authorizer and the routes that need it (dev: 26 added, 8 destroyed: the routes are re-created with the authorizer)
 scripts/deploy-web.sh $ENV_NAME                 # prints "Deployed to https://<id>.cloudfront.net"
 terraform -chdir=infra/envs/$ENV_NAME plan $TFVARS                               # expect "No changes."
 ```

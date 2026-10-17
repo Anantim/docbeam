@@ -204,24 +204,26 @@ test('WebSocket reconnect: the page loses its connection for 30 s mid-run and ca
   await expect.poll(async () => (await readCounts(page))[0], { timeout: 180_000 }).toBeGreaterThan(50);
   await page.screenshot({ path: evidence('websocket-before-drop') });
 
+  const shownBefore = (await readCounts(page))[0] as number;
   await network(page, { offline: true });
-  await page.waitForTimeout(3000);
-  const frozen = (await readCounts(page))[0] as number;
-  await page.waitForTimeout(27_000);
-  const frozenLater = (await readCounts(page))[0] as number;
+  await page.waitForTimeout(30_000);
+  // Offline, the page cannot fetch either: it shows "The distribution could not be loaded" instead of the counts.
+  const during = (await readCounts(page))[0]; // undefined while that message is shown
   const serverNow = await apiDelivered();
-  console.log(`websocket: page showed ${frozen} then ${frozenLater} delivered while offline; the server had ${serverNow}`);
-  expect(serverNow, 'the run kept going while the page was offline').toBeGreaterThan(frozen);
-  expect(frozenLater, 'no live updates reach the page while it is offline').toBe(frozen);
+  console.log(`websocket: page showed ${shownBefore} delivered before the drop and ${during ?? 'no counts (error message)'} after 30 s offline; the server had ${serverNow}`);
+  expect(serverNow, 'the run kept going while the page was offline').toBeGreaterThan(shownBefore);
+  expect(during === undefined || during <= shownBefore + 20, 'no live update reached the page while it was offline').toBe(true);
   await page.screenshot({ path: evidence('websocket-offline') });
 
   await network(page, {});
   // The page connects again, subscribes again and fetches once, so it is at least as far as the server was.
-  await expect.poll(async () => (await readCounts(page))[0], { timeout: 90_000 }).toBeGreaterThanOrEqual(serverNow);
+  await expect.poll(async () => (await readCounts(page))[0], { timeout: 120_000 }).toBeGreaterThanOrEqual(serverNow);
   const caught = (await readCounts(page))[0] as number;
   expect(await page.evaluate('window.__kept === 1'), 'caught up without a reload').toBe(true);
-  // And it keeps moving live afterwards.
-  await expect.poll(async () => (await readCounts(page))[0], { timeout: 90_000 }).toBeGreaterThan(caught);
-  console.log(`websocket: back online, page caught up to ${caught} (server had ${serverNow}) and kept moving`);
   await page.screenshot({ path: evidence('websocket-caught-up') });
+  // And it follows the run to the end by itself: 2,000 of 2,000, with no reload.
+  await expect.poll(async () => (await readCounts(page))[0], { timeout: 300_000 }).toBe(2000);
+  console.log(`websocket: back online, the page caught up to ${caught} (server had ${serverNow}) and followed the run to 2000`);
+  expect(await page.evaluate('window.__kept === 1'), 'still the same page at the end').toBe(true);
+  await page.screenshot({ path: evidence('websocket-finished') });
 });

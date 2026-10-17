@@ -1,0 +1,39 @@
+
+> test:e2e:dev
+> playwright test -c playwright.dev.config.ts m5-browser-dev -g PNG|WebSocket
+
+
+Running 2 tests using 1 worker
+
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page (29.3s)
+websocket: page showed undefined then undefined delivered while offline; the server had 1048
+  ✘  2 [chromium] › tests/e2e/m5-browser-dev.spec.ts:192:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up (4.2m)
+
+
+  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:192:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up 
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Matcher error: expected value must be a number or bigint
+
+    Expected has value: undefined
+
+      212 |   const serverNow = await apiDelivered();
+      213 |   console.log(`websocket: page showed ${frozen} then ${frozenLater} delivered while offline; the server had ${serverNow}`);
+    > 214 |   expect(serverNow, 'the run kept going while the page was offline').toBeGreaterThan(frozen);
+          |                                                                      ^
+      215 |   expect(frozenLater, 'no live updates reach the page while it is offline').toBe(frozen);
+      216 |   await page.screenshot({ path: evidence('websocket-offline') });
+      217 |
+        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:214:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m5-browser-dev-WebSocket-r-07a1c-30-s-mid-run-and-catches-up-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m5-browser-dev-WebSocket-r-07a1c-30-s-mid-run-and-catches-up-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/m5-browser-dev.spec.ts:192:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up 
+  1 passed (4.7m)
+exit=1
