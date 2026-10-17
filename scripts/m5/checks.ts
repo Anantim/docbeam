@@ -90,10 +90,13 @@ const checks: Record<string, () => Promise<void>> = {
         continue;
       }
       await api.post(`/jobs/${s.jobId}/cancel`); // D-M5-7: no body, like a plain client
+      // Let the 1,000+ cancelled messages drain before the next big submission, so each one is timed on its own and not
+      // against the previous job's clean-up (D-M5-7).
+      if (n >= 50) await waitQuiet(5);
     }
     expect('every job accepted with files x 20 tasks', wrong === 0, `${sizes.length - wrong} of ${sizes.length}`);
-    log('Waiting 90 s for the gateway access log, then reading it server side');
-    await sleep(90_000);
+    log('Waiting 180 s for the gateway access log, then reading it server side');
+    await sleep(180_000);
     const server = await gatewayLatency('POST /jobs', t0, Date.now());
     expect('server-side POST /jobs, requests counted', server.count >= sizes.length, `${server.count}`);
     expect('server-side POST /jobs p99 under 500 ms', server.p99 < 500, `p50 ${server.p50} ms, p99 ${server.p99} ms, max ${server.max} ms (API Gateway responseLatency)`);

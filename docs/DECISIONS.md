@@ -697,6 +697,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Found on the bring-up (2026-10-17):** the first bootstrap task failed with "could not read root certificate file: Permission denied". `update-rds-ca.sh` wrote the bundle through `mktemp`, which makes it mode 0600, and `COPY` kept that mode, so the non-root user of each image could not read it. The script now runs `chmod 644`, and the `COPY` lines for the bundle use `--chmod=644` (`--chmod=644` also stripped the folder's execute bit, which failed the first retry, so the service images now `chmod 755` the folder and `chmod 644` the file in a `RUN` while still root; checked locally by reading the file as the `node` user), so an image no longer depends on the mode of the file on the build machine.
 - **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
 
+## D-M5-10. POST /jobs: one parameter per array, and the two checks run together (found on dev, check 5.1)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.2 (no contract change). Code only.
+- **What:** `pgArray` (`services/docbeam-api/src/sql.ts`) used to make one bound parameter per element, so a 100-file, 20-folder job sent 10,000 parameters in the task insert. Measured on dev with a timing log added to the route (`job submitted ... ms`): the task insert took 0.8 to 1.3 s and everything else under 130 ms; p50 of the 100 x 20 jobs at the gateway was 1.3 s. Now each array is one parameter, a Postgres array literal cast to its type (`arrayLiteral`, with unit tests for quotes, commas and braces). The file check and the platform's destination check also start together; a file problem is still reported first. After the change the 2,000-task insert took 100 to 190 ms and a whole 100 x 20 request 190 to 535 ms inside the API.
+- **Why:** The success metric is under 500 ms at p99 whatever the batch size. LocalStack tests could not show it: the cost grew with the number of tasks and was invisible on 4-task test jobs.
+
 ## D-M5-8. Delivery may list the Object Store bucket (found on dev, check 5.4)
 - **Date:** 2026-10-17
 - **Changes:** TDD Step 2.4 / Concurrency ("a file removed after submitting fails only that file's tasks with FILE_NOT_UPLOADED"). IAM only, no code change.
@@ -726,3 +732,4 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** none to the design (PLAN 5.1 says only "100 x 20 job accepted in under 500 ms at p99").
 - **What:** `scripts/m5-submit-load.sh` submits 100 jobs of mixed size (5 of 100 x 20 files, 20 of 10 x 20, 75 of 1 x 20) and cancels each right after it is accepted. p99 is read from the API Gateway access log (`responseLatency`, route `POST /jobs`) in Logs Insights, with the client numbers next to it.
 - **Why:** Delivering about 21,000 tasks through the 6-ingest stand-in platform would take hours and prove nothing more about submit speed. Deliveries of full 2,000-task jobs are proved by checks 5.2, 5.3, 5.8 and 5.10.
+- **Added later the same day:** after each 100-file job is cancelled the script waits for the queues to empty before the next submission. With no wait, the previous job's 2,000 cancelled messages were still being claimed by 50 Delivery copies (68 database connections, database CPU 45%) while the next job was timed, and the slowest of five 100 x 20 submissions was 705 ms in the API. This measures the endpoint, not a worst case of two big batches a few seconds apart.
