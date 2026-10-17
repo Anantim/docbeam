@@ -1,6 +1,30 @@
 # DocBeam status
 
-Updated 2026-10-17, **end of M4** (merged as PR #8; dev AWS is DESTROYED).
+Updated 2026-10-17, **M5 PAUSED** (branch `m5`, not pushed, no pull request). M4 is merged as PR #8. Dev AWS is DESTROYED and nothing on AWS was changed in M5.
+
+## M5 (Hardening and end-to-end checks): paused before any code
+
+**Where it stopped.** The plan is written and approved in outline. The branch `m5` exists with the decision records and the task list only. No code, no scripts, no AWS commands.
+
+**Done.**
+- Read STATUS, PLAN, the TDD M5 checklist, the blueprint success metrics, Failure modes, Testing strategy and the earlier testing files.
+- Decisions D-M5-1 (Free plan, no RDS Proxy in M5, prod never deployed; changes D-M0-6), D-M5-2 (commit email) and D-M5-3 (dev uptime) in `docs/DECISIONS.md`.
+- The M5 task list in `docs/PLAN.md` (A0 to A9, B1 to B19, C).
+- This repo's `git config user.email` is now the GitHub noreply address.
+
+**Answers given by the person (2026-10-17).**
+- **Commit email:** accept it. The Gmail address in 127 older commits stays. No history rewrite. Noreply from M5 on. The person will add a `.mailmap` later (D-M5-2).
+- **Dev uptime:** one bring-up from nothing with the runbook, kept up until the checks, the browser steps and the demo are done. If credit usage gets close, or the person will be away more than half a day, tear dev down first. Restore Single-AZ straight after the failover drill (D-M5-3).
+
+**Next.** Start at A1 in `docs/PLAN.md`, in order: verified database TLS, the 415 fix, `db_multi_az`, the seed variant, the failure-rate tool, the `scripts/m5-*.sh` scripts, `scripts/check-public.sh`, the runbook, the local test round. Then ask before B1 (bring-up, about 275 resources, about 4.5 USD a day).
+
+**Carried items.**
+- A POST with no body and no content type gets 415 through CloudFront and the gateway (cancel, retry, downloads). The web app always sends a body. Fix in A2, prove on dev in B3.
+- PNG and JPG preview was proved by a unit test only. Check it in the browser in B17.
+- Database TLS still skips the certificate chain check (D-M1-10). Fix in A1, prove in B2 with a wrong-CA negative test.
+- The SNS alarm email must be confirmed on the next bring-up, because the alarm checks (5.3, 5.8) read the alarms.
+
+# Previous status (end of M4)
 
 ## M4 (Download a file): built, verified locally and on dev
 

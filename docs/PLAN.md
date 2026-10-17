@@ -394,3 +394,22 @@ Plus a failure-rate SQL script (system failures over all tasks, 7 days). STATUS 
 | 8 | Testing document, local round, results | |
 | 9 | AWS round (asks first), then teardown | |
 | 10 | YES/NO check, walkthrough, STATUS, pull request | |
+
+**M5 task list: approved in outline 2026-10-17, PAUSED before Part A.** Decisions D-M5-1 to D-M5-3 are in `docs/DECISIONS.md`. One commit each. Dev stays down until the person says to continue.
+
+| # | Task | Covers |
+|---|---|---|
+| A0 | Branch `m5`, noreply commit email, decision records | |
+| A1 | Database TLS that checks the certificate chain (RDS CA bundle in the services, Lambdas, bootstrap task) | TDD Launch plan, D-M1-10 |
+| A2 | Fix the 415 on a POST with no body (cancel, retry, downloads) | TDD M5 security line |
+| A3 | Dev variable `db_multi_az` for the drill | 5.8 |
+| A4 | Seed variant that removes a member of Load Team 20 | 5.2 |
+| A5 | Failure-rate query tool and script | blueprint metric |
+| A6 | M5 driver and `scripts/m5-*.sh` (checks 5.1 to 5.13) | 5.1 to 5.13 |
+| A7 | `scripts/check-public.sh` (gitleaks over history, no env or key files, no real emails) | public check |
+| A8 | `docs/RUNBOOK-first-bring-up.md` | Launch plan, Rollout |
+| A9 | Local testing round, `M5-TESTING.md` section 1 | |
+| B1 to B19 | Dev round: bring-up from nothing with the runbook, checks 5.1 to 5.13, the person's browser checks (5.14, PNG and JPG preview), demo recording, teardown | |
+| C | `M5-TESTING.md`, `M5-RESULTS.md`, README rewrite, `DEMO-SCRIPT.md`, walkthrough, STATUS release summary, YES/NO check, pull request | |
+
+The full table with inputs, outputs, checks, costs and which steps change AWS was written in the M5 planning session (check order: B1 bring-up, TLS, security, team viewer, auth, browse, EICAR, file checks, submit load, cancel, removed member, platform outage, lost job message, 1 GB multipart, failover drill, failure rate, browser, demo, teardown).

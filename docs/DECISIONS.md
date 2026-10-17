@@ -665,3 +665,21 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** Status page, mockup banner.
 - **What:** After Download: "<file> is downloading. Its link works for this one file for another m:ss.", then "The link for <file> has expired and storage now refuses it. Click Download for a fresh one." A 410 shows "<file> is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder." A 404 shows "That file is not available to you." Dismiss closes it. The mockup's "Skip to expiry" is a demo control and is left out (G16).
 - **Why:** Matches the mockup copy; no demo controls.
+
+## D-M5-1. M5 runs on dev without RDS Proxy; prod is never deployed
+- **Date:** 2026-10-17
+- **Changes:** D-M0-6 (which planned M5 with `enable_rds_proxy = true` on the Paid plan), PLAN.md "Run M5 with the RDS Proxy on".
+- **What:** This project is shown on dev only and stays on the Free plan. M5 runs on dev with `enable_rds_proxy = false`. Prod stays ready as code and is checked with `terraform plan` at most. The failover drill switches dev to Multi-AZ for the drill only; if the Free plan blocks that, stop and ask.
+- **Why:** The Free plan blocks RDS Proxy, and the Paid plan is only needed if prod is ever deployed.
+
+## D-M5-2. Commit email
+- **Date:** 2026-10-17
+- **Changes:** none to the design. Applies to the public-readiness check.
+- **What:** 127 older commits carry the person's Gmail address as author and committer. This is accepted: it is the author's own identity, not a leaked file. No history rewrite. From M5 on, this repository's `git config user.email` is the GitHub noreply address. The person will add a `.mailmap` later.
+- **Why:** A rewrite changes every commit SHA and image tag and breaks PR links. A `.mailmap` fixes how tools show the name without that cost.
+
+## D-M5-3. Dev uptime during M5
+- **Date:** 2026-10-17
+- **Changes:** AGENTS.md cost rule (tear dev down after each task's AWS testing), for M5 only.
+- **What:** One bring-up from nothing with the runbook, kept up until the checks, the person's browser steps and the demo recording are done. Dev is torn down first if the credit usage gets close to the limit or the person will be away more than half a day. The database is switched back to Single-AZ straight after the failover drill.
+- **Why:** One bring-up proves the runbook once and costs about 7 to 10 USD, while repeated bring-ups cost time. Multi-AZ costs extra, so it stays on only for the drill.
