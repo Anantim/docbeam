@@ -42,7 +42,12 @@ async function xlsx(text: string): Promise<Buffer> {
   return Buffer.from(await book.xlsx.writeBuffer());
 }
 
-const rowOf = (page: Page, name: string) => page.locator('.ttable .trow', { hasText: name });
+/** Evidence for docs/testing/M4-RESULTS.md. Only taken on dev, so local runs leave the repository alone. */
+const shot = async (page: Page, name: string): Promise<void> => {
+  if (ON_DEV) await page.screenshot({ path: `docs/testing/m4-evidence/${name}.png` });
+};
+
+const rowOf =(page: Page, name: string) => page.locator('.ttable .trow', { hasText: name });
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'File preview' });
 
 let jobId = '';
@@ -64,6 +69,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   await rowOf(page, PDF).getByRole('button', { name: `Preview ${PDF}` }).click();
   await expect(dialog(page)).toBeVisible();
   expect(await page.getByTitle(`Preview of ${PDF}`).getAttribute('src')).toMatch(/^https?:\/\/[^/]+\/.*X-Amz-Expires=120/);
+  await shot(page, 'priya-preview-pdf');
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
 
@@ -73,6 +79,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   await expect(docxFrame).toBeVisible();
   expect(await docxFrame.getAttribute('sandbox')).toBe('');
   await expect(page.frameLocator(`iframe[title="Preview of ${DOCX}"]`).locator('body')).toContainText('Protocol amendment text');
+  await shot(page, 'priya-preview-docx');
   await page.keyboard.press('Escape');
 
   await rowOf(page, XLSX).getByRole('button', { name: `Preview ${XLSX}` }).click();
@@ -80,6 +87,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   await expect(sheetFrame).toBeVisible();
   expect(await sheetFrame.getAttribute('sandbox')).toBe('');
   await expect(page.frameLocator(`iframe[title="Preview of ${XLSX}"]`).locator('body')).toContainText('Mumbai site');
+  await shot(page, 'priya-preview-xlsx');
   await page.keyboard.press('Escape');
 
   // Download: the browser saves the file under its original name, and the banner counts the link down.
@@ -87,6 +95,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   await rowOf(page, PDF).getByRole('button', { name: `Download ${PDF}` }).click();
   expect((await saved).suggestedFilename()).toBe(PDF);
   await expect(page.getByRole('status').filter({ hasText: `${PDF} is downloading. Its link works for this one file for another` })).toBeVisible();
+  await shot(page, 'priya-download-pdf-saved');
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'is downloading' })).toHaveCount(0);
 

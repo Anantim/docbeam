@@ -1,0 +1,44 @@
+both: job=4b670c8f file=4d7b662d name=both-f7abe2.pdf
+onc : job=a9e75c87 file=84d377e5 name=onc-only-f7abe2.pdf
+
+== 1. Priya, sender
+status=201
+jq: error (at <stdin>:1): date "2026-10-17T06:55:24.679Z" does not match format "%Y-%m-%dT%H:%M:%SZ"
+X-Amz-Expires=120
+
+== 2. download link: bytes and headers
+HTTP/1.1 200 OK
+Content-Length: 52
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="both-f7abe2.pdf"; filename*=UTF-8''both-f7abe2.pdf
+downloaded bytes: 52  starts: %PDF-1.7
+preview status=201
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: inline
+
+== 3. Raj (Cardio)
+Cardio+Oncology file: status=201
+Oncology-only file: status=404 body={"error":{"code":"NOT_FOUND","message":"That file is not available to you."}}
+
+== 4. Sam, random id, no token
+Sam: status=404 body={"error":{"code":"NOT_FOUND","message":"That file is not available to you."}}
+random id: status=404 body={"error":{"code":"NOT_FOUND","message":"That file is not available to you."}}
+no token: 401
+
+== 5. both links used again after 2 minutes
+now (within 2 min): download=200 preview=200
+after 130 s: download=403 preview=403
+/tmp/e1.xml:<Code>AccessDenied</Code><Message>Request has expired</Message>
+/tmp/e2.xml:<Code>AccessDenied</Code><Message>Request has expired</Message>
+
+== 6. the object without a link
+no link: 000
+
+== 7. audit rows (job both)
+PRIYA sees:
+[{"mode":"preview","by":"Priya Shah","team":false},{"mode":"download","by":"Priya Shah","team":false},{"mode":"download","by":"Raj Mehta","team":true},{"mode":"preview","by":"Priya Shah","team":false},{"mode":"download","by":"Priya Shah","team":false},{"mode":"download","by":"Priya Shah","team":false},{"mode":"download","by":"Priya Shah","team":false},{"mode":"preview","by":"Priya Shah","team":false},{"mode":"preview","by":"Raj Mehta","team":true}]
+RAJ sees:
+[{"mode":"download","by":"Raj Mehta","team":true},{"mode":"preview","by":"Raj Mehta","team":true}]
+SAM sees:
+[]

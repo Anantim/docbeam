@@ -24,10 +24,10 @@ People: **Priya Shah** (Cardio, Oncology), **Raj Mehta** (Cardio), **Sam Ito** (
 | 2 | `npm test` | 74 files, 567 tests pass |
 | 3 | `npm run build` | `✓ built` |
 | 4 | `npm run test:integration` | 18 files, 168 tests pass. `downloads.test.ts` has 11 |
-| 5 | `npm run test:e2e` | 49 tests pass in about 6 minutes. `download.spec.ts` has 4 |
+| 5 | `npm run test:e2e` | 49 tests pass and 5 are skipped (the dev-only `download-dev.spec.ts`) in about 6 minutes. `download.spec.ts` has 4 |
 | 6 | `terraform fmt -check -recursive infra`; `terraform -chdir=infra/envs/dev validate`; the same for `prod` | No output from fmt; `The configuration is valid.` |
 
-### 1.3 The browser steps (waiting on the person; Playwright covers the same ground)
+### 1.3 The browser steps (covered by Playwright locally and on dev; a person can also click through them)
 
 Open http://localhost:5173 (`npm run dev -w @docbeam/web`).
 
@@ -99,7 +99,7 @@ ask() { curl -s -w '\n%{http_code}\n' -X POST $APP/api/files/$FILE/downloads -H 
 | 8 | `aws logs tail /aws/ecs/docbeam-dev-docbeam-api --since 15m` (use the log group name that `aws logs describe-log-groups --log-group-name-prefix /aws/ecs/docbeam-dev` shows) | `POST /files/…/downloads` lines with 201 and 404. No file contents, no signed URL in the log |
 | 9 | Console (Sydney, read only): S3 → the object store → Permissions → Bucket policy | Statement `DenyReadUnlessScannedClean` is there; CORS lists `GET` |
 | 10 | Console: API Gateway → `docbeam-dev` HTTP API → Routes | `POST /files/{fileId}/downloads`, authorizer attached |
-| 11 | **Browser at `$APP`**, section 1.3 steps 1 to 8 as Priya, Raj and Sam | Same results as locally. Step 4: the saved file opens and matches |
+| 11 | **Browser at `$APP`**, section 1.3 steps 1 to 8 as Priya, Raj and Sam. Run by Playwright: `export DEV_APP_URL=$APP DEV_SEED_PASSWORD=$SEED_PW; npm run test:e2e:dev` (about 4 minutes; it includes a download bar that runs past 2:00). Screenshots go to `docs/testing/m4-evidence/`, the report to `playwright-report/` | 8 passed, 1 skipped (the 33-day test, which ages a file in the local database). Same results as locally |
 | 12 | A distribution with files older than 33 days | Not testable in one session; covered by `downloads.test.ts` "answers 410 FILE_EXPIRED…" and `download.spec.ts` "a file older than 33 days…" |
 
 ## 4. Prod (not deployed in this project)
