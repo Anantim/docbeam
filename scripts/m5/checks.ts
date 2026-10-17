@@ -649,6 +649,17 @@ const checks: Record<string, () => Promise<void>> = {
     }
   },
 
+  // ------------------------------------------------------------------ demo helper, not a check
+  // Uploads 100 small files and sends them to 20 folders as the load user: 2,000 deliveries to watch in the browser.
+  async 'demo-send'() {
+    const api = await mustLogin(USERS.load);
+    const files = await uploadClean(api, 100, 'demo');
+    const s = await submit(api, files, loadDestinations(20));
+    if (s.reply.status !== 201) throw new Error(`POST /jobs gave ${s.reply.status} ${JSON.stringify(s.reply.body).slice(0, 300)}`);
+    console.log(`Sent ${s.taskCount} deliveries as ${USERS.load}.\nWatch it live: ${appUrl()}/#/status/${s.jobId}`);
+    process.exit(0);
+  },
+
   // ------------------------------------------------------------------ helper, not a check
   async metrics() {
     const since = Date.parse(flag('since') ?? new Date(Date.now() - 3600_000).toISOString());

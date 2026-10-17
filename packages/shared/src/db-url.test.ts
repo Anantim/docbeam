@@ -20,8 +20,7 @@ describe('withDatabaseUrl', () => {
   });
 
   it('refuses to build a URL from parts when DB_CA_FILE is missing', () => {
-    const { DB_CA_FILE: _ignored, ...withoutCa } = parts;
-    expect(() => withDatabaseUrl(withoutCa)).toThrow(/DB_CA_FILE/);
+    expect(() => withDatabaseUrl({ ...parts, DB_CA_FILE: undefined })).toThrow(/DB_CA_FILE/);
   });
 
   it('leaves the env alone when parts are missing', () => {
