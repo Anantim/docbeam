@@ -1,0 +1,9 @@
+
+> test:e2e:dev
+> playwright test -c playwright.dev.config.ts m5-browser-dev
+
+
+Running 4 tests using 1 worker
+
+slow connection: 2 MiB uploaded and verified in 52 s at about 64 KiB/s
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:47:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered (1.0m)
