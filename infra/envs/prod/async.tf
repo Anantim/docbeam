@@ -16,6 +16,7 @@ locals {
   db_env = {
     DB_HOST       = module.rds.lambda_db_host
     DB_NAME       = "docbeam_db"
+    DB_CA_FILE    = "/var/task/rds-ca-bundle.pem" # shipped in every function's code (D-M5-4)
     DB_SECRET_ARN = module.rds.app_secret_arns["docbeam"]
   }
   db_secret_arns  = [module.rds.app_secret_arns["docbeam"]]

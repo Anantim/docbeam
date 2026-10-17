@@ -40,6 +40,9 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules node_modules
 COPY --from=build /repo/packages/shared/package.json packages/shared/
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
+# The RDS certificate bundle: the database connection checks the certificate chain (D-M5-4).
+COPY --from=build /repo/packages/shared/certs packages/shared/certs
+ENV DB_CA_FILE=/repo/packages/shared/certs/rds-ca-bundle.pem
 COPY --from=build /repo/services/${SERVICE}/package.json services/${SERVICE}/
 COPY --from=build /repo/services/${SERVICE}/dist services/${SERVICE}/dist
 COPY --from=build /repo/services/${SERVICE}/migrations services/${SERVICE}/migrations

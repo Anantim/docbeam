@@ -683,3 +683,15 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** AGENTS.md cost rule (tear dev down after each task's AWS testing), for M5 only.
 - **What:** One bring-up from nothing with the runbook, kept up until the checks, the person's browser steps and the demo recording are done. Dev is torn down first if the credit usage gets close to the limit or the person will be away more than half a day. The database is switched back to Single-AZ straight after the failover drill.
 - **Why:** One bring-up proves the runbook once and costs about 7 to 10 USD, while repeated bring-ups cost time. Multi-AZ costs extra, so it stays on only for the drill.
+
+## D-M5-0. M5 run unattended (2026-10-17)
+- **Date:** 2026-10-17
+- **Changes:** AGENTS.md "AWS changes need a yes", for this run only.
+- **What:** The person was away 8 to 12 hours and gave standing approval for M5: commits and pushes on `m5`, the PR, `terraform apply` on dev (including the Multi-AZ switch and back), image pushes, deploys, one-off tasks, trigger pauses, scaling, object deletes, the queue purge, the reboot and the dev teardown. Never prod, never repo settings or secrets, never history rewrite, never merge. The `.mailmap` is added by this run (D-M5-2). The SNS email is not confirmed; alarms are read in CloudWatch. The browser checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview) are run with Playwright on dev; only the demo recording is left to the person. Stop rules: the same problem failing twice is recorded as NO and skipped; anything unsafe tears dev down; a usage warning tears dev down first; dev always ends Single-AZ. If every check is YES dev stays up for the demo, otherwise it is torn down.
+- **Why:** Records the terms of an unattended run.
+
+## D-M5-4. Database TLS checks the certificate chain
+- **Date:** 2026-10-17
+- **Changes:** D-M1-10 ("connections built from parts use TLS without chain checks"), TDD Launch plan "Build decisions".
+- **What:** `packages/shared/certs/rds-ca-bundle.pem` holds the RDS global bundle plus Amazon Root CA 1 (for a prod RDS Proxy), public certificates only, rebuilt by `scripts/update-rds-ca.sh`. `withDatabaseUrl` builds `sslmode=verify-full&sslrootcert=<DB_CA_FILE>` and throws when `DB_CA_FILE` is missing, so a connection can never skip the check by accident. ECS images set `DB_CA_FILE` to the file in the image; every Lambda gets `DB_CA_FILE=/var/task/rds-ca-bundle.pem` from Terraform and the file is copied into `dist/lambda/` by each worker's `prebundle` step (and so into the Upload Events image). The bootstrap task uses `PGSSLMODE=verify-full` with `PGSSLROOTCERT`. Local `DATABASE_URL` is unchanged (Compose Postgres has no TLS).
+- **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
