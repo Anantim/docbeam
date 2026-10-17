@@ -147,13 +147,14 @@ const checks: Record<string, () => Promise<void>> = {
   async 'platform-outage'() {
     needYes('scales the platform ECS service to 0 for 5 minutes in the middle of a run, then back to 1');
     const api = await mustLogin(USERS.load);
-    const files = await uploadClean(api, 100, 'm5-outage');
+    // 1 MiB files: with the 4 KB files of the other checks 2,000 deliveries finish in 20 seconds, too fast to stop anything.
+    const files = await uploadClean(api, 100, 'm5-outage', 1024 * 1024);
     const t0 = new Date(Date.now() - 60_000).toISOString();
     const s = await submit(api, files, loadDestinations(20));
     expect('2,000 tasks accepted', s.reply.status === 201 && s.taskCount === 2000, `${s.reply.status}, ${s.taskCount} tasks`);
     let v = await job(api, s.jobId);
-    while (v.counts.completed < 300) {
-      await sleep(5000);
+    while (v.counts.completed < 150) {
+      await sleep(1000);
       v = await job(api, s.jobId);
     }
     const stopped = new Date();
@@ -162,6 +163,7 @@ const checks: Record<string, () => Promise<void>> = {
     await sleep(Math.max(0, 5 * 60_000 - (Date.now() - stopped.getTime())));
     const midway = await job(api, s.jobId);
     log(`platform back after ${((Date.now() - stopped.getTime()) / 60000).toFixed(1)} minutes; counts ${JSON.stringify(midway.counts)}`);
+    expect('the outage hit the middle of the run (deliveries were still waiting after 5 minutes)', midway.counts.pending + midway.counts.in_progress > 0 && midway.counts.completed < 2000, JSON.stringify(midway.counts));
     await setPlatformCount(1);
     const done = await waitDone(api, s.jobId, 60 * 60_000);
     const end = new Date().toISOString();

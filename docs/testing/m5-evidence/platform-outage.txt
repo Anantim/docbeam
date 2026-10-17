@@ -1,0 +1,13 @@
+[14:37:13] Changes AWS (approved with --yes): scales the platform ECS service to 0 for 5 minutes in the middle of a run, then back to 1
+PASS  2,000 tasks accepted: 201, 2000 tasks
+[14:40:38] stopping the platform with {"pending":1135,"in_progress":33,"completed":832,"failed":0,"cancelled":0}
+[14:45:39] platform back after 5.0 minutes; counts {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+[14:46:50] job feb14cd5 {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+PASS  all 2,000 deliveries completed: {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+PASS  every task has one outcome (2,000 distinct): 2000 rows
+PASS  Task DLQ and Job DLQ stayed empty (CloudWatch max visible over the run): 0, 0
+[14:47:15] temporary delivery errors logged by Delivery during the run: 0
+[14:47:17] alarms: {"docbeam-dev-delivery-error-rate":"OK","docbeam-dev-job-dlq-not-empty":"OK","docbeam-dev-task-dlq-not-empty":"OK","docbeam-dev-upload-events-dlq-not-empty":"OK"}
+PASS  no alarm is in ALARM: {"docbeam-dev-delivery-error-rate":"OK","docbeam-dev-job-dlq-not-empty":"OK","docbeam-dev-task-dlq-not-empty":"OK","docbeam-dev-upload-events-dlq-not-empty":"OK"}
+
+PASS platform-outage (5/5 lines)

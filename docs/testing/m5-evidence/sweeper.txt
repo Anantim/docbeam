@@ -1,0 +1,2 @@
+[14:47:18] Changes AWS (approved with --yes): disables the Fan-out trigger, purges the Job Queue (only after checking nothing else is queued or running), then enables the trigger again
+PASS  before the purge: no other job is queued or running: {"queues":[{"visible":0,"inFlight":0,"delayed":0},{"visible":0,"inFlight":0,"delayed":0}],"openJobs":0}
