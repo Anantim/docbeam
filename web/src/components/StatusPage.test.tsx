@@ -314,7 +314,7 @@ describe('the list and Open by ID', () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     renderPage({ jobId: null, onOpen });
-    expect(screen.getByText(/Pick a distribution from the list/)).toBeTruthy();
+    expect(screen.getByText(/Pick a distribution, or paste an id to open one/)).toBeTruthy();
     await user.type(screen.getByLabelText('Open by ID'), '3f1c2a9e');
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
@@ -324,6 +324,45 @@ describe('the list and Open by ID', () => {
     await user.type(screen.getByLabelText('Open by ID'), `https://x.cloudfront.net/#/status/${JOB.toUpperCase()}`);
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(onOpen).toHaveBeenCalledWith(JOB);
+  });
+
+  it('keeps Open off while the box is empty or only spaces, and clears the note when typing or a new Open starts', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    renderPage({ jobId: null, onOpen });
+    const open = screen.getByRole('button', { name: 'Open' }) as HTMLButtonElement;
+    expect(open.disabled).toBe(true);
+    expect(open.title).toBe('Paste a distribution id or link first');
+    await user.type(screen.getByLabelText('Open by ID'), '   ');
+    expect(open.disabled).toBe(true);
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.clear(screen.getByLabelText('Open by ID'));
+    await user.type(screen.getByLabelText('Open by ID'), '3f1c2a9e');
+    await user.click(open);
+    expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
+    await user.type(screen.getByLabelText('Open by ID'), 'x');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.click(open);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    await user.clear(screen.getByLabelText('Open by ID'));
+    await user.type(screen.getByLabelText('Open by ID'), JOB);
+    await user.click(open);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onOpen).toHaveBeenCalledWith(JOB);
+  });
+
+  it('puts the Open-by-ID box right after the Mine / My teams switch, with an empty list or a full one', async () => {
+    const user = userEvent.setup();
+    renderPage({ jobId: null, mine: mine([]) });
+    const order = (): string[] => {
+      const side = document.querySelector('.status-side') as HTMLElement;
+      return [...side.children].map((c) => (c.classList.contains('seg-group') ? 'tabs' : c.classList.contains('openid') ? 'box' : c.tagName.toLowerCase()));
+    };
+    expect(order().slice(0, 3)).toEqual(['h1', 'tabs', 'box']);
+    await user.click(screen.getByRole('button', { name: 'My teams' }));
+    expect(order().slice(0, 3)).toEqual(['h1', 'tabs', 'box']);
   });
 
   it('lists my distributions, then the team ones when My teams is picked', async () => {

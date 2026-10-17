@@ -26,46 +26,56 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
   const team = usePolledJobs('team', scope === 'team');
   const list = scope === 'mine' ? mine : team;
 
+  // Any new attempt to open something starts with a clean note.
+  const open = (id: string): void => {
+    setTypedError('');
+    onOpen(id);
+  };
+
   const openTyped = (event: FormEvent): void => {
     event.preventDefault();
+    setTypedError('');
+    if (typed.trim() === '') return;
     const id = extractJobId(typed);
     if (!id) {
       setTypedError('Paste the full distribution id or a link to it. The short 8-character id is not enough.');
       return;
     }
-    setTypedError('');
     setTyped('');
-    onOpen(id);
+    open(id);
   };
+
+  const empty = typed.trim() === '';
 
   return (
     <div className="status-page">
       <aside className="status-side">
         <h1>Distributions</h1>
-        <JobList scope={scope} onScope={setScope} jobs={list.jobs} error={list.error} selectedId={jobId} onOpen={onOpen} live={jobId ? liveCounts : null} />
-        <form className="openid" onSubmit={openTyped}>
-          <label className="sr" htmlFor="job-id">
-            Open by ID
-          </label>
-          <input
-            id="job-id"
-            className="field mono"
-            value={typed}
-            placeholder="Paste a distribution id or link"
-            onChange={(e) => {
-              setTyped(e.target.value);
-              setTypedError('');
-            }}
-          />
-          <button className="btn2" type="submit">
-            Open
-          </button>
-        </form>
-        {typedError && (
-          <div role="alert" className="alert">
-            {typedError}
-          </div>
-        )}
+        <JobList scope={scope} onScope={setScope} jobs={list.jobs} error={list.error} selectedId={jobId} onOpen={open} live={jobId ? liveCounts : null}>
+          <form className="openid" onSubmit={openTyped}>
+            <label className="sr" htmlFor="job-id">
+              Open by ID
+            </label>
+            <input
+              id="job-id"
+              className="field mono"
+              value={typed}
+              placeholder="Paste a distribution id or link"
+              onChange={(e) => {
+                setTyped(e.target.value);
+                setTypedError('');
+              }}
+            />
+            <button className="btn2" type="submit" disabled={empty} title={empty ? 'Paste a distribution id or link first' : undefined}>
+              Open
+            </button>
+          </form>
+          {typedError && (
+            <div role="alert" className="alert">
+              {typedError}
+            </div>
+          )}
+        </JobList>
       </aside>
       <section className="status-main">
         {jobId ? (
@@ -81,7 +91,7 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
             }}
           />
         ) : (
-          <div className="card jempty big">Pick a distribution from the list to see its deliveries, or open one by its id.</div>
+          <div className="card jempty big">Pick a distribution, or paste an id to open one.</div>
         )}
       </section>
     </div>

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { StatusChip } from './StatusChip.js';
@@ -14,12 +15,14 @@ interface Props {
   onOpen: (jobId: string) => void;
   /** The open distribution's live counts. Its card follows them, so it never disagrees with the page beside it. */
   live?: { jobId: string; counts: JobSummary['counts'] } | null;
+  /** Shown between the Mine / My teams switch and the cards, as in the mockup (the Open-by-ID box). */
+  children?: ReactNode;
 }
 
 const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
 
 /** The Distributions list of the Status page: Mine and My teams, each card a chip and a progress bar. */
-export function JobList({ scope, onScope, jobs, error, selectedId, onOpen, live }: Props) {
+export function JobList({ scope, onScope, jobs, error, selectedId, onOpen, live, children }: Props) {
   return (
     <>
       <div className="seg-group" role="group" aria-label="Whose distributions">
@@ -34,6 +37,8 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen, live 
           </button>
         ))}
       </div>
+
+      {children}
 
       {error && (
         <div role="alert" className="alert">

@@ -51,6 +51,17 @@ export function App() {
     if (signedOut) uploadManager.clear();
   }, [signedOut]);
 
+  // Signing out also leaves the distribution that was open: the next person in this tab starts on a clean page,
+  // not on someone else's distribution ("not found"). A link opened while signed out is kept (it was never signed in).
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (session.status === 'signedIn') wasSignedIn.current = true;
+    else if (session.status === 'signedOut' && wasSignedIn.current) {
+      wasSignedIn.current = false;
+      window.location.hash = hashFor({ view: 'distribute', jobId: null });
+    }
+  }, [session.status]);
+
   // One live connection while someone is signed in. Every token refresh gives a new token and so a new
   // connection, which is how the server checks the person's teams again (TDD Step 3.3).
   const token = session.status === 'signedIn' ? session.token : null;

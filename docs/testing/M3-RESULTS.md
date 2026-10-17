@@ -209,3 +209,15 @@ Connected (press CTRL+C to quit)
 ## 4. Final check: YES / NO
 
 Written after sections 2 and 3 (see `docs/STATUS.md` for where the milestone stands).
+
+## 5. Fixes after the person's browser checks on dev (D-M3-16)
+
+Check 12 passed in the person's browser. Check 13 was not proven: Sam's Status page showed "Distribution not found" before anything was pasted. Cause: the URL still carried Raj's distribution id after the sign-out and sign-in in the same tab (the page shows "not found" only for an id). Four fixes (see D-M3-16): Open off while the box is empty, the note cleared on typing and on a new Open, the empty card "Pick a distribution, or paste an id to open one." with the id cleared from the URL at sign-out, and the box in the mockup's place on both tabs.
+
+| Check | Result |
+|---|---|
+| `web/src/components/StatusPage.test.tsx` (2 new tests: Open off and the note cleared; box right after the switch on both tabs) | 24 tests passed |
+| `tests/e2e/openid.spec.ts` (6 new tests: empty or spaces disables Open; a short id shows the note, typing clears it, a new Open starts without it; a full unknown id and a full link show only the not-found panel; a new user sees the empty state, not "not found"; signing out clears the open distribution for the next person; the box is in the same place on Mine and My teams for Priya and for a user with none) | 6 passed |
+| `npm run lint`, `npm run typecheck`, `npm run build` | clean |
+| `npm test` | 71 files, 529 tests passed |
+| `npm run test:e2e` (all 6 files, with the M1 and M2 packs) | **41 tests passed** (4.1 minutes) |

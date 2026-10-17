@@ -22,10 +22,10 @@ People in the seed: **Priya Shah** (Cardio, Oncology), **Raj Mehta** (Cardio), *
 |---|---|---|
 | 1 | `npm run lint` | No output after `eslint .` |
 | 2 | `npm run typecheck` | No errors |
-| 3 | `npm test` | 71 files, 527 tests pass. (The hashing test has a 20-second limit, so a busy CPU cannot fail it) |
+| 3 | `npm test` | 71 files, 529 tests pass. (The hashing test has a 20-second limit, so a busy CPU cannot fail it) |
 | 4 | `npm run build` | `✓ built` |
 | 5 | `npm run test:integration` | 17 files, 157 tests pass (the stack must be up and seeded) |
-| 7 | `npm run test:e2e` (the stack up and seeded; Playwright starts the Vite server itself; needs `npx playwright install chromium` once, and `sudo env "PATH=$PATH" npx playwright install-deps chromium` once on WSL) | 34 tests pass in about 4 minutes: `track.spec.ts` 10, `tooltips.spec.ts` 2, `ui.spec.ts` 7, `m1.spec.ts` 7, `m2.spec.ts` 8 (see 1.3a). Local only, not in CI (D-M3-11). The tests stop and start the `workers` container and `ws-local`, and always start them again |
+| 7 | `npm run test:e2e` (the stack up and seeded; Playwright starts the Vite server itself; needs `npx playwright install chromium` once, and `sudo env "PATH=$PATH" npx playwright install-deps chromium` once on WSL) | 41 tests pass in about 4 minutes: `track.spec.ts` 10, `tooltips.spec.ts` 2, `ui.spec.ts` 8, `openid.spec.ts` 6 (Open by ID and the empty state, D-M3-16), `m1.spec.ts` 7, `m2.spec.ts` 8 (see 1.3a). Local only, not in CI (D-M3-11). The tests stop and start the `workers` container and `ws-local`, and always start them again |
 | 6 | `terraform fmt -check -recursive infra` and `terraform -chdir=infra/envs/dev validate` and the same for `prod` | No output from fmt; `The configuration is valid.` |
 
 Tests that cover the M3 rules:

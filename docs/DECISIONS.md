@@ -613,3 +613,13 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** TDD Step 3.2 (`infra/modules/websocket-api`), found by the first dev apply of M3.
 - **What:** The WebSocket stage has no `access_log_settings`, and the module's log group, its `log_retention_days` variable and its `log_group` output are removed. Before, `CreateStage` failed with `CloudWatch Logs role ARN must be set in account settings to enable logging`: API Gateway needs an account-wide CloudWatch role for a WebSocket stage that logs (the HTTP API's stage does not). That role is one setting for the whole account and is not removed by `terraform destroy` of dev, so it is not added here. The `ws` Lambda already logs every `$connect`, `subscribe` and `$disconnect` event, and the checks use those logs (`M3-TESTING.md` section 3, check 7).
 - **Why:** The check only needs the Lambda's log. An account-level IAM role is a bigger change than the log is worth. It can be added later in one place if the person wants gateway access logs.
+
+## D-M3-16. Open by ID and the empty Status page (found on dev)
+- **Date:** 2026-10-17
+- **Changes:** M3 Status page (flow 3, "Open a job"), after the person's browser check 13 on dev.
+- **What:**
+  1. **Open is off while the box is empty or only spaces** (same disabled look as D-M3-12, title "Paste a distribution id or link first"). The short-id note shows only for a real short id.
+  2. **The note clears** when the input changes and when any new Open starts (a typed id, a link or a card), so it never sits beside the "Distribution not found" panel.
+  3. **Cause of Sam's "not found" with nothing pasted:** the URL carried an id. The id lives in the hash (`#/status/<id>`, D-M3-6) and stayed there when one person signed out and another signed in in the same tab, so Sam opened Raj's distribution. With no id in the URL the page already showed an empty card (never "not found"). Fixes: signing out now resets the hash to the Distribute page (a link opened while signed out is kept), and the empty card now reads "Pick a distribution, or paste an id to open one."
+  4. **The box is in the mockup's place,** between the Mine / My teams switch and the cards, on both tabs, for everyone. Before, it came after the list, so a long list (Priya's Mine) pushed it off the screen while an empty list (Sam's) showed it. The mockup's placeholder is `JOB-0000` and its Open button is always on; both differ on purpose (the box takes a full id or a link, and Open is off when empty).
+- **Why:** The box was missing where people looked for it, and the page showed a failure that had not happened.
