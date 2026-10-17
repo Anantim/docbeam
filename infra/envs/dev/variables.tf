@@ -15,6 +15,12 @@ variable "service_desired_count" {
   default     = 1
 }
 
+variable "db_multi_az" {
+  description = "true only for the M5 failover drill (check 5.8). Apply it back to false straight after (D-M5-3, D-M5-6)."
+  type        = bool
+  default     = false
+}
+
 variable "seed_create_users" {
   description = "Create the seed users through POST /auth/register. Dev only (G18)."
   type        = bool

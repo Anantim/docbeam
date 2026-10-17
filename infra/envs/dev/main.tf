@@ -64,7 +64,7 @@ module "rds" {
   private_subnet_ids = module.network.private_subnet_ids
 
   instance_class        = "db.t4g.micro"
-  multi_az              = false
+  multi_az              = var.db_multi_az # false, except for the M5 failover drill (D-M5-6)
   backup_retention_days = 1
   apply_immediately     = true
 

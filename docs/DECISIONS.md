@@ -695,3 +695,21 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** D-M1-10 ("connections built from parts use TLS without chain checks"), TDD Launch plan "Build decisions".
 - **What:** `packages/shared/certs/rds-ca-bundle.pem` holds the RDS global bundle plus Amazon Root CA 1 (for a prod RDS Proxy), public certificates only, rebuilt by `scripts/update-rds-ca.sh`. `withDatabaseUrl` builds `sslmode=verify-full&sslrootcert=<DB_CA_FILE>` and throws when `DB_CA_FILE` is missing, so a connection can never skip the check by accident. ECS images set `DB_CA_FILE` to the file in the image; every Lambda gets `DB_CA_FILE=/var/task/rds-ca-bundle.pem` from Terraform and the file is copied into `dist/lambda/` by each worker's `prebundle` step (and so into the Upload Events image). The bootstrap task uses `PGSSLMODE=verify-full` with `PGSSLROOTCERT`. Local `DATABASE_URL` is unchanged (Compose Postgres has no TLS).
 - **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
+
+## D-M5-5. A POST with no body works for any client
+- **Date:** 2026-10-17
+- **Changes:** STATUS known issue (M4), TDD M5 security line. No contract change.
+- **What:** `acceptEmptyBodies` (`packages/shared/src/errors.ts`) adds a catch-all content-type parser to the DocBeam API and the Auth Service: an empty body is accepted whatever the content type or transfer encoding, a body of a type no route reads still gets 415. `POST /jobs/:id/cancel`, `/retry`, `/files/:id/downloads` and `/auth/refresh` and `/auth/logout` now work from curl through CloudFront. The Platform is internal and not changed.
+- **Why:** Through CloudFront and the gateway a request with no body can arrive chunked and with no content type, and Fastify answers that with 415. The web app always sends a body, so it never hit this.
+
+## D-M5-6. Dev Multi-AZ variable, seed variant and failure-rate tool
+- **Date:** 2026-10-17
+- **Changes:** none to the design.
+- **What:** `db_multi_az` (default `false`) in `infra/envs/dev` switches dev RDS to Multi-AZ for the failover drill only (G22). `services/platform/seed/dev-load-m5-removed.json` is the dev load hierarchy with Load Team 20 emptied of members; loading it prunes the load user from that team (check 5.2, G23), and loading `dev-load.json` puts the membership back. `services/docbeam-api/src/failure-rate-run.ts` prints the TDD Monitoring query (system failures over all non-cancelled tasks) as JSON.
+- **Why:** The checks must be re-runnable by script.
+
+## D-M5-7. The submit-speed check cancels what it submits
+- **Date:** 2026-10-17
+- **Changes:** none to the design (PLAN 5.1 says only "100 x 20 job accepted in under 500 ms at p99").
+- **What:** `scripts/m5-submit-load.sh` submits 100 jobs of mixed size (5 of 100 x 20 files, 20 of 10 x 20, 75 of 1 x 20) and cancels each right after it is accepted. p99 is read from the API Gateway access log (`responseLatency`, route `POST /jobs`) in Logs Insights, with the client numbers next to it.
+- **Why:** Delivering about 21,000 tasks through the 6-ingest stand-in platform would take hours and prove nothing more about submit speed. Deliveries of full 2,000-task jobs are proved by checks 5.2, 5.3, 5.8 and 5.10.

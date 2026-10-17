@@ -1,4 +1,4 @@
-import { createPoster, jwtAuth, registerErrorHandler, type Poster } from '@docbeam/shared';
+import { acceptEmptyBodies, createPoster, jwtAuth, registerErrorHandler, type Poster } from '@docbeam/shared';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
@@ -26,6 +26,7 @@ export async function buildApp(config: Config, db: Db, deps: Deps = {}): Promise
   // S3 upload ids are long (often over 100 characters) and sit in the path of the multipart routes.
   const app = Fastify({ logger: { level: config.LOG_LEVEL }, routerOptions: { maxParamLength: 1024 } });
   registerErrorHandler(app);
+  acceptEmptyBodies(app);
   await app.register(jwtAuth, { issuer: config.JWT_ISSUER, jwksUrl: config.JWKS_URL });
 
   // The ALB and Docker Compose health checks call this. It does not touch the database,

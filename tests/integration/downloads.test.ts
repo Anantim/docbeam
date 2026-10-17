@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -164,6 +165,26 @@ describe('POST /files/:fileId/downloads', () => {
     const reply = await ask(priya, f.fileId, { mode: 'stream' });
     expect(reply.status).toBe(400);
     expect(reply.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  // D-M5-5: a POST with no body and no content type works for any client. Through CloudFront and the gateway it can arrive
+  // chunked, which used to get 415. A body of another type is still refused.
+  it('accepts a POST with no body, empty or chunked, and no content type, as a download', async () => {
+    const f = await makeFile({ deliveries: [{ team: cardio, status: 'completed' }] });
+    const rawPost = (headers: Record<string, string>, body?: string) =>
+      new Promise<number>((resolve, reject) => {
+        const req = httpRequest(`${DOCBEAM_URL}/files/${f.fileId}/downloads`, { method: 'POST', headers: { authorization: `Bearer ${tokens[priya]}`, ...headers } }, (res) => {
+          res.resume();
+          resolve(res.statusCode ?? 0);
+        });
+        req.on('error', reject);
+        if (body) req.write(body);
+        req.end();
+      });
+    expect(await rawPost({ 'content-length': '0' })).toBe(201);
+    expect(await rawPost({ 'transfer-encoding': 'chunked' })).toBe(201);
+    expect(await rawPost({ 'content-type': 'application/octet-stream', 'content-length': '0' })).toBe(201);
+    expect(await rawPost({ 'content-type': 'application/x-www-form-urlencoded' }, 'mode=preview')).toBe(415);
   });
 
   // A link used after its 2 minutes is refused by S3. LocalStack does not enforce expiry, so this is proved on dev
