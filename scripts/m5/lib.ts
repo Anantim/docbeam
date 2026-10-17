@@ -43,7 +43,7 @@ export function sh(cmd: string, args: string[], options: { input?: string; allow
   } catch (error) {
     if (options.allowFail) return '';
     const e = error as { stderr?: string; message: string };
-    throw new Error(`${cmd} ${args.slice(0, 4).join(' ')} failed: ${(e.stderr ?? e.message).slice(0, 600)}`);
+    throw new Error(`${cmd} ${args.slice(0, 4).join(' ')} failed: ${(e.stderr ?? e.message).slice(0, 600)}`, { cause: error });
   }
 }
 
@@ -167,10 +167,13 @@ export interface Reply {
 }
 
 export class Api {
-  constructor(
-    readonly base: string,
-    public token: string = '',
-  ) {}
+  readonly base: string;
+  token: string;
+
+  constructor(base: string, token = '') {
+    this.base = base;
+    this.token = token;
+  }
 
   async call(method: string, path: string, options: { json?: unknown; headers?: Record<string, string>; token?: string | null; cookie?: string } = {}): Promise<Reply> {
     const headers: Record<string, string> = { ...options.headers };
@@ -248,7 +251,7 @@ export async function uploadSmall(api: Api, files: Array<{ name: string; bytes: 
         const f = wave[j]!;
         const form = new FormData();
         for (const [k, v] of Object.entries(u.post.fields)) form.append(k, v);
-        form.append('file', new Blob([f.bytes], { type: f.contentType ?? 'application/pdf' }), f.name);
+        form.append('file', new Blob([new Uint8Array(f.bytes)], { type: f.contentType ?? 'application/pdf' }), f.name);
         const res = await fetch(u.post.url, { method: 'POST', body: form });
         if (res.status !== 204 && res.status !== 201 && res.status !== 200) throw new Error(`S3 refused ${f.name}: ${res.status} ${(await res.text()).slice(0, 300)}`);
         out.push({ fileId: u.fileId, name: f.name, sha256: sha256Hex(f.bytes) });
