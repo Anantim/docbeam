@@ -1,6 +1,6 @@
 # DocBeam status
 
-Updated 2026-10-17, **end of M4** (branch `m4`, pull request #8; dev AWS is torn down at the end of the M4 round, see "Set up so far").
+Updated 2026-10-17, **end of M4** (merged as PR #8; dev AWS is DESTROYED).
 
 ## M4 (Download a file): built, verified locally and on dev
 
@@ -10,7 +10,7 @@ A person opens a distribution and, on each delivered file, clicks **Preview** (t
 - **DocBeam API:** `POST /files/:fileId/downloads` (`services/docbeam-api/src/routes/downloads.ts`): one 404 for missing, hidden, unscanned and not-delivered files; 410 only for allowed callers; 2-minute link (`ObjectStore.presignGet`, `contentDisposition` in `s3.ts`); a `download.issued` audit row. The 201 body adds `fileName`, `contentType`, `sizeBytes` (D-M4-1, a contract addition).
 - **Web:** live Preview and Download on delivered rows (`TaskTable`, `FileActions`), `useFileLink`, the banner (`tracking/links.ts`), `Preview` takes a link as well as a blob, the Audit tab reloads when a link is issued.
 - **Infra:** one gateway route in dev and prod. Nothing else changed.
-- **AWS round (2026-10-17):** dev brought up (247 + 18 resources), checks 1 to 10 and eight browser tests passed, then torn down.
+- **AWS round (2026-10-17):** dev brought up (247 + 18 resources), checks 1 to 10 and eight browser tests passed, PR #8 merged with dev up (all eight merge workflows green, deploy jobs ran on dev), then torn down: both data buckets emptied (18 and 21 versions), `terraform destroy` of 275 resources, state empty, only the tfstate bucket left. Last tag `b06c8ce84f29`. The merge also deployed the merge commit's images to dev before the teardown.
 
 **Decisions to fold into the design documents after M4** (add to the person's list): D-M4-1 (TDD API contract `POST /files/:fileId/downloads` returns `fileName`, `contentType`, `sizeBytes`); D-M4-2 (download audit row: team is the lowest matching delivered team, `detail` fields); D-M4-3 (what counts as "allowed", and the 404-before-410 order); D-M4-5 (banner copy).
 
@@ -20,6 +20,8 @@ A person opens a distribution and, on each delivered file, clicks **Preview** (t
 - PNG and JPG preview was checked by a unit test, not in the dev browser (PDF, DOCX and XLSX were).
 - LocalStack does not enforce link expiry; the refusal after 2 minutes is proved on dev (check 5).
 - Working-rule slips in M4: the decision and plan records were appended with `cat >>`; one Playwright spec and `ui.spec.ts` were edited with a `sed` and a small Python script; a couple of other edits were done the same way. `git diff main...m4 --stat` was checked and nothing stray was found. All changes are in git.
+- A POST with no body and no content type (for example `curl -X POST …/downloads` with no `-d`) reaches the API as an unsupported media type and gets 415 through CloudFront and the gateway. `POST /jobs/:id/cancel` does the same (found in M4, not new). The web app always sends JSON for the download call, and a script should send `-H 'content-type: application/json' -d '{}'`. Locally (direct to the API) a body-less call works. To look at in M5.
+- The merge of PR #8 deployed to dev (docbeam-api, web and the five worker Lambdas green) before the teardown; `infra` skipped its apply as designed (`INFRA_APPLY_ENABLED=false`).
 - The M3 list still stands (browser checks 14 to 16 on dev, WebSocket 400 rows, prod is code only).
 
 ## Previous status (end of M3)
@@ -94,7 +96,7 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is **DOWN** (M3 round brought up, checked and destroyed on 2026-10-17: both data buckets emptied with `scripts/empty-dev-buckets.sh dev`, then `terraform destroy`, 274 resources). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda, RDS instance, API, queue, CloudFront distribution or secret is left. The last dev app was `https://d2d0tow0wi92yw.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tag: `ab819d42b96c` for the first push, then `517547c519d9` for the DocBeam API; the Delivery and DLQ Lambda code is from `517547c`.
+- Dev is **DOWN** (the M4 round was brought up, checked and destroyed the same day: `terraform destroy` of 275 resources; no ECS cluster, RDS instance, NAT gateway, Elastic IP, load balancer, Lambda, API, queue, CloudFront distribution, ECR repository or secret is left; `aws s3 ls` shows only `docbeam-tfstate-346208529537`). The line below is from the M3 round: (M3 round brought up, checked and destroyed on 2026-10-17: both data buckets emptied with `scripts/empty-dev-buckets.sh dev`, then `terraform destroy`, 274 resources). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda, RDS instance, API, queue, CloudFront distribution or secret is left. The last dev app was `https://d2d0tow0wi92yw.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tag: `ab819d42b96c` for the first push, then `517547c519d9` for the DocBeam API; the Delivery and DLQ Lambda code is from `517547c`.
 - **Teardown** (D-M2-23, script from M3): `terraform destroy` fails on the two data buckets once they hold many versions (`bufio.Scanner: token too long`). Empty `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with the AWS CLI first (all versions and delete markers, 1,000 at a time), never the tfstate bucket, then destroy. A script for this is proposed for M3.
 - Set: `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true` (the person set it before the M2 merge), `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL`. With dev down the deploy jobs skip with a notice.
 
