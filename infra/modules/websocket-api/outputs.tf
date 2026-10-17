@@ -16,7 +16,3 @@ output "manage_connections_arn" {
   description = "The resource for execute-api:ManageConnections."
   value       = "${aws_apigatewayv2_api.this.execution_arn}/${aws_apigatewayv2_stage.this.name}/POST/@connections/*"
 }
-
-output "log_group" {
-  value = aws_cloudwatch_log_group.access.name
-}

@@ -28,8 +28,3 @@ variable "throttle_burst" {
   type    = number
   default = 100
 }
-
-variable "log_retention_days" {
-  type    = number
-  default = 30
-}

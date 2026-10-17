@@ -26,11 +26,6 @@ resource "aws_apigatewayv2_route" "this" {
   target    = "integrations/${aws_apigatewayv2_integration.handlers.id}"
 }
 
-resource "aws_cloudwatch_log_group" "access" {
-  name              = "/aws/apigateway/${var.name}-ws"
-  retention_in_days = var.log_retention_days
-}
-
 resource "aws_apigatewayv2_stage" "this" {
   api_id      = aws_apigatewayv2_api.this.id
   name        = var.stage_name
@@ -41,18 +36,8 @@ resource "aws_apigatewayv2_stage" "this" {
     throttling_burst_limit = var.throttle_burst
   }
 
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.access.arn
-    format = jsonencode({
-      requestId    = "$context.requestId"
-      routeKey     = "$context.routeKey"
-      eventType    = "$context.eventType"
-      status       = "$context.status"
-      connectionId = "$context.connectionId"
-      error        = "$context.error.message"
-    })
-  }
-
+  # No access log: a WebSocket stage can only log once the account has an API Gateway CloudWatch role
+  # (an account-wide setting, D-M3-15). The ws Lambda logs every event instead.
   depends_on = [aws_apigatewayv2_route.this]
 }
 
