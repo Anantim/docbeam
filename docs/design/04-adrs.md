@@ -6,30 +6,30 @@
 |---|---|
 | **Status** | **Draft** |
 | **Owner** | Anantim |
-| **Related** | DocBeam Blueprint, DocBeam Technical Design |
+| **Related** | [DocBeam Blueprint](02-blueprint.md), [DocBeam Technical Design](05-technical-design.md) |
 
-Every record follows the same order: context, options, decision, consequences. The chosen option is highlighted in green. Consequences are listed separately so the trade-offs stay visible after the decision is made.
+Every record follows the same order: context, options, decision, consequences. The chosen option is highlighted in green. Consequences are listed separately so the trade-offs stay visible after the decision is made. Click an ADR number in the summary to jump to its record.
 
 ### Summary
 
 | **ADR** | **Question** | **Answer** | **Status** |
 |---|---|---|---|
-| 001 | How does API traffic reach the services? | HTTP API Gateway, VPC Link, internal ALB | **Accepted** |
-| 002 | How do file bytes move? | Presigned POST up, presigned GET down | **Accepted** |
-| 003 | How are stored files encrypted? | SSE-KMS with the AWS-managed key | **Accepted** |
-| 004 | How long do presigned links last? | 15 minutes up, 2 minutes down | **Accepted** |
-| 005 | Which queue? | SQS standard with DLQs | **Accepted** |
-| 006 | How many services? | Three: Auth, DocBeam API, Platform | **Accepted** |
-| 007 | How does live status reach the browser? | API Gateway WebSocket API | **Accepted** |
-| 008 | Where does fan-out happen? | Job queue, then task queue | **Accepted** |
-| 009 | How are databases laid out? | One instance, three isolated databases | **Accepted** |
-| 010 | Which database engine? | PostgreSQL for all three | **Accepted** |
-| 011 | Where do workers run? | Lambda, with RDS Proxy | **Accepted** |
-| 012 | How is infrastructure defined? | Terraform | **Accepted** |
-| 013 | How do services call each other? | Scoped service tokens, repeat-safe ingest | **Accepted** |
-| 014 | What if the job message is lost after commit? | A sweeper re-sends it | **Accepted** |
-| 015 | How does a sign-in last a working day? | Rotating refresh token in a secure cookie | **Accepted** |
-| 016 | How do we know an upload is real and safe? | S3 events to a queue, plus ClamAV malware scanning in the Lambda | **Accepted** |
+| [001](#adr-001-public-api-edge) | How does API traffic reach the services? | HTTP API Gateway, VPC Link, internal ALB | **Accepted** |
+| [002](#adr-002-file-transfer-path) | How do file bytes move? | Presigned POST up, presigned GET down | **Accepted** |
+| [003](#adr-003-encryption-at-rest) | How are stored files encrypted? | SSE-KMS with the AWS-managed key | **Accepted** |
+| [004](#adr-004-presigned-link-expiry) | How long do presigned links last? | 15 minutes up, 2 minutes down | **Accepted** |
+| [005](#adr-005-queue-technology) | Which queue? | SQS standard with DLQs | **Accepted** |
+| [006](#adr-006-service-split) | How many services? | Three: Auth, DocBeam API, Platform | **Accepted** |
+| [007](#adr-007-live-status-to-the-browser) | How does live status reach the browser? | API Gateway WebSocket API | **Accepted** |
+| [008](#adr-008-where-fan-out-happens) | Where does fan-out happen? | Job queue, then task queue | **Accepted** |
+| [009](#adr-009-database-layout) | How are databases laid out? | One instance, three isolated databases | **Accepted** |
+| [010](#adr-010-database-engine) | Which database engine? | PostgreSQL for all three | **Accepted** |
+| [011](#adr-011-where-workers-run) | Where do workers run? | Lambda (RDS Proxy in prod; direct in dev) | **Accepted** |
+| [012](#adr-012-infrastructure-as-code) | How is infrastructure defined? | Terraform | **Accepted** |
+| [013](#adr-013-service-to-service-calls-and-repeat-safe-ingest) | How do services call each other? | Scoped service tokens, repeat-safe ingest | **Accepted** |
+| [014](#adr-014-job-message-lost-after-commit) | What if the job message is lost after commit? | A sweeper re-sends it | **Accepted** |
+| [015](#adr-015-sign-in-length-and-refresh-tokens) | How does a sign-in last a working day? | Rotating refresh token in a secure cookie | **Accepted** |
+| [016](#adr-016-upload-confirmation-and-malware-scanning) | How do we know an upload is real and safe? | S3 events to a queue, plus ClamAV malware scanning in the Lambda | **Accepted** |
 
 ### ADR-001: Public API edge
 

@@ -9,7 +9,7 @@ Batch document distribution for clinical trial documentation
 | **Status** | **Draft** |
 | **Owner** | Anantim |
 | **Updated** | 10 October 2026 |
-| **Related** | DocBeam ADRs, DocBeam Technical Design |
+| **Related** | [DocBeam ADRs](04-adrs.md), [DocBeam Technical Design](05-technical-design.md) |
 | **Diagrams** | [Eraser workspace: architecture and four user flows](https://app.eraser.io/workspace/Wj6gXZ0DTYhnxzoPnwYY) |
 
 > **In one sentence.** DocBeam lets a trial coordinator pick files once, send them to many team folders in one batch, and see whether every file reached every destination. (The brief calls this project DocBridge; DocBeam is its product name.)
@@ -97,6 +97,51 @@ A user sees and acts only on teams they belong to, and everything inside them. v
 - Auth features beyond the basics: password reset, email verification, MFA, roles, admin screens.
 - Platform features beyond the basics: creating or editing teams, binders, folders or memberships, document versioning, viewing documents in the platform.
 
+### Requirements
+
+These are the client's requirements, in our own words. The last column says how DocBeam meets each one and where the detail is. This build is shown on dev and prod is never deployed, so the table says which targets are checked on dev and which only the prod design meets.
+
+#### Functional requirements
+
+| **#** | **Requirement** | **How DocBeam meets it** |
+|---|---|---|
+| **1** | **Destination discovery.** Users browse the teams, binders and folders they can access, and nothing else. | The Document Platform checks team membership at every level and answers 404 for anything outside the user's teams. Flow 1. |
+| **2** | **File selection and mapping.** Pick many files in one session and send each to one or more destinations. | Up to 100 files, each mapped to any of up to 20 destinations. One file can go to many places and one place can get many files. Flow 2, steps 1 to 4. |
+| **3** | **Job submission.** One submit creates a job for the whole batch and answers at once. Users see their active and past jobs. | The API saves the job and all its tasks in one transaction, sends one queue message and replies in under 500 ms, without waiting for any delivery. The job list shows active and past jobs. Flow 2 step 5, Flow 3. |
+| **4** | **Asynchronous processing.** Each file and destination pair is a task. Tasks run on their own, and one failing never blocks the others. | Each task gets its own queue message and is delivered by its own Lambda run, after the submit has already returned. ADR-005, ADR-008. |
+| **5** | **Status tracking.** Each task goes pending, in progress, then completed or failed. The job status comes from its tasks and updates by itself. | Task states are stored in DocBeam DB and the job status is worked out from them. Every change is pushed to the open page over a WebSocket. ADR-007, Flow 3. |
+| **6** | **File delivery.** Each task uploads the file to the Document Platform intact, and a failure is shown on the task with a reason. | The platform checks the SHA-256 fingerprint before it stores the file. Temporary errors are retried; a final failure is saved on the task with a reason code the user can read. Flow 2, steps 7 and 8. |
+| **7** | **Sign-in and access.** Every action runs as a signed-in user. We manage accounts and tokens ourselves. Access depends on team membership. | Our own Auth Service handles accounts, login and tokens. API Gateway rejects any call without a valid token, and every read and write is limited to the user's teams. ADR-001, ADR-013, ADR-015. |
+| **8** | **File retrieval.** Users can download files from their teams' jobs, and downloads never pass through our servers. | Each download is a 2-minute link straight to S3 for one file. We read this rule narrowly: the sender sees every file, anyone else only files delivered to their teams (open question in the Technical Design tab). Flow 4, ADR-002, ADR-004. |
+
+#### Non-functional requirements
+
+Checked on dev means the test is in the dev acceptance list in the Technical Design tab.
+
+| **Area** | **Target** | **How DocBeam meets it** |
+|---|---|---|
+| **Users** | 2,000 registered, up to 200 at once | The services keep no session state, so more copies can run behind the load balancer. Not load tested with 200 real users. |
+| **Batch size** | 100 files, 20 destinations, up to 2,000 tasks per job | The API enforces the limits. Two queues absorb the spike of one large job (ADR-008). Checked on dev with a 100 x 20 job. |
+| **Daily volume** | 90,000 tasks a day | That is about one task a second on average. Up to 50 deliveries run at once (ADR-011), well above that. The real platform's capacity is an open question. |
+| **File size** | 2 MB average, 1 GB maximum | Files over 100 MB upload in parts and can resume. Checked on dev with a 1 GB upload and delivery. |
+| **File types** | PDF, DOCX, XLSX, PNG, JPG only | Checked in the browser, by the S3 upload policy and again by the platform, where the first bytes must match the type. Every file is also scanned for malware (ADR-016). |
+| **Availability** | 99.9% uptime | Met by the prod design: two availability zones, a Multi-AZ database, two copies of each service. Dev runs in one zone to save credits. A failover drill on dev checks that nothing is lost. |
+| **Submit speed** | Under 500 ms at p99 | Submit only writes rows and one queue message; no file work. Checked on dev with a 2,000-task job. |
+| **Browse speed** | Under 1 second for a user in 50 teams | Folders load one level at a time. Checked on dev. |
+| **Responsive page** | Never freezes during selection or upload | Fingerprints are worked out in a Web Worker, 4 to 6 uploads run in parallel, and the task table draws only the rows on screen. |
+| **No silent loss** | No failure goes unnoticed; 0.1% or fewer deliveries fail | Every queue has a dead-letter queue, failed tasks are marked with a reason, a sweeper re-sends lost job messages (ADR-014), and four email alarms watch the DLQs and the delivery error rate. |
+| **Retries** | At least 3 attempts before a task fails | Up to 5 attempts with growing gaps, about 17 minutes in all. |
+| **Partial failure** | Other tasks still finish | One message per task. Checked on dev: one destination's 100 deliveries fail and the other 1,900 complete. |
+| **Encryption** | At rest, with a cloud key service, no cryptography of our own | KMS encryption on both buckets, the database and the queues (ADR-003). |
+| **Integrity** | Corruption caught from upload to delivery | The browser computes a SHA-256. S3 checks it on upload and the platform checks it again before storing. |
+| **Who can see files** | Only the sender's authorized team members | Private buckets, one-file links, and a team check on every read. Other teams get 404. Checked on dev. |
+| **Secrets** | None in code | Generated, kept in Secrets Manager and injected at runtime. gitleaks runs in CI. |
+| **Endpoints** | All need sign-in | API Gateway answers 401 to any call without a valid token (ADR-001). Checked on dev. |
+| **Retention** | Staged files kept 30 days after the job finishes | S3 deletes files 33 days after upload, so each is kept at least 30 days. Deleting at exactly 30 days is an open question. |
+| **Deployment** | Automated after the first credentials | Terraform for all infrastructure (ADR-012) and a GitHub Actions workflow per service. |
+| **Configuration** | From environment variables or a secrets manager | Secrets Manager on AWS, a generated .env file locally. |
+| **Local run** | All services run with docker compose | Docker Compose with LocalStack for S3 and SQS. |
+
 ### Job stories
 
 | **When I...** | **I want to...** | **So that...** |
@@ -141,7 +186,7 @@ Components and responsibilities only. Schemas, endpoints and internals are in th
 
 ### User flows
 
-Detailed flows are here. Each flow has a matching sequence diagram in the Eraser workspace.
+[Detailed flows are here](03-user-flows.md). Each flow has a matching sequence diagram in the Eraser workspace.
 
 #### Flow 1: Browse and select destinations
 
@@ -200,7 +245,7 @@ Each decision has a full record in the DocBeam ADRs tab.
 | 008 | Two queues: one message per job, then one per task | **Accepted** |
 | 009 | One PostgreSQL instance with three isolated databases | **Accepted** |
 | 010 | PostgreSQL for all three databases | **Accepted** |
-| 011 | Lambda workers behind RDS Proxy | **Accepted** |
+| 011 | Lambda workers (RDS Proxy in prod; direct in dev) | **Accepted** |
 | 012 | Terraform for all infrastructure | **Accepted** |
 | 013 | Service-to-service tokens and repeat-safe ingest | **Accepted** |
 | 014 | Sweeper that re-sends job messages lost after commit | **Accepted** |

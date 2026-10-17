@@ -6,8 +6,8 @@
 |---|---|
 | **Status** | **Draft** |
 | **Owner** | Anantim |
-| **Blueprint** | DocBeam Blueprint |
-| **ADRs** | DocBeam ADRs (ADR-001 to ADR-016) |
+| **Blueprint** | [DocBeam Blueprint](02-blueprint.md) |
+| **ADRs** | [DocBeam ADRs](04-adrs.md) (ADR-001 to ADR-016) |
 | **Diagrams** | [Eraser workspace: architecture and four sequence diagrams](https://app.eraser.io/workspace/Wj6gXZ0DTYhnxzoPnwYY) |
 
 This document turns the Blueprint and the ADRs into a build plan: schemas, API contracts, milestones with estimates, and how the system behaves under concurrency and failure. Every flow below matches its sequence diagram in Eraser step for step.

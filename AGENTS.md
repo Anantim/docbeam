@@ -10,13 +10,12 @@ DocBeam lets clinical trial coordinators send up to 100 files to up to 20 team f
 
 Read these in order. They are the spec; do not invent behaviour that is not in them.
 
-1. `docs/design/01-design-requirements.md`: the client's brief (it calls the project DocBridge; the product is DocBeam).
-2. `docs/design/02-blueprint.md`: scope, users, success metrics.
-3. `docs/design/03-user-flows.md`: the four user flows step by step.
-4. `docs/design/04-adrs.md`: every architecture decision and why.
-5. `docs/design/05-technical-design.md`: schemas, API contracts, repo layout, milestones and steps, concurrency, failure handling, testing strategy, launch plan.
+1. `docs/design/02-blueprint.md`: scope, requirements, users, success metrics.
+2. `docs/design/03-user-flows.md`: the four user flows step by step.
+3. `docs/design/04-adrs.md`: every architecture decision and why.
+4. `docs/design/05-technical-design.md`: schemas, API contracts, repo layout, milestones and steps, concurrency, failure handling, testing strategy, launch plan.
 
-Also available: `docs/design/diagrams/` (Eraser diagram code, detailed and simplified) and `docs/design/ui/Main.dc.html` (the UI mockup source: screens, states, copy and layout to match).
+The client's original brief is not in the repository; the blueprint holds its requirements. Also available: `docs/design/diagrams/` (Eraser diagram code, detailed and simplified) and `docs/design/ui/Main.dc.html` (the UI mockup source: screens, states, copy and layout to match).
 
 `docs/DECISIONS.md` records design changes agreed during the build; it wins over everything in `docs/design/`. Otherwise, when documents disagree, the technical design wins, then the ADRs, then the blueprint, then the flows, then the brief. If something is unclear, missing or contradictory, stop and ask. Do not guess.
 

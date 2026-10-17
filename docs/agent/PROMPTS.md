@@ -15,7 +15,7 @@ How to use them:
 ```text
 We are building DocBeam, a batch document distribution system, exactly as designed in docs/design/. Follow AGENTS.md.
 
-1. Read docs/design/01-design-requirements.md, then 02-blueprint.md, 03-user-flows.md and 04-adrs.md, then 05-technical-design.md, all in full. Look at docs/design/ui/Main.dc.html for the screens.
+1. Read docs/design/02-blueprint.md, 03-user-flows.md and 04-adrs.md, then 05-technical-design.md, all in full. Look at docs/design/ui/Main.dc.html for the screens.
 2. Tell me whether everything is clear enough to implement the full system. List every gap, contradiction or open question you find, each with the file and section, and your suggested answer. Do not guess silently.
 3. Write docs/PLAN.md: the plan to build M0 to M5 in order, taken from the milestones and steps in the technical design. For every task give: its step number, inputs (documents and sections, existing files, values needed), outputs (files, routes, tables, queues, AWS resources, tests), how it is checked, and what I must do or provide.
 4. Write docs/STATUS.md with "Nothing built yet" and the list of milestones.
@@ -212,6 +212,7 @@ Start with the plan (the order of checks, what each costs in time and AWS credit
 - You ran the manual checks yourself.
 - The README and demo script read well to someone who has never seen the project.
 - gitleaks over the whole history is clean before the repository is made public.
+- `docs/design/01-design-requirements.md` (the client's brief) was in the repository until M3 and was then removed. Before the repository is made public, it must be gone from the whole history too: propose how (for example git filter-repo, or publishing a fresh repository from a squashed copy), show me the plan, and run the rewrite and the force push only after my yes.
 - Then: record the demo video on dev, add its link to the README, tear dev down.
 
 ---
