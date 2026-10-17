@@ -301,7 +301,8 @@ export interface FileState {
 }
 
 /** Polls until every file is clean (or the wait ends). Returns the last states. */
-export async function waitScanned(api: Api, ids: string[], timeoutMs = 20 * 60_000): Promise<FileState[]> {
+// ClamAV starts for every file (about 15 s each) and Upload Events runs 10 at a time, so 775 files take about 20 minutes.
+export async function waitScanned(api: Api, ids: string[], timeoutMs = 75 * 60_000): Promise<FileState[]> {
   const deadline = Date.now() + timeoutMs;
   let states: FileState[] = [];
   while (Date.now() < deadline) {

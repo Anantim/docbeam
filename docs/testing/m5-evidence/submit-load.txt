@@ -1,25 +1,11 @@
-[12:24:59] 100 jobs, 775 files, up to 20 destinations each
-node:internal/deps/undici/undici:15270
-      Error.captureStackTrace(err);
-            ^
+[12:27:06] 100 jobs, 775 files, up to 20 destinations each
+file:///home/anantim/docbeam/scripts/m5/lib.ts:324
+  if (bad.length > 0 || states.length !== files.length) throw new Error(`${bad.length} of ${files.length} files not clean (${[...new Set(states.map((s) => s.scanStatus))].join(', ')})`);
+                                                              ^
 
-TypeError: fetch failed
-    at node:internal/deps/undici/undici:15270:13
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async file:///home/anantim/docbeam/scripts/m5/lib.ts:276:21
-    at async Promise.all (index 6)
-    at async uploadSmall (file:///home/anantim/docbeam/scripts/m5/lib.ts:270:5)
-    at async uploadClean (file:///home/anantim/docbeam/scripts/m5/lib.ts:309:17)
+Error: 312 of 775 files not clean (clean, pending)
+    at uploadClean (file:///home/anantim/docbeam/scripts/m5/lib.ts:324:63)
     at async submit-load (file:///home/anantim/docbeam/scripts/m5/checks.ts:75:18)
-    at async file:///home/anantim/docbeam/scripts/m5/checks.ts:697:1 {
-  [cause]: ConnectTimeoutError: Connect Timeout Error (attempted addresses: 52.95.134.106:443, 52.95.134.170:443, 3.5.166.157:443, 3.5.167.183:443, 52.95.128.162:443, 3.5.165.20:443, 52.95.134.50:443, 16.12.74.2:443, timeout: 10000ms)
-      at onConnectTimeout (node:internal/deps/undici/undici:2761:28)
-      at Immediate._onImmediate (node:internal/deps/undici/undici:2742:11)
-      at process.processImmediate (node:internal/timers:484:21) {
-    code: 'UND_ERR_CONNECT_TIMEOUT',
-    [Symbol(undici.error.UND_ERR)]: true,
-    [Symbol(undici.error.UND_ERR_CONNECT_TIMEOUT)]: true
-  }
-}
+    at async file:///home/anantim/docbeam/scripts/m5/checks.ts:697:1
 
 Node.js v22.23.3
