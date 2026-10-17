@@ -124,7 +124,7 @@ M5 runs the success metrics of the [blueprint](docs/design/02-blueprint.md) agai
 | Cancel mid-run | Yes: 280 finished, 1,720 cancelled, job reads cancelled |
 | Refresh token reuse ends the sign-in; 5 wrong passwords pause for 15 minutes | Yes |
 | Security: 401 at the gateway, cross-team 404, expired link 403, gitleaks clean | Yes |
-| Dropped job message: sweeper starts fan-out within 3 minutes | Yes: 179 s |
+| Dropped job message: sweeper starts fan-out within 3 minutes | 179 s on the first run, which was too close; the sweeper now re-sends after 1 minute instead of 2 (D-M5-15, worst case about 2 minutes 10 seconds); to be re-run on dev |
 | Browser: slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview | see M5-RESULTS |
 | Delivery failure rate (system failures over all tasks) | 0 of 12,872 after the fixes; 853 of 24,398 (3.5%) in the one run before the pool fix |
 

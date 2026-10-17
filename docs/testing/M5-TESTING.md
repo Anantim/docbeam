@@ -72,11 +72,12 @@ Run alone and in this order: `scripts/m5-all.sh` (or one by one). Each prints `P
 | 5.5 | Browse | `scripts/m5-browse-timing.sh` | no | 50 teams; p99 under 1000 ms, client side and in the gateway log |
 | 5.9 | EICAR | `scripts/m5-eicar.sh` | no | infected; submit refused; object deleted; download 404 |
 | 5.4 | File checks | `scripts/m5-file-checks.sh --yes` | pauses the Delivery trigger, deletes one object | 422 FILE_NOT_READY and nothing created; only the removed file's 3 tasks fail FILE_NOT_UPLOADED |
-| 5.1 | Submit speed | `scripts/m5-submit-load.sh` | no | 100 jobs accepted; server-side p99 under 500 ms |
+| 5.1 | Submit speed | `scripts/m5-submit-load.sh --plan=100:10,1:90` | no | 100 jobs accepted (10 of 100 x 20, 90 of 1 x 20); server-side p99 under 500 ms |
+| 5.1 diagnosis | Quiet run, then the report | `scripts/m5-submit-load.sh --quiet --yes --plan=100:10,1:90`, then `scripts/m5-submit-report.sh --from=<WINDOW from> --to=<WINDOW to>` | `--quiet` pauses the Delivery trigger and switches it on again | the report prints the gateway and integration latency, the API's phases per job size, the load balancer's response time, and the CPU of the API, platform and database (D-M5-14). Local: `scripts/m5-schema-timing.sh` (no AWS) times the body checks of a 100 x 20 body at 0.25 vCPU |
 | 5.10 | Cancel | `scripts/m5-cancel.sh` | no | 202; waiting tasks cancelled; running tasks finish; the job reads cancelled |
 | 5.2 | Removed member | `scripts/m5-removed-member.sh --yes` | pauses the Delivery trigger, runs the seed variant | 100 NOT_AUTHORIZED_AT_DELIVERY, 1,900 completed |
 | 5.3 | Platform outage | `scripts/m5-platform-outage.sh --yes` | scales the platform to 0 for 5 minutes | 2,000 of 2,000 completed once, the DLQs 0 |
-| 5.13 | Lost job message | `scripts/m5-sweeper.sh --yes` | pauses the Fan-out trigger, purges the Job Queue | fan-out starts within 3 minutes |
+| 5.13 | Lost job message | `scripts/m5-sweeper.sh --yes` | pauses the Fan-out trigger, purges the Job Queue | fan-out starts within 3 minutes (by design at most about 2 minutes 10 seconds after D-M5-15) |
 | 5.6 | 1 GiB multipart | `scripts/m5-multipart-1gb.sh` | no | stored combined checksum `…-64`; scanned clean; delivered; the platform document has the same SHA-256 |
 | 5.11 | Auth | `scripts/m5-auth.sh` | no | reuse of a refresh token ends the sign-in; 5 wrong passwords pause for 15 minutes |
 | 5.8 | Failover | `scripts/m5-failover.sh --yes` | Multi-AZ on, reboot with failover, Multi-AZ off | deliveries pause, then all 2,000 complete; dev is Single-AZ again |
