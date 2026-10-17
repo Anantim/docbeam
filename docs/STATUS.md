@@ -1,6 +1,6 @@
 # DocBeam status
 
-Updated 2026-10-17, **end of M5** (branch `m5`, pull request open, not merged). **M5 FAILS on one item: check 5.1, submit speed, is a NO.** Dev AWS: see "Dev state" below.
+Updated 2026-10-17, **end of M5** (branch `m5`, pull request open, not merged). **Every M5 item is YES. Check 5.1 (submit speed) is YES only under the requirement change of D-M5-17 (the person's decision, 2026-10-18): under 500 ms at p99 in normal operation, under 1 s at p99 under peak delivery load; the worst of seven loaded runs was 992 ms, a margin of 8 ms, and against the old single 500 ms target it is still a NO.** Dev AWS: see "Dev state" below.
 
 ## M5 (Hardening and end-to-end checks): release summary
 
@@ -8,7 +8,9 @@ Run unattended against a dev built from nothing with `docs/RUNBOOK-first-bring-u
 
 **What passed (13 of 14 checks, all on deployed dev):** removed member (100 refused, 1,900 delivered), platform stopped 5 minutes (3,522 retries, 2,000 of 2,000 delivered once, DLQs 0), file never uploaded and file removed (FILE_NOT_READY, FILE_NOT_UPLOADED), browse in 50 teams (p99 784 ms from a laptop, 44 ms at the gateway), 1 GiB multipart (delivered in 37 s, same SHA-256), team viewer, database failover (20 s, 2,000 of 2,000 delivered once, none RETRIES_EXHAUSTED), EICAR, cancel, refresh reuse and the 15-minute pause, security (401 at the gateway, cross-team 404, link 403 after 2 minutes, a POST with no body works through CloudFront, gitleaks clean), lost job message (179 s of 180), and the four browser checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview). The runbook was proved by the bring-up (247 + 26 resources, 107 minutes). Database TLS now checks the certificate chain. The repository passes `scripts/check-public.sh`.
 
-**What failed: 5.1.** The median `POST /jobs` is 32 ms, but the 100 x 20 submissions take 0.35 to 1.6 s at the gateway: p99 749, 712, 992 and 808 ms over four runs (target 500). One real cause was found and fixed (10,000 bound parameters, D-M5-10); the rest is time in the API before the route's own timer starts, not traced. Next steps, in order: log `reply.elapsedTime` at the start of the handler, try 1 vCPU for the DocBeam API (0.5 now), measure from inside AWS (D-M5-11).
+**5.1 under the new wording (D-M5-17, see M5-RESULTS section 8).** Normal operation 225 ms; peak load seven runs 330 to 992 ms against 1,000. Known limit: the time is lost in small database queries while up to 49 Delivery copies queue on one job's row lock and the write-ahead log of a `db.t4g.micro`; planned, not done: a `db.t4g.small` for dev, a shorter job-row lock in cancel, the same check on prod's Multi-AZ instance. The phase timing stays (D-M5-14, D-M5-16). What follows is the 2026-10-17 account, when it was graded NO against 500 ms.
+
+**What failed on 2026-10-17: 5.1.** The median `POST /jobs` is 32 ms, but the 100 x 20 submissions take 0.35 to 1.6 s at the gateway: p99 749, 712, 992 and 808 ms over four runs (target 500). One real cause was found and fixed (10,000 bound parameters, D-M5-10); the rest is time in the API before the route's own timer starts, not traced. Next steps, in order: log `reply.elapsedTime` at the start of the handler, try 1 vCPU for the DocBeam API (0.5 now), measure from inside AWS (D-M5-11).
 
 **Limits found.** ClamAV scans about 15 s per file with 10 at a time (100 files take 2.5 minutes). A 1 GiB delivery needs a 3,008 MB Delivery Lambda. After a database failover a message can wait up to 12 minutes (the queue visibility timeout); nothing is lost. The dev database is a `db.t4g.micro` (68 connections and 45% CPU under 50 Delivery copies). The Free plan accepted Multi-AZ. The SNS alarm email was not confirmed (alarms were read in CloudWatch).
 
@@ -91,7 +93,7 @@ A person sees every distribution they sent (Mine) and every one sent to their te
 | M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
 | M3 | Flow 3: Track a job | 7 d | Merged (PR #7). Accepted NOs in M3-RESULTS 4.6 |
 | M4 | Flow 4: Download a file | 2 d | Built, verified locally and on dev (PR #8). No NOs (M4-RESULTS 4) |
-| M5 | Hardening and end-to-end checks | 2 d | Built and run on dev (PR open). **FAILS on check 5.1** (p99 808 ms against 500); every other item YES (M5-RESULTS 4) |
+| M5 | Hardening and end-to-end checks | 2 d | Built and run on dev (PR open). All items YES; **5.1 is YES only under D-M5-17** (500 ms normal, 1 s under peak load; worst 992 ms); every other item YES (M5-RESULTS 4) |
 
 ## What M2 did
 
@@ -172,4 +174,4 @@ Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sectio
 
 ## Next (after M5)
 
-Decide what to do about check 5.1 (see the M5 release summary at the top): trace the time before the route handler, try a 1 vCPU DocBeam API task, then re-run `scripts/m5-submit-load.sh` on a new dev bring-up (`docs/RUNBOOK-first-bring-up.md`). Then record the demo (`docs/DEMO-SCRIPT.md`), fold the decisions into the design documents, and merge the pull request.
+Fold the decisions into the design documents (D-M5-4, 5, 8, 10, 12, 13, 15, 17), and merge the pull request. The 5.1 known limit (D-M5-17): try `db.t4g.small` for dev and a shorter job-row lock in cancel, and check prod's Multi-AZ instance the same way, before relying on the 1 s peak-load figure.

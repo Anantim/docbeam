@@ -2,7 +2,7 @@
 
 Run on 2026-10-17, unattended (D-M5-0), against a dev built from nothing with `docs/RUNBOOK-first-bring-up.md`. All times UTC. The raw output of every check is in `docs/testing/m5-evidence/` (`summary.txt` lists every run, including the failed ones). Decisions and fixes found on the way: `docs/DECISIONS.md` D-M5-0 to D-M5-13.
 
-**Verdict: M5 FAILS on one item: check 5.1 (submit speed) is a NO.** Everything else on the list is YES, with evidence below. Sections: 1 Local, 2 Bring-up, 3 The checks, 4 YES/NO, 5 What the runs found, 6 Limits, 7 Tear down.
+**Verdict: every item is YES, with one limit.** Check 5.1 (submit speed) is graded against the two targets of D-M5-17 (a requirement change decided by the person on 2026-10-18; the original 500 ms target is kept for normal operation): normal operation under 500 ms (run A, 225 ms) and peak delivery load under 1 s (all seven runs, worst 992 ms, a margin of 8 ms). The first run of this file (2026-10-17) graded it NO against the single 500 ms target; that grade is kept in section 3 and section 5. Everything else on the list is YES, with evidence below. Sections: 1 Local, 2 Bring-up, 3 The checks, 4 YES/NO, 5 What the runs found, 6 Limits, 7 Tear down.
 
 ## 1. Local
 
@@ -38,7 +38,7 @@ Run on 2026-10-17, unattended (D-M5-0), against a dev built from nothing with `d
 
 | # | Check | Script | Result | Evidence |
 |---|---|---|---|---|
-| 5.1 | 100 x 20 accepted in under 500 ms at p99 | `m5-submit-load.sh` | **NO.** Four full runs: p99 749, 712, 992, 808 ms (gateway `responseLatency`, 100 requests, Logs Insights). Median 32 ms. | `submit-load.txt`, D-M5-10, D-M5-11 |
+| 5.1 | 100 x 20 accepted in under 500 ms at p99 | `m5-submit-load.sh` | **YES under D-M5-17, thin margin.** (Graded NO on 2026-10-17 against the single 500 ms target: p99 749, 712, 992, 808 ms.) Now: **normal operation** (Delivery paused) p99 **225 ms** vs 500, one run; **peak delivery load** p99 749, 712, 992, 808, 330, 590, 419 ms vs **1,000**, seven runs, worst 992 ms (8 ms of margin); single requests reached 1,152 and 1,645 ms. Gateway `responseLatency`, 100 requests, Logs Insights. Median 30 ms. | `submit-load.txt` (2026-10-17), `submit-diag-A-quiet.txt`, `submit-diag-B-load.txt`, `submit-5.1-run2.txt`, `submit-diag-run3-instrumented.txt`; section 8; D-M5-10, D-M5-11, D-M5-16, D-M5-17 |
 | 5.2 | member removed from 1 of 20 teams | `m5-removed-member.sh` | **YES.** All 2,000 pending with Delivery paused; seed variant removed 1 membership; **100 failed NOT_AUTHORIZED_AT_DELIVERY, all `Load Team 20 / Regulatory`; 1,900 completed**; seed restored | `removed-member.txt` |
 | 5.3 | platform stopped 5 min mid-run | `m5-platform-outage.sh` | **YES** (second version; the first let all 2,000 finish in 20 s before the stop). Stopped at 177 delivered; after 5.0 min 826 done, 1,174 waiting; **3,522 temporary delivery errors; 2,000 of 2,000 completed, 2,000 distinct tasks; Task DLQ and Job DLQ max 0** (CloudWatch); four alarms `OK` | `platform-outage.txt` |
 | 5.4 | FILE_NOT_READY; removed file | `m5-file-checks.sh` | **YES** after D-M5-8 and D-M5-9. Never-uploaded file: 422 FILE_NOT_READY, 2 jobs before and after. Object deleted after submit: its 3 tasks `FILE_NOT_UPLOADED`, the other file's 3 completed | `file-checks.txt` |
@@ -50,7 +50,7 @@ Run on 2026-10-17, unattended (D-M5-0), against a dev built from nothing with `d
 | 5.10 | cancel mid-run | `m5-cancel.sh` | **YES.** Cancel (no body) 202 `{"cancelled":1720}`; 280 completed before and after; 1,720 CANCELLED; status `cancelled`; final a minute later; 0 real failures | `cancel.txt` |
 | 5.11 | refresh reuse; 5 wrong passwords | `m5-auth.sh` | **YES.** Cookie `Path=/api/auth; HttpOnly; Secure; SameSite=Strict`; refresh 200; old cookie 401; newer cookie 401; 5 wrong 401; right password 401 during the pause; **200 after 15 minutes** | `auth.txt` |
 | 5.12 | security | `m5-security.sh`, `check-public.sh` | **YES.** 27 no-token calls 401, CloudWatch counts 27 4xx and 0 integration samples (the load balancer's request count was 0); `curl -X POST` with no body: cancel 202, retry refused (not 415), download link 201; cross-team download and preview 404; link 200 then **403 after 2 minutes**; bucket without a link 403; gitleaks clean | `security.txt` |
-| 5.13 | lost job message | `m5-sweeper.sh` | **YES, narrowly: 179 s** against a limit of 180. Nothing else queued or running first; fan-out disabled, job queue purged, trigger enabled | `sweeper.txt` |
+| 5.13 | lost job message | `m5-sweeper.sh` | **YES: 113 s** after D-M5-15 (the sweeper re-sends after 1 minute; worst case by design about 2 min 10 s). The first run, 2026-10-17, was 179 s of 180 (too close). Nothing else queued or running first; fan-out disabled, job queue purged, trigger enabled | `sweeper-rerun.txt`, `sweeper.txt` |
 | 5.14 | browser: slow connection, multipart resume, WebSocket, PNG and JPG | `npm run test:e2e:dev -- m5-browser-dev` (Playwright, Chromium, on dev; the person was away, so the manual steps were driven by the test, D-M5-0) | **YES**, all four passed, but over three runs while the test was being corrected (the test, not the app, was wrong each time: `browser-run1.txt`, `-run2`, `-run3`, `browser.txt`, `browser-4.txt`). **Slow connection:** 2 MiB at about 64 KiB/s (DevTools-style limit), "Uploading", then Verified in 51 s, sent and Delivered. **Multipart resume:** a 120 MiB file (8 parts), network taken offline after part 2, "Upload interrupted" shown, back online after 20 s, Retry on the same row: it carried on at part 2 (not 0) and reached Verified, the page was never reloaded (marker kept), then delivered. **PNG and JPG preview:** two images drawn by the browser (240 x 160), sent to Cardio, Preview opened each in the page and the browser decoded both at 240 x 160. **WebSocket reconnect:** 2,000-delivery run as the load user; 498 delivered on screen, 30 s offline: the page shows "The distribution could not be loaded" instead of the counts while the server went on to 1,588; back online it caught up to the server and followed the run to 2,000 with no reload | `browser*.txt`, `m5-evidence/*.png` |
 
 Failure rate (`m5-failure-rate.sh`, `failure-rate.txt`): over the whole bring-up 24,398 non-cancelled tasks: 23,442 completed, **853 RETRIES_EXHAUSTED (3.5%) — all from the first failover run, before the pool fix**, 100 NOT_AUTHORIZED_AT_DELIVERY and 3 FILE_NOT_UPLOADED (user and access failures, counted apart), 63,627 cancelled (left out). Since the fixes were deployed (16:10): 12,872 of 12,872 completed, **system failure rate 0%**.
@@ -59,7 +59,7 @@ Failure rate (`m5-failure-rate.sh`, `failure-rate.txt`): over the whole bring-up
 
 | Requirement | | Evidence |
 |---|---|---|
-| TDD: 100 x 20 job accepted in under 500 ms at p99 | **NO** (808 ms; section 5) | `m5-evidence/submit-load.txt` |
+| TDD: 100 x 20 job accepted in under 500 ms at p99 (changed by D-M5-17: 500 ms in normal operation, 1 s under peak delivery load) | **YES under the new wording, thin margin**: normal operation 225 ms (one run); peak load seven runs, worst 992 ms against 1,000 | `m5-evidence/submit-diag-A-quiet.txt`, `submit-load.txt`, `submit-5.1-run2.txt`, `submit-diag-run3-instrumented.txt`; section 8 |
 | TDD: removing the sender from one team: 100 NOT_AUTHORIZED_AT_DELIVERY, 1,900 complete | YES (5.2) | `m5-evidence/removed-member.txt` |
 | TDD: platform stopped 5 minutes, backlog drains, DLQ empty | YES (5.3) | `m5-evidence/platform-outage.txt` |
 | TDD: FILE_NOT_READY, FILE_NOT_UPLOADED | YES (5.4) | `m5-evidence/file-checks.txt` |
@@ -71,10 +71,10 @@ Failure rate (`m5-failure-rate.sh`, `failure-rate.txt`): over the whole bring-up
 | TDD: cancel mid-run | YES (5.10) | `m5-evidence/cancel.txt` |
 | TDD: refresh reuse; 5 wrong passwords | YES (5.11) | `m5-evidence/auth.txt` |
 | TDD: security (401, cross-team 404, expired links, gitleaks) and a POST with no body works through CloudFront | YES (5.12, D-M5-5) | `m5-evidence/security.txt` |
-| TDD: dropped job message, sweeper within 3 minutes | YES, 179 s (5.13); to be re-run after D-M5-15 | `m5-evidence/sweeper.txt` |
+| TDD: dropped job message, sweeper within 3 minutes | YES, 113 s after D-M5-15 (179 s before) | `m5-evidence/sweeper-rerun.txt`, `sweeper.txt` |
 | TDD: manual checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview) | YES, run in a real browser by Playwright (5.14). A person has not clicked through them; the steps are in `M5-TESTING.md` 1.3 | `m5-evidence/browser.txt`, `browser-4.txt`, `*.png` |
 | Prompt: `scripts/m5-submit-load.sh` and the other scripts, re-runnable | YES (`scripts/m5-*.sh`, `m5-all.sh`, `scripts/m5/`) | command: `ls scripts/m5-*.sh scripts/m5/` |
-| Prompt: every check run on dev with evidence; failures fixed and re-run | YES, except 5.1, which was re-run three times and is recorded as NO (D-M5-11) | `m5-evidence/summary.txt` (every run, with exit codes) |
+| Prompt: every check run on dev with evidence; failures fixed and re-run | YES. 5.1 was re-run eight times in all and graded against the two targets of D-M5-17 (it was NO against the single 500 ms target, D-M5-11) | `m5-evidence/summary.txt` (every run, with exit codes) |
 | Prompt: `M5-TESTING.md`, `M5-RESULTS.md` | YES | the two files in `docs/testing/` |
 | Prompt: `docs/RUNBOOK-first-bring-up.md`, proved by building dev from nothing | YES (section 2) | section 2 above; the 247 + 26 apply counts are in the runbook; `m5-evidence/teardown.txt` for the destroy |
 | Prompt: database TLS checking the chain, D-M1-10 | YES (D-M5-4, `tls.txt`) | `m5-evidence/tls.txt` |
@@ -86,7 +86,7 @@ Failure rate (`m5-failure-rate.sh`, `failure-rate.txt`): over the whole bring-up
 | Delivery failure rate: no system failures after the fixes | **YES**: 0% over 12,872 tasks after the fixes (deployed 16:10 UTC). The 853 RETRIES_EXHAUSTED (3.5% of 24,398) came from the first failover run, before D-M5-13: that run is how the pool bug was found | `m5-evidence/failure-rate.txt`, `failover-run1.txt`; command `scripts/m5-failure-rate.sh` |
 | Prompt: do not deploy prod | YES, never touched | command: `aws s3 ls s3://docbeam-tfstate-346208529537/ --recursive` lists only `envs/dev/terraform.tfstate` (no `envs/prod`), checked 2026-10-18 |
 
-**One NO means the milestone fails** (AGENTS.md). M5 is reported as FAILED on 5.1, with the reason below.
+**No row is a NO.** 5.1 is YES only because the requirement was changed by the person after the measurements (D-M5-17); against the original single 500 ms target it is still a NO, and the margin under the new peak-load target is 8 ms. This is stated here, in the README and in the pull request so nobody reads it as a clean pass.
 
 ## 5. What the runs found
 
@@ -102,7 +102,7 @@ Each was found only on AWS; none could be seen on Compose.
 | After a failover the Platform answered 500 for more than 10 minutes: pooled connections dead and silent | 853 RETRIES_EXHAUSTED; 1,089 errors in 3 minutes at 15:47 | D-M5-13: `query_timeout`, TCP keep-alive; the same drill then recovered in 15 s |
 | Cancel, retry, download and refresh through CloudFront with no body got 415 | integration test red before the fix | D-M5-5 |
 
-**Why 5.1 is a NO.** The median submission is 32 ms, but the five 100 x 20 submissions take 0.35 to 1.6 s at the gateway in every run, so p99 over 100 requests is 712 to 992 ms. The gateway's integration latency is within 2 ms of its latency, so the time is in the DocBeam API task. Its own phase timer shows 150 to 800 ms for those requests and starts after the token check and the body parse, so up to about 800 ms is spent before the handler. That part was not traced (stop rule). Next steps, not done: log `reply.elapsedTime` at the start of the handler, try 1 vCPU for the DocBeam API (it has 0.5 vCPU), and measure from inside AWS. Prod would run the API with two tasks and a larger database, which may or may not be enough.
+**Why 5.1 was a NO on 2026-10-17 (against the single 500 ms target; re-graded in section 8 under D-M5-17).** The median submission is 32 ms, but the five 100 x 20 submissions take 0.35 to 1.6 s at the gateway in every run, so p99 over 100 requests is 712 to 992 ms. The gateway's integration latency is within 2 ms of its latency, so the time is in the DocBeam API task. Its own phase timer shows 150 to 800 ms for those requests and starts after the token check and the body parse, so up to about 800 ms is spent before the handler. That part was not traced (stop rule). Next steps, not done: log `reply.elapsedTime` at the start of the handler, try 1 vCPU for the DocBeam API (it has 0.5 vCPU), and measure from inside AWS. Prod would run the API with two tasks and a larger database, which may or may not be enough.
 
 **The 523 s in the failover drill** is the quiet tail after the run (stragglers on the retry gaps and one message that waited the queue's 720 s visibility timeout), not a stop of the system: 1,992 of 2,000 were delivered within 90 s. The full account is in `failover.txt`.
 
@@ -136,7 +136,7 @@ Dev was brought up again with the runbook (301 resources, then 18, `No changes.`
 | 2 | 22:14 | same | running | **590** | 748 | **NO** |
 | 3 | 23:01 | plus pool and stall logging | running | 419 | 537 | pass |
 
-So 5.1 passed in 3 of 4 runs on this bring-up and failed in 1; with yesterday's four it is **4 failures in 8 runs under delivery load, and 0 in 1 quiet run**. 5.1 is **not** shown to hold: two formal passes in a row have not happened.
+So 5.1 passed in 3 of 4 runs on this bring-up and failed in 1; with yesterday's four it is **4 failures in 8 runs under delivery load, and 0 in 1 quiet run**. Against the single 500 ms target 5.1 did **not** hold (the "Result" column above is against 500 ms); under the two targets of D-M5-17 it is graded below.
 
 **What the runs show, in order of strength:**
 1. **Not the parse, the schema, the token check, the platform call or the insert.** Over runs A, B, 2 and 3 the body read is under 7 ms, JSON parse 0.5 ms, zod 1 to 7 ms, auth 0.4 ms, the destination check 5 to 200 ms (run in parallel with the file check), the 2,000-row insert 85 to 167 ms.
@@ -146,5 +146,7 @@ So 5.1 passed in 3 of 4 runs on this bring-up and failed in 1; with yesterday's 
 5. **What does separate them: delivery load on the database.** The `pg_stat_activity` sampler (every 250 ms, run 3's timed window, `submit-diag-run3-pg-summary.txt`): up to **51 active backends** (50 Delivery copies and the API) and 63 in total, **49 backends waiting at once on row locks** (`Lock: tuple` and `transactionid`, up to 8.5 s for the longest query), plus WAL waits (`IO: WALSync`, `LWLock: WALWrite`) and up to 50 ungranted locks. The Delivery copies finishing tasks of a job that is being cancelled all queue on that job's row lock (`finishTask` and `failPendingTasks` take `FOR UPDATE` on it, by design). With Delivery paused (run A) none of this exists and every lookup was fast. The two slowest requests of run 2 and the slowest of run 3 each came 11 to 14 s after the previous big job was cancelled.
 
 **Most likely cause, and how sure we are.** Time inside the database on small statements while 50 Delivery copies pile up on the job row lock and the write-ahead log of a small `db.t4g.micro` (about 63 connections, memory 38 to 94 MB free). Supported by: the quiet run, the sampler, the per-phase timing and the exclusions above. **Not proven:** nothing shows a `SELECT` of the API waiting on a lock (plain reads do not), so the exact mechanism (WAL and CPU contention on the small instance, or lock-manager spin) is an inference. Yesterday's four failures cannot be explained further: their database is gone, the API did not log the phases, and their windows show the same resources as today's passes.
+
+**Re-grade under D-M5-17.** Normal operation (under 500 ms): run A, 225 ms, one run: pass. Peak delivery load (under 1,000 ms): Y1 749, Y2 712, Y3 992, Y4 808, B 330, run 2 590, run 3 419: all seven pass; the worst margin is 8 ms (Y3, which also overlapped other work on the laptop; Y1 ran on code changed since). Against the old 500 ms target five of those seven fail. Single requests above 1 s existed (1,152 ms in Y3, 1,645 ms in Y4); p99 is what is graded. Known limit: the diagnosis above stands and the planned fixes (larger dev database class, shorter job-row lock in cancel, the same check on prod's Multi-AZ instance) are not done.
 
 **Also the harness.** The 5.1 load cancels every job it submits, so the Delivery copies spend the run draining thousands of cancelled messages that all end on one job row. Real delivery of a 2,000-task job also finishes tasks under the job row lock, but without a cancel in the middle of it.

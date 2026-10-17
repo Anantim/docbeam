@@ -760,6 +760,16 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Local measurement (`scripts/m5-schema-timing.sh`, a 100 x 20 body, 218 KiB, 200 runs, `docker --cpus`):** at 0.25 vCPU JSON.parse p50 0.5 ms, zod p50 1.5 ms, validateBatch p50 1.7 ms, **but p99 80 to 95 ms for each**; at 0.5 vCPU p99 47 to 57 ms; at 2 vCPU p99 under 2 ms. The work itself is cheap; a small CPU quota stalls it in bursts (CFS throttling).
 - **Why:** The route's own timer started after the body parse and the token check, so up to 800 ms of the slow requests was unexplained (D-M5-11).
 
+## D-M5-17. Requirement change: submit speed has two targets (check 5.1)
+- **Date:** 2026-10-18
+- **Decided by:** the person (a requirement change, not a design finding of the build).
+- **Changes:** success metric "a 100 x 20 job (2,000 deliveries) is accepted in under 500 ms at p99" (TDD Step 5 list and the blueprint metric). `docs/design/` is not edited; this entry wins over it (AGENTS.md).
+- **What:** The original target stays. It now applies to **normal operation**: 2,000 deliveries accepted in under **500 ms at p99** with no delivery load on the system. A second target applies **under peak delivery load**: under **1 s at p99**, with Delivery copies running at full concurrency (the load of runs B, 2, 3 and the four runs of 2026-10-17). Both are read at the API Gateway (`responseLatency`, Logs Insights, 100 requests), as before.
+- **Why (the person's reasons):** 1 s is the usual limit for an action to feel immediate; comparable batch-submit APIs, such as Dropbox's `finish_batch`, publish no stricter promise (not checked by this build); the 500 ms figure was set before anything was measured.
+- **Evidence it is graded on (`M5-RESULTS.md` section 8):** normal operation: run A (Delivery paused) p99 225 ms, max 282 ms: **one run only**. Peak load: seven runs, p99 749, 712, 992, 808 (2026-10-17), 330, 590, 419 ms (this bring-up): all under 1 s, **worst 992 ms, a margin of 8 ms**. Single requests did go over 1 s (max 1,152 ms in the 992 run and 1,645 ms in the 808 run). The 749 run was on code since changed (D-M5-10), and the 992 run overlapped other work on the laptop.
+- **Known limit kept (not fixed):** under peak load the slow requests lose their time in small database queries while up to 49 Delivery copies queue on one job's row lock and wait on the write-ahead log of a `db.t4g.micro` with 38 to 94 MB free memory (D-M5-16). Not proven to be the only cause; yesterday's four failures could not be explained further. Fixes planned, not done: a larger dev database class (`db.t4g.small`, about 0.4 USD a day more), a shorter job-row lock in the cancel transaction, and the same check on prod's Multi-AZ instance before it is deployed. The phase timing stays in place (D-M5-14, D-M5-16).
+- **Why recorded this way:** the target was changed after measuring, so the original, the new wording and the thin margin are all written down; the pass is not hidden.
+
 ## D-M5-16. 5.1 diagnosis tooling: pool, GC, CPU-limit and lock sampling (check 5.1)
 - **Date:** 2026-10-18
 - **Changes:** none to the design. Observability and scripts only.
