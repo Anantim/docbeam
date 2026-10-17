@@ -1,0 +1,7 @@
+PASS  login sets a strict cookie: Path=/api/auth; HttpOnly; Secure; SameSite=Strict
+PASS  refresh with the cookie gives a new token: 200
+PASS  the old cookie used again is refused: 401
+PASS  and the newer cookie is refused too: the whole sign-in is cancelled: 401
+PASS  five wrong passwords all get 401: 401, 401, 401, 401, 401
+PASS  the right password is refused during the pause (same 401): 401 UNAUTHORIZED
+[11:38:49] waiting for the 15-minute pause to end

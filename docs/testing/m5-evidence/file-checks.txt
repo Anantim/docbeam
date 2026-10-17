@@ -1,0 +1,11 @@
+[11:43:18] Changes AWS (approved with --yes): pauses the Delivery trigger and deletes one staged object from the Object Store bucket
+PASS  a never-uploaded file gets 422 FILE_NOT_READY: 422 FILE_NOT_READY
+PASS  nothing was created: 0 jobs before, 0 after
+PASS  6 tasks accepted: 201, 6
+[11:44:16] deleted staging/a13a52f4-3e83-483d-b5d9-d65040710e56/cbad2b06-cc60-4b5e-a5fb-8fbc260ced2b
+[11:44:32] job ec93416b {"pending":0,"in_progress":0,"completed":6,"failed":0,"cancelled":0}
+FAIL  the removed file: its 3 tasks failed FILE_NOT_UPLOADED: {"completed/null":3}
+PASS  the other file: its 3 tasks completed: {"completed":3}
+FAIL  only those 3 failed: {"pending":0,"in_progress":0,"completed":6,"failed":0,"cancelled":0}
+
+FAIL file-checks (4/6 lines)

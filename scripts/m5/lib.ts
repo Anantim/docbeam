@@ -139,7 +139,12 @@ export async function setTrigger(fn: string, enabled: boolean): Promise<void> {
   const want = enabled ? 'Enabled' : 'Disabled';
   for (let i = 0; i < 60; i += 1) {
     const states = awsJson<{ EventSourceMappings: Array<{ State: string }> }>(['lambda', 'list-event-source-mappings', '--function-name', `${NAME}-${fn}`]).EventSourceMappings.map((m) => m.State);
-    if (states.every((s) => s === want)) return;
+    if (states.every((s) => s === want)) {
+      // The mapping says Disabled, but a poll already open can still hand over messages for a little while (seen on
+      // dev: 6 deliveries ran 50 s after "Disabled"). Wait that out, so "paused" means paused.
+      if (!enabled) await sleep(120_000);
+      return;
+    }
     await sleep(5000);
   }
   throw new Error(`The ${fn} trigger did not become ${want}`);
@@ -278,7 +283,7 @@ export async function waitScanned(api: Api, ids: string[], timeoutMs = 20 * 60_0
       if (r.status !== 200) throw new Error(`GET /files gave ${r.status}`);
       states.push(...(r.body as FileState[]));
     }
-    if (states.length === ids.length && states.every((s) => s.uploaded && s.scanStatus !== 'pending')) return states;
+    if (states.length === ids.length && states.every((s) => s.scanStatus !== 'pending')) return states;
     await sleep(3000);
   }
   return states;

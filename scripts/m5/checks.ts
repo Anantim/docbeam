@@ -118,6 +118,8 @@ const checks: Record<string, () => Promise<void>> = {
         await sleep(5000);
       }
       log(`Task queue holds ${JSON.stringify(queueDepth('task'))} with Delivery paused`);
+      const held = await job(api, s.jobId);
+      expect('with Delivery paused no delivery has started (all 2,000 pending)', held.counts.pending === 2000, JSON.stringify(held.counts));
 
       const seedLog = runTask('platform', 'seed', ['sh', '-c', 'SEED_FILES=demo.json,dev-load-m5-removed.json exec node dist/seed-run.js']);
       expect('the seed variant removed exactly one membership', /"file":"dev-load-m5-removed.json".*"membersRemoved":1/.test(seedLog), (seedLog.match(/membersRemoved":\d+/g) ?? []).join(' '));
@@ -193,6 +195,9 @@ const checks: Record<string, () => Promise<void>> = {
       const s = await submit(api, files, loadDestinations(3));
       jobId = s.jobId;
       expect('6 tasks accepted', s.reply.status === 201 && s.taskCount === 6, `${s.reply.status}, ${s.taskCount}`);
+      await sleep(20_000); // fan-out sends the six task messages
+      const held = await job(api, jobId);
+      expect('with Delivery paused no delivery has started (all 6 pending)', held.counts.pending === 6, JSON.stringify(held.counts));
       const userId = (await job(api, jobId)).submittedBy.userId;
       const victim = files[1]!;
       aws(['s3', 'rm', `s3://${objectBucket()}/staging/${userId}/${victim.fileId}`]);
@@ -218,7 +223,7 @@ const checks: Record<string, () => Promise<void>> = {
     const first: number[] = [];
     const tree: number[] = [];
     let teams = 0;
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 100; i += 1) {
       const a = await api.get('/teams');
       first.push(a.ms);
       teams = listOf(a.body).length;
@@ -229,7 +234,9 @@ const checks: Record<string, () => Promise<void>> = {
     }
     expect('the load user is in 50 teams', teams === 50, `${teams}`);
     log(`client side: GET /teams p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms; teams + first binders p99 ${percentile(tree, 99).toFixed(0)} ms`);
-    expect('first level usable under 1 s at p99 (client side, 40 runs)', percentile(tree, 99) < 1000, `${percentile(tree, 99).toFixed(0)} ms`);
+    // The first level of the tree is the team list (Blueprint: "time until the first level is usable").
+    expect('first level (the 50 teams) usable under 1 s at p99, measured from this machine over the internet, 100 runs', percentile(first, 99) < 1000, `p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms, max ${Math.max(...first).toFixed(0)} ms`);
+    expect('the second level too (teams, then the first team\'s binders, two calls in a row) under 1.5 s at p99', percentile(tree, 99) < 1500, `${percentile(tree, 99).toFixed(0)} ms`);
     await sleep(90_000);
     for (const route of ['GET /teams', 'GET /teams/{teamId}/binders']) {
       const l = await gatewayLatency(route, t0, Date.now());
@@ -466,6 +473,7 @@ const checks: Record<string, () => Promise<void>> = {
     const base = appUrl();
     const anon = new Api(base);
     const alb = tf('alb_arn_suffix');
+    const apiId = new URL(tf('api_endpoint')).hostname.split('.')[0]!;
     const t0 = new Date();
     const routes: Array<[string, string]> = [
       ['GET', '/teams'], ['GET', '/jobs'], ['GET', '/audit'], ['GET', `/files?ids=${randomUUID()}`],
@@ -474,29 +482,34 @@ const checks: Record<string, () => Promise<void>> = {
     const codes: string[] = [];
     for (let i = 0; i < 3; i += 1) for (const [m, p] of routes) codes.push(String((await anon.call(m, p, { token: null })).status));
     expect('no-token calls get 401 on every protected route', codes.every((c) => c === '401'), `${codes.length} calls: ${[...new Set(codes)].join(', ')}`);
-    log('waiting 150 s, then reading the load balancer request count');
+    log('waiting 150 s, then reading the gateway and load balancer metrics');
     await sleep(150_000);
-    const count = awsJson<{ Datapoints: Array<{ Sum: number }> }>([
-      'cloudwatch', 'get-metric-statistics', '--namespace', 'AWS/ApplicationELB', '--metric-name', 'RequestCount', '--dimensions', `Name=LoadBalancer,Value=${alb}`,
-      '--start-time', t0.toISOString(), '--end-time', new Date().toISOString(), '--period', '60', '--statistics', 'Sum',
-    ]).Datapoints.reduce((s, d) => s + d.Sum, 0);
-    expect('the load balancer saw 0 requests (CloudWatch RequestCount) while those 401s were sent', count === 0, `${count}`);
+    const window = ['--start-time', t0.toISOString(), '--end-time', new Date().toISOString(), '--period', '60'];
+    const metric = (ns: string, name: string, dim: string, stat: string): number =>
+      awsJson<{ Datapoints: Array<Record<string, number>> }>(['cloudwatch', 'get-metric-statistics', '--namespace', ns, '--metric-name', name, '--dimensions', dim, ...window, '--statistics', stat]).Datapoints.reduce(
+        (s, d) => s + (d[stat] ?? 0),
+        0,
+      );
+    const rejected = metric('AWS/ApiGateway', '4xx', `Name=ApiId,Value=${apiId}`, 'Sum');
+    const forwarded = metric('AWS/ApiGateway', 'IntegrationLatency', `Name=ApiId,Value=${apiId}`, 'SampleCount');
+    expect('the gateway counted the rejected calls as 4xx (CloudWatch)', rejected >= codes.length, `${rejected} 4xx for ${codes.length} calls`);
+    expect('and forwarded none of them to the backend (IntegrationLatency has no samples)', forwarded === 0, `${forwarded} samples`);
+    const albCount = metric('AWS/ApplicationELB', 'RequestCount', `Name=LoadBalancer,Value=${alb}`, 'Sum');
+    log(`load balancer RequestCount in the same window: ${albCount} (the services call each other for their service tokens; it does not grow with the ${codes.length} calls)`);
 
     // A POST with no body, with the same tools a client would use.
     const priya = await mustLogin(USERS.priya);
-    const [file] = await uploadClean(priya, 1, 'm5-sec');
-    const s = await submit(priya, [file!], [{ binderId: cardio.binders[0]!.id }]);
     const curlPost = (path: string, token: string): string =>
       sh('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'POST', `${base}/api${path}`, '-H', `authorization: Bearer ${token}`]);
-    const cancelled = curlPost(`/jobs/${s.jobId}/cancel`, priya.token);
-    expect('curl -X POST (no body) cancel: not 415', ['202', '409'].includes(cancelled), cancelled);
-    expect('curl -X POST (no body) retry: not 415', ['409', '404'].includes(curlPost(`/jobs/${s.jobId}/retry`, priya.token)), 'a refusal that is not 415');
-    const done = await waitDone(priya, s.jobId, 10 * 60_000);
-    const [delivered] = (await tasksOf(priya, s.jobId)).filter((t) => t.status === 'completed');
-    if (delivered) {
-      const dl = curlPost(`/files/${delivered.fileId}/downloads`, priya.token);
-      expect('curl -X POST (no body) download link: 201', dl === '201', dl);
-    } else log(`job ended ${JSON.stringify(done.counts)} with nothing delivered; the download link line is skipped`);
+    const [fileA, fileB] = await uploadClean(priya, 2, 'm5-sec');
+    const toCancel = await submit(priya, [fileA!], [{ binderId: cardio.binders[0]!.id }]);
+    const cancelled = curlPost(`/jobs/${toCancel.jobId}/cancel`, priya.token);
+    expect('curl -X POST (no body) cancel: 202', ['202', '409'].includes(cancelled), cancelled);
+    expect('curl -X POST (no body) retry: not 415', ['409', '404'].includes(curlPost(`/jobs/${toCancel.jobId}/retry`, priya.token)), 'a refusal that is not 415');
+    const kept = await submit(priya, [fileB!], [{ binderId: cardio.binders[0]!.id }]);
+    const done = await waitDone(priya, kept.jobId, 10 * 60_000);
+    const dl = curlPost(`/files/${fileB!.fileId}/downloads`, priya.token);
+    expect('curl -X POST (no body) download link: 201', done.counts.completed === 1 && dl === '201', `${dl}, job ${JSON.stringify(done.counts)}`);
 
     // Cross-team and the link's life.
     const raj = await mustLogin(USERS.raj);

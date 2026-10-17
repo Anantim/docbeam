@@ -1,0 +1,20 @@
+Database TLS checks the certificate chain (D-M5-4). Run on dev, 2026-10-17, after the bring-up.
+
+Positive: one-off task of the DocBeam API image, connection built by withDatabaseUrl (sslmode=verify-full, DB_CA_FILE in the image)
+  RESULT [{"ssl":true,"version":"TLSv1.3","cipher":"TLS_AES_256_GCM_SHA384"}]
+  exit code: 0
+
+Negative 1: DB_CA_FILE=/etc/hostname (a file that is not a certificate authority)
+  RESULT ERROR self-signed certificate in certificate chain
+  exit code: 3
+
+Negative 2: DB_CA_FILE unset
+  Error: Set DB_CA_FILE to the RDS certificate bundle. The database connection checks the certificate chain.
+  exit code: 1
+
+Lambda: aws lambda get-function-configuration --function-name docbeam-dev-delivery --query Environment.Variables.DB_CA_FILE
+  /var/task/rds-ca-bundle.pem
+
+DB bootstrap task (psql, PGSSLMODE=verify-full): "bootstrap finished", exit code 0.
+Migrations of auth, platform and docbeam-api, and the seed: ran with verify-full (deploy-service.sh, exit 0).
+The first two bring-up attempts failed with "Permission denied" on the bundle (file mode); see D-M5-4.

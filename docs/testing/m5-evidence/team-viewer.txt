@@ -1,0 +1,14 @@
+PASS  both jobs accepted: 201, 201
+[11:39:28] job ae23af60 {"pending":0,"in_progress":0,"completed":2,"failed":0,"cancelled":0}
+[11:39:29] job 41c93a03 {"pending":0,"in_progress":0,"completed":1,"failed":0,"cancelled":0}
+PASS  Raj (Cardio only) sees only the Cardio delivery: ["Cardio / CARDIO-301 Regulatory"]
+PASS  Raj sees counts for his team only: taskCount 1
+PASS  Raj gets 404 for the Oncology-only job: 404
+PASS  Raj may preview the file delivered to Cardio: 201
+PASS  Raj gets 404 for the Oncology-only file (download): 404 NOT_FOUND
+PASS  Raj gets 404 for the Oncology-only file (preview): 404 NOT_FOUND
+PASS  Raj sees audit events for his team and job-wide ones only: 3 events, 0 for other teams
+PASS  Sam (Neuro) gets 404 for the job, nothing in the audit, 404 for the file: 404, 0 events, 404
+PASS  no token: 401: 401
+
+PASS team-viewer (10/10 lines)

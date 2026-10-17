@@ -1,0 +1,20 @@
+PASS  no-token calls get 401 on every protected route: 27 calls: 401
+[11:29:49] waiting 150 s, then reading the gateway and load balancer metrics
+PASS  the gateway counted the rejected calls as 4xx (CloudWatch): 27 4xx for 27 calls
+PASS  and forwarded none of them to the backend (IntegrationLatency has no samples): 0 samples
+[11:32:26] load balancer RequestCount in the same window: 0 (the services call each other for their service tokens; it does not grow with the 27 calls)
+PASS  curl -X POST (no body) cancel: 202: 202
+PASS  curl -X POST (no body) retry: not 415: a refusal that is not 415
+[11:33:02] job a30dcaaa {"pending":0,"in_progress":0,"completed":1,"failed":0,"cancelled":0}
+PASS  curl -X POST (no body) download link: 201: 201, job {"pending":0,"in_progress":0,"completed":1,"failed":0,"cancelled":0}
+[11:33:36] job b417eb45 {"pending":0,"in_progress":0,"completed":1,"failed":0,"cancelled":0}
+PASS  cross-team download gets 404: 404
+PASS  cross-team preview gets 404: 404
+PASS  a fresh link works: 200
+[11:34:46] waiting 130 s for the 2-minute link to expire
+PASS  the link is refused after 2 minutes: 403 <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>
+PASS  the bucket without a link: 403: 403
+[11:38:11] gitleaks and the repository checks run with scripts/check-public.sh
+
+PASS security (11/11 lines)
+exit=0
