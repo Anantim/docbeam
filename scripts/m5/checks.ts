@@ -61,11 +61,11 @@ const checks: Record<string, () => Promise<void>> = {
   async 'submit-load'() {
     const api = await mustLogin(USERS.load);
     const dests = loadDestinations(20);
-    const plan: Array<{ files: number; jobs: number }> = [
-      { files: 100, jobs: 5 },
-      { files: 10, jobs: 20 },
-      { files: 1, jobs: 75 },
-    ];
+    // --plan=100:5,10:20,1:75 means 5 jobs of 100 files, 20 of 10 and 75 of 1 (the default, 100 jobs).
+    const plan: Array<{ files: number; jobs: number }> = (flag('plan') ?? '100:5,10:20,1:75').split(',').map((pair) => {
+      const [files, jobs] = pair.split(':').map(Number);
+      return { files: files!, jobs: jobs! };
+    });
     const sizes = plan.flatMap((p) => Array.from({ length: p.jobs }, () => p.files));
     // A fixed shuffle, so big and small jobs are mixed and a re-run is comparable.
     sizes.sort((a, b) => ((a * 7919) % 13) - ((b * 7919) % 13) || a - b);
