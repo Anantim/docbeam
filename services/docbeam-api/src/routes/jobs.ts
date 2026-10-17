@@ -121,17 +121,21 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
     if (!batch.ok) throw new ApiError(422, 'INVALID_BATCH', batch.reason);
 
     try {
-      const problem = firstFileProblem(body.files, await loadFiles(body.files.map((f) => f.fileId)), principal.userId, new Date());
-      if (problem) throw problem;
-      mark('files');
-
       // One call for every distinct destination. The team comes from the platform, never from the browser.
       const wanted = new Map<string, DestinationInput>();
       for (const m of body.mappings) {
         for (const d of m.destinations) wanted.set(`${d.binderId}:${d.folderId ?? ''}`, { binderId: d.binderId, folderId: d.folderId ?? null });
       }
       const keys = [...wanted.keys()];
-      const checked = await platform.checkDestinations(principal.userId, [...wanted.values()]);
+      // The file check and the destination check do not depend on each other, so they run together (D-M5-10).
+      // A file problem is still reported first: the destination answer is only looked at after it.
+      const checking = platform.checkDestinations(principal.userId, [...wanted.values()]);
+      checking.catch(() => undefined); // read below; this only stops an unhandled rejection when a file problem comes first
+      const problem = firstFileProblem(body.files, await loadFiles(body.files.map((f) => f.fileId)), principal.userId, new Date());
+      if (problem) throw problem;
+      mark('files');
+
+      const checked = await checking;
       if (!checked.ok) {
         return reply.code(422).send({
           ...errorBody('DESTINATION_NOT_FOUND', 'Some destinations were not found or are not in your teams.'),
