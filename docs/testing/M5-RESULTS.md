@@ -118,3 +118,33 @@ Each was found only on AWS; none could be seen on Compose.
 ## 7. Tear down
 
 A check is NO, so dev was not kept up. 18:16 UTC: `scripts/empty-dev-buckets.sh dev --dry-run` named exactly `docbeam-dev-object-store-346208529537` (6,667 versions) and `docbeam-dev-platform-files-346208529537` (27,511 versions); the real run emptied both. Then `terraform -chdir=infra/envs/dev destroy`: `Destroy complete! Resources: 275 destroyed.` (18:49). Afterwards: `terraform state list` empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; zero ECS clusters, RDS instances, NAT gateways, load balancers, Lambda functions, ECR repositories, CloudFront distributions and secrets. The database was Single-AZ before the teardown (`MultiAZ False`).
+
+## 8. Check 5.1 diagnosis (second dev bring-up, 2026-10-17 evening UTC)
+
+Dev was brought up again with the runbook (301 resources, then 18, `No changes.`). All times UTC. Evidence: `m5-evidence/submit-diag-*`, `submit-5.1-run2*`, `rds-credits.json`. The mix is the one named for this session: 10 jobs of 100 x 20 and 90 of 1 x 20 (`--plan=100:10,1:90`); the 4 earlier runs used 5, 20 and 75 jobs of 100, 10 and 1 files.
+
+**All runs of 5.1 side by side (gateway `responseLatency`, 100 requests, Logs Insights):**
+
+| Run | When | Code | Delivery | p99 | max | Result |
+|---|---|---|---|---|---|---|
+| Y1 | Oct 17 about 13:10 | before D-M5-10 (10,000 parameters) | running | 749 | not kept | NO |
+| Y2 | 14:02 to 14:24 | D-M5-10, before D-M5-13 | running | 712 | 712 | NO |
+| Y3 | 16:49 to 17:13 | plus D-M5-13 | running, laptop also busy | 992 | 1,152 | NO |
+| Y4 | 17:23 to 17:47 | same | running | 808 | 1,645 | NO |
+| A | 20:58 | plus timing log | **paused** (quiet) | 225 | 282 | pass |
+| B | 21:33 | same | running | 330 | 379 | pass |
+| 2 | 22:14 | same | running | **590** | 748 | **NO** |
+| 3 | 23:01 | plus pool and stall logging | running | 419 | 537 | pass |
+
+So 5.1 passed in 3 of 4 runs on this bring-up and failed in 1; with yesterday's four it is **4 failures in 8 runs under delivery load, and 0 in 1 quiet run**. 5.1 is **not** shown to hold: two formal passes in a row have not happened.
+
+**What the runs show, in order of strength:**
+1. **Not the parse, the schema, the token check, the platform call or the insert.** Over runs A, B, 2 and 3 the body read is under 7 ms, JSON parse 0.5 ms, zod 1 to 7 ms, auth 0.4 ms, the destination check 5 to 200 ms (run in parallel with the file check), the 2,000-row insert 85 to 167 ms.
+2. **The slow requests lose their time in small database queries.** Run 2's two slow requests (742 and 585 ms): idempotency lookup 419 and 244 ms, file lookup 169 and 179 ms. Run 3's slowest (530 ms): lookup 81 ms, insert 126 ms, commit 105 ms. In the quiet run A the same lookup had p99 3 ms for the big jobs; with deliveries running it was 168 ms (B), 419 ms (2) and 81 ms (3).
+3. **Not the pool, not GC, not the CPU limit** (run 3, with per-request logging, D-M5-16): the pool never had a waiting query (`poolMaxWaiting` 0 in all 100 requests, never more than 1 connection open); the only pool waits are the 30 to 85 ms to open a connection in 3 of the 10 big requests (TLS to the database); GC at most 5 ms; CPU-quota throttling 0 ms in every request. A larger pool would not have helped, so none was tried.
+4. **Not the database CPU credits.** Yesterday's runs had a credit balance of 17 to 23 (Y1, Y2) and 4 to 7 (Y3, Y4), never 0, surplus credits 0, no surplus credits charged; the instance is in **unlimited** mode (surplus-credit metrics exist), so it cannot be throttled for credits. Today's runs: A 5.6, B 8.3, run 2 about 11 falling to 0 during the run, run 3 about 14. Run 2 failed with the balance falling to 0 and run 3 passed at 14, but Y2 failed at 23 and B passed at 8: credits do not separate the passes from the failures. Storage latency was under 3 ms; the API task's CPU averaged 3 to 4% (one-minute average; peak sample 9 to 20%); freeable memory on the micro instance was 38 to 94 MB at the lowest.
+5. **What does separate them: delivery load on the database.** The `pg_stat_activity` sampler (every 250 ms, run 3's timed window, `submit-diag-run3-pg-summary.txt`): up to **51 active backends** (50 Delivery copies and the API) and 63 in total, **49 backends waiting at once on row locks** (`Lock: tuple` and `transactionid`, up to 8.5 s for the longest query), plus WAL waits (`IO: WALSync`, `LWLock: WALWrite`) and up to 50 ungranted locks. The Delivery copies finishing tasks of a job that is being cancelled all queue on that job's row lock (`finishTask` and `failPendingTasks` take `FOR UPDATE` on it, by design). With Delivery paused (run A) none of this exists and every lookup was fast. The two slowest requests of run 2 and the slowest of run 3 each came 11 to 14 s after the previous big job was cancelled.
+
+**Most likely cause, and how sure we are.** Time inside the database on small statements while 50 Delivery copies pile up on the job row lock and the write-ahead log of a small `db.t4g.micro` (about 63 connections, memory 38 to 94 MB free). Supported by: the quiet run, the sampler, the per-phase timing and the exclusions above. **Not proven:** nothing shows a `SELECT` of the API waiting on a lock (plain reads do not), so the exact mechanism (WAL and CPU contention on the small instance, or lock-manager spin) is an inference. Yesterday's four failures cannot be explained further: their database is gone, the API did not log the phases, and their windows show the same resources as today's passes.
+
+**Also the harness.** The 5.1 load cancels every job it submits, so the Delivery copies spend the run draining thousands of cancelled messages that all end on one job row. Real delivery of a 2,000-task job also finishes tasks under the job row lock, but without a cancel in the middle of it.

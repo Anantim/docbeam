@@ -760,6 +760,13 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Local measurement (`scripts/m5-schema-timing.sh`, a 100 x 20 body, 218 KiB, 200 runs, `docker --cpus`):** at 0.25 vCPU JSON.parse p50 0.5 ms, zod p50 1.5 ms, validateBatch p50 1.7 ms, **but p99 80 to 95 ms for each**; at 0.5 vCPU p99 47 to 57 ms; at 2 vCPU p99 under 2 ms. The work itself is cheap; a small CPU quota stalls it in bursts (CFS throttling).
 - **Why:** The route's own timer started after the body parse and the token check, so up to 800 ms of the slow requests was unexplained (D-M5-11).
 
+## D-M5-16. 5.1 diagnosis tooling: pool, GC, CPU-limit and lock sampling (check 5.1)
+- **Date:** 2026-10-18
+- **Changes:** none to the design. Observability and scripts only.
+- **What:** The `submit timing` line (D-M5-14) now also carries `gcMs`, `throttledMs` (the container's cgroup `cpu.stat`), and, from a wrapper on the pool's `connect` (`instrumentPool`, `AsyncLocalStorage` per request): `poolWaitMs`, `poolMaxWaitMs`, `poolAcquires`, `poolMaxWaiting`, `poolTotal`, `poolMinIdle`, `newConnections`, and `<phase>Pool` (the pool wait inside a lap). `scripts/m5-pg-sample.sh <minutes>` runs a one-off task that samples `pg_stat_activity` and `pg_locks` every 250 ms (wait events, ungranted locks, active backends). `m5-submit-load.sh --quiet` pauses Delivery for a run; `m5-submit-report.sh` prints every phase, the load balancer and the CPU of the API, platform and database.
+- **What the data showed (run 3, `M5-RESULTS.md` section 8):** no query ever waited for a pool connection (`poolMaxWaiting` 0, one connection open); the only pool waits were 30 to 85 ms to open a connection in 3 big requests; GC at most 5 ms; throttling 0 ms. So a larger DocBeam API pool, or a separate pool for submits, would not have helped, and **was not tried**. The time is in the database: up to 49 backends waiting on the row lock of one job (Delivery copies finishing tasks of a job being cancelled), WAL waits, 63 connections on a `db.t4g.micro`; the quiet run (Delivery paused) had none of it. Connection budget unchanged (79 of 100 worst case, D-M0-6).
+- **Why:** The first runs showed the slow requests losing their time in two small queries; a pool wait, a lock wait and a process stall look alike from outside, and each has a different fix.
+
 ## D-M5-15. The Sweeper re-sends a job after 1 minute, not 2 (check 5.13)
 - **Date:** 2026-10-18
 - **Changes:** ADR-014 and TDD Step 2.5 (the stale age, "2 minutes" in the design).
