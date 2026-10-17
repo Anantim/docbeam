@@ -1,11 +1,9 @@
-[12:27:06] 100 jobs, 775 files, up to 20 destinations each
-file:///home/anantim/docbeam/scripts/m5/lib.ts:324
-  if (bad.length > 0 || states.length !== files.length) throw new Error(`${bad.length} of ${files.length} files not clean (${[...new Set(states.map((s) => s.scanStatus))].join(', ')})`);
-                                                              ^
+[12:49:42] 100 jobs, 775 files, up to 20 destinations each
+PASS  every job accepted with files x 20 tasks: 100 of 100
+[13:18:10] Waiting 90 s for the gateway access log, then reading it server side
+PASS  server-side POST /jobs, requests counted: 100
+FAIL  server-side POST /jobs p99 under 500 ms: p50 36 ms, p99 749 ms, max 803 ms (API Gateway responseLatency)
+[13:19:46] client side (includes the internet): p50 338 ms, p99 2104 ms; the 5 jobs of 100 x 20: 1169, 1379, 2167, 2104, 908 ms
+PASS  DLQs empty afterwards (job, task, upload events): 0, 0, 0
 
-Error: 312 of 775 files not clean (clean, pending)
-    at uploadClean (file:///home/anantim/docbeam/scripts/m5/lib.ts:324:63)
-    at async submit-load (file:///home/anantim/docbeam/scripts/m5/checks.ts:75:18)
-    at async file:///home/anantim/docbeam/scripts/m5/checks.ts:697:1
-
-Node.js v22.23.3
+FAIL submit-load (3/4 lines)

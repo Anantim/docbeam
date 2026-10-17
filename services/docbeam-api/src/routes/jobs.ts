@@ -103,6 +103,12 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
     if (!key) throw new ApiError(400, 'IDEMPOTENCY_KEY_REQUIRED', 'Send an Idempotency-Key header.');
     if (key.length > 200) throw new ApiError(400, 'VALIDATION_ERROR', 'The Idempotency-Key is too long.');
     const body = parse(jobBody, request.body, 'Send files and mappings.');
+    // Where the time goes, in ms since the request started (logged once per accepted job).
+    const t0 = performance.now();
+    const marks: Record<string, number> = {};
+    const mark = (name: string): void => {
+      marks[name] = Math.round(performance.now() - t0);
+    };
 
     // A repeated key returns the job it made, with no new checks (and so no call to the platform).
     const earlier = await findJob(principal.userId, key);
@@ -117,6 +123,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
     try {
       const problem = firstFileProblem(body.files, await loadFiles(body.files.map((f) => f.fileId)), principal.userId, new Date());
       if (problem) throw problem;
+      mark('files');
 
       // One call for every distinct destination. The team comes from the platform, never from the browser.
       const wanted = new Map<string, DestinationInput>();
@@ -131,6 +138,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
           notFound: checked.notFound,
         });
       }
+      mark('destinations');
       const resolved = new Map(keys.map((k, i) => [k, checked.destinations[i]]));
 
       const jobId = randomUUID();
@@ -167,6 +175,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
                AND created_at > now() - interval '24 hours'
             RETURNING id`);
           if (claimed.rows.length !== fileIds.length) throw new FileClaimLost();
+          mark('claim');
 
           await tx.execute(sql`
             INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, folder_id, destination_path)
@@ -178,6 +187,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
                 ${pgArray(rows.map((r) => r.folderId), 'uuid')},
                 ${pgArray(rows.map((r) => r.path), 'text')}
               ) AS t(file_id, team_id, binder_id, folder_id, path)`);
+          mark('tasks');
 
           await tx.insert(auditEvents).values({
             actorId: principal.userId,
@@ -202,6 +212,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
           );
         });
 
+      mark('commit');
       if (!created) {
         const winner = await findJob(principal.userId, key);
         if (winner) return reply.code(200).send(winner);
@@ -214,6 +225,8 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
       } catch (error) {
         request.log.error({ err: error, jobId }, 'job message not sent; the sweeper will send it');
       }
+      mark('queue');
+      request.log.info({ jobId, taskCount: rows.length, ms: marks }, 'job submitted');
       return reply.code(201).send({ jobId, taskCount: rows.length });
     } catch (error) {
       // A parallel request with the same key may have claimed the files first. Its job is the answer.
