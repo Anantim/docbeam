@@ -58,9 +58,14 @@ fi
 # 4. emails in content and messages
 ALLOWED='(@example\.(com|test)|@db\.example|@users\.noreply\.github\.com|^noreply@anthropic\.com)$'
 # .mailmap holds the older author address on purpose (D-M5-2): it maps it to the noreply address.
+# The older author address is the one accepted in D-M5-2. Every commit that carries it in a file or message, apart from
+# .mailmap, is listed, so it is never a surprise.
+AUTHOR_ADDRESS='anantimpatil2015@gmail.com'
 OWN="$(git log --all -p --no-color --format=%B -- . ':(exclude)package-lock.json' ':(exclude).mailmap' \
-  | grep -aoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | grep -vE "$ALLOWED" || true)"
-if [ -z "$OWN" ]; then pass "every email address in the history is an example or noreply address"; else fail "other email addresses in the history:"; echo "$OWN"; fi
+  | grep -aoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | grep -vE "$ALLOWED" | grep -vxF "$AUTHOR_ADDRESS" || true)"
+if [ -z "$OWN" ]; then pass "every email address in the history is an example or noreply address (or the accepted author address)"; else fail "other email addresses in the history:"; echo "$OWN"; fi
+echo "INFO  commits with the accepted author address in a file or message (D-M5-2), apart from .mailmap:"
+git log --all -S"$AUTHOR_ADDRESS" --format='        %h %s' -- . ':(exclude).mailmap'
 THIRD="$(git log --all -p --no-color --format= -- package-lock.json \
   | grep -aoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | sort -u | grep -vE "$ALLOWED" | grep -vE '^[^@]*@[0-9]' || true)"
 echo "INFO  third-party package metadata in package-lock.json: ${THIRD:-none}" | tr '\n' ' '; echo
