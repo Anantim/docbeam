@@ -17,3 +17,5 @@ multipart-1gb exit=0 2026-10-17T15:23:14Z
 failover exit=143 2026-10-17T15:50:05Z
 failover exit=1 2026-10-17T16:14:48Z
 failover exit=1 2026-10-17T16:37:12Z
+platform-outage exit=0 2026-10-17T16:49:36Z
+submit-load exit=1 2026-10-17T17:16:53Z

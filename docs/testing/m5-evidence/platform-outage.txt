@@ -1,3 +1,18 @@
 [16:37:12] Changes AWS (approved with --yes): scales the platform ECS service to 0 for 5 minutes in the middle of a run, then back to 1
 PASS  2,000 tasks accepted: 201, 2000 tasks
 [16:40:43] stopping the platform with {"pending":1795,"in_progress":28,"completed":177,"failed":0,"cancelled":0}
+[16:45:44] platform back after 5.0 minutes; counts {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+PASS  the outage hit the middle of the run (deliveries were still waiting after 5 minutes): {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+[16:46:27] job 925bbb5f {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+[16:47:01] job 925bbb5f {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+[16:47:36] job 925bbb5f {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+[16:48:11] job 925bbb5f {"pending":1174,"in_progress":0,"completed":826,"failed":0,"cancelled":0}
+[16:48:46] job 925bbb5f {"pending":778,"in_progress":42,"completed":1180,"failed":0,"cancelled":0}
+PASS  all 2,000 deliveries completed: {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+PASS  every task has one outcome (2,000 distinct): 2000 rows
+PASS  Task DLQ and Job DLQ stayed empty (CloudWatch max visible over the run): 0, 0
+[16:49:34] temporary delivery errors logged by Delivery during the run: 3522
+[16:49:36] alarms: {"docbeam-dev-delivery-error-rate":"OK","docbeam-dev-job-dlq-not-empty":"OK","docbeam-dev-task-dlq-not-empty":"OK","docbeam-dev-upload-events-dlq-not-empty":"OK"}
+PASS  no alarm is in ALARM: {"docbeam-dev-delivery-error-rate":"OK","docbeam-dev-job-dlq-not-empty":"OK","docbeam-dev-task-dlq-not-empty":"OK","docbeam-dev-upload-events-dlq-not-empty":"OK"}
+
+PASS platform-outage (6/6 lines)
