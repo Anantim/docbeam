@@ -6,7 +6,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { LIMITS } from '../../packages/shared/src/limits.ts';
 import {
-  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, fetchRetry, finish, gatewayLatency, insights, job, log, login, loadDestinations,
+  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, fetchRetry, finish, GATEWAY_LOG_GROUP, gatewayLatency, insights, job, log, login, loadDestinations,
   mustLogin, NAME, percentile, queueDepth, queueMaxVisible, queueUrl, randomBlocks, REGION, ROOT, runTask, setPlatformCount, setTrigger,
   sh, sha256Hex, sleep, smallPdf, submit, tasksOf, tf, uploadClean, uploadSmall, USERS, waitDone, waitScanned, type Uploaded,
 } from './lib.ts';
@@ -59,6 +59,10 @@ async function waitQuiet(minutes = 25): Promise<void> {
 const checks: Record<string, () => Promise<void>> = {
   // ------------------------------------------------------------------ 5.1
   async 'submit-load'() {
+    // --quiet (D-M5-16, diagnosis only): the Delivery trigger is paused for the whole run, so no delivery or clean-up
+    // competes with the submissions. The trigger is switched on again at the end.
+    const quiet = args.includes('--quiet');
+    if (quiet) needYes('pauses the Delivery trigger for the run and switches it on again at the end');
     const api = await mustLogin(USERS.load);
     const dests = loadDestinations(20);
     // --plan=100:5,10:20,1:75 means 5 jobs of 100 files, 20 of 10 and 75 of 1 (the default, 100 jobs).
@@ -73,7 +77,9 @@ const checks: Record<string, () => Promise<void>> = {
     log(`${sizes.length} jobs, ${total} files, up to 20 destinations each`);
 
     const pool = await uploadClean(api, total, 'm5-load');
+    if (quiet) await setTrigger('delivery', false);
     const t0 = Date.now() - 60_000;
+    log(`WINDOW from=${new Date(Date.now()).toISOString()} (${quiet ? 'quiet: Delivery paused' : 'deliveries running'})`);
     let at = 0;
     const clientMs: number[] = [];
     const bigMs: number[] = [];
@@ -92,8 +98,10 @@ const checks: Record<string, () => Promise<void>> = {
       await api.post(`/jobs/${s.jobId}/cancel`); // D-M5-7: no body, like a plain client
       // Let the 1,000+ cancelled messages drain before the next big submission, so each one is timed on its own and not
       // against the previous job's clean-up (D-M5-7).
-      if (n >= 50) await waitQuiet(5);
+      if (n >= 50 && !quiet) await waitQuiet(5);
     }
+    log(`WINDOW to=${new Date().toISOString()}`);
+    if (quiet) await setTrigger('delivery', true);
     expect('every job accepted with files x 20 tasks', wrong === 0, `${sizes.length - wrong} of ${sizes.length}`);
     log('Waiting 180 s for the gateway access log, then reading it server side');
     await sleep(180_000);
@@ -694,6 +702,79 @@ const checks: Record<string, () => Promise<void>> = {
     const s = await submit(api, files, loadDestinations(20));
     if (s.reply.status !== 201) throw new Error(`POST /jobs gave ${s.reply.status} ${JSON.stringify(s.reply.body).slice(0, 300)}`);
     console.log(`Sent ${s.taskCount} deliveries as ${USERS.load}.\nWatch it live: ${appUrl()}/#/status/${s.jobId}`);
+    process.exit(0);
+  },
+
+  // ------------------------------------------------------------------ diagnosis of 5.1 (D-M5-14), read only
+  // Everything for one window of a submit-load run: the gateway, the phases the API logged, the load balancer, and the
+  // CPU of the API, the platform and the database. Run: scripts/m5-submit-report.sh --from=<iso> --to=<iso>
+  async 'submit-report'() {
+    const fromIso = flag('from');
+    const toIso = flag('to');
+    if (!fromIso || !toIso) throw new Error('usage: --from=<iso time> --to=<iso time>');
+    const from = Date.parse(fromIso);
+    const to = Date.parse(toIso) + 60_000; // the log and metric streams lag a little
+    const minutes = Math.max(1, Math.ceil((to - from) / 60_000));
+    const row = (name: string, cells: Record<string, string | number | undefined>): void =>
+      console.log(`${name.padEnd(30)} ${Object.entries(cells).map(([k, v]) => `${k}=${typeof v === 'number' ? Number(v.toFixed(1)) : v}`).join('  ')}`);
+
+    console.log(`\n== API Gateway, POST /jobs (${fromIso} to ${toIso})`);
+    const gw = await insights(
+      GATEWAY_LOG_GROUP,
+      `filter routeKey = 'POST /jobs' | parse @message /"integrationLatency":"(?<il>\\d+)"/ | stats count() as n, pct(latency,50) as lat_p50, pct(latency,99) as lat_p99, max(latency) as lat_max, pct(il,50) as il_p50, pct(il,99) as il_p99, max(il) as il_max`,
+      from, to,
+    );
+    row('gateway', gw[0] ?? {});
+
+    console.log('\n== The API\'s own phases, ms, per job size (tasks per job); from the "submit timing" log line');
+    const apiGroup = awsJson<{ logGroups: Array<{ logGroupName: string }> }>(['logs', 'describe-log-groups', '--log-group-name-pattern', 'docbeam-api']).logGroups[0]?.logGroupName;
+    if (!apiGroup) throw new Error('No log group for the DocBeam API');
+    const phases = ['bodyReadMs', 'jsonParseMs', 'authMs', 'schemaMs', 'keyLookupMs', 'batchMs', 'filesMs', 'destinationCallMs', 'destinationWaitMs', 'rowsMs', 'claimMs', 'tasksMs', 'commitMs', 'queueMs', 'totalMs'];
+    const stats = phases.map((p) => `pct(ms.${p},50) as ${p}_p50, pct(ms.${p},99) as ${p}_p99`).join(', ');
+    const per = await insights(apiGroup, `filter msg = 'submit timing' and status = 201 | stats count() as n, ${stats} by size.tasks | sort size.tasks desc`, from, to);
+    for (const r of per) {
+      console.log(`-- jobs of ${r['size.tasks']} tasks: ${r.n} requests`);
+      for (const p of phases) row(`   ${p}`, { p50: Number(r[`${p}_p50`]), p99: Number(r[`${p}_p99`]) });
+    }
+    const slowest = await insights(apiGroup, `filter msg = 'submit timing' and status = 201 | sort ms.totalMs desc | limit 5 | fields size.tasks, ms.totalMs, ms.bodyReadMs, ms.authMs, ms.schemaMs, ms.filesMs, ms.destinationWaitMs, ms.claimMs, ms.tasksMs, ms.commitMs, ms.queueMs`, from, to);
+    console.log('-- the 5 slowest requests');
+    for (const r of slowest) console.log(`   ${JSON.stringify(Object.fromEntries(Object.entries(r).filter(([k]) => k !== '@ptr')))}`);
+
+    const startIso = new Date(from).toISOString();
+    const endIso = new Date(to).toISOString();
+    const metric = (ns: string, name: string, dims: Record<string, string>, stat: string, period = 60): Array<number> =>
+      awsJson<{ Datapoints: Array<Record<string, number>> }>([
+        'cloudwatch', 'get-metric-statistics', '--namespace', ns, '--metric-name', name, '--start-time', startIso, '--end-time', endIso, '--period', String(period), '--statistics', stat,
+        '--dimensions', ...Object.entries(dims).map(([k, v]) => `Name=${k},Value=${v}`),
+      ]).Datapoints.sort((a, b) => String(a.Timestamp).localeCompare(String(b.Timestamp))).map((d) => d[stat]!);
+    const summary = (xs: number[]): Record<string, number | undefined> => ({ minutes: xs.length, avg: xs.reduce((s, x) => s + x, 0) / (xs.length || 1), max: Math.max(...xs), min: Math.min(...xs) });
+
+    console.log('\n== Load balancer, TargetResponseTime (all requests to the DocBeam API target group), seconds');
+    const tg = awsJson<{ TargetGroups: Array<{ TargetGroupName: string; TargetGroupArn: string; LoadBalancerArns: string[] }> }>(['elbv2', 'describe-target-groups']).TargetGroups.find((t) => /api/.test(t.TargetGroupName));
+    if (tg) {
+      const dims = { TargetGroup: tg.TargetGroupArn.split(':').pop()!, LoadBalancer: tg.LoadBalancerArns[0]!.split('loadbalancer/')[1]! };
+      const period = minutes * 60;
+      const ext = awsJson<{ Datapoints: Array<{ ExtendedStatistics: Record<string, number> }> }>([
+        'cloudwatch', 'get-metric-statistics', '--namespace', 'AWS/ApplicationELB', '--metric-name', 'TargetResponseTime', '--start-time', startIso, '--end-time', endIso, '--period', String(Math.ceil(period / 60) * 60),
+        '--extended-statistics', 'p50', 'p99', '--dimensions', ...Object.entries(dims).map(([k, v]) => `Name=${k},Value=${v}`),
+      ]).Datapoints;
+      const maxP99 = Math.max(...metric('AWS/ApplicationELB', 'TargetResponseTime', dims, 'Maximum'));
+      row(`${tg.TargetGroupName}`, { 'p50 s': ext[0]?.ExtendedStatistics.p50, 'p99 s': ext[0]?.ExtendedStatistics.p99, 'slowest request s': maxP99, windows: ext.length });
+    } else row('target group', { note: 'no target group with "api" in its name' });
+
+    console.log('\n== CPU');
+    const names = JSON.parse(sh('terraform', [`-chdir=${ROOT}infra/envs/dev`, 'output', '-json', 'service_names'])) as Record<string, string>;
+    for (const [label, service] of [['DocBeam API (ECS %)', names.docbeam_api], ['Platform (ECS %)', names.platform], ['Auth (ECS %)', names.auth]] as const) {
+      const dims = { ClusterName: `${NAME}-cluster`, ServiceName: service! };
+      row(label, { 'avg of minutes': summary(metric('AWS/ECS', 'CPUUtilization', dims, 'Average')).avg, 'max of minute averages': summary(metric('AWS/ECS', 'CPUUtilization', dims, 'Average')).max, 'max single sample': summary(metric('AWS/ECS', 'CPUUtilization', dims, 'Maximum')).max });
+    }
+    const dbId = awsJson<{ DBInstances: Array<{ DBInstanceIdentifier: string }> }>(['rds', 'describe-db-instances']).DBInstances.find((d) => d.DBInstanceIdentifier.startsWith(NAME))?.DBInstanceIdentifier;
+    if (dbId) {
+      const dims = { DBInstanceIdentifier: dbId };
+      row('RDS CPUUtilization %', summary(metric('AWS/RDS', 'CPUUtilization', dims, 'Average')));
+      row('RDS CPUCreditBalance', summary(metric('AWS/RDS', 'CPUCreditBalance', dims, 'Average')));
+      row('RDS DatabaseConnections', summary(metric('AWS/RDS', 'DatabaseConnections', dims, 'Maximum')));
+    }
     process.exit(0);
   },
 
