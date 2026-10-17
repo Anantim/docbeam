@@ -22,17 +22,37 @@ async function token(request: APIRequestContext, email: string): Promise<string>
   return (await res.json()).accessToken as string;
 }
 
-/** Slows the page's network the way DevTools "Slow 3G" does, in bytes per second. `null` removes the limit. */
-async function throttle(page: Page, limit: { bytesPerSecond: number; latencyMs: number } | null): Promise<void> {
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Network.enable');
+interface Limit {
+  bytesPerSecond: number;
+  latencyMs: number;
+}
+
+const sessions = new WeakMap<Page, Awaited<ReturnType<ReturnType<Page['context']>['newCDPSession']>>>();
+
+/**
+ * The page's network, the way the DevTools Network tab sets it: offline or not, and a speed limit in bytes per second.
+ * One DevTools session per page, and every call sets the whole state, so "offline" and "slow" never fight each other
+ * (`context.setOffline` did not stop a transfer that was already running here).
+ */
+async function network(page: Page, state: { offline?: boolean; limit?: Limit | null }): Promise<void> {
+  let cdp = sessions.get(page);
+  if (!cdp) {
+    cdp = await page.context().newCDPSession(page);
+    await cdp.send('Network.enable');
+    sessions.set(page, cdp);
+  }
   await cdp.send('Network.emulateNetworkConditions', {
-    offline: false,
-    latency: limit?.latencyMs ?? 0,
-    downloadThroughput: limit?.bytesPerSecond ?? -1,
-    uploadThroughput: limit?.bytesPerSecond ?? -1,
+    offline: state.offline ?? false,
+    latency: state.limit?.latencyMs ?? 0,
+    downloadThroughput: state.limit?.bytesPerSecond ?? -1,
+    uploadThroughput: state.limit?.bytesPerSecond ?? -1,
   });
 }
+
+const SLOW_UPLOAD: Limit = { bytesPerSecond: 1024 * 1024, latencyMs: 50 };
+
+/** Slows the network the way DevTools "Slow 3G" does. `null` removes the limit. */
+const throttle = (page: Page, limit: Limit | null): Promise<void> => network(page, { limit });
 
 /** A PDF of about `bytes` bytes with unique content. */
 const bigPdf = (name: string, bytes: number) => ({
@@ -67,7 +87,7 @@ test('slow connection: a file uploads over a slow link, is checked, sent and del
   await page.screenshot({ path: evidence('slow-connection-delivered') });
 });
 
-test('multipart resume: the network drops mid-upload and the same upload carries on from the stored parts', async ({ page, context }) => {
+test('multipart resume: the network drops mid-upload and the same upload carries on from the stored parts', async ({ page }) => {
   const dir = mkdtempSync(join(tmpdir(), 'm5-'));
   const path = join(dir, `resume-${randomUUID().slice(0, 6)}.pdf`);
   const fd = openSync(path, 'w');
@@ -80,7 +100,7 @@ test('multipart resume: the network drops mid-upload and the same upload carries
   try {
     await signIn(page, PRIYA);
     await page.getByRole('button', { name: 'Distribute' }).click();
-    await throttle(page, { bytesPerSecond: 2 * 1024 * 1024, latencyMs: 50 }); // about 2 MiB/s, so 8 parts take a minute or more
+    await throttle(page, SLOW_UPLOAD); // 1 MiB/s, so the 8 parts of 16 MiB take about two minutes
     await page.evaluate('window.__kept = 1'); // a reload would remove this marker: it proves it is the same session
     await page.getByLabel('Choose files').setInputFiles(path);
 
@@ -90,11 +110,11 @@ test('multipart resume: the network drops mid-upload and the same upload carries
     const before = Number(/parts (\d+)\//.exec((await progress.textContent()) ?? '')?.[1]);
     await page.screenshot({ path: evidence('multipart-before-drop') });
 
-    await context.setOffline(true);
+    await network(page, { offline: true, limit: SLOW_UPLOAD });
     await expect(rowOf(page, name).getByText('Upload interrupted')).toBeVisible({ timeout: 180_000 });
     await page.screenshot({ path: evidence('multipart-interrupted') });
     await page.waitForTimeout(20_000);
-    await context.setOffline(false);
+    await network(page, { limit: SLOW_UPLOAD });
 
     await rowOf(page, name).getByRole('button', { name: `Retry upload of ${name}` }).click();
     await expect(rowOf(page, name).getByText(/Uploading parts \d+\/\d+|Checking for malware|Verified/)).toBeVisible({ timeout: 60_000 });
@@ -166,9 +186,10 @@ test('PNG and JPG previews show the image in the page', async ({ page }) => {
   }
 });
 
-test('WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up', async ({ page, context, request }) => {
-  // A 2,000-delivery run as the load user, started the way the demo does (scripts/demo-send.sh).
-  const out = execFileSync('scripts/demo-send.sh', { encoding: 'utf8', timeout: 600_000 });
+test('WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up', async ({ page, request }) => {
+  // A 2,000-delivery run as the load user, started the way the demo does (scripts/demo-send.sh). 1 MiB files, so the
+  // run lasts minutes: with 4 KB files all 2,000 deliveries finish in 20 seconds, before the page can be taken offline.
+  const out = execFileSync('scripts/demo-send.sh', ['--size=1048576'], { encoding: 'utf8', timeout: 900_000 });
   const jobId = /#\/status\/([0-9a-f-]{36})/.exec(out)?.[1] as string;
   expect(jobId).toBeTruthy();
   const api = { authorization: `Bearer ${await token(request, LOAD)}` };
@@ -180,7 +201,7 @@ test('WebSocket reconnect: the page loses its connection for 30 s mid-run and ca
   await expect.poll(async () => (await readCounts(page))[0], { timeout: 180_000 }).toBeGreaterThan(50);
   await page.screenshot({ path: evidence('websocket-before-drop') });
 
-  await context.setOffline(true);
+  await network(page, { offline: true });
   await page.waitForTimeout(3000);
   const frozen = (await readCounts(page))[0] as number;
   await page.waitForTimeout(27_000);
@@ -191,7 +212,7 @@ test('WebSocket reconnect: the page loses its connection for 30 s mid-run and ca
   expect(frozenLater, 'no live updates reach the page while it is offline').toBe(frozen);
   await page.screenshot({ path: evidence('websocket-offline') });
 
-  await context.setOffline(false);
+  await network(page, {});
   // The page connects again, subscribes again and fetches once, so it is at least as far as the server was.
   await expect.poll(async () => (await readCounts(page))[0], { timeout: 90_000 }).toBeGreaterThanOrEqual(serverNow);
   const caught = (await readCounts(page))[0] as number;
