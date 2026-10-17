@@ -1,1 +1,3 @@
-[16:14:48] Changes AWS (approved with --yes): scales the platform ECS service to 0 for 5 minutes in the middle of a run, then back to 1
+[16:37:12] Changes AWS (approved with --yes): scales the platform ECS service to 0 for 5 minutes in the middle of a run, then back to 1
+PASS  2,000 tasks accepted: 201, 2000 tasks
+[16:40:43] stopping the platform with {"pending":1795,"in_progress":28,"completed":177,"failed":0,"cancelled":0}

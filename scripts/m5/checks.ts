@@ -656,11 +656,22 @@ const checks: Record<string, () => Promise<void>> = {
       }
       longest = Math.max(longest, 0);
       log(`longest stretch with no new completion: ${(longest / 1000).toFixed(0)} s (${samples} reads)`);
-      const events = awsJson<{ Events: Array<{ Date: string; Message: string }> }>(['rds', 'describe-events', '--source-identifier', id, '--source-type', 'db-instance', '--start-time', t0.toISOString(), '--duration', '120']).Events;
-      for (const e of events.reverse()) log(`RDS event ${e.Date}: ${e.Message}`);
+      // (describe-events takes either a start and an end time or a duration, not a start time and a duration.)
+      const events = awsJson<{ Events: Array<{ Date: string; Message: string }> }>([
+        'rds', 'describe-events', '--source-identifier', id, '--source-type', 'db-instance', '--start-time', new Date(t0.getTime() - 60_000).toISOString(), '--end-time', new Date().toISOString(),
+      ]).Events;
+      for (const e of [...events].reverse()) log(`RDS event ${e.Date}: ${e.Message}`);
+      const started = events.find((e) => /failover started/i.test(e.Message));
+      const completed = events.find((e) => /failover completed/i.test(e.Message));
+      expect('RDS recorded a failover', !!started && !!completed, started && completed ? `${started.Date} to ${completed.Date}: ${((Date.parse(completed.Date) - Date.parse(started.Date)) / 1000).toFixed(0)} s` : `${events.length} events`);
       expect('all 2,000 deliveries completed after the failover', final.counts.completed === 2000 && final.counts.failed === 0, JSON.stringify(final.counts));
       expect('nothing lost: no failed task, no task left open', final.counts.pending + final.counts.in_progress + final.counts.failed === 0, JSON.stringify(final.counts));
-      expect('RDS recorded a failover', events.some((e) => /failover/i.test(e.Message)), `${events.length} events`);
+      // The same from the databases themselves (read-only one-off tasks): every task completed, none RETRIES_EXHAUSTED,
+      // and the platform holds exactly one document per task.
+      const byStatus = sqlTask('docbeam-api', `SELECT status, coalesce(failure_code, '-') AS code, count(*)::int AS n FROM tasks WHERE job_id = '${s.jobId}' GROUP BY 1, 2 ORDER BY 1, 2`);
+      expect('database: all 2,000 tasks completed, none RETRIES_EXHAUSTED', byStatus.length === 1 && byStatus[0]!.status === 'completed' && byStatus[0]!.n === 2000, JSON.stringify(byStatus));
+      const docs = sqlTask('platform', `SELECT count(*)::int AS documents, count(DISTINCT source_task_id)::int AS distinct_tasks FROM documents WHERE name LIKE 'm5-failover-%' AND created_at >= '${new Date(t0.getTime() - 600_000).toISOString()}'`)[0]!;
+      expect('platform: exactly one document per task (each task stored once)', docs.documents === 2000 && docs.distinct_tasks === 2000, JSON.stringify(docs));
       const dlq = ['task-dlq', 'job-dlq'].map((q) => queueMaxVisible(q, t0.toISOString(), new Date().toISOString()));
       expect('Task and Job DLQs stayed empty', dlq.every((n) => n === 0), dlq.join(', '));
       log(`alarms: ${JSON.stringify(alarmStates())}`);
@@ -706,5 +717,10 @@ if (!fn) {
   console.error(`usage: node scripts/m5/checks.ts <${Object.keys(checks).join(' | ')}> [--yes]`);
   process.exit(64);
 }
-await fn();
+// A check that throws still ends with a verdict line (a crash is a FAIL line with the reason), so a log never stops silently.
+try {
+  await fn();
+} catch (error) {
+  expect(`${name} stopped with an error`, false, String((error as Error).message ?? error).replace(/\s+/g, ' ').slice(0, 600));
+}
 finish(name);
