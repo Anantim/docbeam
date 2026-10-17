@@ -2,6 +2,7 @@ import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
+  GetObjectCommand,
   ListPartsCommand,
   S3Client,
   UploadPartCommand,
@@ -34,6 +35,19 @@ export interface ObjectStore {
   /** Completes the upload and returns the combined checksum S3 reports, `<base64>-<parts>`. */
   completeMultipart(args: { key: string; uploadId: string; parts: StoredPart[] }): Promise<string>;
   abortMultipart(args: { key: string; uploadId: string }): Promise<void>;
+  /** A GET link for one object (ADR-004). `download` saves it under its name; `preview` opens it inline. */
+  presignGet(args: { key: string; fileName: string; contentType: string; mode: 'download' | 'preview'; expiresIn?: number }): Promise<string>;
+}
+
+/**
+ * The `Content-Disposition` for a link. The plain `filename` is ASCII only, with quotes, backslashes, slashes
+ * and control characters taken out; `filename*` carries the real name, percent-encoded (RFC 6266 and 5987).
+ */
+export function contentDisposition(fileName: string, mode: 'download' | 'preview'): string {
+  if (mode === 'preview') return 'inline';
+  const fallback = fileName.replace(/[^\x20-\x7e]|["\\/;]/g, '_') || 'file';
+  const encoded = encodeURIComponent(fileName).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }
 
 /** The header the browser must send with each part so that S3 checks the part's SHA-256. */
@@ -135,6 +149,17 @@ export function createObjectStore(config: Pick<Config, 'OBJECT_STORE_BUCKET' | '
 
     async abortMultipart({ key, uploadId }) {
       await client.send(new AbortMultipartUploadCommand({ Bucket, Key: key, UploadId: uploadId }));
+    },
+
+    presignGet({ key, fileName, contentType, mode, expiresIn: seconds = LIMITS.downloadLinkSeconds }) {
+      const command = new GetObjectCommand({
+        Bucket,
+        Key: key,
+        ResponseContentDisposition: contentDisposition(fileName, mode),
+        // A preview shows the stored type; a download keeps the object's own.
+        ...(mode === 'preview' ? { ResponseContentType: contentType } : {}),
+      });
+      return getSignedUrl(signer, command, { expiresIn: seconds });
     },
   };
 }

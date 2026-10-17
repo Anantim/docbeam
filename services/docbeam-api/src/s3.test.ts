@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { createObjectStore } from './s3.js';
+import { contentDisposition, createObjectStore } from './s3.js';
 
 const sha = createHash('sha256').update('hello').digest();
 const sha256Hex = sha.toString('hex');
@@ -67,5 +67,51 @@ describe('object store signing (ADR-002, ADR-004)', () => {
     expect(url.searchParams.get('uploadId')).toBe('upload-1');
     expect(url.pathname).toContain('staging/user-1/file-2');
     expect(url.searchParams.get('X-Amz-Expires')).toBe('900');
+  });
+
+  it('signs a 2-minute download link for one object that saves under the original name', async () => {
+    const url = new URL(
+      await store().presignGet({ key: 'staging/user-1/file-3', fileName: 'Protocol v2.pdf', contentType: 'application/pdf', mode: 'download' }),
+    );
+    expect(url.host).toBe('localhost:4566');
+    expect(url.pathname).toContain('staging/user-1/file-3');
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('120');
+    expect(url.searchParams.get('response-content-disposition')).toBe(
+      `attachment; filename="Protocol v2.pdf"; filename*=UTF-8''Protocol%20v2.pdf`,
+    );
+    expect(url.searchParams.has('response-content-type')).toBe(false);
+  });
+
+  it('signs a preview link that opens inline with the stored type', async () => {
+    const url = new URL(
+      await store().presignGet({ key: 'staging/user-1/file-3', fileName: 'a.png', contentType: 'image/png', mode: 'preview' }),
+    );
+    expect(url.searchParams.get('response-content-disposition')).toBe('inline');
+    expect(url.searchParams.get('response-content-type')).toBe('image/png');
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('120');
+  });
+});
+
+describe('contentDisposition', () => {
+  it('keeps a plain name as it is', () => {
+    expect(contentDisposition('report.docx', 'download')).toBe(`attachment; filename="report.docx"; filename*=UTF-8''report.docx`);
+  });
+
+  it('cannot be broken out of by quotes, slashes, semicolons or line breaks in the name', () => {
+    const header = contentDisposition('a"; filename=evil.exe\r\n/b\\c.pdf', 'download');
+    const plain = /filename="([^"]*)"/.exec(header)?.[1] ?? '';
+    expect(plain).toBe('a__ filename=evil.exe___b_c.pdf');
+    expect(header).not.toMatch(/[\r\n]/);
+    expect(header.split('"').length).toBe(3);
+  });
+
+  it('gives non-ASCII names an ASCII fallback and the real name encoded', () => {
+    expect(contentDisposition('Résumé (1).pdf', 'download')).toBe(
+      `attachment; filename="R_sum_ (1).pdf"; filename*=UTF-8''R%C3%A9sum%C3%A9%20%281%29.pdf`,
+    );
+  });
+
+  it('is inline for a preview', () => {
+    expect(contentDisposition('a.pdf', 'preview')).toBe('inline');
   });
 });
