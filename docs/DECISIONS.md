@@ -697,6 +697,18 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Found on the bring-up (2026-10-17):** the first bootstrap task failed with "could not read root certificate file: Permission denied". `update-rds-ca.sh` wrote the bundle through `mktemp`, which makes it mode 0600, and `COPY` kept that mode, so the non-root user of each image could not read it. The script now runs `chmod 644`, and the `COPY` lines for the bundle use `--chmod=644` (`--chmod=644` also stripped the folder's execute bit, which failed the first retry, so the service images now `chmod 755` the folder and `chmod 644` the file in a `RUN` while still root; checked locally by reading the file as the `node` user), so an image no longer depends on the mode of the file on the build machine.
 - **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
 
+## D-M5-8. Delivery may list the Object Store bucket (found on dev, check 5.4)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.4 / Concurrency ("a file removed after submitting fails only that file's tasks with FILE_NOT_UPLOADED"). IAM only, no code change.
+- **What:** The Delivery role gets `s3:ListBucket` on the Object Store bucket (dev and prod `async.tf`). Before this, a `HEAD` of a key that was deleted got **403** from S3, not 404 (S3 hides whether a key exists from a caller who cannot list the bucket). Delivery's SDK error was `Unknown: UnknownError`, which it treats as a temporary error, so the removed file's tasks went back to pending and would have ended as RETRIES_EXHAUSTED after about 17 minutes instead of FILE_NOT_UPLOADED at once. LocalStack answers 404, so the integration tests never saw it. After the change the same check passes: `{"failed/FILE_NOT_UPLOADED":3}` for the removed file and 3 completed for the other.
+- **Why:** The TDD asks for a visible, immediate, per-file failure. `ListBucket` only lets the worker see key names it already holds; the bucket policy still limits object reads to the allow-listed roles.
+
+## D-M5-9. "Paused" means two more minutes of waiting (found on dev, checks 5.2 and 5.4)
+- **Date:** 2026-10-17
+- **Changes:** G23 and PLAN 5.2 ("pause the Task Queue trigger"). Scripts only.
+- **What:** After `update-event-source-mapping --no-enabled` the mapping reads `Disabled`, but on dev six deliveries still ran 50 seconds later. `setTrigger` now waits 120 seconds after `Disabled`, and checks 5.2 and 5.4 first assert that every task is still pending before they act. A check that cannot prove the pause fails instead of passing by luck.
+- **Why:** The two checks are only meaningful if no delivery started before the member was removed or the object was deleted.
+
 ## D-M5-5. A POST with no body works for any client
 - **Date:** 2026-10-17
 - **Changes:** STATUS known issue (M4), TDD M5 security line. No contract change.

@@ -1,11 +1,24 @@
-[11:43:18] Changes AWS (approved with --yes): pauses the Delivery trigger and deletes one staged object from the Object Store bucket
+[11:54:34] Changes AWS (approved with --yes): pauses the Delivery trigger and deletes one staged object from the Object Store bucket
 PASS  a never-uploaded file gets 422 FILE_NOT_READY: 422 FILE_NOT_READY
-PASS  nothing was created: 0 jobs before, 0 after
+PASS  nothing was created: 2 jobs before, 2 after
 PASS  6 tasks accepted: 201, 6
-[11:44:16] deleted staging/a13a52f4-3e83-483d-b5d9-d65040710e56/cbad2b06-cc60-4b5e-a5fb-8fbc260ced2b
-[11:44:32] job ec93416b {"pending":0,"in_progress":0,"completed":6,"failed":0,"cancelled":0}
-FAIL  the removed file: its 3 tasks failed FILE_NOT_UPLOADED: {"completed/null":3}
+PASS  with Delivery paused no delivery has started (all 6 pending): {"pending":6,"in_progress":0,"completed":0,"failed":0,"cancelled":0}
+[11:57:58] deleted staging/a13a52f4-3e83-483d-b5d9-d65040710e56/56dedcd4-68e2-4290-b159-faca4da5cd54
+[11:58:20] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[11:58:55] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[11:59:30] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:00:05] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:00:39] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:01:14] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:01:49] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:02:24] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:02:59] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:03:34] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:04:08] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:04:43] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+[12:05:18] job ae45d5fd {"pending":3,"in_progress":0,"completed":3,"failed":0,"cancelled":0}
+PASS  the removed file: its 3 tasks failed FILE_NOT_UPLOADED: {"failed/FILE_NOT_UPLOADED":3}
 PASS  the other file: its 3 tasks completed: {"completed":3}
-FAIL  only those 3 failed: {"pending":0,"in_progress":0,"completed":6,"failed":0,"cancelled":0}
+PASS  only those 3 failed: {"pending":0,"in_progress":0,"completed":3,"failed":3,"cancelled":0}
 
-FAIL file-checks (4/6 lines)
+PASS file-checks (7/7 lines)

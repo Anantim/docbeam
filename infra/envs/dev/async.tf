@@ -131,6 +131,13 @@ module "delivery" {
         Action   = ["s3:GetObject"]
         Resource = local.object_store_objects
       },
+      {
+        # Without s3:ListBucket, S3 answers a HEAD of a missing key with 403, not 404, and Delivery could not tell a
+        # removed file (FILE_NOT_UPLOADED) from a refused one (D-M5-8).
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = module.s3.object_store_arn
+      },
       local.push_policy,
     ]
   })

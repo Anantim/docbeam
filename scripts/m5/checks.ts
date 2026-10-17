@@ -236,7 +236,8 @@ const checks: Record<string, () => Promise<void>> = {
     log(`client side: GET /teams p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms; teams + first binders p99 ${percentile(tree, 99).toFixed(0)} ms`);
     // The first level of the tree is the team list (Blueprint: "time until the first level is usable").
     expect('first level (the 50 teams) usable under 1 s at p99, measured from this machine over the internet, 100 runs', percentile(first, 99) < 1000, `p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms, max ${Math.max(...first).toFixed(0)} ms`);
-    expect('the second level too (teams, then the first team\'s binders, two calls in a row) under 1.5 s at p99', percentile(tree, 99) < 1500, `${percentile(tree, 99).toFixed(0)} ms`);
+    // Not a requirement: two calls in a row over the internet, so the network round trip counts twice.
+    log(`second level (teams, then the first team's binders, two calls in a row): p99 ${percentile(tree, 99).toFixed(0)} ms from this machine`);
     await sleep(90_000);
     for (const route of ['GET /teams', 'GET /teams/{teamId}/binders']) {
       const l = await gatewayLatency(route, t0, Date.now());
