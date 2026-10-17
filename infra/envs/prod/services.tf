@@ -32,7 +32,7 @@ locals {
     "GET /binders/{binderId}/contents"      = { service = "platform", public = false }
     "GET /folders/{folderId}/contents"      = { service = "platform", public = false }
 
-    # DocBeam API, M2 (Step 2.1 and 2.2). The status, audit and download routes arrive in M3 and M4.
+    # DocBeam API, M2 (Step 2.1 and 2.2). Status and audit routes: M3; download: M4.
     "POST /uploads"                                              = { service = "docbeam-api", public = false }
     "POST /files/{fileId}/multipart-uploads"                     = { service = "docbeam-api", public = false }
     "POST /files/{fileId}/multipart-uploads/{uploadId}/parts"    = { service = "docbeam-api", public = false }
@@ -40,13 +40,16 @@ locals {
     "GET /files"                                                 = { service = "docbeam-api", public = false }
     "POST /jobs"                                                 = { service = "docbeam-api", public = false }
 
-    # DocBeam API, M3 (Step 3.1): status, tasks, audit, retry and cancel. The download route arrives in M4.
+    # DocBeam API, M3 (Step 3.1): status, tasks, audit, retry and cancel.
     "GET /jobs"                 = { service = "docbeam-api", public = false }
     "GET /jobs/{jobId}"         = { service = "docbeam-api", public = false }
     "GET /jobs/{jobId}/tasks"   = { service = "docbeam-api", public = false }
     "GET /audit"                = { service = "docbeam-api", public = false }
     "POST /jobs/{jobId}/retry"  = { service = "docbeam-api", public = false }
     "POST /jobs/{jobId}/cancel" = { service = "docbeam-api", public = false }
+
+    # DocBeam API, M4 (Step 4.1): a short-lived link to download or preview one file.
+    "POST /files/{fileId}/downloads" = { service = "docbeam-api", public = false }
   }
 
   common_env = { for s, p in local.ports : s => {
