@@ -9,6 +9,14 @@ export const OFFICE_PREVIEW_MAX_BYTES = 50 * 1024 ** 2;
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+/** Reads the stored file from its link. The Object Store's CORS rule allows GET from this site. */
+async function fetchBlob(url: string | undefined): Promise<Blob> {
+  if (!url) throw new Error('No file to show.');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`The file could not be read (${res.status}).`);
+  return res.blob();
+}
+
 type View =
   | { kind: 'loading' }
   | { kind: 'pdf'; url: string }
@@ -21,8 +29,10 @@ interface Props {
   name: string;
   contentType: string;
   sizeBytes: number;
-  /** The bytes to show: the copy already in the browser (before Send) or a downloaded one (M4). */
-  blob: Blob;
+  /** The copy already in the browser (before Send). Give this or `url`. */
+  blob?: Blob;
+  /** A 2-minute inline link to the stored file (M4). PDF and images open from it; DOCX and XLSX are fetched from it. */
+  url?: string;
   /** For example "PDF, 1.2 MB, not sent yet". */
   meta: string;
   note: string;
@@ -34,7 +44,7 @@ interface Props {
  * turned into HTML here and shown in an iframe with `sandbox=""` (no scripts, no same origin) through `srcdoc`, so a
  * file that someone else sent can never run code in this page.
  */
-export function Preview({ name, contentType, sizeBytes, blob, meta, note, onClose }: Props) {
+export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, note, onClose }: Props) {
   const [view, setView] = useState<View>({ kind: 'loading' });
   const [sheet, setSheet] = useState(0);
 
@@ -46,20 +56,26 @@ export function Preview({ name, contentType, sizeBytes, blob, meta, note, onClos
 
     const isOffice = contentType === DOCX || contentType === XLSX;
     if (isOffice && sizeBytes > OFFICE_PREVIEW_MAX_BYTES) {
-      show({ kind: 'message', text: 'This file is too large to show in the page. It is still sent as it is.' });
-    } else if (contentType === DOCX) {
-      docxSrcdoc(blob).then((srcdoc) => show({ kind: 'docx', srcdoc }), fail);
-    } else if (contentType === XLSX) {
-      xlsxSheets(blob).then((sheets) => show({ kind: 'xlsx', sheets }), fail);
+      show({
+        kind: 'message',
+        text: blob ? 'This file is too large to show in the page. It is still sent as it is.' : 'This file is too large to show in the page. Download it to open it.',
+      });
+    } else if (isOffice) {
+      const bytes = blob ? Promise.resolve(blob) : fetchBlob(link);
+      bytes
+        .then((b) => (contentType === DOCX ? docxSrcdoc(b).then((srcdoc) => show({ kind: 'docx', srcdoc })) : xlsxSheets(b).then((sheets) => show({ kind: 'xlsx', sheets }))))
+        .catch(fail);
     } else {
-      url = URL.createObjectURL(blob);
-      show({ kind: contentType === 'application/pdf' ? 'pdf' : 'image', url });
+      if (blob) url = URL.createObjectURL(blob);
+      const src = url ?? link;
+      if (src) show({ kind: contentType === 'application/pdf' ? 'pdf' : 'image', url: src });
+      else fail();
     }
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [blob, contentType, sizeBytes]);
+  }, [blob, link, contentType, sizeBytes]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
