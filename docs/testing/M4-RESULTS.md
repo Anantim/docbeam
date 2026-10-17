@@ -89,6 +89,18 @@ Every requirement of the milestone prompt and Step 4.1 (see `docs/PLAN.md` M4 an
 | 13 | Demo works locally | YES | section 1: 567 + 168 + 49 tests |
 | 14 | Demo works on dev: Preview shows the file, Download saves it, outsiders get 404 | YES | section 3 |
 | 15 | Prod never planned, applied or deployed | YES | no `-chdir=infra/envs/prod` command other than `validate` |
-| 16 | Dev torn down | see STATUS | recorded after the teardown |
+| 16 | PR merged with dev up and the merge workflows green on dev | YES | PR #8 merged (`1d75e5f`); `workers`, `platform`, `infra`, `upload-events-image`, `auth`, `web`, `ci`, `docbeam-api` all `success`; deploy jobs for docbeam-api, web and five Lambdas `success`, prod jobs `skipped` |
+| 17 | Dev torn down, nothing billable left | YES | section 5 |
 
 Accepted NOs: none. Notes: the SNS alarm email was not confirmed on this bring-up (the person's choice). A link's expiry cannot be proved on LocalStack (check 5 on dev proves it).
+
+## 5. Tear down (2026-10-17)
+
+| Step | Result |
+|---|---|
+| `scripts/empty-dev-buckets.sh dev --dry-run` | Only `docbeam-dev-object-store-346208529537` (18 versions) and `docbeam-dev-platform-files-346208529537` (21 versions) |
+| `scripts/empty-dev-buckets.sh dev` | Both emptied |
+| `terraform destroy` | `Plan: 0 to add, 0 to change, 275 to destroy.` then `Destroy complete! Resources: 275 destroyed.` (the Lambda security groups took about 20 minutes to release their network interfaces) |
+| `terraform state list` | Empty |
+| `aws s3 ls` | Only `docbeam-tfstate-346208529537` |
+| ECS clusters, RDS instances, NAT gateways, Elastic IPs, load balancers, Lambdas, HTTP and WebSocket APIs, CloudFront distributions, ECR repositories, SQS queues, non-default VPCs, Secrets Manager secrets, customer KMS aliases | All empty |
