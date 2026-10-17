@@ -186,14 +186,14 @@ test('the tables size to their content at 1280 and 1920 px, with long text cut s
       // Every column but the file name is no wider than its content needs (a little room for gaps).
       for (const [i, c] of report.columns.entries()) {
         if (i === 1 && label === 'Documents') continue; // the name column takes the spare room
-        if (i === 0 && label === 'Deliveries') continue;
+        if (i === 1 && label === 'Deliveries') continue; // Destination takes the spare room (D-M3-17)
         if (c.header === '') continue; // the checkbox column
         expect(c.width, `${where}: "${c.header}" is wider than its content`).toBeLessThanOrEqual(c.need + 48);
       }
       // The file name takes the room that is left: it is at least as wide as every other column but one.
       const widths = report.columns.map((c) => c.width).sort((a, b) => b - a);
-      const nameWidth = report.columns[label === 'Documents' ? 1 : 0]?.width ?? 0;
-      expect(nameWidth, `${where}: the file column should take the spare room`).toBeGreaterThanOrEqual(widths[1] ?? 0);
+      const nameWidth = report.columns[1]?.width ?? 0; // Documents: the name; Deliveries: the destination
+      expect(nameWidth, `${where}: the column that takes the spare room is not the widest`).toBeGreaterThanOrEqual(widths[1] ?? 0);
 
       // A long name ends with an ellipsis and its full text is in the title.
       const cell = page.locator(nameCell).first();

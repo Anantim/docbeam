@@ -34,6 +34,8 @@ export function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
   const [route, go] = useRoute();
+  // Counts the sign-ins made from the 12-hour dialog. Every list and the open distribution read again when it changes.
+  const [signedInAgain, setSignedInAgain] = useState(0);
   const next = useRef(1);
   // The last signed-in view stays on screen under the dialog, so nothing on the page is lost.
   const lastClaims = useRef<Claims | null>(null);
@@ -70,7 +72,7 @@ export function App() {
   }, [token]);
 
   // My distributions, refreshed every 30 seconds. Also the badge on the Status tab.
-  const mine = usePolledJobs('mine', token !== null);
+  const mine = usePolledJobs('mine', token !== null, undefined, signedInAgain);
 
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
@@ -97,10 +99,18 @@ export function App() {
             }}
           />
         </div>
-        {view === 'status' && <StatusPage jobId={route.jobId} onOpen={openJob} mine={mine} notify={notify} />}
-        {view === 'audit' && <AuditTrailPage onOpenJob={openJob} />}
+        {view === 'status' && <StatusPage jobId={route.jobId} onOpen={openJob} mine={mine} notify={notify} signedInAgain={signedInAgain} />}
+        {view === 'audit' && <AuditTrailPage onOpenJob={openJob} signedInAgain={signedInAgain} />}
       </Shell>
-      {session.status === 'ended' && <SessionDialog email={session.email} onSignedIn={() => notify('Signed in again.')} />}
+      {session.status === 'ended' && (
+        <SessionDialog
+          email={session.email}
+          onSignedIn={() => {
+            setSignedInAgain((n) => n + 1);
+            notify('Signed in again.');
+          }}
+        />
+      )}
       <Toasts toasts={toasts} />
     </>
   );

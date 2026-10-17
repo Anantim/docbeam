@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
 import type { LiveClient } from '../live/socket.js';
 import { trackingApi, type Counts, type JobDetail, type TaskStatus } from '../tracking/api.js';
@@ -21,6 +21,8 @@ interface Props {
   onChanged: () => void;
   /** Called with the live counts whenever they change, so this distribution's card in the list follows them. */
   onCounts?: (jobId: string, counts: Counts) => void;
+  /** Changes after a sign-in from the 12-hour dialog: the distribution, its deliveries and its audit are read again. */
+  signedInAgain?: number;
 }
 
 const FILTERS: Array<{ id: TaskStatus | 'all'; label: string; key: keyof Counts | 'total' }> = [
@@ -35,8 +37,14 @@ const teamsOf = (paths: string[]): string[] => [...new Set(paths.map((p) => p.sp
 const joinNames = (names: string[]): string => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
 /** One distribution: counts that move, the deliveries, Retry and Cancel for the sender, and its Audit tab. */
-export function JobDetailView({ jobId, live, notify, onChanged, onCounts }: Props) {
+export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signedInAgain = 0 }: Props) {
   const { state, counts, reloadKey, reloadAll } = useJob(jobId, live);
+  const seenSignIn = useRef(signedInAgain);
+  useEffect(() => {
+    if (seenSignIn.current === signedInAgain) return;
+    seenSignIn.current = signedInAgain;
+    reloadAll();
+  }, [signedInAgain, reloadAll]);
   useEffect(() => {
     if (counts) onCounts?.(jobId, counts);
   }, [counts, jobId, onCounts]);

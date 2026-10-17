@@ -14,16 +14,18 @@ interface Props {
   mine: { jobs: JobSummary[] | null; error: string; refresh: () => Promise<void> };
   notify: (text: string, kind?: 'ok' | 'error') => void;
   live?: LiveClient;
+  /** Counts the sign-ins made from the 12-hour dialog. When it changes, the lists and the open distribution read again. */
+  signedInAgain?: number;
 }
 
 /** Status: the Distributions list on the left (Mine, My teams) and the open distribution on the right. */
-export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: Props) {
+export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient, signedInAgain = 0 }: Props) {
   const [scope, setScope] = useState<'mine' | 'team'>('mine');
   const [typed, setTyped] = useState('');
   const [typedError, setTypedError] = useState('');
   const [liveCounts, setLiveCounts] = useState<{ jobId: string; counts: Counts } | null>(null);
   const followCounts = useCallback((id: string, counts: Counts) => setLiveCounts({ jobId: id, counts }), []);
-  const team = usePolledJobs('team', scope === 'team');
+  const team = usePolledJobs('team', scope === 'team', undefined, signedInAgain);
   const list = scope === 'mine' ? mine : team;
 
   // Any new attempt to open something starts with a clean note.
@@ -85,6 +87,7 @@ export function StatusPage({ jobId, onOpen, mine, notify, live = liveClient }: P
             live={live}
             notify={notify}
             onCounts={followCounts}
+            signedInAgain={signedInAgain}
             onChanged={() => {
               void mine.refresh();
               if (scope === 'team') void team.refresh();

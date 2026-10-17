@@ -223,16 +223,17 @@ function FileButtons({ name }: { name: string }) {
 const CHAR_PX = 7; // the average width of a character at 13 px, for sizing columns before they are drawn
 
 /**
- * The columns size to what is in them (D-M3-12). The file name takes the spare room. The destination takes as
- * much as its longest path needs (at most 400 px). The details column is narrow (104 px) while it holds only the
- * two icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is loaded.
- * The status and attempts columns are fixed to their chips. Rows are drawn one by one, so the widths come from
- * the rows loaded so far, not from the rows in view.
+ * The columns size to what is in them (D-M3-12, D-M3-17). The file column is as wide as the longest file name
+ * loaded (at most 280 px; a longer name ends with an ellipsis and shows in full in its title). The destination
+ * takes all the room that is left, never less than 96 px. The details column is narrow (104 px) while it holds
+ * only the two icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is
+ * loaded. The status and attempts columns are fixed to their chips. Rows are drawn one by one, so the widths come
+ * from the rows loaded so far, not from the rows in view.
  */
-export function columnsFor(rows: readonly Pick<TaskRow, 'destinationPath' | 'status' | 'fileExpired'>[]): string {
-  const longest = rows.reduce((n, r) => Math.max(n, r.destinationPath.length), 0);
-  const dest = Math.min(400, Math.max(96, longest * CHAR_PX + 16));
+export function columnsFor(rows: readonly Pick<TaskRow, 'fileName' | 'status' | 'fileExpired'>[]): string {
+  const longest = rows.reduce((n, r) => Math.max(n, r.fileName.length), 0);
+  const file = Math.min(280, Math.max(96, longest * CHAR_PX + 16));
   const wordy = rows.some((r) => r.status === 'failed' || (r.status === 'completed' && r.fileExpired));
   const details = wordy ? 280 : 104;
-  return `minmax(140px, 1fr) ${dest}px 116px 104px ${details}px`;
+  return `minmax(96px, ${file}px) minmax(96px, 1fr) 116px 104px ${details}px`;
 }

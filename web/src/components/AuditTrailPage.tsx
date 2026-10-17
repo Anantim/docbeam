@@ -7,11 +7,11 @@ import { AuditRow } from './AuditList.js';
  * The full history across every distribution the person can see (flow 3). Filter by kind of event and by
  * distribution. Events are only ever added, so this is the whole record, a page at a time.
  */
-export function AuditTrailPage({ onOpenJob }: { onOpenJob: (jobId: string) => void }) {
+export function AuditTrailPage({ onOpenJob, signedInAgain = 0 }: { onOpenJob: (jobId: string) => void; signedInAgain?: number }) {
   const [kind, setKind] = useState('all');
   const [jobId, setJobId] = useState<string | undefined>(undefined);
   const actions = AUDIT_KINDS.find((k) => k.id === kind)?.actions ?? [];
-  const { events, hasMore, loading, error, loadMore } = useAudit({ ...(jobId ? { jobId } : {}), actions });
+  const { events, hasMore, loading, error, loadMore } = useAudit({ ...(jobId ? { jobId } : {}), actions, reloadKey: signedInAgain });
 
   // The Distribution filter offers the distributions seen so far, so it stays whole after one is chosen.
   const [seen, setSeen] = useState<string[]>([]);

@@ -62,22 +62,22 @@ afterEach(() => {
 });
 
 describe('columnsFor: columns size to their content (D-M3-12)', () => {
-  const r = (destinationPath: string, status: TaskRow['status'] = 'completed', fileExpired = false) => ({ destinationPath, status, fileExpired });
+  const r = (fileName: string, status: TaskRow['status'] = 'completed', fileExpired = false) => ({ fileName, status, fileExpired });
 
-  it('gives the file name the spare room, and the destination what its longest path needs', () => {
-    const cols = columnsFor([r('Cardio / A'), r('Cardio / CARDIO-301 Regulatory / IRB approvals')]);
-    expect(cols).toBe('minmax(140px, 1fr) 338px 116px 104px 104px');
+  it('sizes the file column to the longest file name, and gives the destination the room that is left', () => {
+    const cols = columnsFor([r('a.pdf'), r('quarterly-update.pdf')]);
+    expect(cols).toBe('minmax(96px, 156px) minmax(96px, 1fr) 116px 104px 104px');
   });
 
   it('keeps the details column narrow until a failure reason or the expired note is loaded', () => {
-    expect(columnsFor([r('Cardio / A', 'completed'), r('Cardio / B', 'pending')])).toMatch(/ 104px$/);
-    expect(columnsFor([r('Cardio / A'), r('Cardio / B', 'failed')])).toMatch(/ 280px$/);
-    expect(columnsFor([r('Cardio / A', 'completed', true)])).toMatch(/ 280px$/);
+    expect(columnsFor([r('a.pdf', 'completed'), r('b.pdf', 'pending')])).toMatch(/ 104px$/);
+    expect(columnsFor([r('a.pdf'), r('b.pdf', 'failed')])).toMatch(/ 280px$/);
+    expect(columnsFor([r('a.pdf', 'completed', true)])).toMatch(/ 280px$/);
   });
 
-  it('caps the destination column and gives it a floor', () => {
-    expect(columnsFor([r('x'.repeat(200))])).toContain(' 400px ');
-    expect(columnsFor([])).toContain(' 96px ');
+  it('caps the file column at 280 px and gives it a floor', () => {
+    expect(columnsFor([r('x'.repeat(200))])).toMatch(/^minmax\(96px, 280px\) /);
+    expect(columnsFor([])).toMatch(/^minmax\(96px, 96px\) /);
   });
 });
 

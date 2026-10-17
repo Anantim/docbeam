@@ -8,7 +8,7 @@ export const LIST_REFRESH_MS = 30_000;
  * A list of jobs that loads when it is switched on and then every 30 seconds (TDD Step 3.4: live pushes are for
  * the open job only; the list refreshes its counts). A hidden tab waits.
  */
-export function usePolledJobs(scope: 'mine' | 'team', enabled = true, intervalMs = LIST_REFRESH_MS) {
+export function usePolledJobs(scope: 'mine' | 'team', enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0) {
   const [state, setState] = useState<{ jobs: JobSummary[] | null; error: string }>({ jobs: null, error: '' });
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -27,7 +27,8 @@ export function usePolledJobs(scope: 'mine' | 'team', enabled = true, intervalMs
       if (document.visibilityState !== 'hidden') void refresh();
     }, intervalMs);
     return () => clearInterval(id);
-  }, [enabled, refresh, intervalMs]);
+    // `signedInAgain` changes after a sign-in from the 12-hour dialog: start clean, so an old "sign-in has ended" goes.
+  }, [enabled, refresh, intervalMs, signedInAgain]);
 
   return { ...state, refresh };
 }

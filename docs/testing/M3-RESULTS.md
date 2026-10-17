@@ -221,3 +221,17 @@ Check 12 passed in the person's browser. Check 13 was not proven: Sam's Status p
 | `npm run lint`, `npm run typecheck`, `npm run build` | clean |
 | `npm test` | 71 files, 529 tests passed |
 | `npm run test:e2e` (all 6 files, with the M1 and M2 packs) | **41 tests passed** (4.1 minutes) |
+
+## 6. Fixes from the second round of browser checks on dev (D-M3-17)
+
+| Check | Result |
+|---|---|
+| `tests/e2e/status-fixes.spec.ts` "signing in again from the dialog clears every sign-in error…": with the token and the refresh refused, My teams and a distribution opened by address both show "Your sign-in has ended."; after the dialog sign-in no alert is left, the distribution and its rows are back, the list is no longer loading; the Audit trail page recovers the same way | passed. **Run against the old source it fails** (an alert stays) |
+| same file "the File column is as wide as the longest file name, and Destination takes the room that is left" (1280 and 1920 px) | passed: no sideways scroll, File no wider than its longest name plus 32 px, Destination wider than File, whole at 1920. Old source: File 168 px for a 149 px limit, failed |
+| same file "a distribution cancelled part way keeps its delivered rows": 8 deliveries, 3 completed first, then Cancel | passed: counts 3 / 5 / 0 / 0, chip `Cancelled`, filters All 8, Delivered 3, Failed 5 (all `CANCELLED`), the list card `Cancelled`, the same after a reload and after the workers start |
+| `ui.spec.ts` Deliveries column assertions changed to the new rule | passed |
+| `TaskTable.test.tsx` `columnsFor` (3 tests, new rule) | passed |
+| Preview and Download enabled for a team member | **NOT DONE.** They are off for everyone by D-M3-12 and TDD Step 3.4, and no download route exists (M4). Decision asked of the person |
+| lint, typecheck, build | clean |
+| `npm test` | 71 files, 529 tests passed |
+| `npm run test:e2e` | **44 tests passed** (4.7 minutes), with the M1 and M2 packs |
