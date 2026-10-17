@@ -1,7 +1,7 @@
 import { connect } from 'node:net';
 import { describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { eventually, logLines } from './helpers.js';
+import { eventually, logLines, registerAndLogin } from './helpers.js';
 
 describe('services', () => {
   it.each([
@@ -24,7 +24,8 @@ describe('services', () => {
 describe('ws-local', () => {
   it('runs the WS handler for $connect, subscribe and $disconnect, and pushes through @connections', async () => {
     const since = new Date(Date.now() - 1000);
-    const client = new WebSocket('ws://localhost:3004/?token=test');
+    const { token } = await registerAndLogin();
+    const client = new WebSocket(`ws://localhost:3004/?token=${encodeURIComponent(token)}`);
     const received: string[] = [];
     client.on('message', (d) => received.push(d.toString()));
     await new Promise((resolve, reject) => {

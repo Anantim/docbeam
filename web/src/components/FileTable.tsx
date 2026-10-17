@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { describeDestination, isUsable, type Mapping } from '../distribute/mapping.js';
-import { formatSize, typeLabel } from '../distribute/files.js';
+import { UPLOAD_STATUS_MEANING } from '../explain.js';
+import { isUsable, type Mapping } from '../distribute/mapping.js';
+import { formatSize } from '../distribute/files.js';
 import type { PageFile } from '../upload/manager.js';
+import { DestinationChips } from './DestinationChips.js';
+import { PreviewButton } from './FileActions.js';
+import { StatusChip, type Tone } from './StatusChip.js';
+import { TypeBadge } from './TypeBadge.js';
 
 interface StatusView {
   text: string;
-  tone: 'idle' | 'busy' | 'warn' | 'ok' | 'bad';
+  tone: Tone;
   bar: boolean;
 }
 
@@ -33,13 +37,6 @@ export function statusView(f: PageFile): StatusView {
   }
 }
 
-const COLUMNS = [
-  { key: 'name', label: 'Name', width: 260 },
-  { key: 'dest', label: 'Destinations', width: 220 },
-  { key: 'status', label: 'Status', width: 190 },
-  { key: 'size', label: 'Size', width: 80 },
-] as const;
-
 interface Props {
   files: readonly PageFile[];
   mapping: Mapping;
@@ -52,62 +49,40 @@ interface Props {
   onRemove: (id: string) => void;
 }
 
-/** The Documents table. Column widths can be dragged, or changed with the arrow keys; a double click resets them. */
+/**
+ * The Documents table. The columns size to what is in them (D-M3-12): the file name takes the spare room,
+ * Destinations, Status, Size and Actions take what their content needs, and long text ends with an ellipsis
+ * and shows in full in its title. One grid holds every row, so the columns line up.
+ */
 export function FileTable({ files, mapping, selected, onToggleSelected, onToggleAll, onOnly, onPreview, onRetry, onRemove }: Props) {
-  const [widths, setWidths] = useState<number[]>(COLUMNS.map((c) => c.width));
-  const grid = `32px ${widths.map((w) => `${w}px`).join(' ')} minmax(84px, 1fr)`;
   const usable = files.filter(isUsable);
   const allOn = usable.length > 0 && usable.every((f) => selected.has(f.id));
   const someOn = !allOn && usable.some((f) => selected.has(f.id));
 
-  const resize = (index: number, next: number) =>
-    setWidths((w) => w.map((x, i) => (i === index ? Math.max(64, Math.min(700, Math.round(next))) : x)));
-  const startDrag = (index: number, event: React.MouseEvent) => {
-    event.preventDefault();
-    const x0 = event.clientX;
-    const w0 = widths[index] ?? 0;
-    const move = (e: MouseEvent) => resize(index, w0 + e.clientX - x0);
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  };
-
   return (
     <div className="table-scroll">
       <div className="ftable" role="table" aria-label="Documents">
-        <div className="frow thead" role="row" style={{ gridTemplateColumns: grid }}>
+        <div className="frow thead" role="row">
           <button
             className="ck"
             type="button"
             role="checkbox"
             aria-checked={someOn ? 'mixed' : allOn}
             aria-label="Select all files"
+            title="Select all files"
             onClick={onToggleAll}
           >
             <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? '✓' : someOn ? '–' : ''}</span>
           </button>
-          {COLUMNS.map((c, i) => (
-            <div className={`hcell ${c.key === 'size' ? 'right' : ''}`} role="columnheader" key={c.key}>
-              {c.label}
-              <span
-                className="rsz"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label={`Resize the ${c.label} column`}
-                title="Drag to resize, double-click to reset"
-                tabIndex={0}
-                onMouseDown={(e) => startDrag(i, e)}
-                onDoubleClick={() => resize(i, c.width)}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowLeft') resize(i, (widths[i] ?? c.width) - 16);
-                  if (e.key === 'ArrowRight') resize(i, (widths[i] ?? c.width) + 16);
-                }}
-              />
-            </div>
-          ))}
+          <div className="hcell" role="columnheader">
+            Name
+          </div>
+          <div className="hcell" role="columnheader">
+            Destinations
+          </div>
+          <div className="hcell" role="columnheader">
+            Status
+          </div>
           <div className="hcell right" role="columnheader">
             Actions
           </div>
@@ -116,72 +91,67 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
         {files.map((f) => {
           const view = statusView(f);
           const keys = isUsable(f) ? (mapping.files[f.id] ?? []) : [];
-          const names = keys.map((k) => ({ key: k, ...describeDestination(mapping.destinations[k]?.path ?? '') }));
+          const paths = keys.map((k) => mapping.destinations[k]?.path ?? '');
           const on = selected.has(f.id);
           const infected = f.status === 'infected';
           const canRetry = f.status === 'refused' || f.status === 'interrupted' || f.status === 'unchecked';
           return (
-            <div className={`frow ${on ? 'sel' : ''}`} role="row" key={f.id} style={{ gridTemplateColumns: grid }}>
+            <div className={`frow ${on ? 'sel' : ''}`} role="row" key={f.id}>
               {infected ? (
-                <span className="ck locked" role="img" aria-label={`${f.name} was refused for malware and cannot be selected or sent`} title="Refused for malware: cannot be selected">
+                <span
+                  className="ck locked"
+                  role="img"
+                  aria-label={`${f.name} was refused for malware and cannot be selected or sent`}
+                  title={`${f.name} was refused for malware and cannot be selected or sent`}
+                >
                   ✕
                 </span>
               ) : (
-                <button className="ck" type="button" role="checkbox" aria-checked={on} aria-label={`Select ${f.name}`} onClick={() => onToggleSelected(f.id)}>
+                <button className="ck" type="button" role="checkbox" aria-checked={on} aria-label={`Select ${f.name}`} title={`Select ${f.name}`} onClick={() => onToggleSelected(f.id)}>
                   <span className="box">{on ? '✓' : ''}</span>
                 </button>
               )}
               <div className="fname">
-                <span className="typetile">{typeLabel(f.contentType)}</span>
+                <TypeBadge contentType={f.contentType} />
                 {infected ? (
-                  <span className="struck">{f.name}</span>
+                  <span className="struck" title={f.name}>
+                    {f.name}
+                  </span>
                 ) : (
-                  <button className="link plain" type="button" title="Map only this file" onClick={() => onOnly(f.id)}>
+                  <button className="link plain" type="button" title={`${f.name}. Click to map only this file.`} onClick={() => onOnly(f.id)}>
                     {f.name}
                   </button>
                 )}
+                <span className="size" title={`${f.sizeBytes.toLocaleString('en-US')} bytes`}>
+                  {formatSize(f.sizeBytes)}
+                </span>
               </div>
               <div className="chips">
                 {infected ? (
                   <span className="dot-text bad">Will not be sent</span>
-                ) : names.length === 0 ? (
+                ) : paths.length === 0 ? (
                   <span className="dot-text warn">No destination yet</span>
                 ) : (
-                  <>
-                    {names.slice(0, 2).map((n) => (
-                      <span className="chip" key={n.key} title={mapping.destinations[n.key]?.path}>
-                        {n.name}
-                      </span>
-                    ))}
-                    {names.length > 2 && <span className="chip more">+{names.length - 2}</span>}
-                  </>
+                  <DestinationChips paths={paths} visible={1} />
                 )}
               </div>
-              <div>
+              <div className="fstatus">
                 {view.bar && (
                   <div className="bar" aria-hidden="true">
                     <div style={{ width: `${Math.round(f.progress * 100)}%` }} />
                   </div>
                 )}
-                <span className={`status ${view.tone}`}>
-                  <span className="sdot" />
-                  {view.text}
-                </span>
+                <StatusChip tone={view.tone} label={view.text} title={UPLOAD_STATUS_MEANING[f.status]} />
                 {f.message && <div className="fmsg">{f.message}</div>}
               </div>
-              <div className="right size">{formatSize(f.sizeBytes)}</div>
               <div className="actions">
-                {!infected && (
-                  <button className="icon" type="button" aria-label={`Preview ${f.name}`} title="Preview" onClick={() => onPreview(f.id)}>
-                    👁
-                  </button>
-                )}
+                {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} />}
                 {canRetry && (
-                  <button className="icon retry" type="button" aria-label={`Retry ${f.name}`} title="Retry upload" onClick={() => onRetry(f.id)}>
+                  <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} title={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
                     ↻
                   </button>
                 )}
-                <button className="icon" type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => onRemove(f.id)}>
+                <button className="icon" type="button" aria-label={`Remove ${f.name}`} title={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
                   ✕
                 </button>
               </div>

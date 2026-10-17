@@ -39,6 +39,14 @@ locals {
     "POST /files/{fileId}/multipart-uploads/{uploadId}/complete" = { service = "docbeam-api", public = false }
     "GET /files"                                                 = { service = "docbeam-api", public = false }
     "POST /jobs"                                                 = { service = "docbeam-api", public = false }
+
+    # DocBeam API, M3 (Step 3.1): status, tasks, audit, retry and cancel. The download route arrives in M4.
+    "GET /jobs"                 = { service = "docbeam-api", public = false }
+    "GET /jobs/{jobId}"         = { service = "docbeam-api", public = false }
+    "GET /jobs/{jobId}/tasks"   = { service = "docbeam-api", public = false }
+    "GET /audit"                = { service = "docbeam-api", public = false }
+    "POST /jobs/{jobId}/retry"  = { service = "docbeam-api", public = false }
+    "POST /jobs/{jobId}/cancel" = { service = "docbeam-api", public = false }
   }
 
   common_env = { for s, p in local.ports : s => {
@@ -82,6 +90,8 @@ module "alb" {
     platform    = { security_group_id = module.platform.security_group_id }
     docbeam-api = { security_group_id = module.docbeam_api.security_group_id }
     delivery    = { security_group_id = module.delivery.security_group_id, services = ["auth", "platform"] }
+    # The WS Handlers check the token's keys (Auth) and read a viewer's teams (platform).
+    ws = { security_group_id = module.ws.security_group_id, services = ["auth", "platform"] }
   }
 }
 
@@ -226,6 +236,8 @@ module "docbeam_api" {
     JOB_QUEUE_URL       = module.sqs.queue_urls["job"]
     AUTH_URL            = "${local.alb_url}:3001"
     PLATFORM_URL        = "${local.alb_url}:3002"
+    # Cancel and retry push a job_update to the job's open dashboards (ADR-007).
+    WS_MANAGEMENT_ENDPOINT = module.websocket_api.management_endpoint
   })
   secrets = merge(local.db_secrets["docbeam-api"], {
     CLIENT_SECRET_DOCBEAM_API = "${module.secrets.client_secret_arns["docbeam-api"]}:client_secret::"
@@ -246,6 +258,7 @@ module "docbeam_api" {
         Action   = ["sqs:SendMessage"]
         Resource = module.sqs.queue_arns["job"]
       },
+      local.push_policy,
     ]
   })
 

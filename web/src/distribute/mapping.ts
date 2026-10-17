@@ -111,6 +111,8 @@ export interface Readiness {
   checks: Check[];
   /** Send is on only when every check holds and the batch passes the limits of POST /jobs. */
   ready: boolean;
+  /** Why Send is off, in a few words, or null when it is on. Shown as the button's title. */
+  reason: string | null;
   batch: BatchResult;
 }
 
@@ -138,7 +140,18 @@ export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
       ok: usable.length > 0 && unmapped === 0,
     },
   ];
-  return { checks, ready: checks.every((c) => c.ok) && batch.request !== null && batch.result.ok, batch: batch.result };
+  const ready = checks.every((c) => c.ok) && batch.request !== null && batch.result.ok;
+  const waiting = usable.filter((f) => f.status !== 'verified').length;
+  let reason: string | null = null;
+  if (!ready) {
+    if (usable.length === 0) reason = infected > 0 ? 'Remove the file refused for malware first' : 'Add a file first';
+    else if (infected > 0) reason = `Remove the ${plural(infected, 'file', 'files')} refused for malware first`;
+    else if (waiting > 0) reason = `Waiting for ${plural(waiting, 'file', 'files')} to be verified`;
+    else if (unmapped > 0) reason = `${plural(unmapped, 'file has', 'files have')} no destination yet. Tick a folder`;
+    else if (!batch.result.ok) reason = batch.result.reason;
+    else reason = 'The distribution is not ready to send';
+  }
+  return { checks, ready, reason, batch: batch.result };
 }
 
 function buildBatch(mapping: Mapping, files: PageFile[]): { request: JobBody | null; result: BatchResult } {

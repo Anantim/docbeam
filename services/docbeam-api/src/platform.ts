@@ -20,16 +20,21 @@ export type CheckResult =
 export interface PlatformClient {
   /** One call for the whole batch. The answer for a missing binder and one in another team is the same. */
   checkDestinations(userId: string, destinations: DestinationInput[]): Promise<CheckResult>;
+  /** The teams a user belongs to, cached for 60 seconds (TDD Step 3.1). Throws 503 PLATFORM_UNAVAILABLE. */
+  userTeams(userId: string): Promise<string[]>;
   /** Fetch the service token now and keep it fresh in the background. */
   start(): Promise<void>;
   stop(): void;
 }
 
 const TIMEOUT_MS = 5_000;
+/** How long a user's teams are reused (TDD Step 3.1). Membership changes show within a minute. */
+export const TEAMS_CACHE_MS = 60_000;
 
 export function createPlatformClient(
   config: Pick<Config, 'AUTH_URL' | 'PLATFORM_URL' | 'CLIENT_SECRET_DOCBEAM_API'>,
   fetchImpl: typeof fetch = fetch,
+  now: () => number = Date.now,
 ): PlatformClient {
   const tokens: ServiceTokenClient = createServiceTokenClient({
     authUrl: config.AUTH_URL,
@@ -51,7 +56,35 @@ export function createPlatformClient(
     });
   }
 
+  const teamCache = new Map<string, { teams: string[]; expires: number }>();
+
+  async function getTeams(userId: string): Promise<Response> {
+    return fetchImpl(`${config.PLATFORM_URL}/users/${encodeURIComponent(userId)}/teams`, {
+      headers: { authorization: `Bearer ${await tokens.get()}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  }
+
   return {
+    async userTeams(userId) {
+      const hit = teamCache.get(userId);
+      if (hit && hit.expires > now()) return hit.teams;
+      let res: Response;
+      try {
+        res = await getTeams(userId);
+        if (res.status === 401) {
+          tokens.invalidate();
+          res = await getTeams(userId);
+        }
+      } catch {
+        throw unavailable();
+      }
+      if (res.status !== 200) throw unavailable();
+      const body = (await res.json()) as { teamIds?: string[] };
+      const teams = body.teamIds ?? [];
+      teamCache.set(userId, { teams, expires: now() + TEAMS_CACHE_MS });
+      return teams;
+    },
     async checkDestinations(userId, destinations) {
       let res: Response;
       try {

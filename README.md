@@ -96,9 +96,11 @@ gh variable set LAMBDA_DEPLOY_ENABLED --body true   # after the Lambdas exist: t
 
 Add `-auto-approve` to a `terraform apply` or `destroy` that runs without a terminal (an agent session), after you have agreed to it. If the Upload Events image was pushed under another tag than the services, pass that tag as `upload_events_image_tag` in every plan, apply and destroy.
 
-Dev costs about 3 to 5 USD a day while it is up, paid from credits. Tear it down when you are not testing. `destroy` needs the same variables as `apply`, or Terraform asks for them:
+Dev costs about 3 to 5 USD a day while it is up, paid from credits. Tear it down when you are not testing. First empty the two data buckets, because `destroy` fails on buckets with many versions (D-M2-23). The script takes only `dev`, refuses any bucket not named `docbeam-dev-...-<account id>` and never touches the state bucket. `destroy` needs the same variables as `apply`, or Terraform asks for them:
 
 ```bash
+scripts/empty-dev-buckets.sh dev --dry-run   # read it: which buckets, how many versions and delete markers; deletes nothing
+scripts/empty-dev-buckets.sh dev
 terraform -chdir=infra/envs/dev destroy -var image_tag=$IMAGE_TAG -var upload_events_image_tag=$IMAGE_TAG \
   -var alarm_email="$(gh variable get ALARM_EMAIL)"
 ```

@@ -294,6 +294,28 @@ Reminder for the M2 plan: **the person sets the repo variable `ALARM_EMAIL` befo
 
 Demo: submit a job, watch counts and rows change live, see failure reasons inline, refresh mid-run without losing anything.
 
+**M3 task list, approved 2026-10-16.** The steps below stay as the reference. The work is done in these tasks, one commit each. Decisions are in `docs/DECISIONS.md` (D-M3-n).
+
+| # | Task | Covers |
+|---|---|---|
+| 0 | Branch `m3`, plan records | |
+| 1 | Teardown script `scripts/empty-dev-buckets.sh` and its test, README and Tear down sections | D-M2-23 |
+| 2 | `/favicon.ico` in the CloudFront `spa` function | M2 NO N7 |
+| 3 | Shared pieces: `pushJobUpdate`, counts helper, paging limits | 3.1 |
+| 4 | Team visibility with the 60 s cache, `GET /jobs`, `GET /jobs/:jobId`, `GET /jobs/:jobId/tasks` | 3.1 |
+| 5 | `POST /jobs/:jobId/cancel` and `/retry` | 3.1 |
+| 6 | `GET /audit` | 3.1 |
+| 7 | WS Handlers: `$connect`, `subscribe`, `$disconnect` | 3.2 |
+| 8 | Local wiring (ws-local, Compose) | 3.2 |
+| 9 | Terraform: WebSocket API, `ws` Lambda, push permissions, new gateway routes | 3.2 |
+| 10 | Web WebSocket client and catch-up | 3.3 |
+| 11 | Web app part 3: list, detail, Audit tab, Audit trail page | 3.4 |
+| 11b | Destinations cell: one small `Popover` component (no library) for the "+N" chip, used in the M2 documents table and in the M3 job tables; own-path title on the visible chip, no whole-list tooltip; vitest that it lists only hidden folders and closes on Esc (added by the person 2026-10-16) | M2 screen, 3.4 |
+| 12 | Integration tests (cancel while running, team-scoped visibility, push) | 3.1 to 3.3 |
+| 13 | Testing document, local testing round, results | |
+| 14 | AWS round (asks first), then teardown | |
+| 15 | YES/NO check, walkthrough, STATUS, pull request | |
+
 **3.1 Status, retry, cancel and audit endpoints**
 - Inputs: TDD Step 3.1, DocBeam API contract, job status table; G13.
 - Outputs: `GET /jobs`, `GET /jobs/:jobId`, `GET /jobs/:jobId/tasks` with the page count query and paging; team visibility with the 60-second cache; `POST /jobs/:jobId/retry`; `POST /jobs/:jobId/cancel` with the job_update push; `GET /audit`.

@@ -145,6 +145,8 @@ services:
       AUTH_URL: http://auth:3001
       PLATFORM_URL: http://platform:3002
       CLIENT_SECRET_DOCBEAM_API: ${CLIENT_SECRET_DOCBEAM_API}
+      # Cancel and retry push a job_update here. No depends_on: ws-local itself waits for this service.
+      WS_MANAGEMENT_ENDPOINT: http://ws-local:3004
     ports: ["3003:3003"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
@@ -219,7 +221,18 @@ services:
     restart: unless-stopped
     command: ["node", "dist/ws-local-main.js"]
     environment:
+      <<: *aws-env
       WS_LOCAL_PORT: 3004
+      # The WS Handlers run inside this container (ADR-007). They connect as the DocBeam app role, check the
+      # browser's token against the Auth Service, and read a viewer's teams from the platform as `ws-handlers`.
+      DATABASE_URL: postgres://docbeam_app:${DOCBEAM_APP_PASSWORD}@postgres:5432/docbeam_db
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWKS_URL: http://auth:3001/.well-known/jwks.json
+      AUTH_URL: http://auth:3001
+      PLATFORM_URL: http://platform:3002
+      CLIENT_SECRET_WS_HANDLERS: ${CLIENT_SECRET_WS_HANDLERS}
+      # The handlers answer a subscribe through this container's own management endpoint.
+      WS_MANAGEMENT_ENDPOINT: http://localhost:3004
     ports: ["3004:3004"]
     depends_on:
       workers: { condition: service_started }

@@ -58,7 +58,7 @@ export function AddFiles({ onPick, rejected, onDismiss }: Props) {
         <div className="alert not-added" role="alert">
           <div className="not-added-head">
             <strong>Not added</strong>
-            <button className="icon small" type="button" aria-label="Dismiss all" onClick={() => onDismiss()}>
+            <button className="icon small" type="button" aria-label="Dismiss all" title="Dismiss all" onClick={() => onDismiss()}>
               ✕
             </button>
           </div>
@@ -67,7 +67,7 @@ export function AddFiles({ onPick, rejected, onDismiss }: Props) {
               <span>
                 <span className="mono">{r.name}</span>: {r.reason}
               </span>
-              <button className="icon small" type="button" aria-label={`Dismiss ${r.name}`} onClick={() => onDismiss(r.name)}>
+              <button className="icon small" type="button" aria-label={`Dismiss ${r.name}`} title={`Dismiss ${r.name}`} onClick={() => onDismiss(r.name)}>
                 ✕
               </button>
             </div>

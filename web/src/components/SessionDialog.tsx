@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { AuthError, login, logout } from '../auth/session.js';
+import { PauseNote } from './PauseNote.js';
 
 /** Opens when the 12 hours are up. It sits over the page, so nothing on the page is lost (flow 1). */
 export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn: () => void }) {
@@ -32,6 +33,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
         {error && (
           <div role="alert" className="alert">
             {error}
+            <PauseNote />
           </div>
         )}
         <div>

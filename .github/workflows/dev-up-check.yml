@@ -1,0 +1,32 @@
+name: dev-up-check
+
+# A daily reminder that dev costs money while it is up (D-M3-14). Read only: one `aws ecs list-clusters` call.
+# It fails while a docbeam-dev cluster exists, so GitHub sends a failed-run email.
+on:
+  schedule:
+    - cron: '30 17 * * *' # 17:30 UTC, 23:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Is dev still up
+    runs-on: ubuntu-24.04
+    environment: dev
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+      - name: Fail if a docbeam-dev cluster exists
+        run: |
+          set -euo pipefail
+          clusters=$(aws ecs list-clusters --region ap-southeast-2 --query 'clusterArns[?contains(@, `cluster/docbeam-dev`)]' --output text)
+          if [ -n "$clusters" ]; then
+            echo "::error::Dev is still up. Tear it down: scripts/empty-dev-buckets.sh dev, then terraform destroy."
+            exit 1
+          fi
+          echo "No docbeam-dev cluster. Dev is down."

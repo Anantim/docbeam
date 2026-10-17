@@ -13,10 +13,12 @@
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --minify --sourcemap --outfile=dist/lambda/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
-    "@docbeam/shared": "0.0.0"
+    "@docbeam/shared": "0.0.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.164",
+    "@types/pg": "^8.23.1",
     "esbuild": "^0.28.2"
   }
 }

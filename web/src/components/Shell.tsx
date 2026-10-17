@@ -1,10 +1,27 @@
 import type { ReactNode } from 'react';
 import { logout } from '../auth/session.js';
 import { initials, type Claims } from '../auth/token.js';
+import type { View } from '../tracking/route.js';
 import { Logo } from './Logo.js';
 
-/** The app shell of the mockup. Status and Audit trail arrive in M3 (D-G16 leaves out the demo extras). */
-export function Shell({ claims, teams, children }: { claims: Claims; teams: string[]; children: ReactNode }) {
+const TABS: Array<[View, string]> = [
+  ['distribute', 'Distribute'],
+  ['status', 'Status'],
+  ['audit', 'Audit trail'],
+];
+
+interface Props {
+  claims: Claims;
+  teams: string[];
+  view: View;
+  onView: (view: View) => void;
+  /** My distributions that are still running, shown as a badge on Status. */
+  running?: number;
+  children: ReactNode;
+}
+
+/** The app shell of the mockup: the three tabs, the person, and sign out. */
+export function Shell({ claims, teams, view, onView, running = 0, children }: Props) {
   return (
     <>
       <header className="top">
@@ -13,15 +30,16 @@ export function Shell({ claims, teams, children }: { claims: Claims; teams: stri
           <span>DocBeam</span>
         </div>
         <nav aria-label="Main">
-          <button className="tab" type="button" aria-current="page">
-            Distribute
-          </button>
-          <button className="tab" type="button" disabled title="Coming in a later release">
-            Status
-          </button>
-          <button className="tab" type="button" disabled title="Coming in a later release">
-            Audit trail
-          </button>
+          {TABS.map(([id, label]) => (
+            <button key={id} className="tab" type="button" aria-current={view === id ? 'page' : undefined} onClick={() => onView(id)}>
+              {label}
+              {id === 'status' && running > 0 && (
+                <span className="tab-badge" aria-label={`${running} running`}>
+                  {running}
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
         <div className="spacer" />
         <div className="who">

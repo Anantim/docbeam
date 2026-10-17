@@ -20,6 +20,11 @@ locals {
   }
   db_secret_arns  = [module.rds.app_secret_arns["docbeam"]]
   delivery_secret = module.secrets.client_secret_arns["delivery-worker"]
+  ws_secret       = module.secrets.client_secret_arns["ws-handlers"]
+
+  # Delivery, the DLQ Consumer and the DocBeam API push task and job updates to open dashboards (ADR-007).
+  push_env    = { WS_MANAGEMENT_ENDPOINT = module.websocket_api.management_endpoint }
+  push_policy = { Effect = "Allow", Action = ["execute-api:ManageConnections"], Resource = module.websocket_api.manage_connections_arn }
 
   # The Object Store's bucket policy allows these roles and no others (ADR-003).
   object_store_objects = "${module.s3.object_store_arn}/*"
@@ -105,7 +110,7 @@ module "delivery" {
   timeout     = 120
   vpc_id      = module.network.vpc_id
   subnet_ids  = module.network.private_subnet_ids
-  environment = merge(local.db_env, {
+  environment = merge(local.db_env, local.push_env, {
     OBJECT_STORE_BUCKET               = module.s3.object_store_bucket
     AUTH_URL                          = "${local.alb_url}:3001"
     PLATFORM_URL                      = "${local.alb_url}:3002"
@@ -119,11 +124,14 @@ module "delivery" {
 
   policy_json = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:GetObject"]
-      Resource = local.object_store_objects
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = local.object_store_objects
+      },
+      local.push_policy,
+    ]
   })
 }
 
@@ -137,7 +145,7 @@ module "dlq_consumer" {
   reserved_concurrency = 2
   vpc_id               = module.network.vpc_id
   subnet_ids           = module.network.private_subnet_ids
-  environment          = local.db_env
+  environment          = merge(local.db_env, local.push_env)
   secret_arns          = local.db_secret_arns
 
   sqs_triggers = {
@@ -145,6 +153,53 @@ module "dlq_consumer" {
     task          = { queue_arn = module.sqs.queue_arns["task-dlq"], max_concurrency = 2 }
     upload-events = { queue_arn = module.sqs.queue_arns["upload-events-dlq"], max_concurrency = 2 }
   }
+
+  policy_json = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [local.push_policy]
+  })
+}
+
+# The WS Handlers: $connect, subscribe and $disconnect (ADR-007). Reserved concurrency 3 is the number the dev
+# connection budget counts (D-M0-6). They check the browser's token against the Auth Service's keys, and read a
+# viewer's teams from the platform as the ws-handlers client. They answer a subscribe through the management
+# endpoint taken from the event, so the API's address is not needed here (that would be a cycle). The address
+# is a wildcard on the API id for the same reason.
+module "ws" {
+  source = "../../modules/lambda"
+
+  name     = local.name
+  function = "ws"
+
+  timeout              = 15
+  reserved_concurrency = 3
+  vpc_id               = module.network.vpc_id
+  subnet_ids           = module.network.private_subnet_ids
+  environment = merge(local.db_env, {
+    JWT_ISSUER                    = local.issuer
+    JWKS_URL                      = local.jwks_url
+    AUTH_URL                      = "${local.alb_url}:3001"
+    PLATFORM_URL                  = "${local.alb_url}:3002"
+    CLIENT_SECRET_WS_HANDLERS_ARN = local.ws_secret
+  })
+  secret_arns = concat(local.db_secret_arns, [local.ws_secret])
+
+  policy_json = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["execute-api:ManageConnections"]
+      Resource = "arn:aws:execute-api:${var.region}:${local.account_id}:*/*/POST/@connections/*"
+    }]
+  })
+}
+
+module "websocket_api" {
+  source = "../../modules/websocket-api"
+
+  name                 = local.name
+  lambda_function_name = module.ws.function_name
+  lambda_invoke_arn    = module.ws.invoke_arn
 }
 
 module "sweeper" {

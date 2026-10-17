@@ -121,6 +121,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
               className="exp"
               aria-expanded={isOpen}
               aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
+              title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
               onClick={() => expand(node)}
             >
               {isOpen ? '▾' : '▸'}
@@ -145,6 +146,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
                 className="ck"
                 disabled={disabled}
                 aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
+                title={disabled ? 'Add a file first' : undefined}
                 onClick={() => destination && onToggle(destination)}
               >
                 <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>

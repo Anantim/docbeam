@@ -108,7 +108,13 @@ output "lambda_function_names" {
     delivery      = module.delivery.function_name
     dlq           = module.dlq_consumer.function_name
     sweeper       = module.sweeper.function_name
+    ws            = module.ws.function_name
   }
+}
+
+output "ws_url" {
+  description = "The WebSocket address the web app connects to. scripts/deploy-web.sh passes it to the build as VITE_WS_URL."
+  value       = module.websocket_api.ws_url
 }
 
 output "queue_urls" {

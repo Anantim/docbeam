@@ -1,5 +1,7 @@
 import { teamColour } from '../destinations/colour.js';
-import { formatSize, typeLabel } from '../distribute/files.js';
+import { formatSize } from '../distribute/files.js';
+import { PreviewButton } from './FileActions.js';
+import { TypeBadge } from './TypeBadge.js';
 import { describeDestination, isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
 
@@ -47,25 +49,23 @@ export function Review({ files, mapping, onPreview, onRemoveFolder, onRemoveFrom
                     <div className="rc-path">{destination.path}</div>
                   </div>
                   <span className="count-pill">{inside.length === 1 ? '1 file' : `${inside.length} files`}</span>
-                  <button className="icon small" type="button" aria-label={`Remove ${destination.path}`} title="Remove this folder" onClick={() => onRemoveFolder(key)}>
+                  <button className="icon small" type="button" aria-label={`Remove ${destination.path}`} title={`Remove ${destination.path}`} onClick={() => onRemoveFolder(key)}>
                     ✕
                   </button>
                 </div>
                 {inside.map((f) => (
                   <div className="review-file" key={f.id}>
-                    <span className="typetile">{typeLabel(f.contentType)}</span>
+                    <TypeBadge contentType={f.contentType} />
                     <span className="grow ellipsis" title={f.name}>
                       {f.name}
                     </span>
                     <span className="size">{formatSize(f.sizeBytes)}</span>
-                    <button className="icon small" type="button" aria-label={`Preview ${f.name} in ${name}`} title="Preview" onClick={() => onPreview(f.id)}>
-                      👁
-                    </button>
+                    <PreviewButton name={`${f.name} in ${name}`} small onClick={() => onPreview(f.id)} />
                     <button
                       className="icon small"
                       type="button"
                       aria-label={`Remove ${f.name} from ${name}`}
-                      title="Remove from this folder"
+                      title={`Remove ${f.name} from ${name}`}
                       onClick={() => onRemoveFromFolder(f.id, key)}
                     >
                       ✕

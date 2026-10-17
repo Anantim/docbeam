@@ -1,0 +1,131 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PageFile } from '../upload/manager.js';
+import { iconButtonProblems, iconOnlyButtons } from '../testing/icon-buttons.js';
+
+const apiFetch = vi.fn();
+vi.mock('../auth/session.js', () => ({ apiFetch: (path: string) => apiFetch(path), logout: vi.fn(), ApiFailure: class extends Error {} }));
+
+const { Shell } = await import('./Shell.js');
+const { FileTable } = await import('./FileTable.js');
+const { Review } = await import('./Review.js');
+const { AddFiles } = await import('./AddFiles.js');
+const { Destinations } = await import('./Destinations.js');
+const { Preview } = await import('./Preview.js');
+
+const answers: Record<string, unknown> = {
+  '/teams': [{ id: 't-cardio', name: 'Cardio' }],
+  '/teams/t-cardio/binders': [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }],
+  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [] },
+};
+
+beforeEach(() => {
+  apiFetch.mockImplementation(async (path: string) => answers[path]);
+  URL.createObjectURL = vi.fn(() => 'blob:test');
+  URL.revokeObjectURL = vi.fn();
+});
+afterEach(cleanup);
+
+const claims = { sub: 'u', name: 'Priya Shah', email: 'p@example.test', exp: 0 };
+const file = (id: string, status: PageFile['status']): PageFile => ({
+  id,
+  file: new File([new Uint8Array(1)], `${id}.pdf`),
+  name: `${id}.pdf`,
+  sizeBytes: 1,
+  contentType: 'application/pdf',
+  status,
+  progress: 1,
+  partsDone: 0,
+  partCount: 0,
+  sha256: 'a'.repeat(64),
+  serverId: `server-${id}`,
+});
+const mapping = {
+  destinations: { k1: { binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' } },
+  files: { ok: ['k1'], bad: [], wait: [] },
+};
+const noop = (): void => undefined;
+
+function expectClean(root: ParentNode, minimum: number): void {
+  expect(iconOnlyButtons(root).length).toBeGreaterThanOrEqual(minimum);
+  expect(iconButtonProblems(root)).toEqual([]);
+}
+
+describe('every icon-only button has an aria-label and a title with the same text (D-M3-10)', () => {
+  it('in the shell (Sign out)', () => {
+    const { container } = render(
+      <Shell claims={claims} teams={['Cardio']} view="status" onView={noop} running={2}>
+        <div />
+      </Shell>,
+    );
+    expectClean(container, 1);
+  });
+
+  it('in the Documents table, for every file state', () => {
+    const files = [file('ok', 'verified'), file('wait', 'uploading'), file('bad', 'refused'), file('stop', 'interrupted'), file('virus', 'infected')];
+    const { container } = render(
+      <FileTable
+        files={files}
+        mapping={mapping}
+        selected={new Set(['ok'])}
+        onToggleSelected={noop}
+        onToggleAll={noop}
+        onOnly={noop}
+        onPreview={noop}
+        onRetry={noop}
+        onRemove={noop}
+      />,
+    );
+    expectClean(container, 10);
+    // The Retry button says what it retries.
+    expect(screen.getByRole('button', { name: 'Retry upload of bad.pdf' }).getAttribute('title')).toBe('Retry upload of bad.pdf');
+  });
+
+  it('in Review', () => {
+    const { container } = render(<Review files={[file('ok', 'verified')]} mapping={mapping} onPreview={noop} onRemoveFolder={noop} onRemoveFromFolder={noop} />);
+    expectClean(container, 3);
+  });
+
+  it('in the Not added list', () => {
+    const { container } = render(<AddFiles onPick={noop} rejected={[{ name: 'setup.exe', reason: 'This type is not allowed.' }]} onDismiss={noop} />);
+    expectClean(container, 2);
+  });
+
+  it('in the Destinations tree (expand buttons and the folder ticks)', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Destinations selected={[]} onToggle={noop} onTeams={noop} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+    await screen.findByText('IRB approvals');
+    expectClean(container, 2);
+  });
+
+  it('in the preview dialog (Close)', () => {
+    const { container } = render(<Preview name="a.pdf" contentType="application/pdf" sizeBytes={1} blob={new Blob(['x'])} meta="1 B" note="" onClose={noop} />);
+    expectClean(container, 1);
+  });
+
+  it('catches a button that breaks the rule', () => {
+    const { container } = render(
+      <div>
+        <button type="button">✕</button>
+        <button type="button" aria-label="Remove a.pdf" title="Remove">
+          ✕
+        </button>
+      </div>,
+    );
+    expect(iconButtonProblems(container)).toHaveLength(2);
+  });
+});
+
+describe('a button that is off says why', () => {
+  it('a folder tick before any file is added', async () => {
+    const user = userEvent.setup();
+    render(<Destinations selected={[]} onToggle={noop} onTeams={noop} disabled />);
+    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+    const tick = await screen.findByRole('checkbox', { name: /IRB approvals/ });
+    expect((tick as HTMLButtonElement).disabled).toBe(true);
+    expect(tick.getAttribute('title')).toBe('Add a file first');
+  });
+});

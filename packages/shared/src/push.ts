@@ -36,6 +36,8 @@ export interface TaskUpdate {
   failureCode?: FailureCode | undefined;
   failureReason?: string | undefined;
   updatedAt: Date;
+  /** Attempts the task took. Left out when it is not known (a task failed before it ever ran). */
+  attemptCount?: number | undefined;
 }
 
 interface Connection {
@@ -50,7 +52,8 @@ interface CountRow {
   n: string;
 }
 
-const EMPTY = { pending: 0, in_progress: 0, completed: 0, failed: 0 };
+// `cancelled` counts the deliveries the sender cancelled (stored as failed with the code CANCELLED); `failed` is real failures only.
+const EMPTY = { pending: 0, in_progress: 0, completed: 0, failed: 0, cancelled: 0 };
 type Counts = typeof EMPTY;
 
 function sum(rows: CountRow[], teams?: ReadonlySet<string>): Counts {
@@ -65,6 +68,49 @@ function sum(rows: CountRow[], teams?: ReadonlySet<string>): Counts {
 /** The sender sees the whole job; a team viewer sees only the deliveries to their teams. */
 export async function pushTaskUpdate(deps: PushDeps, update: TaskUpdate): Promise<void> {
   await pushTaskUpdates(deps, update.jobId, [update]);
+}
+
+/**
+ * One `job_update` to each open dashboard of the job, after a cancel (TDD "WebSocket API"). It carries the
+ * counts that viewer may see and no task, so the page reloads its tasks. The sender gets the whole job; a team
+ * viewer only their teams' deliveries. Problems are logged and never fail the caller.
+ */
+export async function pushJobUpdate(deps: PushDeps, jobId: string, updatedAt: Date): Promise<void> {
+  if (!deps.post) return;
+  try {
+    const { rows: connections } = await deps.db.query<Connection>(
+      `SELECT c.connection_id, c.user_id, c.team_ids::text[] AS team_ids
+         FROM ws_connections c
+        WHERE c.job_id = $1 AND c.expires_at > now()`,
+      [jobId],
+    );
+    if (connections.length === 0) return;
+    const sender = await deps.db.query<{ submitted_by_user_id: string }>('SELECT submitted_by_user_id FROM jobs WHERE id = $1', [jobId]);
+    const senderId = sender.rows[0]?.submitted_by_user_id;
+    const counts = await deps.db.query<CountRow>(
+      "SELECT team_id, CASE WHEN status = 'failed' AND failure_code = 'CANCELLED' THEN 'cancelled' ELSE status END AS status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY 1, 2",
+      [jobId],
+    );
+    for (const c of connections) {
+      const isSender = c.user_id === senderId;
+      const body = JSON.stringify({
+        type: 'job_update',
+        jobId,
+        updatedAt: updatedAt.toISOString(),
+        counts: isSender ? sum(counts.rows) : sum(counts.rows, new Set(c.team_ids)),
+      });
+      try {
+        if (!(await deps.post(c.connection_id, body))) {
+          await deps.db.query('DELETE FROM ws_connections WHERE connection_id = $1', [c.connection_id]);
+          deps.log.info('connection gone (410); row deleted', { jobId, connectionId: c.connection_id });
+        }
+      } catch (error) {
+        deps.log.warn('push failed', { jobId, connectionId: c.connection_id, error: String(error) });
+      }
+    }
+  } catch (error) {
+    deps.log.warn('push skipped', { jobId, error: String(error) });
+  }
 }
 
 /**
@@ -85,7 +131,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
     const sender = await deps.db.query<{ submitted_by_user_id: string }>('SELECT submitted_by_user_id FROM jobs WHERE id = $1', [jobId]);
     const senderId = sender.rows[0]?.submitted_by_user_id;
     const counts = await deps.db.query<CountRow>(
-      'SELECT team_id, status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY team_id, status',
+      "SELECT team_id, CASE WHEN status = 'failed' AND failure_code = 'CANCELLED' THEN 'cancelled' ELSE status END AS status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY 1, 2",
       [jobId],
     );
 
@@ -102,6 +148,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
           status: update.status,
           ...(update.failureCode ? { failureCode: update.failureCode } : {}),
           ...(update.failureReason ? { failureReason: update.failureReason } : {}),
+          ...(update.attemptCount !== undefined ? { attemptCount: update.attemptCount } : {}),
           updatedAt: update.updatedAt.toISOString(),
           counts: isSender ? sum(counts.rows) : sum(counts.rows, new Set(c.team_ids)),
         });
@@ -110,6 +157,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
           if (!delivered) {
             gone.add(c.connection_id);
             await deps.db.query('DELETE FROM ws_connections WHERE connection_id = $1', [c.connection_id]);
+            deps.log.info('connection gone (410); row deleted', { jobId, connectionId: c.connection_id });
           }
         } catch (error) {
           deps.log.warn('push failed', { jobId, connectionId: c.connection_id, error: String(error) });

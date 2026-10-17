@@ -60,7 +60,7 @@ describe('cleanup', () => {
         { s3_key: 'staging/u/b', multipart_upload_id: 'upload-1' },
       ],
     ]);
-    expect(await cleanup(s.deps)).toEqual({ files: 2 });
+    expect(await cleanup(s.deps)).toEqual({ files: 2, connections: 0 });
     expect(s.queries[0]).toContain('DELETE FROM files');
     expect(s.queries[0]).toContain('job_id IS NULL');
     expect(s.queries[0]).toContain("interval '24 hours'");
@@ -74,13 +74,24 @@ describe('cleanup', () => {
   it('ignores an upload that is already gone', async () => {
     const s = setup([[{ s3_key: 'k', multipart_upload_id: 'u' }]]);
     (s.deps.s3.send as ReturnType<typeof vi.fn>).mockRejectedValueOnce(Object.assign(new Error('x'), { name: 'NoSuchUpload' }));
-    await expect(cleanup(s.deps)).resolves.toEqual({ files: 1 });
+    await expect(cleanup(s.deps)).resolves.toEqual({ files: 1, connections: 0 });
   });
 
   it('does nothing when there are no old files', async () => {
     const s = setup([[]]);
-    expect(await cleanup(s.deps)).toEqual({ files: 0 });
+    expect(await cleanup(s.deps)).toEqual({ files: 0, connections: 0 });
     expect(s.sent).toHaveLength(0);
+  });
+
+  it('also deletes WebSocket connection rows past their token expiry, and nothing else', async () => {
+    const s = setup([[]]);
+    (s.deps.db.query as ReturnType<typeof vi.fn>).mockImplementation(async (text: string) => {
+      s.queries.push(text);
+      return text.startsWith('DELETE FROM ws_connections') ? { rows: [], rowCount: 4 } : { rows: [], rowCount: 0 };
+    });
+    expect(await cleanup(s.deps)).toEqual({ files: 0, connections: 4 });
+    const sql = s.queries.find((q) => q.startsWith('DELETE FROM ws_connections'));
+    expect(sql).toBe('DELETE FROM ws_connections WHERE expires_at < now()');
   });
 });
 
@@ -90,7 +101,7 @@ describe('handler', () => {
     const handler = createHandler(async () => s.deps);
     await handler({ task: 'resend' });
     await handler({ task: 'cleanup' });
-    expect(s.queries).toHaveLength(2);
+    expect(s.queries).toHaveLength(3); // resend; cleanup: files, expired connections
     await expect(handler({ task: 'other' as never })).rejects.toThrow('Unknown sweeper task');
   });
 });

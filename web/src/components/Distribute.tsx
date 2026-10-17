@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
-import type { Claims } from '../auth/token.js';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
 import {
@@ -27,16 +26,15 @@ import { FileTable } from './FileTable.js';
 import { Preview } from './Preview.js';
 import { Review } from './Review.js';
 import { SendBar } from './SendBar.js';
-import { Shell } from './Shell.js';
 import { currentStep, Steps } from './Steps.js';
 import type { Toast } from './Toasts.js';
 import { useLeaveWarning } from './useLeaveWarning.js';
 
 interface Props {
-  claims: Claims;
-  teams: string[];
   onTeams: (names: string[]) => void;
   notify: (text: string, kind?: Toast['kind']) => void;
+  /** Called after a distribution is sent, with its id, so the app can open it on the Status page. */
+  onSent?: (jobId: string) => void;
   manager?: UploadManager;
   submission?: Submission;
 }
@@ -44,7 +42,7 @@ interface Props {
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 /** The Distribute screen of the mockup: add files, tick folders, review, send (Step 2.6, flow 2). */
-export function Distribute({ claims, teams, onTeams, notify, manager = uploadManager, submission }: Props) {
+export function Distribute({ onTeams, notify, onSent, manager = uploadManager, submission }: Props) {
   const files = useSyncExternalStore(manager.subscribe, manager.getSnapshot);
   const [mapping, setMapping] = useState<Mapping>(emptyMapping);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -145,6 +143,7 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
     if (out.ok) {
       notify(`Distribution ${out.jobId.slice(0, 8)} sent. ${plural(out.taskCount, 'delivery', 'deliveries')} queued.`);
       clearAll();
+      onSent?.(out.jobId);
     } else {
       setSendError(out.message);
     }
@@ -153,7 +152,7 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
   const previewing = previewId ? files.find((f) => f.id === previewId) : undefined;
 
   return (
-    <Shell claims={claims} teams={teams}>
+    <>
       <div className="page">
         <div className="page-head">
           <div>
@@ -257,6 +256,7 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
         checks={state.checks}
         deliveries={deliveries}
         ready={state.ready}
+        reason={state.reason}
         sending={sending}
         error={sendError}
         canClear={files.length > 0}
@@ -275,6 +275,6 @@ export function Distribute({ claims, teams, onTeams, notify, manager = uploadMan
           onClose={() => setPreviewId(null)}
         />
       )}
-    </Shell>
+    </>
   );
 }

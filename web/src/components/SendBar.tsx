@@ -4,6 +4,8 @@ interface Props {
   checks: Check[];
   deliveries: number;
   ready: boolean;
+  /** Why Send is off; shown as the button's title. */
+  reason?: string | null;
   sending: boolean;
   error: string | null;
   canClear: boolean;
@@ -12,7 +14,7 @@ interface Props {
 }
 
 /** The sticky bar: the three checks, Clear and Send. */
-export function SendBar({ checks,deliveries, ready, sending, error, canClear, onClear, onSend }: Props) {
+export function SendBar({ checks, deliveries, ready, reason, sending, error, canClear, onClear, onSend }: Props) {
   return (
     <div className="sendbar">
       {error && (
@@ -30,10 +32,10 @@ export function SendBar({ checks,deliveries, ready, sending, error, canClear, on
           ))}
         </div>
         <div className="grow" />
-        <button className="btn2" type="button" disabled={!canClear} onClick={onClear}>
+        <button className="btn2" type="button" disabled={!canClear} title={canClear ? undefined : 'Nothing to clear'} onClick={onClear}>
           Clear
         </button>
-        <button className="btn" type="button" disabled={!ready || sending} onClick={onSend}>
+        <button className="btn" type="button" disabled={!ready || sending} title={ready || sending ? undefined : (reason ?? undefined)} onClick={onSend}>
           {sending ? 'Sending...' : `Send ${deliveries} ${deliveries === 1 ? 'delivery' : 'deliveries'}`}
         </button>
       </div>

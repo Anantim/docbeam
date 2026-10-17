@@ -55,7 +55,7 @@ const isNoSuchUpload = (error: unknown): boolean => (error as { name?: string })
  * Deletes files nobody submitted, and their objects. The delete is one conditional statement on the same
  * column submission checks, so a file is either claimed by a job or deleted, never both (D-M2-3).
  */
-export async function cleanup(deps: Deps): Promise<{ files: number }> {
+export async function cleanup(deps: Deps): Promise<{ files: number; connections: number }> {
   let total = 0;
   for (let batch = 0; batch < CLEANUP_MAX_BATCHES; batch += 1) {
     const { rows } = await deps.db.query<{ s3_key: string; multipart_upload_id: string | null }>(
@@ -81,7 +81,20 @@ export async function cleanup(deps: Deps): Promise<{ files: number }> {
     if (rows.length < CLEANUP_BATCH) break;
   }
   if (total > 0) deps.log.info('unsubmitted files deleted', { files: total });
-  return { files: total };
+  const connections = await deleteExpiredConnections(deps);
+  return { files: total, connections };
+}
+
+/**
+ * Deletes WebSocket connection rows past their token's expiry (D-M3-9). Nothing is pushed to such a row, but
+ * a browser that vanished without a $disconnect (a closed laptop) would otherwise leave it for ever. A live
+ * browser reconnects with a new token before its old one expires, so it never loses a row it needs.
+ */
+async function deleteExpiredConnections(deps: Deps): Promise<number> {
+  const out = await deps.db.query('DELETE FROM ws_connections WHERE expires_at < now()');
+  const n = out.rowCount ?? 0;
+  if (n > 0) deps.log.info('expired connection rows deleted', { connections: n });
+  return n;
 }
 
 export function createHandler(runtime: () => Promise<Deps>) {

@@ -502,3 +502,136 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   2. **Alternative: a dev-only lifecycle rule** (a variable on the `s3` module, on in dev and off in prod) that expires noncurrent versions and delete markers after 1 day. It keeps buckets small between sessions but does not empty a bucket that was filled today, so it would not remove the need for a script before a same-day teardown.
   3. **Not recommended:** pinning an older AWS provider, which would fix the listing but trades one problem for another.
 - **Why this matters:** the bucket sizes grow with every test run, so each dev teardown will hit it again unless one of the above is built. Until then, teardown is: empty the two buckets with the CLI, then `terraform destroy`. Prod buckets must never be emptied this way; prod is not deployed in this project.
+
+## D-M3-1. `/favicon.ico` is served from the SVG by the CloudFront Function
+- **Date:** 2026-10-16
+- **Changes:** Nothing in the design. Closes M2 accepted NO N7 (`/favicon.ico` answered 403).
+- **What:** The CloudFront Function on the web behaviour (`spa`, in `infra/modules/cloudfront`) rewrites `/favicon.ico` to `/favicon.svg`. No `.ico` file is added to `web/public`.
+- **Why:** A binary `.ico` cannot be written with the Write tool, and the rewrite needs no new file. Browsers accept an SVG answer for `/favicon.ico`.
+
+## D-M3-2. One Popover for the "+N" chip in destination cells
+- **Date:** 2026-10-16
+- **Changes:** M2 Distribute screen (destinations cell), mockup. Asked for by the person after the M2 browser runs.
+- **What:** The tooltip that repeated the whole folder list is removed. A visible folder chip's title is its own full path. The "+N" chip is a button (`aria-label="Show N more folders"`) that opens a small `Popover` component with only the hidden folders, grouped by team with the team colour, scrolling after about 8 rows. Hover or click opens it; click keeps it open; Esc, a click outside or Tab away closes it. No library. The same component is used in the M3 job tables.
+- **Why:** A native `title` cannot be reached by keyboard or touch and hid information.
+- **Where it is used:** the Documents table of the Distribute screen and the "Sent to" line in the header of a distribution (the job detail). A delivery row has one destination, so it needs no "+N".
+
+## D-M3-3. A retry also pushes a `job_update`
+- **Date:** 2026-10-16
+- **Changes:** TDD API contracts (`POST /jobs/:jobId/retry` names no push) and "WebSocket API" (a `job_update` is sent after a cancel).
+- **What:** After the retry commits, the DocBeam API sends one `job_update` to the job's open dashboards, with the counts each viewer may see, as it does after a cancel. The pages reload their deliveries. The sender asked for "retry and cancel with their pushes".
+- **Why:** A retry moves tasks from failed to pending. Another tab or a team viewer would otherwise keep showing them as failed until the next fetch.
+
+## D-M3-4. Subscribe is answered over the connection; the management address comes from the event
+- **Date:** 2026-10-16
+- **Changes:** TDD "WebSocket API" (`subscribe`: "allowed: sets job_id and team_ids; not allowed: rejects").
+- **What:**
+  - The WS Handler answers a `subscribe` with a message on the same connection: `{type: "subscribed", jobId}`, or `{type: "subscribe_error", jobId, code}` with `NOT_FOUND` (a missing job and a hidden one give the same answer), `VALIDATION_ERROR` or `UNAVAILABLE` (the platform could not be asked). A refused subscribe also clears the connection's earlier job.
+  - The page subscribes, waits for `subscribed`, and only then fetches (TDD Step 3.3). Without an answer the order could not be kept: the fetch could run before the row is updated. If no answer comes within 5 seconds the page fetches anyway, and a late answer makes it fetch once more.
+  - The handler finds its management address in the event (`https://<domain>/<stage>`), so the WS Lambda does not need the API's address in its own configuration (that would be a Terraform cycle). Locally `WS_MANAGEMENT_ENDPOINT` names ws-local itself. Its permission to post is `execute-api:ManageConnections` on every API of the account in the region, because naming this API would be the same cycle. Delivery, the DLQ Consumer and the DocBeam API get the exact address and the exact resource.
+  - `$connect` has no gateway authorizer: the handler checks the token in the query string against the keys, and answers 401. A service token is refused.
+- **Why:** The design says the browser subscribes before fetching but gives the handler no way to say when it has finished.
+
+## D-M3-5. Small additions to the read routes
+- **Date:** 2026-10-16
+- **Changes:** TDD API contracts (`GET /jobs/:jobId`, `GET /jobs/:jobId/tasks`, `GET /audit`).
+- **What:**
+  - Job detail adds `asOf` (the server's clock when the counts were read, so the page can ignore pushes older than its fetch without trusting the browser's clock), `destinations` (the folders the caller may see, for the header), `isSender`, and for the sender only `fileCount`, `retry` (`open`, `retryable`, `reason`) and `cancel` (`open`, `waiting`). The Retry and Cancel rules live on the server, so the page and the routes cannot disagree.
+  - Counts are `{pending, in_progress, completed, failed}` everywhere, as in the pushes.
+  - Tasks come as `{page, limit, total, tasks}`; each task adds `fileName`, `destinationPath`, `attemptCount` and `fileExpired` (the staged file is past 33 days) so the table needs no second call. They sort by file name, destination and id, so paging is stable. Page size 100.
+  - `GET /jobs` pages 20 by default, at most 100. `GET /audit` pages 50 by default, at most 200, and returns `{page, limit, hasMore, events}`. `action` takes one action or several separated by commas (the page's Deliveries filter is two actions).
+  - A job-wide event of someone else's distribution shows only `actorName`.
+- **Why:** The design lists the fields but not the envelope, the paging or the sort.
+
+## D-M3-6. Page position in the URL hash; Distribute stays mounted
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 3.4 (no routing named); D-M2-20 (leave warning).
+- **What:** The tab and the open distribution are in the URL hash (`#/status/<job id>`, `#/audit`). A reload mid-run opens the same distribution and catches up, and the link can be shared ("Copy link"; Open by ID takes the full id or a link, not the 8-character short id). The Distribute screen stays mounted (hidden) while Status or Audit shows, so a prepared batch is not lost by looking at a distribution. After Send the page opens the new distribution.
+- **Why:** "Refresh mid-run without losing anything" needs the page to know where it was.
+
+## D-M3-7. The task table is virtualized by hand
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 3.4 ("a virtualized table for up to 2,000 tasks").
+- **What:** A fixed 64 px row, a window of the rows in view plus six either side, and the 100-row page of any row that scrolls into view is loaded when needed. About 100 lines in `web/src/tracking/virtual.ts` and `TaskTable.tsx`, no library. Pushes change a loaded row in place (an older push is ignored); with a status filter on, the loaded pages are fetched again after the pushes go quiet, because a row may leave the list.
+- **Why:** One small, fully tested piece is cheaper than a new dependency.
+
+## D-M3-8. The WS Handlers' reserved concurrency is 3, and they answer 503 when throttled
+- **Date:** 2026-10-16
+- **Changes:** D-M0-6 (budget: WS Handlers 3).
+- **What:** The `ws` Lambda has reserved concurrency 3, the number the 79-connection budget counts (`packages/shared/src/db.test.ts` is unchanged and passes). API Gateway invokes it for each connect, subscribe and disconnect. If a burst needs more than 3 at once, the extra events are throttled and a browser sees a failed connect or no `subscribed` answer; it reconnects with a back-off, or fetches without the live connection after 5 seconds. With RDS Proxy on (prod, M5), this number can rise.
+- **Why:** The dev budget is a hard limit (D-M0-6), and every part of the page has a path that works without the live connection.
+
+## D-M3-9. The Sweeper's daily run deletes expired connection rows
+- **Date:** 2026-10-16
+- **Changes:** TDD Step 2.5 (the Sweeper's daily run deletes old unsubmitted files only).
+- **What:** The daily `cleanup` also runs `DELETE FROM ws_connections WHERE expires_at < now()`. A browser that vanished without a `$disconnect` (a closed laptop, a lost network) would otherwise leave its row for ever. The pushes already skip such rows, so this only keeps the table small. A live browser reconnects with a new token before its old one runs out, so it never loses a row it needs. The result of a run is `{files, connections}`.
+- **Why:** The design says a row is deleted on `$disconnect` and on a `410` from a push, which a silent disappearance never triggers.
+
+## D-M3-10. Tooltip rules for every screen
+- **Date:** 2026-10-16
+- **Changes:** The mockup and TDD Step 3.4 (no tooltip rules). Applied to the M2 screens as well as the M3 ones.
+- **What:**
+  1. Every icon-only button (a cross, an eye, an arrow) has a `title` and an `aria-label` with the same text, and the text names what it acts on ("Remove a.pdf", "Retry upload of a.pdf", "Sign out", "Close preview", "Dismiss all"). A checkbox drawn as a button needs the `aria-label`; its title may say why it is off instead.
+  2. Text cut short with an ellipsis (file names, destination paths, the short job id, the chips' own path) shows the full text in a `title`.
+  3. A disabled control says why in its title: Send ("Waiting for 2 files to be verified", "Add a file first", "1 file has no destination yet. Tick a folder", or the batch limit), Clear ("Nothing to clear"), a folder tick ("Add a file first"), Cancel ("Nothing is waiting to be delivered", "This distribution was already cancelled"), Retry ("The retry window closed: it lasts 24 hours after the distribution finished, and its files must be under 2 days old", "A cancelled distribution cannot be retried", "No failed delivery can be retried…"). The sender therefore now sees Cancel always, and Retry whenever something failed, each off with its reason (the mockup hid them).
+  4. Status chips and failure codes carry a one-line plain-English meaning, all from one map, `web/src/explain.ts` (for example RETRIES_EXHAUSTED: "Tried 5 times over about 17 minutes; the platform did not accept it."). It covers the 8 failure codes, 4 delivery states, 5 distribution states and 9 upload states, and a test fails if a code is added without a line.
+  5. Text that is already fully visible and self-explanatory (a button labelled "Load more events", the tabs, the filter pills, the counts) gets no tooltip.
+  3a. **Amended 2026-10-17 (Cancel):** Cancel distribution is shown only while the distribution is still running (pending or in progress) and only to the sender. While deliveries run but none is waiting it is shown off, with "Nothing is waiting to be delivered". Once the distribution has finished, or was cancelled, there is no Cancel button. Retry keeps its rule: shown to the sender when something failed, off with the reason when the window closed, the distribution was cancelled, or nothing can be retried.
+  6. `web/src/components/IconButtons.test.tsx` renders the shell, the Documents table in every file state, Review, the Not added list, the Destinations tree and the preview dialog, and fails for an icon-only button with no aria-label or a different title.
+- **Why:** An icon alone does not say what it does or on what; a disabled button that does not say why looks broken.
+
+## D-M3-11. Browser tests with Playwright, local only
+- **Date:** 2026-10-16
+- **Changes:** TDD "Testing strategy" (no browser layer; M1 to M3 browser checks were steps for the person).
+- **What:** `@playwright/test` 1.64.1 is a dev dependency, with Chromium downloaded into `~/.cache/ms-playwright` (approved by the person). The tests are in `tests/e2e/` and run with `npm run test:e2e` against the local Docker Compose stack and the Vite dev server (started by Playwright if it is not already running). They are **not** part of the CI workflows and not part of `npm test`; a CI job can be added later. Chromium needs system libraries that WSL does not have by default; the person installs them with one `sudo` command (the session never runs `sudo`). The tests stop and start the `workers` container and restart `ws-local` to hold a job in a known state; a `finally` always starts them again. Steps that only make sense on AWS stay as steps for the person in `M3-TESTING.md` section 3.
+- **Why:** The live behaviour (counts moving without a reload, a reload mid-run, a second person's view, Cancel and Retry, the popover) can only be seen in a real browser, and the tests make those checks repeatable.
+
+## D-M3-12. One look for status, disabled controls, columns, file actions and type badges
+- **Date:** 2026-10-17
+- **Changes:** The mockup and M2 screens (Distribute), after the person's look at the local screens. Five parts, each a decision:
+  1. **Disabled looks disabled.** One shared rule in `web/src/styles.css` for every button: greyed background and text, `cursor: not-allowed`, and a real `disabled` attribute (never a click handler on something that looks live). The title keeps explaining why (D-M3-10). Before, Preview and Download on Status and `btn2` buttons had no disabled style and looked clickable.
+  2. **One status chip.** `web/src/components/StatusChip.tsx` (the coloured box with a dot) is used for deliveries, distributions and the file states on Distribute (Preparing, Uploading, Checking, Verified, Refused, Upload interrupted). One tone map: grey is waiting, blue is working, amber is being checked, green is done, red is a problem. `Delivered`, `Verified` and `Completed` are all green; `Failed`, `Refused` and `Completed with errors` are all red.
+  3. **Columns size to their content.** The Documents table is one CSS grid (`subgrid` rows): the name column takes the spare room, Destinations, Status, Size and Actions take what their content needs (Destinations and Status are capped, and long text ends with an ellipsis and shows in full in its title). **The draggable column widths of the mockup are removed**, because a fixed width cannot also fit its content. The Deliveries table on Status draws only the rows in view, so it cannot measure all rows: the file column takes the spare room and the destination column is as wide as the longest destination path loaded so far (up to 48 characters).
+  4. **Preview and Download are icon buttons on both pages** (an eye and an arrow), with a `title` and `aria-label` of the same text. On Status they stay off until M4, and the text says so: "Preview x.pdf. Available in the next version". One component, `web/src/components/FileActions.tsx`.
+  5. **File type badges are coloured by type**, from one map in `web/src/fileTypes.ts`: PDF red, DOCX blue, XLSX green, PNG and JPG purple. The text label stays, and every pair has a contrast of at least 4.5 to 1 (a test computes it).
+- **Why:** Controls that look live but do nothing, two different chips for the same idea, and columns wider than their content made the screens harder to read.
+
+## D-M3-13. A fixed note about the sign-in pause
+- **Date:** 2026-10-17
+- **Changes:** Flow 1 sign-in screen and the 12-hour sign-in dialog (ADR-015 describes the pause but no screen says it).
+- **What:** After any failed sign-in, under the error, the page shows one fixed line: "After 5 wrong passwords in a row, sign-in pauses for 15 minutes. Wait, then try again." It is the same for a wrong password, an unknown email, a paused account and the gateway throttle, and it is shown only after a failure. The error text above it is unchanged. So the page still shows neither which accounts exist nor which are paused (D-M1-7 stays as it is). The 12-hour dialog shows the same line after a failed attempt. A failed registration does not show it.
+- **Why:** A person who is paused otherwise sees the same "not right" message and tries again, which does not help.
+
+## D-M3-14. A daily check that dev is not left up
+- **Date:** 2026-10-17
+- **Changes:** AGENTS "Cost" (dev costs money while up; the reminder was only a sentence at the end of a task). New workflow `.github/workflows/dev-up-check.yml`.
+- **What:** It runs every day at 17:30 UTC (23:00 IST) and by hand (`workflow_dispatch`). It signs in with the existing deploy credentials and makes one read-only call, `aws ecs list-clusters` in `ap-southeast-2`. If a cluster whose name starts with `docbeam-dev` exists, the job fails with "Dev is still up. Tear it down: scripts/empty-dev-buckets.sh dev, then terraform destroy." Otherwise it passes. No other AWS call. GitHub runs scheduled workflows only from the default branch, so the daily run starts after `m3` is merged; until then it can be run by hand.
+- **Why:** A failed run sends an email, so a forgotten dev (about 4.5 USD a day against the Free plan credits) is noticed within a day.
+
+## D-M3-15. No access log on the WebSocket stage
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 3.2 (`infra/modules/websocket-api`), found by the first dev apply of M3.
+- **What:** The WebSocket stage has no `access_log_settings`, and the module's log group, its `log_retention_days` variable and its `log_group` output are removed. Before, `CreateStage` failed with `CloudWatch Logs role ARN must be set in account settings to enable logging`: API Gateway needs an account-wide CloudWatch role for a WebSocket stage that logs (the HTTP API's stage does not). That role is one setting for the whole account and is not removed by `terraform destroy` of dev, so it is not added here. The `ws` Lambda already logs every `$connect`, `subscribe` and `$disconnect` event, and the checks use those logs (`M3-TESTING.md` section 3, check 7).
+- **Why:** The check only needs the Lambda's log. An account-level IAM role is a bigger change than the log is worth. It can be added later in one place if the person wants gateway access logs.
+
+## D-M3-16. Open by ID and the empty Status page (found on dev)
+- **Date:** 2026-10-17
+- **Changes:** M3 Status page (flow 3, "Open a job"), after the person's browser check 13 on dev.
+- **What:**
+  1. **Open is off while the box is empty or only spaces** (same disabled look as D-M3-12, title "Paste a distribution id or link first"). The short-id note shows only for a real short id.
+  2. **The note clears** when the input changes and when any new Open starts (a typed id, a link or a card), so it never sits beside the "Distribution not found" panel.
+  3. **Cause of Sam's "not found" with nothing pasted:** the URL carried an id. The id lives in the hash (`#/status/<id>`, D-M3-6) and stayed there when one person signed out and another signed in in the same tab, so Sam opened Raj's distribution. With no id in the URL the page already showed an empty card (never "not found"). Fixes: signing out now resets the hash to the Distribute page (a link opened while signed out is kept), and the empty card now reads "Pick a distribution, or paste an id to open one."
+  4. **The box is in the mockup's place,** between the Mine / My teams switch and the cards, on both tabs, for everyone. Before, it came after the list, so a long list (Priya's Mine) pushed it off the screen while an empty list (Sam's) showed it. The mockup's placeholder is `JOB-0000` and its Open button is always on; both differ on purpose (the box takes a full id or a link, and Open is off when empty).
+- **Why:** The box was missing where people looked for it, and the page showed a failure that had not happened.
+
+## D-M3-17. Re-sign-in clears the page's errors; the deliveries table sizes the File column to its names
+- **Date:** 2026-10-17
+- **Changes:** M3 Status page, after the person's browser checks on dev (distribution 148eaed7). Refines D-M3-12 point 3.
+- **What:**
+  1. **Signing in again from the 12-hour dialog starts the page clean.** After a successful sign-in the app counts one more "signed in again". The Mine list, the My teams list, the open distribution (detail, deliveries table, Audit tab) and the Audit trail page read again when that count changes, so an old "Your sign-in has ended." goes. Before, each part kept its error until its own next refresh (the My teams list only refreshed when it was switched on).
+  2. **Deliveries table columns.** The File column is as wide as the longest file name loaded, at most 280 px, at least 96 px; a longer name ends with an ellipsis and shows in full in its title. Destination takes all the room that is left (at least 96 px) and ends with an ellipsis and a title too. Before, File took the spare room and Destination only what it needed, which left a gap before Destination. The Documents table on Distribute is unchanged.
+  3. **Not done: Preview and Download on delivered rows stay off.** They are off for everyone, sender and team member, by D-M3-12 point 4 and TDD Step 3.4 (wired in M4, Flow 4). There is no download route in the DocBeam API yet, so an enabled button would do nothing. The person asked for them to be enabled; this waits for M4 or a decision to bring the download route into M3 (asked in the report).
+  4. **Preview and Download stay off, with clearer text (the person's decision: they arrive in M4, Step 4.1).** Hover and label: "Preview <file>. Preview and download arrive in the next milestone" (and the same for Download). The greyed icon is now readable but plainly unavailable: text `#667085` (4.5 to 1 or better on its own tile) on a grey `#f2f4f7` tile with a thin border, `not-allowed` cursor. A live icon has no tile.
+  5. **Cancelled is its own count, grey, never red (changes the API and push contract of TDD Step 3.1 and 3.3).** A cancelled delivery is still stored as `failed` with the code `CANCELLED`. The counts now carry a fifth field, `cancelled`, and `failed` holds real failures only, in `GET /jobs`, `GET /jobs/:id` and every `task_update` and `job_update` push. `taskCount` is the sum of all five. The status rule counts cancelled with failed, so statuses do not change. `GET /jobs/:id/tasks?status=` accepts `cancelled` (the CANCELLED rows) and `failed` no longer returns them. On the page: a grey **Cancelled** tile and a **Cancelled** filter chip, shown only when something was cancelled; the header bar and the list card's bar have a grey segment (`#98A2B3`) and red only for real failures; a cancelled row's chip reads **Cancelled** (grey) with the code and reason as before; the Audit already said "Delivery cancelled". A cancelled distribution with no real failure has no Retry button (nothing failed), and its note still says why Retry is off.
+  6. **The "+N" popover** (one component, so every "+N" in the app): it opens on hover and stays open while the pointer is over the chip or the panel. There is no gap between them (the panel starts at the chip's edge and carries its own 4 px of space) and the close delay is 300 ms. Scrolling inside the panel no longer closes it (the page scrolling under it still does, and the list does not hand its scroll on, `overscroll-behavior: contain`). A click, or Enter or Space on the focused chip, pins it open until Esc, a click outside, another click on the chip, or focus leaving. Before, the page's capture-phase scroll listener closed the panel on its own list's scroll, and a 4 px gap plus a 120 ms delay closed it on the way in.
+- **Why:** An error that stays after the cause is fixed looks like a failure; a wide empty column wastes the row; a cancelled delivery is not a failure, so red and the Failed number must not include it; a popover that cannot be scrolled cannot be used.

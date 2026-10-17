@@ -44,6 +44,8 @@ export interface FinishedTask {
   failureCode?: FailureCode;
   failureReason?: string;
   updatedAt: Date;
+  /** How many attempts the task took, so a dashboard that updates the row live shows it. */
+  attemptCount: number;
   /** True when this write closed the job. */
   jobClosed: boolean;
 }
@@ -53,6 +55,11 @@ export interface FailPendingInput {
   failureCode: FailureCode;
   /** Added after "<file name> to <destination>: ". */
   detail: string;
+  /**
+   * Set by the cancel route. The job is marked cancelled and a `job.cancelled` event is written in the same
+   * transaction; each task event names the sender. When no task is pending nothing is written (NOTHING_TO_CANCEL).
+   */
+  cancelledBy?: { userId: string; name: string; email: string };
 }
 
 export interface FailedPendingResult {
@@ -89,10 +96,16 @@ export async function failPendingTasks(db: Connectable, input: FailPendingInput)
       [input.jobId, input.failureCode, input.detail],
     );
 
+    const by = input.cancelledBy;
+    if (by && failed.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { tasks: [], jobClosed: false };
+    }
+
     if (failed.rows.length > 0) {
       await client.query(
         `INSERT INTO audit_events (actor_id, action, job_id, task_id, team_id, detail)
-         SELECT NULL, 'task.failed', $1::uuid, a.task_id, a.team_id, a.detail::jsonb
+         SELECT $5::uuid, 'task.failed', $1::uuid, a.task_id, a.team_id, a.detail::jsonb
            FROM unnest($2::uuid[], $3::uuid[], $4::text[]) AS a(task_id, team_id, detail)`,
         [
           input.jobId,
@@ -105,9 +118,19 @@ export async function failPendingTasks(db: Connectable, input: FailPendingInput)
               destinationPath: r.destination_path,
               failureCode: input.failureCode,
               failureReason: r.failure_reason,
+              ...(by ? { actorName: by.name, actorEmail: by.email } : {}),
             }),
           ),
+          by?.userId ?? null,
         ],
+      );
+    }
+
+    if (by) {
+      await client.query('UPDATE jobs SET cancelled_at = now() WHERE id = $1', [input.jobId]);
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, job_id, detail) VALUES ($1, 'job.cancelled', $2, $3::jsonb)`,
+        [by.userId, input.jobId, JSON.stringify({ actorName: by.name, actorEmail: by.email, cancelled: failed.rows.length })],
       );
     }
 
@@ -143,11 +166,11 @@ export async function finishTask(db: Connectable, input: FinishInput): Promise<F
     await client.query('BEGIN');
     await client.query('SELECT 1 FROM jobs WHERE id = $1 FOR UPDATE', [input.jobId]);
 
-    const updated = await client.query<{ updated_at: Date; team_id: string; file_id: string; destination_path: string | null }>(
+    const updated = await client.query<{ updated_at: Date; team_id: string; file_id: string; destination_path: string | null; attempt_count: number }>(
       `UPDATE tasks
           SET status = $2, failure_code = $3, failure_reason = $4, platform_document_id = $5, updated_at = now()
         WHERE id = $1 AND job_id = $6 AND status IN ('pending', 'in_progress')
-        RETURNING updated_at, team_id, file_id, destination_path`,
+        RETURNING updated_at, team_id, file_id, destination_path, attempt_count`,
       [
         input.taskId,
         input.status,
@@ -197,6 +220,7 @@ export async function finishTask(db: Connectable, input: FinishInput): Promise<F
       ...(input.failureCode ? { failureCode: input.failureCode } : {}),
       ...(input.failureReason ? { failureReason: input.failureReason } : {}),
       updatedAt: row.updated_at,
+      attemptCount: row.attempt_count,
       jobClosed: (closed.rowCount ?? 0) > 0,
     };
   } catch (error) {
