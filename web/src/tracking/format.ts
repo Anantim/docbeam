@@ -1,6 +1,6 @@
 // Words, tones and times for the Status and Audit screens. The colours themselves live in StatusChip (D-M3-12).
 import type { Tone } from '../components/StatusChip.js';
-import type { AuditEvent, JobStatus, TaskStatus } from './api.js';
+import type { AuditEvent, JobStatus, TaskKind, TaskRow } from './api.js';
 
 export interface Chip {
   label: string;
@@ -16,13 +16,18 @@ const JOB_CHIPS: Record<JobStatus, Chip> = {
 };
 export const jobChip = (status: JobStatus): Chip => JOB_CHIPS[status];
 
-const TASK_LOOKS: Record<TaskStatus, Chip> = {
+const TASK_LOOKS: Record<TaskKind, Chip> = {
   completed: { label: 'Delivered', tone: 'ok' },
   failed: { label: 'Failed', tone: 'bad' },
   in_progress: { label: 'In progress', tone: 'busy' },
   pending: { label: 'Waiting', tone: 'idle' },
+  cancelled: { label: 'Cancelled', tone: 'idle' },
 };
-export const taskLook = (status: TaskStatus): Chip => TASK_LOOKS[status];
+export const taskLook = (kind: TaskKind): Chip => TASK_LOOKS[kind];
+
+/** A delivery the sender cancelled is stored as failed with the code CANCELLED, and shown as its own kind. */
+export const taskKindOf = (task: Pick<TaskRow, 'status' | 'failureCode'>): TaskKind =>
+  task.status === 'failed' && task.failureCode === 'CANCELLED' ? 'cancelled' : task.status;
 
 /** The first 8 characters of the id, which is how a distribution is named on screen (D-G16). */
 export const shortId = (jobId: string): string => jobId.slice(0, 8);

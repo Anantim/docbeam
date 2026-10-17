@@ -16,7 +16,7 @@ const job = (jobId: string, status: JobSummary['status'], completed = 0): JobSum
   submittedBy: { userId: 'u', name: 'Priya Shah' },
   createdAt: '2026-10-16T10:00:00Z',
   taskCount: 10,
-  counts: { pending: 10 - completed, in_progress: 0, completed, failed: 0 },
+  counts: { pending: 10 - completed, in_progress: 0, completed, failed: 0, cancelled: 0 },
   status,
 });
 

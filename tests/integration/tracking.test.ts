@@ -270,7 +270,16 @@ describe('POST /jobs/:id/cancel while deliveries run', () => {
     const finished = await finishTask(db as never, { taskId: running, jobId: job.jobId, status: 'completed', documentId: randomUUID() });
     expect(finished?.jobClosed).toBe(true);
     detail = await get(priya, `/jobs/${job.jobId}`);
-    expect(detail.body).toMatchObject({ status: 'cancelled', counts: { completed: 2, failed: 2, pending: 0, in_progress: 0 } });
+    // The two cancelled deliveries are counted as cancelled, not as failed (D-M3-17).
+    expect(detail.body).toMatchObject({ status: 'cancelled', taskCount: 4, counts: { completed: 2, failed: 0, cancelled: 2, pending: 0, in_progress: 0 } });
+    const list = await get(priya, '/jobs?scope=mine&limit=50');
+    expect(list.body.find((j: { jobId: string }) => j.jobId === job.jobId)).toMatchObject({ taskCount: 4, counts: { completed: 2, failed: 0, cancelled: 2 }, status: 'cancelled' });
+    // The task filters follow: Failed holds real failures only, Cancelled holds the cancelled ones.
+    const cancelledRows = await get(priya, `/jobs/${job.jobId}/tasks?status=cancelled`);
+    expect(cancelledRows.body).toMatchObject({ total: 2 });
+    expect(cancelledRows.body.tasks.map((t: { failureCode: string }) => t.failureCode)).toEqual(['CANCELLED', 'CANCELLED']);
+    expect((await get(priya, `/jobs/${job.jobId}/tasks?status=failed`)).body).toMatchObject({ total: 0 });
+    expect((await get(priya, `/jobs/${job.jobId}/tasks?status=completed`)).body).toMatchObject({ total: 2 });
 
     // The audit trail has one event per cancelled delivery and one for the job.
     const audit = await get(priya, `/audit?jobId=${job.jobId}`);

@@ -4,6 +4,8 @@ import type { Counts } from '../live/socket.js';
 export type { Counts } from '../live/socket.js';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
+/** What a delivery is shown as: a cancelled one is stored as failed with the code CANCELLED (D-M3-17). */
+export type TaskKind = TaskStatus | 'cancelled';
 export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'completed_with_errors' | 'cancelled';
 
 export interface JobSummary {
@@ -76,7 +78,7 @@ const post = <T>(path: string): Promise<T> => apiFetch<T>(path, { method: 'POST'
 export const trackingApi = {
   jobs: (scope: 'mine' | 'team', limit = 20): Promise<JobSummary[]> => apiFetch(`/jobs?scope=${scope}&limit=${limit}`),
   job: (jobId: string): Promise<JobDetail> => apiFetch(`/jobs/${jobId}`),
-  tasks: (jobId: string, page: number, status?: TaskStatus): Promise<TaskPage> =>
+  tasks: (jobId: string, page: number, status?: TaskKind): Promise<TaskPage> =>
     apiFetch(`/jobs/${jobId}/tasks?page=${page}&limit=${TASK_PAGE}${status ? `&status=${status}` : ''}`),
   cancel: (jobId: string): Promise<{ cancelled: number }> => post(`/jobs/${jobId}/cancel`),
   retry: (jobId: string): Promise<{ retried: number }> => post(`/jobs/${jobId}/retry`),

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
 import type { LiveClient } from '../live/socket.js';
-import { trackingApi, type Counts, type JobDetail, type TaskStatus } from '../tracking/api.js';
+import { trackingApi, type Counts, type JobDetail, type TaskKind } from '../tracking/api.js';
 import { JOB_STATUS_MEANING } from '../explain.js';
+import { CANCELLED_GREY } from './JobList.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { useAudit } from '../tracking/useAudit.js';
@@ -25,12 +26,13 @@ interface Props {
   signedInAgain?: number;
 }
 
-const FILTERS: Array<{ id: TaskStatus | 'all'; label: string; key: keyof Counts | 'total' }> = [
+const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 'total' }> = [
   { id: 'all', label: 'All', key: 'total' },
   { id: 'completed', label: 'Delivered', key: 'completed' },
   { id: 'failed', label: 'Failed', key: 'failed' },
   { id: 'in_progress', label: 'In progress', key: 'in_progress' },
   { id: 'pending', label: 'Waiting', key: 'pending' },
+  { id: 'cancelled', label: 'Cancelled', key: 'cancelled' },
 ];
 
 const teamsOf = (paths: string[]): string[] => [...new Set(paths.map((p) => p.split(' / ')[0] ?? ''))].filter(Boolean);
@@ -49,7 +51,7 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
     if (counts) onCounts?.(jobId, counts);
   }, [counts, jobId, onCounts]);
   const [tab, setTab] = useState<'deliveries' | 'audit'>('deliveries');
-  const [filter, setFilter] = useState<TaskStatus | 'all'>('all');
+  const [filter, setFilter] = useState<TaskKind | 'all'>('all');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
   const audit = useAudit({ jobId, actions: [], reloadKey });
@@ -74,7 +76,7 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
 
   const detail: JobDetail = state.detail;
   const c: Counts = counts ?? detail.counts;
-  const total = c.pending + c.in_progress + c.completed + c.failed;
+  const total = c.pending + c.in_progress + c.completed + c.failed + c.cancelled;
   const status = statusFromCounts(c, detail.cancelledAt !== null);
   const chip = jobChip(status);
   const teams = teamsOf(detail.destinations);
@@ -86,7 +88,9 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
   const canCancel = showCancel && !!detail.cancel?.open && c.pending > 0;
   const canRetry = detail.isSender && !!detail.retry?.open;
   const retryable = detail.retry?.retryable ?? 0;
-  const retryNote = !canRetry && c.failed > 0 ? retryNoteFor(detail) : '';
+  // Real failures only: a cancelled delivery is not a failure and has nothing to retry (D-M3-17). A cancelled
+  // distribution still tells its sender why Retry is off.
+  const retryNote = !canRetry && (c.failed > 0 || (detail.isSender && detail.cancelledAt !== null)) ? retryNoteFor(detail) : '';
 
   async function act(kind: 'cancel' | 'retry'): Promise<void> {
     setBusy(true);
@@ -198,11 +202,18 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
             <div className="lead">Waiting</div>
             <div className="n" style={{ color: '#344054' }}>{c.pending}</div>
           </div>
+          {c.cancelled > 0 && (
+            <div>
+              <div className="lead">Cancelled</div>
+              <div className="n" style={{ color: '#667085' }}>{c.cancelled}</div>
+            </div>
+          )}
         </div>
         <div className="jbar thick" aria-hidden="true">
           <div style={{ width: `${bar(c.completed)}%`, background: '#12B76A' }} />
           <div style={{ width: `${bar(c.failed)}%`, background: '#F04438' }} />
           <div style={{ width: `${bar(c.in_progress)}%`, background: '#2B59C3' }} />
+          <div style={{ width: `${bar(c.cancelled)}%`, background: CANCELLED_GREY }} />
         </div>
       </div>
 
@@ -223,7 +234,7 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
           </div>
           {tab === 'deliveries' && (
             <div className="tfilters" role="group" aria-label="Filter deliveries by status">
-              {FILTERS.map((f) => {
+              {FILTERS.filter((f) => f.id !== 'cancelled' || c.cancelled > 0 || filter === 'cancelled').map((f) => {
                 const n = f.key === 'total' ? total : c[f.key];
                 return (
                   <button

@@ -19,7 +19,10 @@ export interface Counts {
   pending: number;
   in_progress: number;
   completed: number;
+  /** Real failures only. */
   failed: number;
+  /** Deliveries the sender cancelled (D-M3-17). */
+  cancelled: number;
 }
 
 export type LiveMessage =

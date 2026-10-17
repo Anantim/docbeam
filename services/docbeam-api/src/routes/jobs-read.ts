@@ -11,6 +11,12 @@ import { addCount, emptyCounts, fileExpired, pageOf, retryState, statusOf, total
 
 const RETRYABLE_CODES = ['RETRIES_EXHAUSTED', 'FANOUT_FAILED'];
 
+// A delivery the sender cancelled is stored as failed with the code CANCELLED. It is shown and counted as its
+// own kind, `cancelled`; `failed` is real failures only (D-M3-17). The same expression, with and without the alias.
+const KIND_OF_TASK = sql.raw(`CASE WHEN t.status = 'failed' AND t.failure_code = 'CANCELLED' THEN 'cancelled' ELSE t.status END`);
+const KIND = sql.raw(`CASE WHEN status = 'failed' AND failure_code = 'CANCELLED' THEN 'cancelled' ELSE status END`);
+const TASK_FILTERS = [...TASK_STATUSES, 'cancelled'] as const;
+
 export interface ReadDeps {
   platform: PlatformClient;
 }
@@ -29,11 +35,11 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const out = new Map<string, Counts>();
     if (jobIds.length === 0) return out;
     const result = await db.execute<{ job_id: string; status: string; n: number }>(sql`
-      SELECT j.id AS job_id, t.status, count(*)::int AS n
+      SELECT j.id AS job_id, ${KIND_OF_TASK} AS status, count(*)::int AS n
         FROM jobs j JOIN tasks t ON t.job_id = j.id
        WHERE j.id = ANY(${pgArray(jobIds, 'uuid')})
          AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))
-       GROUP BY j.id, t.status`);
+       GROUP BY 1, 2`);
     for (const r of result.rows) {
       const c = out.get(r.job_id) ?? emptyCounts();
       addCount(c, r.status, r.n);
@@ -92,9 +98,9 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
 
     const counts = emptyCounts();
     const rows = await db.execute<{ status: string; n: number }>(sql`
-      SELECT status, count(*)::int AS n FROM tasks
+      SELECT ${KIND} AS status, count(*)::int AS n FROM tasks
        WHERE job_id = ${jobId} AND (${isSender}::boolean OR team_id = ANY(${pgArray(teams ?? [], 'uuid')}))
-       GROUP BY status`);
+       GROUP BY 1`);
     for (const r of rows.rows) addCount(counts, r.status, r.n);
 
     // The folders the caller may see in this distribution (all of them for the sender), for the header's chips.
@@ -147,8 +153,8 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const userId = caller(request);
     const { jobId } = request.params as { jobId: string };
     const query = request.query as { status?: string; page?: string; limit?: string };
-    if (query.status !== undefined && !(TASK_STATUSES as readonly string[]).includes(query.status)) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${TASK_STATUSES.join(', ')}.`);
+    if (query.status !== undefined && !(TASK_FILTERS as readonly string[]).includes(query.status)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${TASK_FILTERS.join(', ')}.`);
     }
     const page = pageOf(query, LIMITS.tasksPage, LIMITS.tasksPage);
     const access = await loadAccess(db, platform, jobId, userId);
@@ -158,7 +164,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
 
     const total = await db.execute<{ n: number }>(sql`
       SELECT count(*)::int AS n FROM tasks
-       WHERE job_id = ${jobId} AND (${sender}::boolean OR team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR status = ${status})`);
+       WHERE job_id = ${jobId} AND (${sender}::boolean OR team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR ${KIND} = ${status})`);
     const rows = await db.execute<{
       id: string; file_id: string; original_name: string; destination_path: string; team_id: string; status: string;
       attempt_count: number; failure_code: string | null; failure_reason: string | null; updated_at: Date; file_at: Date;
@@ -166,7 +172,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
       SELECT t.id, t.file_id, f.original_name, t.destination_path, t.team_id, t.status, t.attempt_count,
              t.failure_code, t.failure_reason, t.updated_at, COALESCE(f.uploaded_at, f.created_at) AS file_at
         FROM tasks t JOIN files f ON f.id = t.file_id
-       WHERE t.job_id = ${jobId} AND (${sender}::boolean OR t.team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR t.status = ${status})
+       WHERE t.job_id = ${jobId} AND (${sender}::boolean OR t.team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR ${KIND_OF_TASK} = ${status})
        ORDER BY f.original_name, t.destination_path, t.id
        LIMIT ${page.limit} OFFSET ${page.offset}`);
 

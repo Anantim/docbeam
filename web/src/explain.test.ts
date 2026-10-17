@@ -5,7 +5,7 @@ import { failureMeaning, FAILURE_MEANING, JOB_STATUS_MEANING, TASK_STATUS_MEANIN
 describe('the shared meanings', () => {
   it('has one line for every failure code, task status, job status and upload status', () => {
     expect(Object.keys(FAILURE_MEANING).sort()).toEqual([...FAILURE_CODES].sort());
-    expect(Object.keys(TASK_STATUS_MEANING).sort()).toEqual([...TASK_STATUSES].sort());
+    expect(Object.keys(TASK_STATUS_MEANING).sort()).toEqual([...TASK_STATUSES, 'cancelled'].sort());
     expect(Object.keys(JOB_STATUS_MEANING).sort()).toEqual([...JOB_STATUSES].sort());
     expect(Object.keys(UPLOAD_STATUS_MEANING)).toHaveLength(9);
   });

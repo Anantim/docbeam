@@ -235,3 +235,23 @@ Check 12 passed in the person's browser. Check 13 was not proven: Sam's Status p
 | lint, typecheck, build | clean |
 | `npm test` | 71 files, 529 tests passed |
 | `npm run test:e2e` | **44 tests passed** (4.7 minutes), with the M1 and M2 packs |
+
+## 7. Cancelled is its own count; the "+N" popover; Preview and Download text (D-M3-17, points 4 to 6)
+
+**Not yet on dev.** The count change touches the DocBeam API image and the Delivery and DLQ Consumer Lambdas (they share the push code), so a web-only deploy would not show it. Waiting for the person's yes to deploy those too.
+
+| Check | Result |
+|---|---|
+| `services/docbeam-api/src/tracking.test.ts` (`totalOf`, `addCount`, status with cancelled counts) and `packages/shared/src/push.test.ts` (a `cancelled` row is its own count for the sender and for a team viewer, in `task_update` and `job_update`) | passed (136 tests in `packages/shared` and `services/docbeam-api`) |
+| `tests/integration/tracking.test.ts` "POST /jobs/:id/cancel while deliveries run": after the cancel the detail and the list say `completed 2, failed 0, cancelled 2`; `tasks?status=cancelled` returns the 2 CANCELLED rows, `status=failed` returns 0, `status=completed` returns 2 | passed (17 files, 157 tests, on the rebuilt stack) |
+| `tests/integration/ws.test.ts` "sends one job update after a cancel": `cancelled: 3` for the sender, `cancelled: 1` for the team member, `failed: 0` for both | passed |
+| `StatusPage.test.tsx`: a Cancelled tile (grey, not the colour of Failed), grey 62.5 % bar segment and 0 % red, Cancelled filter chip; no tile or chip when nothing was cancelled | passed |
+| `status-fixes.spec.ts` "a distribution cancelled part way: tiles, both bars, chips, filters, rows and audit agree": 3 of 8 delivered then Cancel. Before the cancel no Cancelled tile or chip. After: tiles Delivered 3, Failed 0, In progress 0, Waiting 0, Cancelled 5 (grey `#667085`, Failed keeps red `#B42318`); header bar 37.5 % green, 62.5 % grey, 0 % red, 0 % blue; the card's bar the same; filters All 8, Delivered 3, Failed 0 ("No deliveries with this status."), Cancelled 5 with five grey `Cancelled` row chips and the code `CANCELLED`; the Audit tab has 5 `Delivery cancelled` and no `Delivery failed`; the same after a reload and after the workers start | passed |
+| `track.spec.ts` Cancel test: counts `0 0 0 0 6`, no Retry button, the note "This distribution was cancelled, so Retry is off." | passed |
+| `ui.spec.ts` Preview and Download: label "Preview <file>. Preview and download arrive in the next milestone", disabled, text `#667085` on `#f2f4f7`, contrast at least 4.5 to 1 | passed |
+| `DestinationChips.test.tsx` (2 new tests): hover then move into the panel keeps it open past the close delay, a scroll inside it does not close it, a scroll of the page does; a click pins it | passed |
+| `popover.spec.ts` "the +N popover stays open…" on Distribute (`+10`) and on the Status header: no gap between chip and panel (at most 1 px); the pointer moves slowly into the panel and the panel stays open past 700 ms; the list (long enough to scroll) scrolls by wheel and the panel stays; leaving both closes a hover; a click pins it with the pointer away; Esc closes and the focus returns to the chip; a click outside closes a pinned one; focus the chip, Enter opens, Esc closes. **Run against the old Popover it fails** ("a gap between the chip and the panel") | passed |
+| `npm run lint`, `npm run typecheck`, `npm run build` | clean |
+| `npm test` | 71 files, 538 tests passed |
+| `npm run test:integration` | 17 files, 157 tests passed |
+| `npm run test:e2e` | **45 tests passed** (4.9 minutes), with the M1 and M2 packs |

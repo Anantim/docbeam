@@ -52,7 +52,8 @@ interface CountRow {
   n: string;
 }
 
-const EMPTY = { pending: 0, in_progress: 0, completed: 0, failed: 0 };
+// `cancelled` counts the deliveries the sender cancelled (stored as failed with the code CANCELLED); `failed` is real failures only.
+const EMPTY = { pending: 0, in_progress: 0, completed: 0, failed: 0, cancelled: 0 };
 type Counts = typeof EMPTY;
 
 function sum(rows: CountRow[], teams?: ReadonlySet<string>): Counts {
@@ -87,7 +88,7 @@ export async function pushJobUpdate(deps: PushDeps, jobId: string, updatedAt: Da
     const sender = await deps.db.query<{ submitted_by_user_id: string }>('SELECT submitted_by_user_id FROM jobs WHERE id = $1', [jobId]);
     const senderId = sender.rows[0]?.submitted_by_user_id;
     const counts = await deps.db.query<CountRow>(
-      'SELECT team_id, status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY team_id, status',
+      "SELECT team_id, CASE WHEN status = 'failed' AND failure_code = 'CANCELLED' THEN 'cancelled' ELSE status END AS status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY 1, 2",
       [jobId],
     );
     for (const c of connections) {
@@ -130,7 +131,7 @@ export async function pushTaskUpdates(deps: PushDeps, jobId: string, updates: Ta
     const sender = await deps.db.query<{ submitted_by_user_id: string }>('SELECT submitted_by_user_id FROM jobs WHERE id = $1', [jobId]);
     const senderId = sender.rows[0]?.submitted_by_user_id;
     const counts = await deps.db.query<CountRow>(
-      'SELECT team_id, status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY team_id, status',
+      "SELECT team_id, CASE WHEN status = 'failed' AND failure_code = 'CANCELLED' THEN 'cancelled' ELSE status END AS status, count(*)::text AS n FROM tasks WHERE job_id = $1 GROUP BY 1, 2",
       [jobId],
     );
 

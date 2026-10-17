@@ -7,23 +7,26 @@ export interface Counts {
   pending: number;
   in_progress: number;
   completed: number;
+  /** Real failures only. */
   failed: number;
+  /** Deliveries the sender cancelled (stored as failed with the code CANCELLED). */
+  cancelled: number;
 }
 
-export const emptyCounts = (): Counts => ({ pending: 0, in_progress: 0, completed: 0, failed: 0 });
+export const emptyCounts = (): Counts => ({ pending: 0, in_progress: 0, completed: 0, failed: 0, cancelled: 0 });
 
 export function addCount(counts: Counts, status: string, n: number): void {
   if (status in counts) counts[status as keyof Counts] += n;
 }
 
 export function totalOf(counts: Counts): number {
-  return counts.pending + counts.in_progress + counts.completed + counts.failed;
+  return counts.pending + counts.in_progress + counts.completed + counts.failed + counts.cancelled;
 }
 
 /** Job status is worked out when read, never stored. Cancelled wins once nothing is open. */
 export function statusOf(counts: Counts, cancelled: boolean): JobStatus {
   return jobStatus(
-    { pending: counts.pending, inProgress: counts.in_progress, completed: counts.completed, failed: counts.failed },
+    { pending: counts.pending, inProgress: counts.in_progress, completed: counts.completed, failed: counts.failed + counts.cancelled },
     cancelled,
   );
 }

@@ -18,15 +18,16 @@ function setup(connections: Array<{ connection_id: string; user_id: string; team
     }
     if (text.includes('FROM ws_connections')) return { rows: connections, rowCount: connections.length };
     if (text.includes('FROM jobs')) return { rows: [{ submitted_by_user_id: 'sender' }], rowCount: 1 };
-    if (text.includes('GROUP BY team_id')) {
+    if (text.includes('GROUP BY 1, 2')) {
       return {
         rows: [
           { team_id: 'team-a', status: 'completed', n: '3' },
           { team_id: 'team-a', status: 'pending', n: '1' },
           { team_id: 'team-b', status: 'completed', n: '5' },
           { team_id: 'team-b', status: 'failed', n: '2' },
+          { team_id: 'team-b', status: 'cancelled', n: '4' },
         ],
-        rowCount: 4,
+        rowCount: 5,
       };
     }
     return { rows: [], rowCount: 0 };
@@ -51,8 +52,8 @@ describe('pushTaskUpdate', () => {
       post,
     );
     await pushTaskUpdate(s.deps, update);
-    expect(sent['c-sender']?.counts).toEqual({ pending: 1, in_progress: 0, completed: 8, failed: 2 });
-    expect(sent['c-viewer']?.counts).toEqual({ pending: 1, in_progress: 0, completed: 3, failed: 0 });
+    expect(sent['c-sender']?.counts).toEqual({ pending: 1, in_progress: 0, completed: 8, failed: 2, cancelled: 4 });
+    expect(sent['c-viewer']?.counts).toEqual({ pending: 1, in_progress: 0, completed: 3, failed: 0, cancelled: 0 });
     expect(sent['c-sender']).toMatchObject({ type: 'task_update', jobId: 'job-1', taskId: 'task-1', status: 'completed' });
   });
 
@@ -129,8 +130,8 @@ describe('pushJobUpdate', () => {
       post,
     );
     await pushJobUpdate(s.deps, 'job-1', new Date('2026-10-16T00:00:00Z'));
-    expect(sent['c-sender']).toMatchObject({ type: 'job_update', jobId: 'job-1', counts: { pending: 1, in_progress: 0, completed: 8, failed: 2 } });
-    expect(sent['c-viewer']?.counts).toEqual({ pending: 0, in_progress: 0, completed: 5, failed: 2 });
+    expect(sent['c-sender']).toMatchObject({ type: 'job_update', jobId: 'job-1', counts: { pending: 1, in_progress: 0, completed: 8, failed: 2, cancelled: 4 } });
+    expect(sent['c-viewer']?.counts).toEqual({ pending: 0, in_progress: 0, completed: 5, failed: 2, cancelled: 4 });
     expect(sent['c-sender']?.taskId).toBeUndefined();
   });
 

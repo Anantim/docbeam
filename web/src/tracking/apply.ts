@@ -16,7 +16,7 @@ export function statusFromCounts(counts: Counts, cancelled: boolean): JobStatus 
   const open = counts.pending + counts.in_progress;
   if (open === 0 && cancelled) return 'cancelled';
   if (open === 0) return counts.failed > 0 ? 'completed_with_errors' : 'completed';
-  const total = open + counts.completed + counts.failed;
+  const total = open + counts.completed + counts.failed + counts.cancelled;
   return counts.pending === total ? 'pending' : 'in_progress';
 }
 

@@ -146,20 +146,20 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel distribution' }).click();
     await expect(page.getByText(/6 deliveries cancelled\./)).toBeVisible();
     await expect(chip(page)).toHaveText('Cancelled');
-    expect(await readCounts(page)).toEqual([0, 6, 0, 0]);
+    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Delivered, Failed, In progress, Waiting, Cancelled
     await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
     await expect(page.locator('.ttable .code').first()).toHaveAttribute('title', /sender cancelled/);
 
-    // A cancelled distribution has no Cancel button (D-M3-10), and Retry is off and says why.
-    const retry = page.getByRole('button', { name: 'Retry failed deliveries' });
-    await expect(retry).toBeDisabled();
-    await expect(retry).toHaveAttribute('title', 'A cancelled distribution cannot be retried');
+    // A cancelled distribution has no Cancel button (D-M3-10). Nothing failed, so there is no Retry button either,
+    // and the note says why (D-M3-17).
+    await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
+    await expect(page.getByText('This distribution was cancelled, so Retry is off.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
 
     // The workers start: the queued messages stop at the claim and nothing is delivered.
     start();
     await page.waitForTimeout(6_000);
-    expect(await readCounts(page)).toEqual([0, 6, 0, 0]);
+    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Delivered, Failed, In progress, Waiting, Cancelled
     const rows = await sql<{ n: number }>("SELECT count(*)::int AS n FROM tasks WHERE job_id = $1 AND status = 'completed'", [jobId]);
     expect(rows[0]?.n).toBe(0);
 

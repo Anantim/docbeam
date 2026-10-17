@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
-import { TASK_PAGE, trackingApi, type TaskRow, type TaskStatus } from '../tracking/api.js';
+import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, NOT_YET, PreviewButton } from './FileActions.js';
 import { StatusChip, TONES } from './StatusChip.js';
-import { taskLook } from '../tracking/format.js';
+import { taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
 export const ROW_HEIGHT = 64;
@@ -14,7 +14,7 @@ const MAX_ATTEMPTS = 5;
 
 interface Props {
   jobId: string;
-  status: TaskStatus | 'all';
+  status: TaskKind | 'all';
   /** Changes when the page must load the tasks again (after a reconnect, a cancel or a retry). */
   reloadKey: number;
   live: LiveClient;
@@ -162,7 +162,8 @@ export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480
 }
 
 function TaskCells({ task }: { task: TaskRow }) {
-  const look = taskLook(task.status);
+  const kind = taskKindOf(task);
+  const look = taskLook(kind);
   const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
   return (
     <>
@@ -173,7 +174,7 @@ function TaskCells({ task }: { task: TaskRow }) {
         <span className="dest-text">{task.destinationPath}</span>
       </div>
       <div role="cell">
-        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[task.status]} />
+        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[kind]} />
       </div>
       <div role="cell" className="attempts" title={used === 0 ? 'Not attempted yet' : `${used} of the ${MAX_ATTEMPTS} allowed attempts`}>
         <span aria-hidden="true" className="segs">

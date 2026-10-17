@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DestinationChips, groupByTeam } from './DestinationChips.js';
@@ -58,12 +58,12 @@ describe('DestinationChips', () => {
     await user.hover(button);
     expect(screen.queryByRole('dialog')).not.toBeNull();
     await user.unhover(button);
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 450));
     expect(screen.queryByRole('dialog')).toBeNull();
 
     await user.click(button);
     await user.unhover(button);
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 450));
     expect(screen.queryByRole('dialog')).not.toBeNull();
     await user.click(button);
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -78,6 +78,41 @@ describe('DestinationChips', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(button);
+  });
+
+  it('stays open while the pointer moves from the chip into the panel, and while the list scrolls inside it', async () => {
+    const user = userEvent.setup();
+    render(<DestinationChips paths={PATHS} />);
+    const button = screen.getByRole('button', { name: 'Show 3 more folders' });
+    await user.hover(button);
+    const panel = screen.getByRole('dialog', { name: '3 more folders' });
+    await user.unhover(button);
+    await user.hover(panel); // arrives within the close delay
+    await new Promise((r) => setTimeout(r, 450));
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+
+    // Scrolling the list inside the panel does not close it.
+    const list = panel.querySelector('.popover-list') as HTMLElement;
+    act(() => {
+      list.dispatchEvent(new Event('scroll', { bubbles: false }));
+    });
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+    // The page scrolling under it does.
+    act(() => {
+      document.dispatchEvent(new Event('scroll'));
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a click pins it: the pointer can leave, and only Esc, a click outside or another click closes it', async () => {
+    const user = userEvent.setup();
+    render(<DestinationChips paths={PATHS} />);
+    const button = screen.getByRole('button', { name: 'Show 3 more folders' });
+    await user.click(button);
+    await user.unhover(button);
+    await new Promise((r) => setTimeout(r, 450));
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.queryByRole('dialog')).not.toBeNull();
   });
 
   it('closes on a click outside', async () => {

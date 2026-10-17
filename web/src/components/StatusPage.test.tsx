@@ -14,7 +14,7 @@ vi.mock('../tracking/api.js', async (importOriginal) => ({
 }));
 
 const JOB = '3f1c2a9e-84d5-4b6a-9c11-0a5f6d7e8b90';
-const counts = (c: Partial<JobDetail['counts']> = {}) => ({ pending: 0, in_progress: 0, completed: 0, failed: 0, ...c });
+const counts = (c: Partial<JobDetail['counts']> = {}) => ({ pending: 0, in_progress: 0, completed: 0, failed: 0, cancelled: 0, ...c });
 
 const detail = (over: Partial<JobDetail> = {}): JobDetail => ({
   jobId: JOB,
@@ -145,6 +145,34 @@ describe('live counts', () => {
     });
     expect(counts4()).toEqual(['10', '0', '0', '0']);
     expect(screen.getByRole('status').textContent).toBe('Completed');
+  });
+
+  it('shows cancelled deliveries as their own grey tile and bar segment, not as failed', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 3, cancelled: 5 }), taskCount: 8, status: 'cancelled', cancelledAt: '2026-10-16T10:04:00Z', cancel: { open: false, waiting: 0 } }));
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByText('3f1c2a9e');
+    const panel = within(screen.getByLabelText('Counts'));
+    const tile = (name: string) => panel.getByText(name).parentElement?.querySelector('.n') as HTMLElement;
+    expect(tile('Delivered').textContent).toBe('3');
+    expect(tile('Failed').textContent).toBe('0');
+    expect(tile('Cancelled').textContent).toBe('5');
+    expect(tile('Cancelled').style.color).not.toBe(tile('Failed').style.color);
+    const segments = [...document.querySelectorAll('.jbar.thick > div')] as HTMLElement[];
+    expect(segments.map((s) => s.style.background)).toContain('rgb(152, 162, 179)'); // grey, #98A2B3
+    expect(segments.find((s) => s.style.background === 'rgb(240, 68, 56)')?.style.width).toBe('0%'); // no red
+    expect(segments.find((s) => s.style.background === 'rgb(152, 162, 179)')?.style.width).toBe('62.5%');
+    // The filter chip carries the same number.
+    expect(screen.getByRole('button', { name: 'Cancelled, 5 deliveries' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Failed, 0 deliveries' })).toBeTruthy();
+  });
+
+  it('shows no Cancelled tile or filter when nothing was cancelled', async () => {
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByText('3f1c2a9e');
+    expect(within(screen.getByLabelText('Counts')).queryByText('Cancelled')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Cancelled,/ })).toBeNull();
   });
 
   it('ignores a push older than what is shown', async () => {

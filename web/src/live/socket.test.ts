@@ -208,7 +208,7 @@ describe('pushes', () => {
     c.onMessage((m) => seen.push(m));
     c.setToken('t');
     last().open();
-    const counts = { pending: 0, in_progress: 0, completed: 1, failed: 0 };
+    const counts = { pending: 0, in_progress: 0, completed: 1, failed: 0, cancelled: 0 };
     last().say({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T00:00:00Z', counts });
     last().say({ type: 'job_update', jobId: JOB, updatedAt: '2026-10-16T00:00:01Z', counts });
     last().say({ type: 'other' });

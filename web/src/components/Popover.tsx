@@ -11,14 +11,19 @@ interface Props {
   children: ReactNode;
 }
 
-const OPEN_MARGIN = 4;
 const PANEL_WIDTH = 280;
-const LEAVE_DELAY_MS = 120;
+// A short delay after the pointer leaves, so a quick slip off the edge does not close it.
+const LEAVE_DELAY_MS = 300;
 
 /**
  * A small popover for a "+N" chip, in place of a native `title`. No library.
- *  - Hover or click opens it. A click keeps it open, another click closes it.
- *  - Esc, a click outside, scrolling, or Tab moving focus out of it closes it.
+ *  - Hover opens it and it stays open while the pointer is over the button or the panel. There is no gap
+ *    between them (the panel starts at the button's edge and carries its own 4 px of space), and a short delay
+ *    covers a slip off the edge.
+ *  - A click (or Enter or Space on the focused button) pins it open. It then stays until a click outside, Esc,
+ *    another click on the button, or Tab moving focus out of it.
+ *  - Scrolling inside the panel does not close it. The page scrolling under it does, because the panel is fixed
+ *    to the screen and would be left behind.
  *  - It is a button, so the keyboard reaches it; the panel's list scrolls by keyboard too.
  * The panel is `position: fixed`, so a table with its own scrolling cannot clip it.
  */
@@ -41,7 +46,7 @@ export function Popover({ label, ariaLabel, panelLabel, className = '', children
   useLayoutEffect(() => {
     if (!open || !button.current) return;
     const r = button.current.getBoundingClientRect();
-    setPos({ top: r.bottom + OPEN_MARGIN, left: Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8)) });
+    setPos({ top: r.bottom, left: Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8)) });
   }, [open]);
 
   useEffect(() => {
@@ -49,12 +54,15 @@ export function Popover({ label, ariaLabel, panelLabel, className = '', children
     const outside = (event: PointerEvent): void => {
       if (!wrap.current?.contains(event.target as Node)) close();
     };
+    const scrolled = (event: Event): void => {
+      if (!wrap.current?.contains(event.target as Node)) close();
+    };
     document.addEventListener('pointerdown', outside);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', scrolled, true);
     window.addEventListener('resize', close);
     return () => {
       document.removeEventListener('pointerdown', outside);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', scrolled, true);
       window.removeEventListener('resize', close);
     };
   }, [open]);
@@ -70,7 +78,7 @@ export function Popover({ label, ariaLabel, panelLabel, className = '', children
         setHover(true);
       }}
       onMouseLeave={() => {
-        // A short delay lets the pointer cross the gap between the button and the panel.
+        // A short delay: moving from the button into the panel, or a slip off the edge, does not close it.
         leave.current = setTimeout(() => setHover(false), LEAVE_DELAY_MS);
       }}
       onKeyDown={(event) => {
@@ -100,7 +108,7 @@ export function Popover({ label, ariaLabel, panelLabel, className = '', children
       </button>
       {open && (
         <div id={panelId} className="popover-panel" role="dialog" aria-label={panelLabel} style={{ top: pos.top, left: pos.left, width: PANEL_WIDTH }}>
-          {children}
+          <div className="popover-card">{children}</div>
         </div>
       )}
     </span>

@@ -205,8 +205,9 @@ describe('pushes', () => {
 
     const forSender = await sender.next((m) => m.type === 'job_update');
     const forMember = await member.next((m) => m.type === 'job_update');
-    expect(forSender).toMatchObject({ jobId: job.jobId, counts: { pending: 0, failed: 3 } });
-    expect(forMember).toMatchObject({ jobId: job.jobId, counts: { pending: 0, failed: 1 } });
+    // Cancelled deliveries are their own count, not failures (D-M3-17).
+    expect(forSender).toMatchObject({ jobId: job.jobId, counts: { pending: 0, failed: 0, cancelled: 3 } });
+    expect(forMember).toMatchObject({ jobId: job.jobId, counts: { pending: 0, failed: 0, cancelled: 1 } });
     expect(sender.messages.filter((m) => m.type === 'job_update')).toHaveLength(1);
     expect(sender.messages.some((m) => m.type === 'task_update')).toBe(false);
   });

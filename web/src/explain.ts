@@ -14,11 +14,12 @@ export const FAILURE_MEANING: Record<(typeof FAILURE_CODES)[number], string> = {
   CANCELLED: 'The sender cancelled the distribution before this delivery started.',
 };
 
-export const TASK_STATUS_MEANING: Record<(typeof TASK_STATUSES)[number], string> = {
+export const TASK_STATUS_MEANING: Record<(typeof TASK_STATUSES)[number] | 'cancelled', string> = {
   pending: 'Queued. It has not started yet.',
   in_progress: 'A worker is delivering this file now.',
   completed: 'Delivered to the folder in the platform.',
   failed: 'This delivery ended with a failure. The reason is shown.',
+  cancelled: 'The sender cancelled the distribution before this delivery started. Nothing was delivered.',
 };
 
 export const JOB_STATUS_MEANING: Record<(typeof JOB_STATUSES)[number], string> = {

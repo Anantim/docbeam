@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { addCount, emptyCounts, fileExpired, pageOf, retryState, statusOf } from './tracking.js';
+import { addCount, emptyCounts, fileExpired, pageOf, retryState, statusOf, totalOf } from './tracking.js';
 
 const now = new Date('2026-10-16T12:00:00Z');
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3_600_000);
 const base = { now, cancelled: false, retryable: 2, firstCompletedAt: null, oldestFileCreatedAt: hoursAgo(1) };
 
 describe('statusOf (TDD job status table)', () => {
-  const c = (pending: number, in_progress: number, completed: number, failed: number) => ({ pending, in_progress, completed, failed });
+  const c = (pending: number, in_progress: number, completed: number, failed: number, cancelled = 0) => ({ pending, in_progress, completed, failed, cancelled });
   it.each([
     ['all pending', c(3, 0, 0, 0), false, 'pending'],
     ['some started', c(1, 1, 1, 0), false, 'in_progress'],
@@ -14,8 +14,16 @@ describe('statusOf (TDD job status table)', () => {
     ['none open, one failed', c(0, 0, 2, 1), false, 'completed_with_errors'],
     ['cancelled and nothing open', c(0, 0, 2, 1), true, 'cancelled'],
     ['cancelled but one still running', c(0, 1, 1, 1), true, 'in_progress'],
+    ['cancelled deliveries only, nothing open', c(0, 0, 2, 0, 3), true, 'cancelled'],
+    ['cancelled deliveries still count toward the total while one runs', c(0, 1, 0, 0, 3), true, 'in_progress'],
   ])('%s', (_label, counts, cancelled, expected) => {
     expect(statusOf(counts, cancelled)).toBe(expected);
+  });
+});
+
+describe('totalOf', () => {
+  it('counts every kind, cancelled included', () => {
+    expect(totalOf({ pending: 1, in_progress: 2, completed: 3, failed: 4, cancelled: 5 })).toBe(15);
   });
 });
 
@@ -24,7 +32,8 @@ describe('addCount', () => {
     const counts = emptyCounts();
     addCount(counts, 'completed', 4);
     addCount(counts, 'bogus', 9);
-    expect(counts).toEqual({ pending: 0, in_progress: 0, completed: 4, failed: 0 });
+    addCount(counts, 'cancelled', 2);
+    expect(counts).toEqual({ pending: 0, in_progress: 0, completed: 4, failed: 0, cancelled: 2 });
   });
 });
 

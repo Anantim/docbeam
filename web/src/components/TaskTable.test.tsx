@@ -40,7 +40,7 @@ function fakeLive() {
   const live = { onMessage: (l: (m: LiveMessage) => void) => (listeners.add(l), () => listeners.delete(l)) } as unknown as LiveClient;
   return { live, push: (m: LiveMessage) => act(() => listeners.forEach((l) => l(m))) };
 }
-const counts = { pending: 0, in_progress: 0, completed: 0, failed: 1 };
+const counts = { pending: 0, in_progress: 0, completed: 0, failed: 1, cancelled: 0 };
 const failedPush = (i: number, updatedAt: string): LiveMessage => ({
   type: 'task_update',
   jobId: 'job',
@@ -178,10 +178,10 @@ describe('TaskTable', () => {
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} />);
     await screen.findByText(/more than 33 days old/);
     // Icon buttons, as on Distribute, off until the next version, and saying so in the title and the label.
-    const download = screen.getByRole('button', { name: `Download ${name(1)}. Available in the next version` }) as HTMLButtonElement;
+    const download = screen.getByRole('button', { name: `Download ${name(1)}. Preview and download arrive in the next milestone` }) as HTMLButtonElement;
     expect(download.disabled).toBe(true);
-    expect(download.title).toBe(`Download ${name(1)}. Available in the next version`);
-    const preview = screen.getByRole('button', { name: `Preview ${name(1)}. Available in the next version` }) as HTMLButtonElement;
+    expect(download.title).toBe(`Download ${name(1)}. Preview and download arrive in the next milestone`);
+    const preview = screen.getByRole('button', { name: `Preview ${name(1)}. Preview and download arrive in the next milestone` }) as HTMLButtonElement;
     expect(preview.disabled).toBe(true);
     expect(screen.queryByRole('button', { name: new RegExp(`Download ${name(0)}`) })).toBeNull();
   });
