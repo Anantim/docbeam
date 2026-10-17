@@ -115,4 +115,4 @@ Each was found only on AWS; none could be seen on Compose.
 
 ## 7. Tear down
 
-See `docs/STATUS.md`.
+A check is NO, so dev was not kept up. 18:16 UTC: `scripts/empty-dev-buckets.sh dev --dry-run` named exactly `docbeam-dev-object-store-346208529537` (6,667 versions) and `docbeam-dev-platform-files-346208529537` (27,511 versions); the real run emptied both. Then `terraform -chdir=infra/envs/dev destroy`: `Destroy complete! Resources: 275 destroyed.` (18:49). Afterwards: `terraform state list` empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; zero ECS clusters, RDS instances, NAT gateways, load balancers, Lambda functions, ECR repositories, CloudFront distributions and secrets. The database was Single-AZ before the teardown (`MultiAZ False`).
