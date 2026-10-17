@@ -325,7 +325,7 @@ a{color:#2B59C3}a:hover{color:#1F45A0}
 <sc-if value="{{hasDl}}" hint-placeholder-val="{{ false }}">
 <div role="status" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: {{dlBg}}; border-radius: 4px; padding: 12px 16px">
 <div style="display: flex; align-items: center; gap: 10px"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 2v10M5 8l4 4 4-4M3 15h12"></path></svg><span>{{dlText}}</span></div>
-<div style="display: flex; gap: 8px"><sc-if value="{{dlLive}}" hint-placeholder-val="{{ true }}"><button class="btn2" type="button" onClick="{{expireDl}}">Skip to expiry</button></sc-if><button class="btn2" type="button" onClick="{{closeDl}}">Dismiss</button></div>
+<div style="display: flex; gap: 8px"><button class="btn2" type="button" onClick="{{closeDl}}">Dismiss</button></div>
 </div>
 </sc-if>
 <div class="card" style="overflow: hidden">

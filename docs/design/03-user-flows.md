@@ -192,13 +192,13 @@ Diagram: Track a Job
 Diagram: Retrieve a File
 
 1. The user opens a job (their own, or one with deliveries to their team) and clicks Preview or Download on a file.
-2. Web Client asks for a link through API Gateway to the DocBeam API, saying whether it is for a download or a preview.
+2. Web Client asks for a link through API Gateway to the DocBeam API, saying whether it is for a download or a preview. Anything else gets 400.
 3. The DocBeam API looks up the file, its job, who sent it and which teams it was delivered to in DocBeam DB.
 4. If the user is not the sender, it asks the Document Platform for the user's teams. The user may download the file only if it was delivered (the delivery completed) to one of them.
 5. **If the file exists and the user is allowed**, the DocBeam API signs a download link for that one file, valid for 2 minutes, that saves the file under its original name, or, for a preview, opens it in the page. Like the upload link, it is signed locally with no call to AWS.
-6. It returns the link, and Web Client downloads the file straight from the Object Store, or shows it in a viewer on the page: PDF and images as they are, DOCX and XLSX turned into a read-only page in the browser. A preview is recorded in the audit trail like a download. The file contents never pass through our servers.
+6. It returns the link with the file's name, type and size (read from its record, never from the browser), and Web Client downloads the file straight from the Object Store, or shows it in a viewer on the page: PDF and images straight from the link, DOCX and XLSX (up to 50 MB) turned into a read-only page in the browser. A preview is recorded in the audit trail like a download. After Download, a bar on the page counts down the link's 2 minutes, then says the link has expired and Download gives a fresh one. The file contents never pass through our servers.
 7. The Object Store checks the link's signature and expiry before sending anything. An expired or altered link is refused.
-8. **If the file does not exist or the user is not allowed**, the DocBeam API returns 404 and no link is ever created. Both cases get the same answer, so a stranger cannot even learn that the file exists.
-9. If the uploaded file is past its storage period (33 days after upload), the DocBeam API answers 410 File no longer available instead of signing a link that would fail.
+8. **If the file does not exist or the user is not allowed**, the DocBeam API returns 404, and neither a link nor an audit entry is created. The same answer covers a file not scanned clean or not in any distribution. Both cases get the same answer, so a stranger cannot even learn that the file exists.
+9. If the uploaded file is past its storage period (33 days after upload), the DocBeam API answers 410 File no longer available instead of signing a link that would fail. It checks this only after the access check, so a stranger gets 404 even for an old file.
 
 > **Outcome.** Only the sender, and members of a team the file was delivered to, can get a working link. Each link opens one file for 2 minutes, and downloads are direct and fast up to 1 GB. Uploaded files stay available for at least 30 days after the job finishes.

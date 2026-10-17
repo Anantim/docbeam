@@ -7,18 +7,23 @@ DocBeam API [icon: aws-ecs, color: green]
 Object Store [icon: aws-s3, color: orange]
 
 User > Web Client: Click Preview or Download
-Web Client > DocBeam API: Ask for a link
+Web Client > DocBeam API: Ask for a link (download or preview)
+
+opt [label: mode is not download or preview] {
+  DocBeam API --> Web Client: 400, no link created
+}
+
 DocBeam API > DocBeam API: Sender, or delivered to the user's team?
 
 alt [label: allowed] {
-  DocBeam API --> Web Client: 2-minute link for this one file (logged)
+  DocBeam API --> Web Client: 2-minute link for this one file, with its name, type and size (logged)
   Web Client > Object Store: Fetch the file directly
   Object Store --> Web Client: File (only if scanned clean)
-  Web Client > Web Client: Save it, or show it in the viewer
+  Web Client > Web Client: Save it and count down the link's 2 minutes, or show it in the viewer
 }
-else [label: older than 33 days] {
+else [label: allowed, but older than 33 days] {
   DocBeam API --> Web Client: 410, file no longer available
 }
-else [label: not allowed or missing] {
-  DocBeam API --> Web Client: 404, no link created
+else [label: not allowed, missing or not scanned clean] {
+  DocBeam API --> Web Client: 404, no link created, nothing logged
 }
