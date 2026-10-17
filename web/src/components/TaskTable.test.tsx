@@ -12,6 +12,8 @@ vi.mock('../tracking/api.js', async (importOriginal) => ({
   trackingApi: { tasks: api.tasks },
 }));
 
+const files = { onPreview: vi.fn(), onDownload: vi.fn() };
+
 const TOTAL = 2_000;
 const name = (i: number) => `file-${String(i).padStart(4, '0')}.pdf`;
 const row = (i: number, over: Partial<TaskRow> = {}): TaskRow => ({
@@ -84,7 +86,7 @@ describe('columnsFor: columns size to their content (D-M3-12)', () => {
 describe('TaskTable', () => {
   it('draws only the rows in view out of 2,000', async () => {
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
     expect(screen.getByRole('table', { name: 'Deliveries' }).getAttribute('aria-rowcount')).toBe(String(TOTAL + 1));
     const drawn = screen.getAllByRole('row').length - 1; // minus the header
@@ -96,7 +98,7 @@ describe('TaskTable', () => {
 
   it('loads the page of the rows it scrolls to, 100 at a time', async () => {
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
     fireEvent.scroll(screen.getByLabelText('Deliveries list, scrolls'), { target: { scrollTop: 1500 * 64 } });
     await screen.findByText(name(1500));
@@ -107,7 +109,7 @@ describe('TaskTable', () => {
 
   it('changes a row in place for a live push, with the reason inline', async () => {
     const { live, push } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:05.000Z'));
     const code = await screen.findByText('RETRIES_EXHAUSTED');
@@ -125,7 +127,7 @@ describe('TaskTable', () => {
       pageOf(page, (i) => (i === 2 ? { status: 'completed', attemptCount: 1, updatedAt: '2026-10-16T10:00:09.000Z' } : {})),
     );
     const { live, push } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:03.000Z'));
     expect(screen.queryByText('RETRIES_EXHAUSTED')).toBeNull();
@@ -133,11 +135,11 @@ describe('TaskTable', () => {
 
   it('loads again after a reload, keeping the rows on screen meanwhile', async () => {
     const { live } = fakeLive();
-    const view = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    const view = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
     let release: (p: TaskPage) => void = () => undefined;
     api.tasks.mockImplementationOnce(() => new Promise<TaskPage>((resolve) => (release = resolve)));
-    view.rerender(<TaskTable jobId="job" status="all" reloadKey={1} live={live} viewportHeight={320} />);
+    view.rerender(<TaskTable jobId="job" status="all" reloadKey={1} live={live} {...files} viewportHeight={320} />);
     expect(screen.getByText(name(0))).toBeTruthy(); // still there while the answer is awaited
     await act(async () => release(pageOf(1, (i) => (i === 0 ? { status: 'completed', attemptCount: 1 } : {}))));
     await waitFor(() => expect(screen.getAllByText('Delivered').length).toBeGreaterThan(0));
@@ -146,7 +148,7 @@ describe('TaskTable', () => {
 
   it('asks for the status filter and starts again when it changes', async () => {
     const { live } = fakeLive();
-    const view = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} viewportHeight={320} />);
+    const view = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
     api.tasks.mockImplementation(async (_j: string, page: number, status?: string) => ({
       page,
@@ -154,7 +156,7 @@ describe('TaskTable', () => {
       total: 1,
       tasks: [row(7, { status: status as TaskRow['status'], failureCode: 'CHECKSUM_MISMATCH', failureReason: 'x', fileName: 'only-failed.pdf' })],
     }));
-    view.rerender(<TaskTable jobId="job" status="failed" reloadKey={0} live={live} viewportHeight={320} />);
+    view.rerender(<TaskTable jobId="job" status="failed" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText('only-failed.pdf');
     expect(api.tasks).toHaveBeenLastCalledWith('job', 1, 'failed');
     expect(screen.queryByText(name(0))).toBeNull();
@@ -163,33 +165,42 @@ describe('TaskTable', () => {
   it('says so when no delivery has the status', async () => {
     api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 0, tasks: [] });
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="failed" reloadKey={0} live={live} />);
+    render(<TaskTable jobId="job" status="failed" reloadKey={0} live={live} {...files} />);
     await screen.findByText('No deliveries with this status.');
   });
 
-  it('shows the expired-file message instead of the buttons, and disabled buttons otherwise', async () => {
+  it('shows the expired-file message instead of the buttons, and live Preview and Download on a delivered file', async () => {
+    const delivered = row(1, { status: 'completed', attemptCount: 1 });
     api.tasks.mockResolvedValue({
       page: 1,
       limit: 100,
-      total: 2,
-      tasks: [row(0, { status: 'completed', attemptCount: 1, fileExpired: true }), row(1, { status: 'completed', attemptCount: 1 })],
+      total: 3,
+      tasks: [row(0, { status: 'completed', attemptCount: 1, fileExpired: true }), delivered, row(2, { status: 'pending' })],
     });
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
     await screen.findByText(/more than 33 days old/);
-    // Icon buttons, as on Distribute, off until the next version, and saying so in the title and the label.
-    const download = screen.getByRole('button', { name: `Download ${name(1)}. Preview and download arrive in the next milestone` }) as HTMLButtonElement;
-    expect(download.disabled).toBe(true);
-    expect(download.title).toBe(`Download ${name(1)}. Preview and download arrive in the next milestone`);
-    const preview = screen.getByRole('button', { name: `Preview ${name(1)}. Preview and download arrive in the next milestone` }) as HTMLButtonElement;
-    expect(preview.disabled).toBe(true);
-    expect(screen.queryByRole('button', { name: new RegExp(`Download ${name(0)}`) })).toBeNull();
+
+    const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
+    const preview = screen.getByRole('button', { name: `Preview ${name(1)}` }) as HTMLButtonElement;
+    expect(download.disabled).toBe(false);
+    expect(preview.disabled).toBe(false);
+    expect(download.title).toBe(`Download ${name(1)}`);
+
+    fireEvent.click(preview);
+    fireEvent.click(download);
+    expect(files.onPreview).toHaveBeenCalledWith(delivered);
+    expect(files.onDownload).toHaveBeenCalledWith(delivered);
+
+    // An expired file and a delivery that is not done have no buttons.
+    expect(screen.queryByRole('button', { name: new RegExp(`(Download|Preview) ${name(0)}`) })).toBeNull();
+    expect(screen.queryByRole('button', { name: new RegExp(`(Download|Preview) ${name(2)}`) })).toBeNull();
   });
 
   it('shows an error when the deliveries cannot be loaded', async () => {
     api.tasks.mockRejectedValue(new Error('boom'));
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
     expect((await screen.findByRole('alert')).textContent).toBe('The deliveries could not be loaded.');
   });
 });

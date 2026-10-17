@@ -59,30 +59,18 @@ test('a disabled button has the disabled attribute and the not-allowed cursor, a
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 
-test('on Status, Preview and Download are icon buttons that look off, say why, and do nothing', async ({ page }) => {
+test('on Status, a delivered file has live Preview and Download icon buttons', async ({ page }) => {
   await signIn(page, PRIYA);
   const { names } = await sendFiles(page, 1, [CARDIO_IRB]);
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   const name = names[0] as string;
   for (const kind of ['Preview', 'Download']) {
-    const label = `${kind} ${name}. Preview and download arrive in the next milestone`;
-    const button = page.getByRole('button', { name: label });
-    await expect(button).toBeDisabled();
+    const label = `${kind} ${name}`;
+    const button = page.getByRole('button', { name: label, exact: true });
+    await expect(button).toBeEnabled();
     await expect(button).toHaveAttribute('title', label);
-    await expect(button).toHaveCSS('cursor', 'not-allowed');
+    await expect(button).toHaveCSS('cursor', 'pointer');
     await expect(button).toHaveClass(/\bicon\b/); // the same form as on Distribute
-    // Readable, yet clearly unavailable: dark enough to read (4.5 to 1 on its own tile), on a grey tile that a live icon does not have.
-    await expect(button).toHaveCSS('color', rgb('#667085'));
-    await expect(button).toHaveCSS('background-color', rgb('#f2f4f7'));
-    const luminance = (hex: string): number => {
-      const channel = (i: number): number => {
-        const v = parseInt(hex.slice(i, i + 2), 16) / 255;
-        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-      };
-      return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-    };
-    const [a, b] = [luminance('#f2f4f7'), luminance('#667085')];
-    expect((a + 0.05) / (b + 0.05)).toBeGreaterThanOrEqual(4.5);
   }
 });
 

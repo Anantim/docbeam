@@ -55,10 +55,17 @@ export async function withWorkersStopped<T>(body: (control: { hold: () => Promis
   }
 }
 
+/**
+ * Set when the browser tests run against dev on AWS (`npm run test:e2e:dev`): the CloudFront address of dev.
+ * Then there is no local stack, no database and no container to stop, and the password comes from DEV_SEED_PASSWORD.
+ */
+export const DEV_APP_URL = process.env.DEV_APP_URL;
+export const ON_DEV = DEV_APP_URL !== undefined;
+
 export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto('/');
   await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
+  await page.getByLabel('Password').fill((process.env.DEV_SEED_PASSWORD ?? env.SEED_USER_PASSWORD) as string);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }

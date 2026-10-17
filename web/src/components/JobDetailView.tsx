@@ -7,11 +7,15 @@ import { CANCELLED_GREY } from './JobList.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { useAudit } from '../tracking/useAudit.js';
+import { formatSize } from '../distribute/files.js';
+import { bannerText, isLive } from '../tracking/links.js';
+import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
 import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { StatusChip, TONES } from './StatusChip.js';
 import { DestinationChips } from './DestinationChips.js';
+import { Preview } from './Preview.js';
 import { TaskTable } from './TaskTable.js';
 
 interface Props {
@@ -54,7 +58,9 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
   const [filter, setFilter] = useState<TaskKind | 'all'>('all');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
-  const audit = useAudit({ jobId, actions: [], reloadKey });
+  const files = useFileLink();
+  // Both only grow, so the sum changes whenever either does: a reload of the deliveries, or a new link event.
+  const audit = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued });
 
   if (state.status === 'loading') return <div className="card jempty" aria-busy="true">Loading the distribution…</div>;
   if (state.status === 'notFound') {
@@ -254,14 +260,41 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
             </div>
           )}
         </div>
+        {files.banner && (
+          <div role="status" className="banner link-banner" style={{ background: isLive(files.banner, files.now) ? '#EEF3FF' : '#FEF3F2' }}>
+            <span>{bannerText(files.banner, files.now)}</span>
+            <button className="btn2" type="button" onClick={files.dismiss}>
+              Dismiss
+            </button>
+          </div>
+        )}
         {tab === 'deliveries' ? (
           <div className="table-scroll">
-            <TaskTable jobId={jobId} status={filter} reloadKey={reloadKey} live={live} />
+            <TaskTable
+              jobId={jobId}
+              status={filter}
+              reloadKey={reloadKey}
+              live={live}
+              onPreview={(t) => void files.preview(t.fileId, t.fileName)}
+              onDownload={(t) => void files.download(t.fileId, t.fileName)}
+            />
           </div>
         ) : (
           <AuditList {...audit} onLoadMore={() => void audit.loadMore()} empty="No events recorded for this distribution yet." />
         )}
       </div>
+
+      {files.viewing && (
+        <Preview
+          name={files.viewing.link.fileName}
+          contentType={files.viewing.link.contentType}
+          sizeBytes={files.viewing.link.sizeBytes}
+          url={files.viewing.link.url}
+          meta={formatSize(files.viewing.link.sizeBytes)}
+          note="Opened with a 2-minute link for this one file. It is shown in your browser and not stored."
+          onClose={files.closePreview}
+        />
+      )}
 
       {confirmCancel && (
         <ConfirmDialog

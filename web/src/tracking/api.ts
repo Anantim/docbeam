@@ -71,6 +71,14 @@ export interface AuditPage {
   events: AuditEvent[];
 }
 
+export interface FileLink {
+  url: string;
+  expiresAt: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export const TASK_PAGE = 100;
 
 const post = <T>(path: string): Promise<T> => apiFetch<T>(path, { method: 'POST' });
@@ -80,6 +88,9 @@ export const trackingApi = {
   job: (jobId: string): Promise<JobDetail> => apiFetch(`/jobs/${jobId}`),
   tasks: (jobId: string, page: number, status?: TaskKind): Promise<TaskPage> =>
     apiFetch(`/jobs/${jobId}/tasks?page=${page}&limit=${TASK_PAGE}${status ? `&status=${status}` : ''}`),
+  /** A new 2-minute link on every call (D-M4-1). 404 and 410 arrive as an ApiFailure. */
+  download: (fileId: string, mode: 'download' | 'preview'): Promise<FileLink> =>
+    apiFetch(`/files/${fileId}/downloads`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) }),
   cancel: (jobId: string): Promise<{ cancelled: number }> => post(`/jobs/${jobId}/cancel`),
   retry: (jobId: string): Promise<{ retried: number }> => post(`/jobs/${jobId}/retry`),
   audit: (query: { jobId?: string; actions?: string[]; page?: number; limit?: number }): Promise<AuditPage> => {

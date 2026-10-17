@@ -94,6 +94,47 @@ describe('Preview', () => {
     expect(screen.queryByTitle('Preview of big.xlsx')).toBeNull();
   });
 
+  describe('from a stored-file link (M4)', () => {
+    const LINK = 'http://localhost:4566/bucket/key?X-Amz-Expires=120';
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('opens a PDF and an image straight from the link, with no download', async () => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+      show({ name: 'consent.pdf', contentType: 'application/pdf', blob: undefined, url: LINK });
+      expect((await screen.findByTitle('Preview of consent.pdf')).getAttribute('src')).toBe(LINK);
+      cleanup();
+      show({ name: 'scan.png', contentType: 'image/png', blob: undefined, url: LINK });
+      expect((await screen.findByAltText('scan.png')).getAttribute('src')).toBe(LINK);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('fetches a DOCX from the link and shows it in the empty sandbox', async () => {
+      const fetchSpy = vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(['docx']) }));
+      vi.stubGlobal('fetch', fetchSpy);
+      show({ name: 'amendment.docx', contentType: DOCX, blob: undefined, url: LINK });
+      const frame = await screen.findByTitle('Preview of amendment.docx');
+      expect(fetchSpy).toHaveBeenCalledWith(LINK);
+      expect(frame.getAttribute('sandbox')).toBe('');
+      expect(frame.getAttribute('srcdoc')).toContain('Protocol amendment');
+    });
+
+    it('does not fetch a DOCX over 50 MB and points to Download', async () => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+      show({ name: 'big.docx', contentType: DOCX, sizeBytes: OFFICE_PREVIEW_MAX_BYTES + 1, blob: undefined, url: LINK });
+      expect(await screen.findByText(/Download it to open it/)).toBeTruthy();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('says so when the link cannot be read', async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 403, blob: async () => new Blob([]) })));
+      show({ name: 'amendment.docx', contentType: DOCX, blob: undefined, url: LINK });
+      expect(await screen.findByText(/could not be shown/)).toBeTruthy();
+    });
+  });
+
   it('closes with the cross and with Escape', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

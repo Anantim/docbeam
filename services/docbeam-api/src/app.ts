@@ -5,6 +5,7 @@ import type { Db } from './db.js';
 import { createPlatformClient, type PlatformClient } from './platform.js';
 import { createJobQueue, type JobQueue } from './queue.js';
 import { registerFileRoutes } from './routes/files.js';
+import { registerDownloadRoutes } from './routes/downloads.js';
 import { registerJobRoutes } from './routes/jobs.js';
 import { registerAuditRoutes } from './routes/audit.js';
 import { registerJobActionRoutes } from './routes/jobs-actions.js';
@@ -42,6 +43,7 @@ export async function buildApp(config: Config, db: Db, deps: Deps = {}): Promise
   if (!post) app.log.info('WS_MANAGEMENT_ENDPOINT is not set; no pushes');
   registerJobActionRoutes(app, db, { platform, queue, post });
   registerAuditRoutes(app, db, { platform });
+  registerDownloadRoutes(app, db, { store, platform });
 
   // The service token is fetched now and renewed in the background, so no request waits for the Auth
   // Service (ADR-013). A failure here is logged, not fatal: the first request that needs a token asks again.

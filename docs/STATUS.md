@@ -1,6 +1,30 @@
 # DocBeam status
 
-Updated 2026-10-17, **end of M3** (branch `m3`, pull request open; dev AWS is DESTROYED).
+Updated 2026-10-17, **end of M4** (branch `m4`, pull request #8; dev AWS is torn down at the end of the M4 round, see "Set up so far").
+
+## M4 (Download a file): built, verified locally and on dev
+
+A person opens a distribution and, on each delivered file, clicks **Preview** (the file shows in the page) or **Download** (the browser saves it under its original name). Plan: `docs/PLAN.md` (M4 task list). Decisions: `docs/DECISIONS.md` D-M4-1 to D-M4-5. Evidence and the YES/NO check: `docs/testing/M4-RESULTS.md` (section 4: every line YES). Testing document: `docs/testing/M4-TESTING.md`. Teaching text: `docs/walkthrough/M4.md`.
+
+- **Tests:** unit and web 74 files, 567 tests; integration 18 files, 168 tests; Playwright 49 tests locally (`npm run test:e2e`), plus 8 on dev (`npm run test:e2e:dev`, config `playwright.dev.config.ts`, needs `DEV_APP_URL` and `DEV_SEED_PASSWORD`).
+- **DocBeam API:** `POST /files/:fileId/downloads` (`services/docbeam-api/src/routes/downloads.ts`): one 404 for missing, hidden, unscanned and not-delivered files; 410 only for allowed callers; 2-minute link (`ObjectStore.presignGet`, `contentDisposition` in `s3.ts`); a `download.issued` audit row. The 201 body adds `fileName`, `contentType`, `sizeBytes` (D-M4-1, a contract addition).
+- **Web:** live Preview and Download on delivered rows (`TaskTable`, `FileActions`), `useFileLink`, the banner (`tracking/links.ts`), `Preview` takes a link as well as a blob, the Audit tab reloads when a link is issued.
+- **Infra:** one gateway route in dev and prod. Nothing else changed.
+- **AWS round (2026-10-17):** dev brought up (247 + 18 resources), checks 1 to 10 and eight browser tests passed, then torn down.
+
+**Decisions to fold into the design documents after M4** (add to the person's list): D-M4-1 (TDD API contract `POST /files/:fileId/downloads` returns `fileName`, `contentType`, `sizeBytes`); D-M4-2 (download audit row: team is the lowest matching delivered team, `detail` fields); D-M4-3 (what counts as "allowed", and the 404-before-410 order); D-M4-5 (banner copy).
+
+**Known issues and accepted NOs (M4):**
+- The SNS alarm email was not confirmed on this bring-up (the person's choice; no M4 check uses alarms).
+- 410 FILE_EXPIRED is proved by tests only; no dev file was 33 days old.
+- PNG and JPG preview was checked by a unit test, not in the dev browser (PDF, DOCX and XLSX were).
+- LocalStack does not enforce link expiry; the refusal after 2 minutes is proved on dev (check 5).
+- Working-rule slips in M4: the decision and plan records were appended with `cat >>`; one Playwright spec and `ui.spec.ts` were edited with a `sed` and a small Python script; a couple of other edits were done the same way. `git diff main...m4 --stat` was checked and nothing stray was found. All changes are in git.
+- The M3 list still stands (browser checks 14 to 16 on dev, WebSocket 400 rows, prod is code only).
+
+## Previous status (end of M3)
+
+Updated 2026-10-17, end of M3 (branch `m3`, merged as PR #7; dev AWS was DESTROYED).
 
 ## M3 (Track a job): built, verified locally and on dev
 
@@ -35,8 +59,8 @@ A person sees every distribution they sent (Mine) and every one sent to their te
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
 | M1 | Flow 1: Browse destinations | 11 d | Merged (PR #3, #4) |
 | M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
-| M3 | Flow 3: Track a job | 7 d | Built, verified locally and on dev, dev destroyed. Pull request open (branch `m3`). Accepted NOs in M3-RESULTS 4.6 |
-| M4 | Flow 4: Download a file | 2 d | Not started |
+| M3 | Flow 3: Track a job | 7 d | Merged (PR #7). Accepted NOs in M3-RESULTS 4.6 |
+| M4 | Flow 4: Download a file | 2 d | Built, verified locally and on dev (PR #8). No NOs (M4-RESULTS 4) |
 | M5 | Hardening and end-to-end checks | 2 d | Not started |
 
 ## What M2 did
@@ -116,14 +140,10 @@ npm run dev -w @docbeam/web      # http://localhost:5173
 
 Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sections 2 and 3. Gotchas: use absolute paths in Bash; `packages/shared/dist` is stale until `npm run build`; Compose services must run `exec node` to get SIGTERM (D-M2-17); the job tests deliver documents into the Cardio binder, so no test may expect an empty folder level; a test that stops a container must start it again in `finally`; the web upload queue (`web/src/upload/manager.ts`) must not import the session module, because the integration test runs it in Node; `terraform apply` needs `-auto-approve` when it has no terminal.
 
-## Next: M4 (Download a file)
+## Next: M5 (Hardening and end-to-end checks)
 
-M4 needs from the person:
-- a yes before each dev apply, image push and task run, as before;
-- the pull request of M3 merged first (the daily `dev-up-check` workflow starts then);
-- a new dev bring-up for the M4 AWS checks (README "Build dev": push images with the provenance flag, two-step apply, bootstrap, signing key, deploys, confirm the SNS email, which was not confirmed in M3). The WebSocket stage has no access log, so a bring-up no longer fails there (D-M3-15).
+M5 needs from the person:
+- a yes before each dev apply and each change the checks make (PLAN.md M5 table), as before; the Paid plan and RDS Proxy question (D-M0-6) before the proxy run;
+- a new dev bring-up (README "Build dev"); confirm the SNS email this time if the alarm checks matter.
 
-M4 builds on:
-- the delivered documents and `tasks` rows from M2 and M3, the team rules in `services/docbeam-api/src/job-access.ts` and the 60-second teams cache;
-- the Preview and Download icon buttons already on the Status page (`web/src/components/FileActions.tsx`, `TaskTable.tsx`), shown off with "Preview and download arrive in the next milestone" until the download route exists (TDD Step 4.1);
-- the `download.issued` audit action already known to `GET /audit` (a download by the sender has no team, so only the sender sees it).
+M5 builds on everything above. Check 5.7 (team viewer, 404 for another team's file) and 5.12 (cross-team download or preview 404, expired links fail) are already proved on dev by M4 (`M4-RESULTS.md` section 3); M5 re-runs them as scripts.

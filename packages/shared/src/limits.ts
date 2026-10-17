@@ -19,6 +19,8 @@ export const LIMITS = {
   partBytes: 16 * MIB,
   /** Upload links last 15 minutes (ADR-004). */
   uploadLinkSeconds: 15 * 60,
+  /** Download and preview links last 2 minutes (ADR-004). */
+  downloadLinkSeconds: 2 * 60,
   /** Files per `POST /uploads` request, and links per wave (ADR-004). */
   uploadWave: 20,
   /** Ids per `GET /files?ids=`. */
