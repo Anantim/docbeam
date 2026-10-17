@@ -190,7 +190,7 @@ Components and responsibilities only. Schemas, endpoints and internals are in th
 
 #### Flow 1: Browse and select destinations
 
-1. The user logs in. The Auth Service checks the password against Auth DB and returns a 15-minute access token, plus a refresh token in a secure cookie that keeps the sign-in going for 12 hours. Five wrong passwords in a row pause sign-in for that account for 15 minutes.
+1. The user logs in. The Auth Service checks the password against Auth DB and returns a 15-minute access token, plus a refresh token in a secure cookie that keeps the sign-in going for 12 hours. Five wrong passwords in a row pause sign-in for that account for 15 minutes, and the page says so after any failed attempt.
 2. The browser asks for the user's teams. API Gateway checks the token and passes the call to the Document Platform, which reads the user's teams from Platform DB.
 3. The user expands a team, then binders and folders, one level at a time. The platform checks membership at every level and returns 404 for anything outside the user's teams.
 4. The user selects up to 20 destinations.
@@ -213,10 +213,10 @@ Components and responsibilities only. Schemas, endpoints and internals are in th
 #### Flow 3: Track a job
 
 1. The user opens the job list. The browser connects to the WebSocket API, and the list shows each job with its overall status, refreshed every 30 seconds.
-2. The user opens a job. The browser subscribes to that job first, then fetches its tasks, so no update is missed in between. Someone other than the sender sees a job only if it has deliveries to one of their teams, and then sees only those deliveries.
+2. The user opens a job. The browser subscribes to that job first, waits for its answer, then fetches its tasks, so no update is missed in between. Someone other than the sender sees a job only if it has deliveries to one of their teams, and then sees only those deliveries.
 3. Each status change is pushed to the browser as it happens.
 4. If the connection drops, the browser reconnects, subscribes again and refetches the tasks.
-5. The sender can cancel a running distribution: deliveries not yet started stop, and ones already running finish.
+5. The sender can cancel a running distribution: deliveries not yet started stop and show as cancelled (grey, counted apart from failures), and ones already running finish.
 
 > **Outcome.** The user can tell at a glance whether every file reached every destination, and why any did not.
 

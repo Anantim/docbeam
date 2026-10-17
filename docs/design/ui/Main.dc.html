@@ -278,17 +278,20 @@ a{color:#2B59C3}a:hover{color:#1F45A0}
 <aside style="flex: 1 1 260px; max-width: 330px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
 <h1 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em">Distributions</h1>
 <div style="display: flex; gap: 2px; background: #EAECF0; border-radius: 4px; padding: 3px" role="group" aria-label="Whose distributions"><sc-for list="{{scopeTabs}}" as="t" hint-placeholder-count="2"><button class="{{t.cls}}" type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="flex: 1">{{t.label}}</button></sc-for></div>
-<div style="display: flex; gap: 6px"><label for="jid" style="position: absolute; left: -9999px">Open by ID</label><input id="jid" class="field mono" type="text" value="{{idInput}}" onChange="{{onIdInput}}" placeholder="JOB-0000"><button class="btn2" type="button" onClick="{{openById}}">Open</button></div>
+<div style="display: flex; gap: 6px"><label for="jid" style="position: absolute; left: -9999px">Open by ID</label><input id="jid" class="field mono" type="text" value="{{idInput}}" onChange="{{onIdInput}}" placeholder="Paste a distribution id or link"><button class="btn2" type="button" onClick="{{openById}}" disabled="{{idEmpty}}" title="{{idTitle}}">Open</button></div>
 <sc-if value="{{noJobs}}" hint-placeholder-val="{{ false }}"><div class="card" style="padding: 16px; color: #475467">{{noJobsText}}</div></sc-if>
 <sc-for list="{{jobCards}}" as="j" hint-placeholder-count="4">
 <button class="{{j.cls}}" type="button" onClick="{{j.open}}">
 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px"><span class="mono" style="font-weight: 500">{{j.id}}</span><span style="flex: 1"></span><span style="padding: 2px 8px; border-radius: 2px; font-size: 11px; font-weight: 600; background: {{j.chipBg}}; color: {{j.chipFg}}">{{j.status}}</span></div>
 <div style="font-size: 12px; color: #475467; margin-bottom: 8px">{{j.byLine}}</div>
-<div style="display: flex; height: 5px; border-radius: 2px; overflow: hidden; background: #EAECF0"><div style="width: {{j.wDone}}%; background: #12B76A"></div><div style="width: {{j.wFail}}%; background: #F04438"></div><div style="width: {{j.wProg}}%; background: #2B59C3"></div></div>
+<div style="display: flex; height: 5px; border-radius: 2px; overflow: hidden; background: #EAECF0"><div style="width: {{j.wDone}}%; background: #12B76A"></div><div style="width: {{j.wFail}}%; background: #F04438"></div><div style="width: {{j.wCanc}}%; background: #98A2B3"></div><div style="width: {{j.wProg}}%; background: #2B59C3"></div></div>
 </button>
 </sc-for>
 </aside>
 <section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{vEmpty}}" hint-placeholder-val="{{ false }}">
+<div class="card" style="padding: 64px 24px; text-align: center; color: #475467">Pick a distribution, or paste an id to open one.</div>
+</sc-if>
 <sc-if value="{{vNotFound}}" hint-placeholder-val="{{ false }}">
 <div class="card" style="padding: 64px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
 <span style="width: 48px; height: 48px; border-radius: 6px; background: #F2F4F7; display: inline-flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M16 16l5 5M8 11h6"></path></svg></span>
@@ -310,13 +313,14 @@ a{color:#2B59C3}a:hover{color:#1F45A0}
 <sc-if value="{{canRetryJob}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; background: #FFFAEB; border: 1px solid #FEDF89; color: #93370D; border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.5">{{retryText}}</div></sc-if>
 <sc-if value="{{canCancelJob}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; font-size: 13px; color: #475467; line-height: 1.5">{{cancelHint}}</div></sc-if>
 <sc-if value="{{hasRetryNote}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 12px; font-size: 13px; color: #475467; line-height: 1.5">{{retryNote}}</div></sc-if>
-<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 16px; border: 1px solid #EAECF0; border-radius: 4px; overflow: hidden">
-<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Delivered</div><div style="font-size: 22px; font-weight: 700; color: #067647">{{nDone}}</div></div>
-<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Failed</div><div style="font-size: 22px; font-weight: 700; color: #B42318">{{nFail}}</div></div>
-<div style="padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">In progress</div><div style="font-size: 22px; font-weight: 700; color: #2B59C3">{{nProg}}</div></div>
-<div style="padding: 12px 14px"><div style="font-size: 12px; color: #475467">Waiting</div><div style="font-size: 22px; font-weight: 700; color: #344054">{{nPend}}</div></div>
+<div style="display: flex; gap: 0; margin-top: 16px; border: 1px solid #EAECF0; border-radius: 4px; overflow: hidden">
+<div style="flex: 1; min-width: 0; padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Delivered</div><div style="font-size: 22px; font-weight: 700; color: #067647">{{nDone}}</div></div>
+<div style="flex: 1; min-width: 0; padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">Failed</div><div style="font-size: 22px; font-weight: 700; color: #B42318">{{nFail}}</div></div>
+<div style="flex: 1; min-width: 0; padding: 12px 14px; border-right: 1px solid #EAECF0"><div style="font-size: 12px; color: #475467">In progress</div><div style="font-size: 22px; font-weight: 700; color: #2B59C3">{{nProg}}</div></div>
+<div style="flex: 1; min-width: 0; padding: 12px 14px"><div style="font-size: 12px; color: #475467">Waiting</div><div style="font-size: 22px; font-weight: 700; color: #344054">{{nPend}}</div></div>
+<sc-if value="{{hasCanc}}" hint-placeholder-val="{{ false }}"><div style="flex: 1; min-width: 0; padding: 12px 14px; border-left: 1px solid #EAECF0; background: #F9FAFB"><div style="font-size: 12px; color: #475467">Cancelled</div><div style="font-size: 22px; font-weight: 700; color: #667085">{{nCanc}}</div></div></sc-if>
 </div>
-<div style="display: flex; height: 6px; border-radius: 2px; overflow: hidden; background: #EAECF0; margin-top: 12px"><div style="width: {{pDone}}%; background: #12B76A"></div><div style="width: {{pFail}}%; background: #F04438"></div><div style="width: {{pProg}}%; background: #2B59C3"></div></div>
+<div style="display: flex; height: 6px; border-radius: 2px; overflow: hidden; background: #EAECF0; margin-top: 12px"><div style="width: {{pDone}}%; background: #12B76A"></div><div style="width: {{pFail}}%; background: #F04438"></div><div style="width: {{pCanc}}%; background: #98A2B3"></div><div style="width: {{pProg}}%; background: #2B59C3"></div></div>
 </div>
 <sc-if value="{{hasDl}}" hint-placeholder-val="{{ false }}">
 <div role="status" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: {{dlBg}}; border-radius: 4px; padding: 12px 16px">
@@ -935,21 +939,22 @@ class Component extends DCLogic {
     ].map(function (c) { c.notOk = !c.ok; c.color = c.ok ? '#067647' : '#475467'; c.bg = c.ok ? '#ECFDF3' : '#F2F4F7'; return c; });
     var ready = checks.every(function (c) { return c.ok; });
 
-    function counts(job, at) { var c = { done: 0, fail: 0, prog: 0, pend: 0 }; self.visibleTasks(job, s.viewer).forEach(function (t) { c[self.status(job, t, s, at === undefined ? clock : at)]++; }); return c; }
+    function st2(job, t, at) { var x = self.status(job, t, s, at === undefined ? clock : at); return x === 'fail' && self.outcome(job, t, s) === 'cancelled' ? 'canc' : x; }
+    function counts(job, at) { var c = { done: 0, fail: 0, prog: 0, pend: 0, canc: 0 }; self.visibleTasks(job, s.viewer).forEach(function (t) { c[st2(job, t, at)]++; }); return c; }
     var listClock = clock - (clock % 30);
     function statusOf(c, total, j) {
       if (j && j.cancelled && c.prog === 0 && c.pend === 0) return ['Cancelled', '#F2F4F7', '#344054'];
-      if (c.done + c.fail === total) return c.fail ? ['Completed with errors', '#FEF3F2', '#B42318'] : ['Completed', '#ECFDF3', '#067647'];
+      if (c.done + c.fail + c.canc === total) return c.fail || c.canc ? ['Completed with errors', '#FEF3F2', '#B42318'] : ['Completed', '#ECFDF3', '#067647'];
       if (c.pend === total) return ['Pending', '#F2F4F7', '#344054'];
       return ['In progress', '#EEF3FF', '#1F45A0'];
     }
     var mine = s.jobs.filter(function (j) { return j.by === s.viewer; });
     var running = 0;
-    mine.forEach(function (j) { var c = counts(j); if (c.done + c.fail < j.tasks.length) running++; });
+    mine.forEach(function (j) { var c = counts(j); if (c.done + c.fail + c.canc < j.tasks.length) running++; });
     var listed = s.scope === 'team' ? s.jobs.filter(function (j) { return j.by !== s.viewer && self.canSee(j, s.viewer); }) : mine;
     var cards = listed.map(function (j) {
       var c = counts(j, listClock), total = self.visibleTasks(j, s.viewer).length, st = statusOf(c, total, j);
-      return { id: j.id, byLine: (s.scope === 'team' ? USERS[j.by].name + ', ' : '') + j.when + ', ' + total + (s.scope === 'team' ? (total === 1 ? ' delivery' : ' deliveries') + ' to your teams' : ' deliveries'), status: st[0], chipBg: st[1], chipFg: st[2], wDone: c.done / total * 100, wFail: c.fail / total * 100, wProg: c.prog / total * 100,
+      return { id: j.id, byLine: (s.scope === 'team' ? USERS[j.by].name + ', ' : '') + j.when + ', ' + total + (s.scope === 'team' ? (total === 1 ? ' delivery' : ' deliveries') + ' to your teams' : ' deliveries'), status: st[0], chipBg: st[1], chipFg: st[2], wDone: c.done / total * 100, wFail: c.fail / total * 100, wCanc: c.canc / total * 100, wProg: c.prog / total * 100,
         cls: s.jobId === j.id ? 'jcard jcardon' : 'jcard',
         open: function () { self.setState({ tab: 'status', jobId: j.id, idInput: j.id, taskFilter: 'all', detailTab: 'deliveries', dl: null }); self.add('subscribe ' + j.id + ', then GET tasks  200', 'The page subscribes to this distribution over the live connection first, so no update slips through, then loads its deliveries 100 at a time.'); } };
     });
@@ -957,7 +962,8 @@ class Component extends DCLogic {
     var job = null;
     s.jobs.forEach(function (j) { if (j.id === s.jobId) job = j; });
     var visible = job && this.canSee(job, s.viewer);
-    var jd = { vJob: !!visible, vNotFound: !visible, jdId: '', jdStatus: '', jdChipBg: '', jdChipFg: '', jdMeta: '', jdShared: false, jdSharedText: '', canRetryJob: false, retryText: '', hasRetryNote: false, retryNote: '', retryJob: null, canCancelJob: false, cancelJob: null, cancelHint: '', nDone: 0, nFail: 0, nProg: 0, nPend: 0, pDone: 0, pFail: 0, pProg: 0, taskRows: [], tasksEmpty: false };
+    var jd = { vJob: !!visible, vNotFound: !!s.jobId && !visible, jdId: '', jdStatus: '', jdChipBg: '', jdChipFg: '', jdMeta: '', jdShared: false, jdSharedText: '', canRetryJob: false, retryText: '', hasRetryNote: false, retryNote: '', retryJob: null, canCancelJob: false, cancelJob: null, cancelHint: '', nDone: 0, nFail: 0, nProg: 0, nPend: 0, nCanc: 0, hasCanc: false, pDone: 0, pFail: 0, pCanc: 0, pProg: 0, vEmpty: false, taskRows: [], tasksEmpty: false };
+    jd.vEmpty = !s.jobId;
     if (visible) {
       var seenTasks = self.visibleTasks(job, s.viewer);
       var c = counts(job), total = seenTasks.length, st = statusOf(c, total, job);
@@ -965,20 +971,20 @@ class Component extends DCLogic {
       jd.jdId = job.id; jd.jdStatus = st[0]; jd.jdChipBg = st[1]; jd.jdChipFg = st[2];
       jd.jdMeta = job.by === s.viewer ? 'Sent by you, ' + job.when + '. ' + job.files + ' files to ' + job.dests + ' destinations, ' + total + ' deliveries.' : 'Sent by ' + USERS[job.by].name + ', ' + job.when + '. You see ' + total + (total === 1 ? ' delivery' : ' deliveries') + ', the ones to ' + shared.join(' and ') + '.';
       jd.jdShared = job.by !== s.viewer; jd.jdSharedText = 'You can see this because it has deliveries to ' + shared.join(' and ') + ', a team you are in. Deliveries to other teams are hidden from you, and so are their files.';
-      jd.nDone = c.done; jd.nFail = c.fail; jd.nProg = c.prog; jd.nPend = c.pend;
-      jd.pDone = c.done / total * 100; jd.pFail = c.fail / total * 100; jd.pProg = c.prog / total * 100;
+      jd.nDone = c.done; jd.nFail = c.fail; jd.nProg = c.prog; jd.nPend = c.pend; jd.nCanc = c.canc; jd.hasCanc = c.canc > 0;
+      jd.pDone = c.done / total * 100; jd.pFail = c.fail / total * 100; jd.pCanc = c.canc / total * 100; jd.pProg = c.prog / total * 100;
       seenTasks.forEach(function (t) {
-        var stt = self.status(job, t, s, clock);
+        var stt = st2(job, t);
         if (s.taskFilter !== 'all' && s.taskFilter !== stt) return;
         var o = self.outcome(job, t, s);
-        var look = { done: ['Delivered', '#ECFDF3', '#067647', '#12B76A'], fail: ['Failed', '#FEF3F2', '#B42318', '#F04438'], prog: ['In progress', '#EEF3FF', '#1F45A0', '#2B59C3'], pend: ['Waiting', '#F2F4F7', '#344054', '#98A2B3'] }[stt];
+        var look = { done: ['Delivered', '#ECFDF3', '#067647', '#12B76A'], fail: ['Failed', '#FEF3F2', '#B42318', '#F04438'], prog: ['In progress', '#EEF3FF', '#1F45A0', '#2B59C3'], pend: ['Waiting', '#F2F4F7', '#344054', '#98A2B3'], canc: ['Cancelled', '#F2F4F7', '#344054', '#98A2B3'] }[stt];
         var rel = clock - job.t0;
         var nAtt = stt === 'pend' ? 0 : (stt === 'prog' ? (t.out === 'retries' && o === 'retries' ? 1 + Math.min(4, Math.floor((rel - t.start) * 5 / 7)) : 1) : (o === 'retries' ? 5 : (o === 'fanout' || o === 'cancelled' ? 0 : 1)));
-        var segOn = { done: '#12B76A', fail: '#F04438', prog: '#2B59C3', pend: '#98A2B3' }[stt];
+        var segOn = { done: '#12B76A', fail: '#F04438', prog: '#2B59C3', pend: '#98A2B3', canc: '#98A2B3' }[stt];
         var att = nAtt + ' of 5';
         var segs = [0, 1, 2, 3, 4].map(function (k) { return { bg: k < nAtt ? segOn : '#E4E7EC' }; });
         jd.taskRows.push({ grid: tGridV, file: t.file, dest: pathOf(t.dest), label: look[0], bg: look[1], fg: look[2], dot: look[3], attempts: att, attSegs: segs, attTitle: nAtt === 0 ? 'Not attempted yet' : nAtt + (nAtt === 1 ? ' attempt' : ' attempts') + ' of the 5 allowed', attColor: nAtt === 0 ? '#98A2B3' : '#344054', retriedTag: !!t.retried,
-          hasCode: stt === 'fail', code: stt === 'fail' ? REASON[o][0] : '', reason: stt === 'fail' ? REASON[o][1] : (stt === 'prog' ? 'Delivering now' : 'In the queue'),
+          hasCode: stt === 'fail' || stt === 'canc', code: stt === 'fail' || stt === 'canc' ? REASON[o][0] : '', reason: stt === 'fail' || stt === 'canc' ? REASON[o][1] : (stt === 'prog' ? 'Delivering now' : 'In the queue'),
           waiting: stt === 'prog' || stt === 'pend', canDl: stt === 'done', dlLabel: 'Download ' + t.file, pvLabel: 'Preview ' + t.file,
           preview: function () { self.openLinkPreview(job, t); },
           download: function () {
@@ -1102,7 +1108,7 @@ class Component extends DCLogic {
         self.add('POST /auth/login  200', 'The Auth Service checked the password hash in Auth DB, signed a token valid for 15 minutes and set a refresh token in a secure cookie the page cannot read. The page renews the token quietly, so the sign-in lasts 12 hours. API Gateway rejects any request without a valid token.');
       },
       wrongPw: function () { self.setState({ loginError: true, pausedAlert: false }); },
-      signOut: function () { self.setState({ signedIn: false, actOpen: false, demoOpen: false, renewOpen: false, tokenLeft: 900, sessionLeft: 43200 }); self.add('POST /auth/logout  204', 'The Auth Service cancelled the refresh token in Auth DB, so this sign-in cannot be resumed from this or any other tab.'); },
+      signOut: function () { self.setState({ signedIn: false, tab: 'distribute', jobId: '', idInput: '', actOpen: false, demoOpen: false, renewOpen: false, tokenLeft: 900, sessionLeft: 43200 }); self.add('POST /auth/logout  204', 'The Auth Service cancelled the refresh token in Auth DB, so this sign-in cannot be resumed from this or any other tab.'); },
       renewOpen: s.renewOpen && s.signedIn,
       renewTitle: 'Your sign-in has ended',
       renewText: 'You have been signed in for 12 hours, so DocBeam needs your password again. Nothing on this page is lost: uploads, your mapping and open distributions stay as they are.',
@@ -1175,9 +1181,10 @@ class Component extends DCLogic {
           self.toast(id + ' sent. ' + pairs.length + ' deliveries queued.', false);
         }, 700);
       },
-      idInput: s.idInput, onIdInput: function (e) { self.setState({ idInput: e.target.value }); },
+      idInput: s.idInput, idEmpty: !String(s.idInput || '').trim(), idTitle: String(s.idInput || '').trim() ? 'Open this distribution' : 'Paste a distribution id or link first', onIdInput: function (e) { self.setState({ idInput: e.target.value }); },
       openById: function () {
-        var id = self.state.idInput.trim().toUpperCase();
+        var id = self.state.idInput.trim().toUpperCase().replace(/^.*#\/STATUS\//, '');
+        if (!id) return;
         var jj = null; self.state.jobs.forEach(function (x) { if (x.id === id) jj = x; });
         self.setState({ jobId: id, taskFilter: 'all', dl: null });
         if (jj && self.canSee(jj, self.state.viewer)) self.add('GET /jobs/' + id + '/tasks  200', (jj.by === self.state.viewer ? 'Sent by ' + user.short + '. Every delivery loaded.' : user.short + ' did not send this, so DocBeam API (and the WS Handler, for live updates) asked the Document Platform for ' + user.short + '’s teams. The distribution has deliveries to ' + user.teams.map(function (x) { return TEAMS[x].name; }).join(' and ') + ', so it opens with only those deliveries loaded.'));
@@ -1189,7 +1196,7 @@ class Component extends DCLogic {
         self.setState({ scope: t[0] });
         if (t[0] === 'team') self.add('GET /jobs?scope=team  200', 'DocBeam API asked the Document Platform for ' + user.short + '’s teams (GET /users/:id/teams, cached for 60 seconds), then listed other people’s distributions with at least one delivery to those teams, counting only those deliveries. The list refreshes every 30 seconds; live updates are for the open distribution only.');
       } }; }),
-      taskFilters: [['all', 'All', jd.nDone + jd.nFail + jd.nProg + jd.nPend, '#344054', '#EAECF0', '#344054'], ['fail', 'Failed', jd.nFail, '#F04438', '#FEE4E2', '#B42318'], ['prog', 'In progress', jd.nProg, '#2B59C3', '#E3EAFB', '#1F45A0'], ['pend', 'Waiting', jd.nPend, '#98A2B3', '#EAECF0', '#344054'], ['done', 'Delivered', jd.nDone, '#12B76A', '#D1FADF', '#067647']].map(function (f) { var on = s.taskFilter === f[0]; return { label: f[1], on: on, cls: on ? 'fseg fsegon' : 'fseg', count: String(f[2]), dot: f[3], cBg: on ? f[4] : '#FFFFFF', cFg: f[5], hasDot: f[0] !== 'all', aria: f[1] + ', ' + f[2] + (f[2] === 1 ? ' delivery' : ' deliveries'), pick: function () { self.setState({ taskFilter: f[0] }); } }; }),
+      taskFilters: [['all', 'All', jd.nDone + jd.nFail + jd.nProg + jd.nPend + jd.nCanc, '#344054', '#EAECF0', '#344054'], ['fail', 'Failed', jd.nFail, '#F04438', '#FEE4E2', '#B42318'], ['prog', 'In progress', jd.nProg, '#2B59C3', '#E3EAFB', '#1F45A0'], ['pend', 'Waiting', jd.nPend, '#98A2B3', '#EAECF0', '#344054'], ['done', 'Delivered', jd.nDone, '#12B76A', '#D1FADF', '#067647']].concat(jd.hasCanc ? [['canc', 'Cancelled', jd.nCanc, '#98A2B3', '#EAECF0', '#344054']] : []).map(function (f) { var on = s.taskFilter === f[0]; return { label: f[1], on: on, cls: on ? 'fseg fsegon' : 'fseg', count: String(f[2]), dot: f[3], cBg: on ? f[4] : '#FFFFFF', cFg: f[5], hasDot: f[0] !== 'all', aria: f[1] + ', ' + f[2] + (f[2] === 1 ? ' delivery' : ' deliveries'), pick: function () { self.setState({ taskFilter: f[0] }); } }; }),
       hasDl: !!dl, dlLive: !!dl && dl.secs > 0 && !dl.expired,
       dlText: !dl ? '' : dl.expired ? dl.file + ' is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder.' : (dl.secs > 0 ? dl.file + ' is downloading. Its link works for this one file for another ' + mm + '.' : 'The link for ' + dl.file + ' has expired and storage now refuses it. Click Download for a fresh one.'),
       dlBg: dl && dl.secs === 0 ? '#FEF3F2' : '#EEF3FF',

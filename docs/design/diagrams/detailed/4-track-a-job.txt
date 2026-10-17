@@ -15,6 +15,7 @@ Document Platform [icon: aws-ecs, color: green]
 Platform DB [icon: aws-rds, color: orange]
 Delivery Lambda [icon: aws-lambda, color: green]
 DLQ Consumer [icon: aws-lambda, color: green]
+Sweeper [icon: aws-lambda, color: green]
 
 // Open the dashboard and connect
 User > Web Client: Open job list
@@ -60,12 +61,14 @@ opt [label: caller is not the sender] {
 
 alt [label: sender, or job has a delivery to the caller's team] {
   WS Handlers > DocBeam DB: Set job_id and team_ids on the connection row
+  WS Handlers --> Web Client: subscribed
 }
-else [label: not allowed] {
-  WS Handlers --> Web Client: Subscription rejected
+else [label: not allowed, or no such job] {
+  WS Handlers > DocBeam DB: Clear any earlier job on the connection row
+  WS Handlers --> Web Client: subscribe_error NOT_FOUND (same answer for both)
 }
 
-// Fetch the tasks
+// Fetch the tasks only after the subscribed answer (no answer in 5 s: fetch anyway)
 Web Client > API Gateway: Request job tasks with JWT
 API Gateway > DocBeam API: Validate JWT and forward
 DocBeam API > DocBeam DB: Look up the job's sender
@@ -91,7 +94,7 @@ else [label: no delivery to the caller's teams] {
 loop [label: each task status change from Delivery Lambda, icon: repeat] {
   Delivery Lambda > DocBeam DB: Update task status (job row locked)
   Delivery Lambda > DocBeam DB: Find subscribers: the sender, and viewers whose team_ids include the task's team, token not expired
-  Delivery Lambda > WebSocket API: PostToConnection (status, updatedAt, counts for what each viewer can see)
+  Delivery Lambda > WebSocket API: PostToConnection (status, updatedAt, counts for what each viewer can see; cancelled counted apart from failed)
   WebSocket API --> Web Client: Live update (older than the row already shows: ignored)
   opt [label: connection gone (410)] {
     Delivery Lambda > DocBeam DB: Delete connection row
@@ -107,6 +110,7 @@ opt [label: task fails after 5 attempts or fan-out fails] {
 
 opt [label: connection drops or token renewed (every 15 min, with the refresh cookie)] {
   Web Client > WebSocket API: Reconnect with JWT, subscribe with jobId (checked again)
+  WebSocket API --> Web Client: subscribed
   Web Client > API Gateway: Refetch job tasks
 }
 
@@ -129,14 +133,21 @@ opt [label: sender presses Retry failed deliveries] {
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, reset retryable failed tasks to pending, audit event
   DocBeam API --> Web Client: 202, tasks show as waiting again (409 JOB_CANCELLED for a cancelled job)
+  DocBeam API > WebSocket API: PostToConnection (job_update to the job's open dashboards)
+  WebSocket API --> Web Client: Other tabs and team viewers reload the tasks
 }
 
 // Cancel from the job page
-opt [label: sender presses Cancel distribution] {
+opt [label: sender presses Cancel distribution (offered only while it runs)] {
   Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, set cancelled_at, mark pending tasks failed (CANCELLED), close job if nothing is running, audit event
   DocBeam API > DocBeam DB: Find the job's open dashboards
   DocBeam API > WebSocket API: PostToConnection (job_update, counts for what each viewer can see)
-  WebSocket API --> Web Client: Reload the tasks; waiting deliveries show CANCELLED, running ones finish
+  WebSocket API --> Web Client: Reload the tasks; waiting deliveries show Cancelled (grey, counted apart from failures), running ones finish
+}
+
+// Daily clean-up
+opt [label: once a day] {
+  Sweeper > DocBeam DB: Delete ws_connections rows past their expiry (browsers that vanished without $disconnect)
 }

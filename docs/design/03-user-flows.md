@@ -40,7 +40,7 @@ Diagram: Browse Destinations
 2. Web Client sends them through API Gateway to the Auth Service. Login is one of the few routes that needs no token.
 3. The Auth Service looks the user up in Auth DB and checks the password against the stored hash. The password itself is never stored.
 4. **If the details are correct**, the Auth Service signs a token that lasts 15 minutes and sends it back, together with a refresh token in a secure cookie that the page's code cannot read. Web Client keeps the token for this browser tab and attaches it to every request. A minute before it expires, Web Client quietly swaps the refresh token for a new pair (POST /auth/refresh). Each refresh token works once; if an old one is ever used again, the whole sign-in is cancelled. After 12 hours the user enters the password again in a small dialog, and nothing on the page is lost.
-5. **If they are wrong**, the Auth Service returns 401 with the same message whether the email or the password was wrong, so nobody can use it to find out who has an account. After 5 wrong passwords in a row, sign-in for that account pauses for 15 minutes, with the same message, and API Gateway limits how fast anyone can try.
+5. **If they are wrong**, the Auth Service returns 401 with the same message whether the email or the password was wrong, so nobody can use it to find out who has an account. After 5 wrong passwords in a row, sign-in for that account pauses for 15 minutes, with the same message, and API Gateway limits how fast anyone can try. After any failed sign-in the page shows one fixed line: "After 5 wrong passwords in a row, sign-in pauses for 15 minutes. Wait, then try again." It is the same for every failure, so it reveals nothing about the account.
 6. Signing out (POST /auth/logout) cancels the refresh token, so that sign-in cannot be resumed.
 
 #### See your teams
@@ -161,21 +161,21 @@ Diagram: Track a Job
 
 1. Web Client asks for the user's jobs through API Gateway to the DocBeam API.
 2. The DocBeam API reads the jobs from DocBeam DB and counts their tasks by status, for the whole page in one query.
-3. It returns the list. Each job's status is worked out from its task counts: **pending** (nothing started), **in progress** (some tasks still open), **completed** (all delivered), **completed with errors** (all finished, at least one failed) or cancelled (the sender stopped it and nothing is still running).
+3. It returns the list. Each job's status is worked out from its task counts: **pending** (nothing started), **in progress** (some tasks still open), **completed** (all delivered), **completed with errors** (all finished, at least one failed) or cancelled (the sender stopped it and nothing is still running). The totals keep cancelled deliveries apart from real failures and show them in grey.
 4. The list has two views: My distributions, and My teams' distributions. The second shows distributions by others with at least one delivery to a team the user belongs to. The DocBeam API asks the Document Platform for the user's teams (cached for 60 seconds) and finds those jobs by the team on each task. Counts and status cover only the deliveries to the user's teams.
 5. The list refreshes its counts every 30 seconds. Live updates are only for the job the user has open.
 
 #### Open a job
 
-1. The user opens a job: their own, or one with deliveries to their team (for example from a shared link).
+1. The user opens a job: their own, or one with deliveries to their team (for example from a shared link, or by pasting a full id or link into Open by ID).
 2. Web Client **first subscribes** to the job over the live connection, before loading its tasks. That way no update can slip through between loading and listening.
 3. The WS Handler looks up who sent the job. If the viewer is someone else, it gets a service token if needed and asks the Document Platform for the viewer's teams. The viewer may watch the job only if at least one of its deliveries goes to one of those teams.
-4. If allowed, the handler saves the job ID and the viewer's teams on the connection record. If not, the subscription is refused.
-5. Web Client then asks for the job's tasks through API Gateway, 100 per page, optionally filtered by status.
+4. If allowed, the handler saves the job ID and the viewer's teams on the connection record. If not, it clears the subscription. Either way it answers on the connection: subscribed, or not found (a job that does not exist and one the viewer may not see get the same answer).
+5. Once Web Client has the subscribed answer, it asks for the job's tasks through API Gateway, 100 per page, optionally filtered by status.
 6. The DocBeam API makes the same check. If it fails, it returns 404. A viewer who is not the sender gets only the deliveries to their own teams.
 7. It returns each task with its destination, status and, for failed tasks, the reason.
 8. The job page also has an Audit tab: every action on the job and every delivery outcome the user may see, with who and when, read from an append-only record. A separate Audit trail page shows the whole history across every distribution the user can see, filtered by distribution or type of event. For other people's distributions it shows when they were sent, retried or cancelled, and the events for deliveries to the user's teams.
-9. While deliveries are still waiting, the sender can press Cancel distribution. The DocBeam API locks the job, marks every delivery that has not started as failed with CANCELLED, and records it in the audit trail. Deliveries already running finish normally. The DocBeam API then pushes one update to everyone watching the job, and their pages reload the tasks.
+9. While deliveries are still waiting, the sender can press Cancel distribution. The DocBeam API locks the job, marks every delivery that has not started as failed with CANCELLED, and records it in the audit trail. Deliveries already running finish normally. The DocBeam API then pushes one update to everyone watching the job, and their pages reload the tasks. Cancelled deliveries show in grey and are counted apart from failures. Cancel is offered only while the distribution is running. Retry failed deliveries also pushes one update when it is pressed.
 
 #### Live updates
 
