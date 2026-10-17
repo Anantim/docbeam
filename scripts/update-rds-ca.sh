@@ -23,6 +23,7 @@ count="$(grep -c "BEGIN CERTIFICATE" "$TMP")"
 
 mkdir -p "$(dirname "$OUT")"
 mv "$TMP" "$OUT"
+chmod 644 "$OUT" # mktemp makes it 0600, and the services run as a user that is not root
 trap - EXIT
 echo "Wrote $OUT with $count certificates."
 sha256sum "$OUT"
