@@ -1,0 +1,48 @@
+
+> test:e2e:dev
+> playwright test -c playwright.dev.config.ts m5-browser-dev
+
+
+Running 4 tests using 1 worker
+
+slow connection: 2 MiB uploaded and verified in 52 s at about 64 KiB/s
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:47:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered (1.0m)
+  ✘  2 [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts (3.6m)
+  -  3 [chromium] › tests/e2e/m5-browser-dev.spec.ts:121:1 › PNG and JPG previews show the image in the page
+  -  4 [chromium] › tests/e2e/m5-browser-dev.spec.ts:169:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up
+
+
+  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted')
+    Expected: visible
+    Timeout: 180000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted') with timeout 180000ms
+      - waiting for locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted')
+
+
+      92 |
+      93 |     await context.setOffline(true);
+    > 94 |     await expect(rowOf(page, name).getByText('Upload interrupted')).toBeVisible({ timeout: 180_000 });
+         |                                                                     ^
+      95 |     await page.screenshot({ path: evidence('multipart-interrupted') });
+      96 |     await page.waitForTimeout(20_000);
+      97 |     await context.setOffline(false);
+        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:94:69
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
+  2 did not run
+  1 passed (4.6m)
+exit=1

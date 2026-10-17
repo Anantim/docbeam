@@ -178,7 +178,10 @@ test('PNG and JPG previews show the image in the page', async ({ page }) => {
     await expect(dialog).toBeVisible();
     const img = dialog.getByRole('img', { name: f.name });
     await expect(img).toBeVisible({ timeout: 30_000 });
-    const size = await img.evaluate('(el) => [el.naturalWidth, el.naturalHeight]');
+    const size = await img.evaluate((el: unknown) => {
+      const image = el as { naturalWidth: number; naturalHeight: number };
+      return [image.naturalWidth, image.naturalHeight];
+    });
     expect(size, `${f.name} decoded by the browser`).toEqual([240, 160]);
     await page.screenshot({ path: evidence(`preview-${f.name.endsWith('.png') ? 'png' : 'jpg'}`) });
     await page.keyboard.press('Escape');

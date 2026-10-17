@@ -5,44 +5,40 @@
 
 Running 4 tests using 1 worker
 
-slow connection: 2 MiB uploaded and verified in 52 s at about 64 KiB/s
-  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:47:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered (1.0m)
-  ✘  2 [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts (3.6m)
-  -  3 [chromium] › tests/e2e/m5-browser-dev.spec.ts:121:1 › PNG and JPG previews show the image in the page
-  -  4 [chromium] › tests/e2e/m5-browser-dev.spec.ts:169:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up
+slow connection: 2 MiB uploaded and verified in 51 s at about 64 KiB/s
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:67:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered (57.7s)
+multipart resume: 2 parts stored before the drop, 2 shown right after Retry
+  ✓  2 [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts (2.5m)
+  ✘  3 [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page (27.2s)
+  -  4 [chromium] › tests/e2e/m5-browser-dev.spec.ts:189:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up
 
 
-  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
+  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page 
 
-    Error: expect(locator).toBeVisible() failed
+    Error: m5-57b637.png decoded by the browser
 
-    Locator: locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted')
-    Expected: visible
-    Timeout: 180000ms
-    Error: element(s) not found
+    expect(received).toEqual(expected) // deep equality
 
-    Call log:
-      - Expect "toBeVisible" locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted') with timeout 180000ms
-      - waiting for locator('.frow').filter({ hasText: 'resume-08c055.pdf' }).getByText('Upload interrupted')
+    Expected: [240, 160]
+    Received: undefined
 
-
-      92 |
-      93 |     await context.setOffline(true);
-    > 94 |     await expect(rowOf(page, name).getByText('Upload interrupted')).toBeVisible({ timeout: 180_000 });
-         |                                                                     ^
-      95 |     await page.screenshot({ path: evidence('multipart-interrupted') });
-      96 |     await page.waitForTimeout(20_000);
-      97 |     await context.setOffline(false);
-        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:94:69
+      180 |     await expect(img).toBeVisible({ timeout: 30_000 });
+      181 |     const size = await img.evaluate('(el) => [el.naturalWidth, el.naturalHeight]');
+    > 182 |     expect(size, `${f.name} decoded by the browser`).toEqual([240, 160]);
+          |                                                      ^
+      183 |     await page.screenshot({ path: evidence(`preview-${f.name.endsWith('.png') ? 'png' : 'jpg'}`) });
+      184 |     await page.keyboard.press('Escape');
+      185 |     await expect(dialog).toBeHidden();
+        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:182:54
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/test-failed-1.png
+    test-results/m5-browser-dev-PNG-and-JPG-fce20--show-the-image-in-the-page-chromium/test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/error-context.md
+    Error Context: test-results/m5-browser-dev-PNG-and-JPG-fce20--show-the-image-in-the-page-chromium/error-context.md
 
   1 failed
-    [chromium] › tests/e2e/m5-browser-dev.spec.ts:70:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
-  2 did not run
-  1 passed (4.6m)
+    [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page 
+  1 did not run
+  2 passed (3.9m)
 exit=1
