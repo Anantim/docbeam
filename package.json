@@ -25,6 +25,7 @@
     "test": "vitest run",
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:dev": "playwright test -c playwright.dev.config.ts",
     "build": "tsc -b && npm run bundle --workspaces --if-present && npm run build -w web",
     "clean": "tsc -b --clean"
   },

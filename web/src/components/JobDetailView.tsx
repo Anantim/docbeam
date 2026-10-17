@@ -58,8 +58,9 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
   const [filter, setFilter] = useState<TaskKind | 'all'>('all');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
-  const audit = useAudit({ jobId, actions: [], reloadKey });
   const files = useFileLink();
+  // Both only grow, so the sum changes whenever either does: a reload of the deliveries, or a new link event.
+  const audit = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued });
 
   if (state.status === 'loading') return <div className="card jempty" aria-busy="true">Loading the distribution…</div>;
   if (state.status === 'notFound') {

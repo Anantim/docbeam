@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import { CARDIO_IRB, jobIdOf, PRIYA, RAJ, readCounts, SAM, send, signIn, sql, startLive, startWorkers, tick } from './helpers.js';
+import { CARDIO_IRB, jobIdOf, ON_DEV, PRIYA, RAJ, readCounts, SAM, send, signIn, sql, startLive, startWorkers, tick } from './helpers.js';
 
 // Flow 4, Download a file, in a real browser against the local stack (M4).
 //   Priya Shah sends a PDF, a DOCX and an XLSX to Cardio. Raj Mehta is in Cardio. Sam Ito is in neither team.
 test.describe.configure({ mode: 'serial' });
 
 test.afterAll(() => {
+  if (ON_DEV) return; // nothing local to start
   startWorkers();
   startLive();
 });
@@ -62,7 +63,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   // Preview: the PDF opens in the page from a short link on the Object Store, not from our servers.
   await rowOf(page, PDF).getByRole('button', { name: `Preview ${PDF}` }).click();
   await expect(dialog(page)).toBeVisible();
-  expect(await page.getByTitle(`Preview of ${PDF}`).getAttribute('src')).toMatch(/^http:\/\/localhost:4566\/.*X-Amz-Expires=120/);
+  expect(await page.getByTitle(`Preview of ${PDF}`).getAttribute('src')).toMatch(/^https?:\/\/[^/]+\/.*X-Amz-Expires=120/);
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
 
@@ -90,8 +91,11 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   await expect(page.getByRole('status').filter({ hasText: 'is downloading' })).toHaveCount(0);
 
   // The sender's own links are recorded: two previews of office files, one of the PDF, one download.
-  const events = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_events WHERE action = 'download.issued' AND job_id = $1`, [jobId]);
-  expect(events[0]?.n).toBe(4);
+  // (On dev the database is not reachable; download-dev.spec.ts reads the audit trail through the API.)
+  if (!ON_DEV) {
+    const events = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_events WHERE action = 'download.issued' AND job_id = $1`, [jobId]);
+    expect(events[0]?.n).toBe(4);
+  }
 });
 
 test('Raj, in a team the file went to, can preview it', async ({ browser }) => {
@@ -115,6 +119,7 @@ test('Sam, in neither team, cannot find the distribution or get a link to its fi
 });
 
 test('a file older than 33 days shows the expired note and no buttons', async ({ page }) => {
+  test.skip(ON_DEV, 'ages the file in the local database; the 410 on dev is covered by the integration test');
   await sql(`UPDATE files SET uploaded_at = now() - interval '40 days' WHERE job_id = $1 AND original_name = $2`, [jobId, DOCX]);
   await signIn(page, PRIYA);
   await page.goto(`/#/status/${jobId}`);

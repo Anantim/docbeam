@@ -31,6 +31,7 @@ describe('useFileLink', () => {
     expect(api.download).toHaveBeenCalledWith('f1', 'download');
     expect(clicked).toHaveBeenCalledTimes(1);
     expect(result.current.banner).toMatchObject({ kind: 'live', file: 'Protocol.pdf' });
+    expect(result.current.issued).toBe(1); // the Audit tab reads again
     expect(document.querySelector('a[href^="https://store.example"]')).toBeNull(); // the anchor is removed again
     clicked.mockRestore();
   });
