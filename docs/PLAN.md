@@ -378,3 +378,19 @@ Run against deployed dev. All must pass before any prod apply. Each check gets a
 | 5.14 | Manual: slow-connection upload, multipart resume, WebSocket reconnect | Step-by-step in M5-TESTING.md | run them yourself |
 
 Plus a failure-rate SQL script (system failures over all tasks, 7 days). STATUS gets a release summary. **Never prod.** After M5: move the account to the Paid plan, then the person runs the prod workflow (G3).
+
+**M4 task list, approved 2026-10-17.** Decisions D-M4-1 to D-M4-5 are in `docs/DECISIONS.md`. One commit each.
+
+| # | Task | Covers |
+|---|---|---|
+| 0 | Branch `m4`, plan records | |
+| 1 | `downloadLinkSeconds`, `contentDisposition`, `presignGet` | 4.1 |
+| 2 | `POST /files/:fileId/downloads` and unit tests | 4.1 |
+| 3 | Gateway route (dev and prod) | 4.1 |
+| 4 | Integration tests | 4.1 |
+| 5 | Web: buttons, link hook, banner | 4.1 |
+| 6 | Web: viewer from a link | 4.1 |
+| 7 | Playwright spec | 4.1 |
+| 8 | Testing document, local round, results | |
+| 9 | AWS round (asks first), then teardown | |
+| 10 | YES/NO check, walkthrough, STATUS, pull request | |

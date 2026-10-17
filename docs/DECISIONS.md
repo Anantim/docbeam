@@ -635,3 +635,33 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
   5. **Cancelled is its own count, grey, never red (changes the API and push contract of TDD Step 3.1 and 3.3).** A cancelled delivery is still stored as `failed` with the code `CANCELLED`. The counts now carry a fifth field, `cancelled`, and `failed` holds real failures only, in `GET /jobs`, `GET /jobs/:id` and every `task_update` and `job_update` push. `taskCount` is the sum of all five. The status rule counts cancelled with failed, so statuses do not change. `GET /jobs/:id/tasks?status=` accepts `cancelled` (the CANCELLED rows) and `failed` no longer returns them. On the page: a grey **Cancelled** tile and a **Cancelled** filter chip, shown only when something was cancelled; the header bar and the list card's bar have a grey segment (`#98A2B3`) and red only for real failures; a cancelled row's chip reads **Cancelled** (grey) with the code and reason as before; the Audit already said "Delivery cancelled". A cancelled distribution with no real failure has no Retry button (nothing failed), and its note still says why Retry is off.
   6. **The "+N" popover** (one component, so every "+N" in the app): it opens on hover and stays open while the pointer is over the chip or the panel. There is no gap between them (the panel starts at the chip's edge and carries its own 4 px of space) and the close delay is 300 ms. Scrolling inside the panel no longer closes it (the page scrolling under it still does, and the list does not hand its scroll on, `overscroll-behavior: contain`). A click, or Enter or Space on the focused chip, pins it open until Esc, a click outside, another click on the chip, or focus leaving. Before, the page's capture-phase scroll listener closed the panel on its own list's scroll, and a 4 px gap plus a 120 ms delay closed it on the way in.
 - **Why:** An error that stays after the cause is fixed looks like a failure; a wide empty column wastes the row; a cancelled delivery is not a failure, so red and the Failed number must not include it; a popover that cannot be scrolled cannot be used.
+
+## D-M4-1. The download response names the file
+- **Date:** 2026-10-17
+- **Changes:** TDD API contract `POST /files/:fileId/downloads` (additive).
+- **What:** The 201 body is `{url, expiresAt, fileName, contentType, sizeBytes}`. Agreed with the person.
+- **Why:** The viewer must pick PDF, image, DOCX or XLSX, and show the type and size. Task rows carry only the name.
+
+## D-M4-2. Audit row of a download
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 4.1, `audit_events`.
+- **What:** `download.issued` has `job_id`, no `task_id`. For the sender: no team. For anyone else: `team_id` is the lowest team id among their teams that the file was delivered to. `detail` is `{actorName, actorEmail, fileId, fileName, mode, teamIds}` (`teamIds` holds every matching team).
+- **Why:** Other team members then see only downloads in their own team (TDD audit rules), and the sender's own downloads stay private to the sender.
+
+## D-M4-3. Download checks and their order
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 4.1.
+- **What:** One 404 NOT_FOUND for a bad id, a missing file, a file with no job, a file not scanned clean, or a caller not allowed. A non-sender needs a completed delivery of that file to one of their teams. Only after access passes: 410 FILE_EXPIRED (past 33 days from upload, as the task list's `fileExpired`). `mode` is `download` (default) or `preview`; anything else is 400 VALIDATION_ERROR. No link and no audit row on a refusal.
+- **Why:** An outsider must never learn that a file exists or has expired.
+
+## D-M4-4. Viewer sources
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 4.1, Step 2.6 viewer rules.
+- **What:** PDF and PNG/JPG open straight from the 2-minute inline link. DOCX and XLSX are fetched from it (up to 50 MB) and shown in the existing sandboxed iframe. Download clicks a hidden link; the attachment header saves the file under its original name.
+- **Why:** File bytes never pass through our servers (flow 4), and the sandbox is already proven safe for other people's files (D-M2-20).
+
+## D-M4-5. Download banner
+- **Date:** 2026-10-17
+- **Changes:** Status page, mockup banner.
+- **What:** After Download: "<file> is downloading. Its link works for this one file for another m:ss.", then "The link for <file> has expired and storage now refuses it. Click Download for a fresh one." A 410 shows "<file> is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder." A 404 shows "That file is not available to you." Dismiss closes it. The mockup's "Skip to expiry" is a demo control and is left out (G16).
+- **Why:** Matches the mockup copy; no demo controls.
