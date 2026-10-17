@@ -1,2 +1,9 @@
 [14:47:18] Changes AWS (approved with --yes): disables the Fan-out trigger, purges the Job Queue (only after checking nothing else is queued or running), then enables the trigger again
 PASS  before the purge: no other job is queued or running: {"queues":[{"visible":0,"inFlight":0,"delayed":0},{"visible":0,"inFlight":0,"delayed":0}],"openJobs":0}
+PASS  accepted: 201
+[14:50:34] Job Queue purged: the message is gone
+PASS  the sweeper started fan-out within 3 minutes of the commit: 179 s
+[14:53:30] job 890bec13 {"pending":0,"in_progress":0,"completed":4,"failed":0,"cancelled":0}
+PASS  all 4 deliveries completed: {"pending":0,"in_progress":0,"completed":4,"failed":0,"cancelled":0}
+
+PASS lost-job (4/4 lines)

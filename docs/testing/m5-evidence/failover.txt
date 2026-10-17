@@ -1,0 +1,1 @@
+[15:23:14] Changes AWS (approved with --yes): applies db_multi_az=true to the dev database (about +0.6 USD a day), reboots it with failover during a run, then applies db_multi_az=false

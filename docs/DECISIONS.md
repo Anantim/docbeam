@@ -703,6 +703,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **What:** Check 5.1 (p99 under 500 ms) failed on two full runs: p99 749 ms, then 712 ms (server side, API Gateway `responseLatency`). The cause of the first was real and is fixed (D-M5-10). The second run still had two of five 100 x 20 jobs above 500 ms (535 and 705 ms inside the API), with 50 Delivery copies clearing the previous cancelled job on the same small database. Under the run's stop rule (the same problem failing twice: stop fixing, record NO, carry on) no more product code is changed for it. The harness now waits for the queues to empty between big submissions (D-M5-7) and the check is run once more after all other checks. Both outcomes are in `M5-RESULTS.md`.
 - **Why:** An unattended run must not spend its whole window on one metric.
 
+## D-M5-12. The Delivery Lambda gets 3,008 MB (found on dev, check 5.6)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.4 and Concurrency table (Lambda memory 1,024 MB in the code; the design gives no number for Delivery).
+- **What:** A 1 GiB file delivered by a Delivery copy with 1,024 MB used all 1,024 MB and hit the 120-second timeout, twice (14:59 and 15:11 UTC; the message came back after its 720-second visibility timeout each time). With 3,008 MB the same task completed in **36.9 seconds** (`REPORT … Duration: 36899.61 ms … Max Memory Used: 1212 MB`), and the platform document had the same size and SHA-256 as the local file. `memory_size = 3008` in `infra/envs/dev/async.tf` and `infra/envs/prod/async.tf`. Lambda CPU grows with memory, which is likely most of the gain; the stream is also buffered further ahead of the platform than the design assumed, which is a point to look at if the memory ever has to go down again. The 50-concurrent cap is unchanged, so the connection budget (D-M0-6) is unchanged.
+- **Why:** The check is in the success list ("A 1 GB multipart upload completes … and is delivered with a matching SHA-256"). The change costs nothing when files are small, because Lambda bills the time used.
+
 ## D-M5-10. POST /jobs: one parameter per array, and the two checks run together (found on dev, check 5.1)
 - **Date:** 2026-10-17
 - **Changes:** TDD Step 2.2 (no contract change). Code only.

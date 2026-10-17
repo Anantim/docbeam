@@ -107,7 +107,9 @@ module "delivery" {
   name     = local.name
   function = "delivery"
 
-  memory_size = 1024
+  # 3,008 MB (the most a new account allows, like Upload Events): a 1 GiB delivery used all of 1,024 MB and timed out
+  # at 120 s on dev (M5 check 5.6, D-M5-12). Lambda CPU grows with memory as well.
+  memory_size = 3008
   timeout     = 120
   vpc_id      = module.network.vpc_id
   subnet_ids  = module.network.private_subnet_ids

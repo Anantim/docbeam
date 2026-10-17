@@ -12,3 +12,5 @@ submit-load exit=1 2026-10-17T13:20:10Z
 submit-load exit=1 2026-10-17T14:26:21Z
 removed-member exit=0 2026-10-17T14:37:13Z
 platform-outage exit=0 2026-10-17T14:47:17Z
+sweeper exit=0 2026-10-17T14:53:30Z
+multipart-1gb exit=0 2026-10-17T15:23:14Z
