@@ -26,4 +26,14 @@ describe('connection budget (D-M0-6)', () => {
     expect(worst).toBe(79);
     expect(worst).toBeLessThanOrEqual(DEV_MAX_CONNECTIONS * 0.8);
   });
+
+  // After a failover the old connections are dead but silent (M5 check 5.8): a query on one must time out, so that
+  // the pool throws the connection away instead of staying blocked for ever.
+  it('gives every pool a query timeout and TCP keep-alive', () => {
+    for (const pool of [LAMBDA_POOL, SERVICE_POOL]) {
+      expect(pool.query_timeout).toBeGreaterThan(0);
+      expect(pool.query_timeout).toBeLessThanOrEqual(30_000);
+      expect(pool.keepAlive).toBe(true);
+    }
+  });
 });

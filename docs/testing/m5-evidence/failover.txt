@@ -1,1 +1,4 @@
 [15:23:14] Changes AWS (approved with --yes): applies db_multi_az=true to the dev database (about +0.6 USD a day), reboots it with failover during a run, then applies db_multi_az=false
+[15:33:12] waiting for the standby to be built (10 to 30 minutes)
+PASS  2,000 tasks accepted: 201
+[15:36:33] rebooting with failover at 2026-10-17T15:36:33.774Z with {"pending":1476,"in_progress":37,"completed":487,"failed":0,"cancelled":0}
