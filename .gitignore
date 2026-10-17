@@ -16,3 +16,4 @@ playwright-report/
 *.tfplan
 backend.hcl
 *.tsbuildinfo
+demo-out/
