@@ -1,6 +1,47 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync } from 'node:fs';
 import { PerformanceObserver } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
+import type pg from 'pg';
+
+/** The timer of the request that is running, so the database pool can report its waits to it. */
+export const activeTimer = new AsyncLocalStorage<SubmitTimer>();
+
+let connectionsOpened = 0;
+
+/** What the pool looked like when a query asked for a connection. */
+export interface PoolSnapshot {
+  total: number;
+  idle: number;
+  waiting: number;
+}
+
+/**
+ * Makes the pool report, to the timer of the running request, how long each query waited for a connection (apart from
+ * the query itself) and how full the pool was at that moment, and counts the connections the pool opens (D-M5-16).
+ */
+export function instrumentPool(pool: pg.Pool): void {
+  pool.on('connect', () => {
+    connectionsOpened += 1;
+  });
+  const connect = pool.connect.bind(pool) as (callback?: (...args: unknown[]) => void) => unknown;
+  (pool as unknown as { connect: typeof connect }).connect = (callback) => {
+    const timer = activeTimer.getStore();
+    if (!timer) return connect(callback);
+    const from = performance.now();
+    const snapshot = { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+    if (callback) {
+      return connect((...args: unknown[]) => {
+        timer.poolWait(performance.now() - from, snapshot);
+        callback(...args);
+      });
+    }
+    return (connect() as Promise<unknown>).then((client) => {
+      timer.poolWait(performance.now() - from, snapshot);
+      return client;
+    });
+  };
+}
 
 /**
  * Time this process has spent waiting because its CPU quota ran out, from the text of a cgroup `cpu.stat` file
@@ -53,23 +94,48 @@ export class SubmitTimer {
 
   private readonly throttledAtStart = readThrottledMs();
   private readonly gcAtStart = gcMsSoFar();
+  private readonly openedAtStart = connectionsOpened;
+  private waitSinceLap = 0;
+  private pool = { waitMs: 0, maxWaitMs: 0, acquires: 0, maxWaiting: 0, maxTotal: 0, minIdle: Number.POSITIVE_INFINITY };
 
   constructor(private readonly now: () => number = () => performance.now()) {
     this.last = now();
   }
 
-  /** What stalled the process during this request: held back by the CPU limit, and garbage collection (ms). */
+  /** A query waited `ms` for a connection; `snapshot` is the pool as it asked. */
+  poolWait(ms: number, snapshot: PoolSnapshot): void {
+    this.waitSinceLap += ms;
+    this.pool.waitMs += ms;
+    this.pool.maxWaitMs = Math.max(this.pool.maxWaitMs, ms);
+    this.pool.acquires += 1;
+    this.pool.maxWaiting = Math.max(this.pool.maxWaiting, snapshot.waiting);
+    this.pool.maxTotal = Math.max(this.pool.maxTotal, snapshot.total);
+    this.pool.minIdle = Math.min(this.pool.minIdle, snapshot.idle);
+  }
+
+  /** What stalled the process during this request: the CPU limit, garbage collection, and the database pool (ms and counts). */
   stalls(): Record<string, number> {
     const throttled = readThrottledMs();
     const out: Record<string, number> = { gcMs: round(gcMsSoFar() - this.gcAtStart) };
     if (throttled !== null && this.throttledAtStart !== null) out.throttledMs = round(throttled - this.throttledAtStart);
+    if (this.pool.acquires > 0) {
+      out.poolWaitMs = round(this.pool.waitMs);
+      out.poolMaxWaitMs = round(this.pool.maxWaitMs);
+      out.poolAcquires = this.pool.acquires;
+      out.poolMaxWaiting = this.pool.maxWaiting;
+      out.poolTotal = this.pool.maxTotal;
+      out.poolMinIdle = this.pool.minIdle;
+      out.newConnections = connectionsOpened - this.openedAtStart;
+    }
     return out;
   }
 
-  /** Records the time since the last lap under this name. */
+  /** Records the time since the last lap under this name, and the pool wait inside it when there was one. */
   lap(name: string): void {
     const at = this.now();
     this.phases[name] = round(at - this.last);
+    if (this.waitSinceLap > 0) this.phases[`${name}Pool`] = round(this.waitSinceLap);
+    this.waitSinceLap = 0;
     this.last = at;
   }
 
@@ -104,8 +170,12 @@ declare module 'fastify' {
 export function registerSubmitTiming(app: FastifyInstance): void {
   app.decorateRequest('submitTimer', null);
 
-  app.addHook('onRequest', async (request) => {
-    if (request.method === 'POST' && request.routeOptions.url === '/jobs') request.submitTimer = new SubmitTimer();
+  app.addHook('onRequest', (request, _reply, done) => {
+    if (request.method === 'POST' && request.routeOptions.url === '/jobs') {
+      const timer = new SubmitTimer();
+      request.submitTimer = timer;
+      activeTimer.run(timer, done); // the rest of the request, and its queries, run inside this store
+    } else done();
   });
 
   // The same parser as Fastify's own, with the body read as a string first, so the read and the parse are timed apart.

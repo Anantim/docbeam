@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { parseThrottledMs, registerSubmitTiming, SubmitTimer } from './timing.js';
+import { activeTimer, instrumentPool, parseThrottledMs, registerSubmitTiming, SubmitTimer } from './timing.js';
 
 describe('SubmitTimer', () => {
   it('records each lap as the time since the one before', () => {
@@ -35,6 +35,46 @@ describe('SubmitTimer', () => {
     fail(new Error('platform down'));
     await expect(running).rejects.toThrow('platform down');
     expect(timer.report()).toEqual({ call: 7 });
+  });
+});
+
+describe('instrumentPool', () => {
+  /** A pool whose connect takes `delay` ms of a fake clock, with counts the test can set. */
+  function fakePool(counts: { total: number; idle: number; waiting: number }, onConnect: () => void) {
+    const listeners: Array<() => void> = [];
+    return {
+      totalCount: counts.total,
+      idleCount: counts.idle,
+      waitingCount: counts.waiting,
+      on: (_event: string, listener: () => void) => listeners.push(listener),
+      connect: async () => {
+        onConnect();
+        return { release: () => undefined };
+      },
+      fireConnect: () => listeners.forEach((l) => l()),
+    };
+  }
+
+  it('gives the running request the wait for a connection, the pool counts and the connections opened', async () => {
+    const pool = fakePool({ total: 2, idle: 0, waiting: 3 }, () => undefined);
+    instrumentPool(pool as never);
+    const timer = new SubmitTimer();
+    await activeTimer.run(timer, async () => {
+      await (pool as never as { connect: () => Promise<unknown> }).connect();
+      pool.fireConnect(); // the pool opened a connection while this request ran
+    });
+    timer.lap('keyLookupMs');
+    const stalls = timer.stalls();
+    expect(stalls).toMatchObject({ poolAcquires: 1, poolMaxWaiting: 3, poolTotal: 2, poolMinIdle: 0, newConnections: 1 });
+    expect(stalls.poolWaitMs).toBeGreaterThanOrEqual(0);
+    expect(timer.report()).toHaveProperty('keyLookupMsPool');
+  });
+
+  it('leaves a call alone when no request is running', async () => {
+    const pool = fakePool({ total: 1, idle: 1, waiting: 0 }, () => undefined);
+    instrumentPool(pool as never);
+    await expect((pool as never as { connect: () => Promise<unknown> }).connect()).resolves.toBeDefined();
+    expect(new SubmitTimer().stalls()).not.toHaveProperty('poolAcquires');
   });
 });
 
