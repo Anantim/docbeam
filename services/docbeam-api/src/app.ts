@@ -12,6 +12,7 @@ import { registerJobActionRoutes } from './routes/jobs-actions.js';
 import { registerJobReadRoutes } from './routes/jobs-read.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { createObjectStore, type ObjectStore } from './s3.js';
+import { registerSubmitTiming } from './timing.js';
 
 /** Things the routes call out to. Tests pass their own; the server builds the real ones from the config. */
 export interface Deps {
@@ -26,6 +27,7 @@ export async function buildApp(config: Config, db: Db, deps: Deps = {}): Promise
   // S3 upload ids are long (often over 100 characters) and sit in the path of the multipart routes.
   const app = Fastify({ logger: { level: config.LOG_LEVEL }, routerOptions: { maxParamLength: 1024 } });
   registerErrorHandler(app);
+  registerSubmitTiming(app);
   acceptEmptyBodies(app);
   await app.register(jwtAuth, { issuer: config.JWT_ISSUER, jwksUrl: config.JWKS_URL });
 
