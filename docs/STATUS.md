@@ -1,28 +1,28 @@
 # DocBeam status
 
-Updated 2026-10-17, **M5 PAUSED** (branch `m5`, not pushed, no pull request). M4 is merged as PR #8. Dev AWS is DESTROYED and nothing on AWS was changed in M5.
+Updated 2026-10-17, **end of M5** (branch `m5`, pull request open, not merged). **M5 FAILS on one item: check 5.1, submit speed, is a NO.** Dev AWS: see "Dev state" below.
 
-## M5 (Hardening and end-to-end checks): paused before any code
+## M5 (Hardening and end-to-end checks): release summary
 
-**Where it stopped.** The plan is written and approved in outline. The branch `m5` exists with the decision records and the task list only. No code, no scripts, no AWS commands.
+Run unattended against a dev built from nothing with `docs/RUNBOOK-first-bring-up.md`. Evidence and the YES/NO table: `docs/testing/M5-RESULTS.md` (section 4). How to re-run: `docs/testing/M5-TESTING.md` and `scripts/m5-all.sh`. Decisions: `docs/DECISIONS.md` D-M5-0 to D-M5-13. Teaching text: `docs/walkthrough/M5.md`. Showcase: `README.md`, `docs/DEMO-SCRIPT.md`.
 
-**Done.**
-- Read STATUS, PLAN, the TDD M5 checklist, the blueprint success metrics, Failure modes, Testing strategy and the earlier testing files.
-- Decisions D-M5-1 (Free plan, no RDS Proxy in M5, prod never deployed; changes D-M0-6), D-M5-2 (commit email) and D-M5-3 (dev uptime) in `docs/DECISIONS.md`.
-- The M5 task list in `docs/PLAN.md` (A0 to A9, B1 to B19, C).
-- This repo's `git config user.email` is now the GitHub noreply address.
+**What passed (13 of 14 checks, all on deployed dev):** removed member (100 refused, 1,900 delivered), platform stopped 5 minutes (3,522 retries, 2,000 of 2,000 delivered once, DLQs 0), file never uploaded and file removed (FILE_NOT_READY, FILE_NOT_UPLOADED), browse in 50 teams (p99 784 ms from a laptop, 44 ms at the gateway), 1 GiB multipart (delivered in 37 s, same SHA-256), team viewer, database failover (20 s, 2,000 of 2,000 delivered once, none RETRIES_EXHAUSTED), EICAR, cancel, refresh reuse and the 15-minute pause, security (401 at the gateway, cross-team 404, link 403 after 2 minutes, a POST with no body works through CloudFront, gitleaks clean), lost job message (179 s of 180), and the four browser checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview). The runbook was proved by the bring-up (247 + 26 resources, 107 minutes). Database TLS now checks the certificate chain. The repository passes `scripts/check-public.sh`.
 
-**Answers given by the person (2026-10-17).**
-- **Commit email:** accept it. The Gmail address in 127 older commits stays. No history rewrite. Noreply from M5 on. The person will add a `.mailmap` later (D-M5-2).
-- **Dev uptime:** one bring-up from nothing with the runbook, kept up until the checks, the browser steps and the demo are done. If credit usage gets close, or the person will be away more than half a day, tear dev down first. Restore Single-AZ straight after the failover drill (D-M5-3).
+**What failed: 5.1.** The median `POST /jobs` is 32 ms, but the 100 x 20 submissions take 0.35 to 1.6 s at the gateway: p99 749, 712, 992 and 808 ms over four runs (target 500). One real cause was found and fixed (10,000 bound parameters, D-M5-10); the rest is time in the API before the route's own timer starts, not traced. Next steps, in order: log `reply.elapsedTime` at the start of the handler, try 1 vCPU for the DocBeam API (0.5 now), measure from inside AWS (D-M5-11).
 
-**Next.** Start at A1 in `docs/PLAN.md`, in order: verified database TLS, the 415 fix, `db_multi_az`, the seed variant, the failure-rate tool, the `scripts/m5-*.sh` scripts, `scripts/check-public.sh`, the runbook, the local test round. Then ask before B1 (bring-up, about 275 resources, about 4.5 USD a day).
+**Limits found.** ClamAV scans about 15 s per file with 10 at a time (100 files take 2.5 minutes). A 1 GiB delivery needs a 3,008 MB Delivery Lambda. After a database failover a message can wait up to 12 minutes (the queue visibility timeout); nothing is lost. The dev database is a `db.t4g.micro` (68 connections and 45% CPU under 50 Delivery copies). The Free plan accepted Multi-AZ. The SNS alarm email was not confirmed (alarms were read in CloudWatch).
 
-**Carried items.**
-- A POST with no body and no content type gets 415 through CloudFront and the gateway (cancel, retry, downloads). The web app always sends a body. Fix in A2, prove on dev in B3.
-- PNG and JPG preview was proved by a unit test only. Check it in the browser in B17.
-- Database TLS still skips the certificate chain check (D-M1-10). Fix in A1, prove in B2 with a wrong-CA negative test.
-- The SNS alarm email must be confirmed on the next bring-up, because the alarm checks (5.3, 5.8) read the alarms.
+**Found only on AWS and fixed in M5:** unreadable RDS bundle in the images (D-M5-4), `s3:ListBucket` for Delivery (D-M5-8), pause wait (D-M5-9), the 10,000-parameter insert (D-M5-10), Delivery memory (D-M5-12), database pools that did not recover after a failover (D-M5-13), body-less POST (D-M5-5). Local tests could not show any of them.
+
+**What deploying prod would need.** (Prod is not deployed and was never touched.) The Paid plan (the Free plan blocks RDS Proxy); `enable_rds_proxy = true` (already in `infra/envs/prod`; the CA bundle includes Amazon Root CA 1 for the proxy); the runbook (`docs/RUNBOOK-first-bring-up.md`, section 9) run through the `deploy-prod` workflow, whose prod job today does one apply with the authorizer on and so fails on a brand-new environment (D-M1-13): split it into the runbook's steps first; the deploy user narrowed from AdministratorAccess; the client's seed hierarchy; and a decision on 5.1 (a bigger API task and database are the first things to try). Re-run `scripts/m5-*.sh` against it, adapted: they are dev-only.
+
+**Decisions to fold into the design documents after M5** (the person's list): D-M5-4 (database TLS and the bundle: TDD Launch plan), D-M5-5 (empty bodies), D-M5-8 (Delivery lists the bucket: Step 2.4), D-M5-10 (Step 2.2 timing), D-M5-12 (Delivery memory 3,008 MB: Step 2.4), D-M5-13 (pool timeouts: Failure modes "PostgreSQL" row).
+
+**Working-rule slips in M5.** A few edits were made with `sed` or small Python scripts instead of the Edit and Write tools: two lines of `docs/DECISIONS.md`, `scripts/m5/checks.ts` (the platform-outage change), and scratch files. Everything is in git. Two harness mistakes of mine cost time: checks that let 2,000 small deliveries finish in 20 seconds before the stop or the failover (fixed by using 1 MiB files), and a wait loop killed by the person's `kill` after the failover script ended without a verdict (fixed: every check now ends with PASS or FAIL, and the failover check proves its result from the databases). `npm test` had one flaky run (3 failures, passed on the next two); the cause was not found.
+
+**Dev state.** See the end of this section (filled in at the end of the run).
+
+**Answers given by the person (2026-10-17), for the record.** Commit email accepted, noreply from M5 on, `.mailmap` added by this run (D-M5-2). Dev kept up for one bring-up unless credit or absence says otherwise; Single-AZ restored after the drill (D-M5-3). Standing approval for the whole run, never prod, never repo settings, never merge (D-M5-0).
 
 # Previous status (end of M4)
 
@@ -87,7 +87,7 @@ A person sees every distribution they sent (Mine) and every one sent to their te
 | M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
 | M3 | Flow 3: Track a job | 7 d | Merged (PR #7). Accepted NOs in M3-RESULTS 4.6 |
 | M4 | Flow 4: Download a file | 2 d | Built, verified locally and on dev (PR #8). No NOs (M4-RESULTS 4) |
-| M5 | Hardening and end-to-end checks | 2 d | Not started |
+| M5 | Hardening and end-to-end checks | 2 d | Built and run on dev (PR open). **FAILS on check 5.1** (p99 808 ms against 500); every other item YES (M5-RESULTS 4) |
 
 ## What M2 did
 
@@ -166,10 +166,6 @@ npm run dev -w @docbeam/web      # http://localhost:5173
 
 Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sections 2 and 3. Gotchas: use absolute paths in Bash; `packages/shared/dist` is stale until `npm run build`; Compose services must run `exec node` to get SIGTERM (D-M2-17); the job tests deliver documents into the Cardio binder, so no test may expect an empty folder level; a test that stops a container must start it again in `finally`; the web upload queue (`web/src/upload/manager.ts`) must not import the session module, because the integration test runs it in Node; `terraform apply` needs `-auto-approve` when it has no terminal.
 
-## Next: M5 (Hardening and end-to-end checks)
+## Next (after M5)
 
-M5 needs from the person:
-- a yes before each dev apply and each change the checks make (PLAN.md M5 table), as before; the Paid plan and RDS Proxy question (D-M0-6) before the proxy run;
-- a new dev bring-up (README "Build dev"); confirm the SNS email this time if the alarm checks matter.
-
-M5 builds on everything above. Check 5.7 (team viewer, 404 for another team's file) and 5.12 (cross-team download or preview 404, expired links fail) are already proved on dev by M4 (`M4-RESULTS.md` section 3); M5 re-runs them as scripts.
+Decide what to do about check 5.1 (see the M5 release summary at the top): trace the time before the route handler, try a 1 vCPU DocBeam API task, then re-run `scripts/m5-submit-load.sh` on a new dev bring-up (`docs/RUNBOOK-first-bring-up.md`). Then record the demo (`docs/DEMO-SCRIPT.md`), fold the decisions into the design documents, and merge the pull request.
