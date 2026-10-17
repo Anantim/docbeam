@@ -616,17 +616,19 @@ const checks: Record<string, () => Promise<void>> = {
       log('waiting for the standby to be built (10 to 30 minutes)');
       await waitState(true);
       const api = await mustLogin(USERS.load);
-      const files = await uploadClean(api, 100, 'm5-failover');
+      // 1 MiB files, so the run lasts long enough for the failover to land in the middle of it (4 KB files finish in 20 s).
+      const files = await uploadClean(api, 100, 'm5-failover', 1024 * 1024);
       const s = await submit(api, files, loadDestinations(20));
       expect('2,000 tasks accepted', s.reply.status === 201 && s.taskCount === 2000, `${s.reply.status}`);
       let v = await job(api, s.jobId);
-      while (v.counts.completed < 300) {
-        await sleep(3000);
+      while (v.counts.completed < 100) {
+        await sleep(1000);
         v = await job(api, s.jobId);
       }
       const t0 = new Date();
       log(`rebooting with failover at ${t0.toISOString()} with ${JSON.stringify(v.counts)}`);
       aws(['rds', 'reboot-db-instance', '--db-instance-identifier', id, '--force-failover', '--query', 'DBInstance.DBInstanceStatus', '--output', 'text']);
+      expect('the failover hit the middle of the run (at least 1,000 deliveries still ahead)', v.counts.pending + v.counts.in_progress >= 1000, JSON.stringify(v.counts));
       // Sample the completed count every 5 s: a stall is a pause.
       let last = v.counts.completed;
       let lastMove = Date.now();
