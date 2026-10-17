@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { registerSubmitTiming, SubmitTimer } from './timing.js';
+import { parseThrottledMs, registerSubmitTiming, SubmitTimer } from './timing.js';
 
 describe('SubmitTimer', () => {
   it('records each lap as the time since the one before', () => {
@@ -38,6 +38,20 @@ describe('SubmitTimer', () => {
   });
 });
 
+describe('parseThrottledMs', () => {
+  it('reads cgroup v2 microseconds', () => {
+    expect(parseThrottledMs('usage_usec 5\nnr_periods 9\nnr_throttled 3\nthrottled_usec 250000\n')).toBe(250);
+  });
+
+  it('reads cgroup v1 nanoseconds', () => {
+    expect(parseThrottledMs('nr_periods 9\nnr_throttled 3\nthrottled_time 42000000\n')).toBe(42);
+  });
+
+  it('says null when the text has no throttle figure', () => {
+    expect(parseThrottledMs('usage_usec 5\n')).toBeNull();
+  });
+});
+
 describe('registerSubmitTiming', () => {
   async function build() {
     const lines: Record<string, unknown>[] = [];
@@ -63,7 +77,7 @@ describe('registerSubmitTiming', () => {
     const logged = timingLines(lines);
     expect(logged).toHaveLength(1);
     expect(logged[0]).toMatchObject({ status: 200, size: { files: 2, destinations: 3, tasks: 6 } });
-    expect(Object.keys(logged[0]!.ms as object).sort()).toEqual(['authMs', 'bodyReadMs', 'jsonParseMs', 'totalMs']);
+    expect(Object.keys(logged[0]!.ms as object)).toEqual(expect.arrayContaining(['authMs', 'bodyReadMs', 'jsonParseMs', 'totalMs', 'gcMs']));
   });
 
   it('does not time other routes', async () => {

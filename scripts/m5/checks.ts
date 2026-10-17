@@ -729,14 +729,14 @@ const checks: Record<string, () => Promise<void>> = {
     console.log('\n== The API\'s own phases, ms, per job size (tasks per job); from the "submit timing" log line');
     const apiGroup = awsJson<{ logGroups: Array<{ logGroupName: string }> }>(['logs', 'describe-log-groups', '--log-group-name-pattern', 'docbeam-api']).logGroups[0]?.logGroupName;
     if (!apiGroup) throw new Error('No log group for the DocBeam API');
-    const phases = ['bodyReadMs', 'jsonParseMs', 'authMs', 'schemaMs', 'keyLookupMs', 'batchMs', 'filesMs', 'destinationCallMs', 'destinationWaitMs', 'rowsMs', 'claimMs', 'tasksMs', 'commitMs', 'queueMs', 'totalMs'];
+    const phases = ['bodyReadMs', 'jsonParseMs', 'authMs', 'schemaMs', 'keyLookupMs', 'batchMs', 'filesMs', 'destinationCallMs', 'destinationWaitMs', 'rowsMs', 'claimMs', 'tasksMs', 'commitMs', 'queueMs', 'totalMs', 'gcMs', 'throttledMs'];
     const stats = phases.map((p) => `pct(ms.${p},50) as ${p}_p50, pct(ms.${p},99) as ${p}_p99`).join(', ');
     const per = await insights(apiGroup, `filter msg = 'submit timing' and status = 201 | stats count() as n, ${stats} by size.tasks | sort size.tasks desc`, from, to);
     for (const r of per) {
       console.log(`-- jobs of ${r['size.tasks']} tasks: ${r.n} requests`);
       for (const p of phases) row(`   ${p}`, { p50: Number(r[`${p}_p50`]), p99: Number(r[`${p}_p99`]) });
     }
-    const slowest = await insights(apiGroup, `filter msg = 'submit timing' and status = 201 | sort ms.totalMs desc | limit 5 | fields size.tasks, ms.totalMs, ms.bodyReadMs, ms.authMs, ms.schemaMs, ms.filesMs, ms.destinationWaitMs, ms.claimMs, ms.tasksMs, ms.commitMs, ms.queueMs`, from, to);
+    const slowest = await insights(apiGroup, `filter msg = 'submit timing' and status = 201 | sort ms.totalMs desc | limit 5 | fields size.tasks, ms.totalMs, ms.bodyReadMs, ms.authMs, ms.schemaMs, ms.filesMs, ms.destinationWaitMs, ms.claimMs, ms.tasksMs, ms.commitMs, ms.queueMs, ms.keyLookupMs, ms.gcMs, ms.throttledMs`, from, to);
     console.log('-- the 5 slowest requests');
     for (const r of slowest) console.log(`   ${JSON.stringify(Object.fromEntries(Object.entries(r).filter(([k]) => k !== '@ptr')))}`);
 
