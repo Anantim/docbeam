@@ -255,3 +255,17 @@ Check 12 passed in the person's browser. Check 13 was not proven: Sam's Status p
 | `npm test` | 71 files, 538 tests passed |
 | `npm run test:integration` | 17 files, 157 tests passed |
 | `npm run test:e2e` | **45 tests passed** (4.9 minutes), with the M1 and M2 packs |
+
+### 7a. Rollout of 517547c to dev (2026-10-17, the person's yes)
+
+Audit of who builds or sends counts: the DocBeam API (list, detail, and the `job_update` pushes of cancel and retry), Delivery and the DLQ Consumer (`task_update` pushes). The `ws` Lambda's `subscribed` answer carries no counts; the sweeper, fan-out and upload-events never build or send them. **No database migration**: `cancelled` is read from the existing `status` and `failure_code`. No Terraform change.
+
+| Step | Result |
+|---|---|
+| `push-image.sh dev docbeam-api …` | `…/docbeam-dev/docbeam-api:517547c519d9` |
+| `deploy-service.sh dev docbeam-api …` (its migrate step ran, nothing to apply) | `Deployed … to docbeam-dev-docbeam-api` |
+| `npm run build`; `deploy-lambda.sh dev delivery` and `dlq` | `Deployed the new code to docbeam-dev-delivery`, `…-dlq` |
+| `scripts/check-internal.sh dev` | `3001 200`, `3002 200`, `3003 200` |
+| Through the API, distribution 148eaed7 as Anantim | detail: `status cancelled, taskCount 1300, counts {completed 507, failed 0, cancelled 793, pending 0, in_progress 0}`; the Mine list says the same; `tasks?status=cancelled` total 793 (all `CANCELLED`), `status=failed` total 0, `status=completed` total 507; `status=bogus` gives 400 |
+| `deploy-web.sh dev` | `Deployed to https://d2d0tow0wi92yw.cloudfront.net`; the live bundle contains the new Preview and Download text and the Cancelled strings |
+| Live push, wscat as Priya: 100 files to 11 destinations (1,100 deliveries), subscribe, `POST /cancel` at 288 completed | `{"cancelled":736}`; `subscribed`; 364 `task_update` frames; then `{"type":"job_update",…,"counts":{"pending":0,"in_progress":11,"completed":353,"failed":0,"cancelled":736}}`; final detail `cancelled`, completed 364, failed 0, cancelled 736 |
