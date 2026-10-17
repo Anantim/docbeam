@@ -703,6 +703,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **What:** Check 5.1 (p99 under 500 ms) failed on two full runs: p99 749 ms, then 712 ms (server side, API Gateway `responseLatency`). The cause of the first was real and is fixed (D-M5-10). The second run still had two of five 100 x 20 jobs above 500 ms (535 and 705 ms inside the API), with 50 Delivery copies clearing the previous cancelled job on the same small database. Under the run's stop rule (the same problem failing twice: stop fixing, record NO, carry on) no more product code is changed for it. The harness now waits for the queues to empty between big submissions (D-M5-7) and the check is run once more after all other checks. Both outcomes are in `M5-RESULTS.md`.
 - **Why:** An unattended run must not spend its whole window on one metric.
 
+## D-M5-13. Database pools time out dead connections (found in the failover drill, check 5.8)
+- **Date:** 2026-10-17
+- **Changes:** D-M0-6 (pool limits), TDD Failure modes row "PostgreSQL" (Multi-AZ fails over in about 1 to 2 minutes, which the delivery backoff rides out). No contract change.
+- **What:** First drill run: RDS reported the failover from 15:36:43 to 15:37:12 UTC (29 s). The Document Platform then answered 500 INTERNAL_ERROR for **more than 10 minutes** ("timeout exceeded when trying to connect"; 1,089 errors in 3 minutes at 15:47). Its pool of two connections held sockets to the old primary that were dead but silent, so every query on them waited for ever and the pool was blocked for good; `/health` does not touch the database, so ECS did not replace the task. Without a restart the system would not have recovered. Now `SERVICE_POOL` and `LAMBDA_POOL` set `query_timeout` 20 s (a hung query fails and the pool throws that connection away) and TCP keep-alive, the three services handle an idle connection's `error` event instead of crashing on it, and a unit test pins the two settings. The drill was run again after the change (`failover.txt`; the first run is `failover-run1.txt`).
+- **Why:** The TDD says a failover "which the delivery backoff rides out". It only does if the services reconnect by themselves. Local tests cannot show this: Compose Postgres never fails over.
+
 ## D-M5-12. The Delivery Lambda gets 3,008 MB (found on dev, check 5.6)
 - **Date:** 2026-10-17
 - **Changes:** TDD Step 2.4 and Concurrency table (Lambda memory 1,024 MB in the code; the design gives no number for Delivery).

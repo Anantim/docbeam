@@ -1,4 +1,206 @@
-[15:23:14] Changes AWS (approved with --yes): applies db_multi_az=true to the dev database (about +0.6 USD a day), reboots it with failover during a run, then applies db_multi_az=false
-[15:33:12] waiting for the standby to be built (10 to 30 minutes)
+[16:09:38] Changes AWS (approved with --yes): applies db_multi_az=true to the dev database (about +0.6 USD a day), reboots it with failover during a run, then applies db_multi_az=false
+[16:10:15] waiting for the standby to be built (10 to 30 minutes)
 PASS  2,000 tasks accepted: 201
-[15:36:33] rebooting with failover at 2026-10-17T15:36:33.774Z with {"pending":1476,"in_progress":37,"completed":487,"failed":0,"cancelled":0}
+[16:13:44] rebooting with failover at 2026-10-17T16:13:44.036Z with {"pending":1801,"in_progress":41,"completed":158,"failed":0,"cancelled":0}
+PASS  the failover hit the middle of the run (at least 1,000 deliveries still ahead): {"pending":1801,"in_progress":41,"completed":158,"failed":0,"cancelled":0}
+[16:14:17] switching the database back to Single-AZ
+file:///home/anantim/docbeam/scripts/m5/lib.ts:46
+    throw new Error(`${cmd} ${args.slice(0, 4).join(' ')} failed: ${(e.stderr ?? e.message).slice(0, 600)}`, { cause: error });
+          ^
+
+Error: terraform -chdir=/home/anantim/docbeam/infra/envs/dev apply -auto-approve -target=module.rds failed: [31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mupdating RDS DB Instance (docbeam-dev-postgres): operation error RDS: ModifyDBInstance, https response error StatusCode: 400, RequestID: 7442aa88-ca63-4dab-b61c-f2976989d72d, InvalidDBInstanceState: Database instance is not in available state.[0m
+[31m│[0m [0m
+[31m│[0m [0m[0m  with module.rds.aws_db_instance.this,
+[31m│[0m [0m  on ../../modules/rds/main.tf line 69, in resource "aws_db_instance" "this":
+[31m│[0m [0m  69: resource "aws_db_instance" "this" [4m{[0m[0m
+[31m│[0m [0m
+[31m╵[0m[0m
+
+    at sh (file:///home/anantim/docbeam/scripts/m5/lib.ts:46:11)
+    at apply (file:///home/anantim/docbeam/scripts/m5/checks.ts:593:7)
+    ... 2 lines matching cause stack trace ...
+    at async file:///home/anantim/docbeam/scripts/m5/checks.ts:704:1 {
+  [cause]: Error: Command failed: terraform -chdir=/home/anantim/docbeam/infra/envs/dev apply -auto-approve -target=module.rds -var=db_multi_az=false -var=image_tag=6a7fdb19d919 -var=upload_events_image_tag=6a7fdb19d919 -var=alarm_email=anantimpatil2015@gmail.com
+  [31m╷[0m[0m
+  [31m│[0m [0m[1m[31mError: [0m[0m[1mupdating RDS DB Instance (docbeam-dev-postgres): operation error RDS: ModifyDBInstance, https response error StatusCode: 400, RequestID: 7442aa88-ca63-4dab-b61c-f2976989d72d, InvalidDBInstanceState: Database instance is not in available state.[0m
+  [31m│[0m [0m
+  [31m│[0m [0m[0m  with module.rds.aws_db_instance.this,
+  [31m│[0m [0m  on ../../modules/rds/main.tf line 69, in resource "aws_db_instance" "this":
+  [31m│[0m [0m  69: resource "aws_db_instance" "this" [4m{[0m[0m
+  [31m│[0m [0m
+  [31m╵[0m[0m
+  
+      at genericNodeError (node:internal/errors:983:15)
+      at wrappedFn (node:internal/errors:537:14)
+      at checkExecSyncError (node:child_process:916:11)
+      at execFileSync (node:child_process:952:15)
+      at sh (file:///home/anantim/docbeam/scripts/m5/lib.ts:42:12)
+      at apply (file:///home/anantim/docbeam/scripts/m5/checks.ts:593:7)
+      at failover (file:///home/anantim/docbeam/scripts/m5/checks.ts:666:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async file:///home/anantim/docbeam/scripts/m5/checks.ts:704:1 {
+    status: 1,
+    signal: null,
+    output: [
+      null,
+      'Acquiring state lock. This may take a few moments...\n' +
+        '\x1B[0m\x1B[1mmodule.rds.random_password.app["auth"]: Refreshing state... [id=none]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.random_password.app["docbeam"]: Refreshing state... [id=none]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.random_password.app["platform"]: Refreshing state... [id=none]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mdata.aws_availability_zones.available: Reading...\x1B[0m\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_assume: Reading...\x1B[0m\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["platform"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/platform_app-5VYrud]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_db_parameter_group.this[0]: Refreshing state... [id=docbeam-dev-pg16-c2cacead150bc2dd2f9266d335]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["auth"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/auth_app-c5bbTV]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.network.aws_vpc.this: Refreshing state... [id=vpc-0b0d707f2d5632adb]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_assume: Read complete after 0s [id=2562693050]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["docbeam"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/docbeam_app-BXTqqM]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mdata.aws_availability_zones.available: Read complete after 1s [id=ap-southeast-2]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_secrets: Reading...\x1B[0m\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["docbeam"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/docbeam_app-BXTqqM|terraform-gaXvwevr7pzX97i873kwcKmkDN]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["auth"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/auth_app-c5bbTV|terraform-b5Fmw40Ya6IFpe4lgz6P4zBSXp]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["platform"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/platform_app-5VYrud|terraform-ZmxgBmdHnvU6fX0wEnh24NyKmt]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_secrets: Read complete after 0s [id=1249532411]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.network.aws_subnet.private[0]: Refreshing state... [id=subnet-0659e4c8727750c09]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.network.aws_subnet.private[1]: Refreshing state... [id=subnet-00e2fbbf2f1da0608]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_security_group.db: Refreshing state... [id=sg-027da8cef7f7701bc]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_db_subnet_group.this: Refreshing state... [id=docbeam-dev-db]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_vpc_security_group_ingress_rule.db_from_vpc: Refreshing state... [id=sgr-0b45d429a758db910]\x1B[0m\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_db_instance.this: Refreshing state... [id=db-WCHVQ3PI6QSHF4WFCXEVTHXCTM]\x1B[0m\n' +
+        '\n' +
+        'Terraform used the selected providers to generate the following execution\n' +
+        'plan. Resource actions are indicated with the following symbols:\n' +
+        '  \x1B[33m~\x1B[0m update in-place\x1B[0m\n' +
+        '\n' +
+        'Terraform will perform the following actions:\n' +
+        '\n' +
+        '\x1B[1m  # module.rds.aws_db_instance.this\x1B[0m will be updated in-place\n' +
+        '\x1B[0m  \x1B[33m~\x1B[0m\x1B[0m resource "aws_db_instance" "this" {\n' +
+        '        id                                    = "db-WCHVQ3PI6QSHF4WFCXEVTHXCTM"\n' +
+        '      \x1B[33m~\x1B[0m\x1B[0m multi_az                              = true \x1B[33m->\x1B[0m\x1B[0m false\n' +
+        '        tags                                  = {\n' +
+        '            "Name" = "docbeam-dev-postgres"\n' +
+        '        }\n' +
+        '        \x1B[90m# (73 unchanged attributes hidden)\x1B[0m\x1B[0m\n' +
+        '    }\n' +
+        '\n' +
+        '\x1B[1mPlan:\x1B[0m \x1B[0m0 to add, 1 to change, 0 to destroy.\n' +
+        '\x1B[0m\x1B[1mmodule.rds.aws_db_instance.this: Modifying... [id=db-WCHVQ3PI6QSHF4WFCXEVTHXCTM]\x1B[0m\x1B[0m\n' +
+        '\x1B[33m╷\x1B[0m\x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\x1B[1m\x1B[33mWarning: \x1B[0m\x1B[0m\x1B[1mResource targeting is in effect\x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\x1B[0mYou are creating a plan with the -target option, which means that the\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mresult of this plan may not represent all of the changes requested by the\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mcurrent configuration.\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mThe -target option is not for routine use, and is provided only for\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mexceptional situations such as recovering from errors or mistakes, or when\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mTerraform specifically suggests to use it as part of an error message.\n' +
+        '\x1B[33m╵\x1B[0m\x1B[0m\n' +
+        '\x1B[33m╷\x1B[0m\x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\x1B[1m\x1B[33mWarning: \x1B[0m\x1B[0m\x1B[1mApplied changes may be incomplete\x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\x1B[0mThe plan was created with the -target option in effect, so some changes\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mrequested in the configuration may have been ignored and the output values\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mmay not be fully updated. Run the following command to verify that no other\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mchanges are pending:\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m    terraform plan\n' +
+        '\x1B[33m│\x1B[0m \x1B[0m\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mNote that the -target option is not suitable for routine use, and is\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mprovided only for exceptional situations such as recovering from errors or\n' +
+        '\x1B[33m│\x1B[0m \x1B[0mmistakes, or when Terraform specifically suggests to use it as part of an\n' +
+        '\x1B[33m│\x1B[0m \x1B[0merror message.\n' +
+        '\x1B[33m╵\x1B[0m\x1B[0m\n' +
+        'Releasing state lock. This may take a few moments...\n',
+      '\x1B[31m╷\x1B[0m\x1B[0m\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m\x1B[1m\x1B[31mError: \x1B[0m\x1B[0m\x1B[1mupdating RDS DB Instance (docbeam-dev-postgres): operation error RDS: ModifyDBInstance, https response error StatusCode: 400, RequestID: 7442aa88-ca63-4dab-b61c-f2976989d72d, InvalidDBInstanceState: Database instance is not in available state.\x1B[0m\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m\x1B[0m  with module.rds.aws_db_instance.this,\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m  on ../../modules/rds/main.tf line 69, in resource "aws_db_instance" "this":\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m  69: resource "aws_db_instance" "this" \x1B[4m{\x1B[0m\x1B[0m\n' +
+        '\x1B[31m│\x1B[0m \x1B[0m\n' +
+        '\x1B[31m╵\x1B[0m\x1B[0m\n'
+    ],
+    pid: 65316,
+    stdout: 'Acquiring state lock. This may take a few moments...\n' +
+      '\x1B[0m\x1B[1mmodule.rds.random_password.app["auth"]: Refreshing state... [id=none]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.random_password.app["docbeam"]: Refreshing state... [id=none]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.random_password.app["platform"]: Refreshing state... [id=none]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mdata.aws_availability_zones.available: Reading...\x1B[0m\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_assume: Reading...\x1B[0m\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["platform"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/platform_app-5VYrud]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_db_parameter_group.this[0]: Refreshing state... [id=docbeam-dev-pg16-c2cacead150bc2dd2f9266d335]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["auth"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/auth_app-c5bbTV]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.network.aws_vpc.this: Refreshing state... [id=vpc-0b0d707f2d5632adb]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_assume: Read complete after 0s [id=2562693050]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret.app["docbeam"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/docbeam_app-BXTqqM]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mdata.aws_availability_zones.available: Read complete after 1s [id=ap-southeast-2]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_secrets: Reading...\x1B[0m\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["docbeam"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/docbeam_app-BXTqqM|terraform-gaXvwevr7pzX97i873kwcKmkDN]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["auth"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/auth_app-c5bbTV|terraform-b5Fmw40Ya6IFpe4lgz6P4zBSXp]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_secretsmanager_secret_version.app["platform"]: Refreshing state... [id=arn:aws:secretsmanager:ap-southeast-2:346208529537:secret:docbeam-dev/db/platform_app-5VYrud|terraform-ZmxgBmdHnvU6fX0wEnh24NyKmt]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.data.aws_iam_policy_document.proxy_secrets: Read complete after 0s [id=1249532411]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.network.aws_subnet.private[0]: Refreshing state... [id=subnet-0659e4c8727750c09]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.network.aws_subnet.private[1]: Refreshing state... [id=subnet-00e2fbbf2f1da0608]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_security_group.db: Refreshing state... [id=sg-027da8cef7f7701bc]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_db_subnet_group.this: Refreshing state... [id=docbeam-dev-db]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_vpc_security_group_ingress_rule.db_from_vpc: Refreshing state... [id=sgr-0b45d429a758db910]\x1B[0m\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_db_instance.this: Refreshing state... [id=db-WCHVQ3PI6QSHF4WFCXEVTHXCTM]\x1B[0m\n' +
+      '\n' +
+      'Terraform used the selected providers to generate the following execution\n' +
+      'plan. Resource actions are indicated with the following symbols:\n' +
+      '  \x1B[33m~\x1B[0m update in-place\x1B[0m\n' +
+      '\n' +
+      'Terraform will perform the following actions:\n' +
+      '\n' +
+      '\x1B[1m  # module.rds.aws_db_instance.this\x1B[0m will be updated in-place\n' +
+      '\x1B[0m  \x1B[33m~\x1B[0m\x1B[0m resource "aws_db_instance" "this" {\n' +
+      '        id                                    = "db-WCHVQ3PI6QSHF4WFCXEVTHXCTM"\n' +
+      '      \x1B[33m~\x1B[0m\x1B[0m multi_az                              = true \x1B[33m->\x1B[0m\x1B[0m false\n' +
+      '        tags                                  = {\n' +
+      '            "Name" = "docbeam-dev-postgres"\n' +
+      '        }\n' +
+      '        \x1B[90m# (73 unchanged attributes hidden)\x1B[0m\x1B[0m\n' +
+      '    }\n' +
+      '\n' +
+      '\x1B[1mPlan:\x1B[0m \x1B[0m0 to add, 1 to change, 0 to destroy.\n' +
+      '\x1B[0m\x1B[1mmodule.rds.aws_db_instance.this: Modifying... [id=db-WCHVQ3PI6QSHF4WFCXEVTHXCTM]\x1B[0m\x1B[0m\n' +
+      '\x1B[33m╷\x1B[0m\x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\x1B[1m\x1B[33mWarning: \x1B[0m\x1B[0m\x1B[1mResource targeting is in effect\x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\x1B[0mYou are creating a plan with the -target option, which means that the\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mresult of this plan may not represent all of the changes requested by the\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mcurrent configuration.\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mThe -target option is not for routine use, and is provided only for\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mexceptional situations such as recovering from errors or mistakes, or when\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mTerraform specifically suggests to use it as part of an error message.\n' +
+      '\x1B[33m╵\x1B[0m\x1B[0m\n' +
+      '\x1B[33m╷\x1B[0m\x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\x1B[1m\x1B[33mWarning: \x1B[0m\x1B[0m\x1B[1mApplied changes may be incomplete\x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\x1B[0mThe plan was created with the -target option in effect, so some changes\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mrequested in the configuration may have been ignored and the output values\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mmay not be fully updated. Run the following command to verify that no other\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mchanges are pending:\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m    terraform plan\n' +
+      '\x1B[33m│\x1B[0m \x1B[0m\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mNote that the -target option is not suitable for routine use, and is\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mprovided only for exceptional situations such as recovering from errors or\n' +
+      '\x1B[33m│\x1B[0m \x1B[0mmistakes, or when Terraform specifically suggests to use it as part of an\n' +
+      '\x1B[33m│\x1B[0m \x1B[0merror message.\n' +
+      '\x1B[33m╵\x1B[0m\x1B[0m\n' +
+      'Releasing state lock. This may take a few moments...\n',
+    stderr: '\x1B[31m╷\x1B[0m\x1B[0m\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m\x1B[1m\x1B[31mError: \x1B[0m\x1B[0m\x1B[1mupdating RDS DB Instance (docbeam-dev-postgres): operation error RDS: ModifyDBInstance, https response error StatusCode: 400, RequestID: 7442aa88-ca63-4dab-b61c-f2976989d72d, InvalidDBInstanceState: Database instance is not in available state.\x1B[0m\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m\x1B[0m  with module.rds.aws_db_instance.this,\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m  on ../../modules/rds/main.tf line 69, in resource "aws_db_instance" "this":\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m  69: resource "aws_db_instance" "this" \x1B[4m{\x1B[0m\x1B[0m\n' +
+      '\x1B[31m│\x1B[0m \x1B[0m\n' +
+      '\x1B[31m╵\x1B[0m\x1B[0m\n'
+  }
+}
+
+Node.js v22.23.3

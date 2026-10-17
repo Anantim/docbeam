@@ -605,10 +605,12 @@ const checks: Record<string, () => Promise<void>> = {
     };
     let switchedOn = false;
     try {
+      await waitState(state().multi); // a modification already under way must finish first
       try {
-        apply(true);
+        if (!state().multi) apply(true);
       } catch (error) {
         const msg = (error as Error).message;
+        if (!/free|plan|not available|FreeTier/i.test(msg)) throw error;
         expect('LIMIT: the Free plan refuses Multi-AZ (drill skipped)', false, msg.replace(/\s+/g, ' ').slice(0, 500));
         return;
       }
@@ -636,12 +638,14 @@ const checks: Record<string, () => Promise<void>> = {
       let samples = 0;
       let final = v;
       while (Date.now() - t0.getTime() < 40 * 60_000) {
-        await sleep(5000);
+        await sleep(2000);
         try {
-          final = await job(api, s.jobId);
+          const view = await job(api, s.jobId);
+          if (!view?.counts) continue; // an error answer while the database switches: that is the pause
+          final = view;
           samples += 1;
         } catch {
-          continue; // the API cannot read during the switch; that is the pause
+          continue; // the API cannot be reached during the switch; that is the pause
         }
         if (final.counts.completed > last) {
           longest = Math.max(longest, Date.now() - lastMove);
@@ -663,6 +667,7 @@ const checks: Record<string, () => Promise<void>> = {
     } finally {
       if (switchedOn || state().multi) {
         log('switching the database back to Single-AZ');
+        await waitState(state().multi); // a failover or a change still running must finish first
         apply(false);
         await waitState(false);
         expect('dev database is Single-AZ again', !state().multi, 'MultiAZ=false');
