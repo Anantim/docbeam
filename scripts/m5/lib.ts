@@ -164,6 +164,18 @@ export async function setPlatformCount(count: number): Promise<void> {
 
 // ---------------------------------------------------------------- API client
 
+/** fetch that tries again when the network drops (a laptop on a home link times out now and then). Not for HTTP errors. */
+export async function fetchRetry(url: string, init: RequestInit, attempts = 5): Promise<Response> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      await sleep(1000 * attempt);
+    }
+  }
+}
+
 export interface Reply {
   status: number;
   body: any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -198,7 +210,7 @@ export class Api {
     if (options.cookie) headers.cookie = options.cookie;
     if (options.json !== undefined) headers['content-type'] = 'application/json';
     const t0 = performance.now();
-    const res = await fetch(`${this.base}/api${path}`, { method, headers, body: options.json !== undefined ? JSON.stringify(options.json) : undefined });
+    const res = await fetchRetry(`${this.base}/api${path}`, { method, headers, body: options.json !== undefined ? JSON.stringify(options.json) : undefined });
     const text = await res.text();
     const ms = performance.now() - t0;
     let body: unknown = text;
@@ -273,7 +285,7 @@ export async function uploadSmall(api: Api, files: Array<{ name: string; bytes: 
         const form = new FormData();
         for (const [k, v] of Object.entries(u.post.fields)) form.append(k, v);
         form.append('file', new Blob([new Uint8Array(f.bytes)], { type: f.contentType ?? 'application/pdf' }), f.name);
-        const res = await fetch(u.post.url, { method: 'POST', body: form });
+        const res = await fetchRetry(u.post.url, { method: 'POST', body: form });
         if (res.status !== 204 && res.status !== 201 && res.status !== 200) throw new Error(`S3 refused ${f.name}: ${res.status} ${(await res.text()).slice(0, 300)}`);
         out.push({ fileId: u.fileId, name: f.name, sha256: sha256Hex(f.bytes) });
       }),

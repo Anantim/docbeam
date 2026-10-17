@@ -6,7 +6,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { LIMITS } from '../../packages/shared/src/limits.ts';
 import {
-  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, finish, gatewayLatency, insights, job, log, login, loadDestinations,
+  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, fetchRetry, finish, gatewayLatency, insights, job, log, login, loadDestinations,
   mustLogin, NAME, percentile, queueDepth, queueMaxVisible, queueUrl, randomBlocks, REGION, ROOT, runTask, setPlatformCount, setTrigger,
   sh, sha256Hex, sleep, smallPdf, submit, tasksOf, tf, uploadClean, uploadSmall, USERS, waitDone, waitScanned, type Uploaded,
 } from './lib.ts';
@@ -294,7 +294,7 @@ const checks: Record<string, () => Promise<void>> = {
         log(`re-signed ${rest.length} parts`);
       }
       for (let attempt = 1; ; attempt += 1) {
-        const res = await fetch(urls.get(item.n)!, { method: 'PUT', body: new Uint8Array(item.data), headers: { 'x-amz-checksum-sha256': Buffer.from(partHashes[item.n - 1]!, 'hex').toString('base64') } });
+        const res = await fetchRetry(urls.get(item.n)!, { method: 'PUT', body: new Uint8Array(item.data), headers: { 'x-amz-checksum-sha256': Buffer.from(partHashes[item.n - 1]!, 'hex').toString('base64') } });
         if (res.ok) {
           etags.set(item.n, res.headers.get('etag')!);
           return;
