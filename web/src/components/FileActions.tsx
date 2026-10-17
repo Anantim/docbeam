@@ -28,6 +28,3 @@ export function DownloadButton({ name, offBecause, onClick, small = false }: Pro
     </button>
   );
 }
-
-/** Why Preview and Download are off on the Status page until the next release. */
-export const NOT_YET = 'Preview and download arrive in the next milestone';

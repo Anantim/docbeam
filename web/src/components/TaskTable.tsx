@@ -4,7 +4,7 @@ import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
-import { DownloadButton, NOT_YET, PreviewButton } from './FileActions.js';
+import { DownloadButton, PreviewButton } from './FileActions.js';
 import { StatusChip, TONES } from './StatusChip.js';
 import { taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
@@ -18,6 +18,9 @@ interface Props {
   /** Changes when the page must load the tasks again (after a reconnect, a cancel or a retry). */
   reloadKey: number;
   live: LiveClient;
+  /** Preview and Download on a delivered file (flow 4). */
+  onPreview: (task: TaskRow) => void;
+  onDownload: (task: TaskRow) => void;
   viewportHeight?: number;
 }
 
@@ -25,7 +28,7 @@ interface Props {
  * The deliveries of one distribution, up to 2,000 rows, 100 loaded at a time. Only the rows in view are drawn
  * (TDD Step 3.4). Live pushes change a row in place; a reload keeps the old rows on screen until the new page arrives.
  */
-export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480 }: Props) {
+export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownload, viewportHeight = 480 }: Props) {
   const [pages, setPages] = useState<Map<number, TaskRow[]>>(new Map());
   const [total, setTotal] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -152,7 +155,7 @@ export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480
         <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
           {rows.map(({ index, task }) => (
             <div key={task?.taskId ?? `empty-${index}`} className="trow" role="row" aria-rowindex={index + 2} style={{ position: 'absolute', top: index * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}>
-              {task ? <TaskCells task={task} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
+              {task ? <TaskCells task={task} onPreview={onPreview} onDownload={onDownload} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
             </div>
           ))}
         </div>
@@ -161,7 +164,7 @@ export function TaskTable({ jobId, status, reloadKey, live, viewportHeight = 480
   );
 }
 
-function TaskCells({ task }: { task: TaskRow }) {
+function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
   const look = taskLook(kind);
   const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
@@ -195,7 +198,14 @@ function TaskCells({ task }: { task: TaskRow }) {
             </div>
           </>
         )}
-        {task.status === 'completed' && (task.fileExpired ? <ExpiredNote /> : <FileButtons name={task.fileName} />)}
+        {task.status === 'completed' && (task.fileExpired ? (
+          <ExpiredNote />
+        ) : (
+          <div className="tbuttons">
+            <PreviewButton name={task.fileName} onClick={() => onPreview(task)} />
+            <DownloadButton name={task.fileName} onClick={() => onDownload(task)} />
+          </div>
+        ))}
         {task.status === 'in_progress' && <span className="muted">Delivering now</span>}
         {task.status === 'pending' && <span className="muted">In the queue</span>}
       </div>
@@ -208,16 +218,6 @@ function ExpiredNote() {
     <span className="muted">
       The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.
     </span>
-  );
-}
-
-/** Preview and Download are wired up in M4 (TDD Step 3.4). They are shown as on Distribute, and wait. */
-function FileButtons({ name }: { name: string }) {
-  return (
-    <div className="tbuttons">
-      <PreviewButton name={name} offBecause={NOT_YET} />
-      <DownloadButton name={name} offBecause={NOT_YET} />
-    </div>
   );
 }
 
