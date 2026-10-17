@@ -601,3 +601,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** Flow 1 sign-in screen and the 12-hour sign-in dialog (ADR-015 describes the pause but no screen says it).
 - **What:** After any failed sign-in, under the error, the page shows one fixed line: "After 5 wrong passwords in a row, sign-in pauses for 15 minutes. Wait, then try again." It is the same for a wrong password, an unknown email, a paused account and the gateway throttle, and it is shown only after a failure. The error text above it is unchanged. So the page still shows neither which accounts exist nor which are paused (D-M1-7 stays as it is). The 12-hour dialog shows the same line after a failed attempt. A failed registration does not show it.
 - **Why:** A person who is paused otherwise sees the same "not right" message and tries again, which does not help.
+
+## D-M3-14. A daily check that dev is not left up
+- **Date:** 2026-10-17
+- **Changes:** AGENTS "Cost" (dev costs money while up; the reminder was only a sentence at the end of a task). New workflow `.github/workflows/dev-up-check.yml`.
+- **What:** It runs every day at 17:30 UTC (23:00 IST) and by hand (`workflow_dispatch`). It signs in with the existing deploy credentials and makes one read-only call, `aws ecs list-clusters` in `ap-southeast-2`. If a cluster whose name starts with `docbeam-dev` exists, the job fails with "Dev is still up. Tear it down: scripts/empty-dev-buckets.sh dev, then terraform destroy." Otherwise it passes. No other AWS call. GitHub runs scheduled workflows only from the default branch, so the daily run starts after `m3` is merged; until then it can be run by hand.
+- **Why:** A failed run sends an email, so a forgotten dev (about 4.5 USD a day against the Free plan credits) is noticed within a day.

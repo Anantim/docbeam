@@ -17,6 +17,8 @@ Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committe
 
 - Copy change, 2026-10-17 (asked by the person, before the dev web deploy): the sign-in page subtext is now "Pick your files, tick the folders, and follow every delivery." (`web/src/components/AuthCard.tsx`), and the heading and subtext have `text-wrap: balance` (`web/src/styles.css`). Both differ from the mockup text in `docs/design/ui/Main.dc.html` on purpose. No test checked the old text. New Playwright test in `ui.spec.ts` (35 tests now) measures words per line at 375, 1280 and 1920 px: no last line has a single word (heading 2/2/3, 3/4, 7; subtext 6/4, 10, 10).
 
+- D-M3-14 (2026-10-17): `.github/workflows/dev-up-check.yml`, a daily 17:30 UTC read-only check that fails while a `docbeam-dev` ECS cluster exists. Its schedule starts after the merge to `main`.
+
 **Left to do:**
 1. **The person's yes**, then the AWS round: `M3-TESTING.md` sections 2 and 3 (new dev bring-up; ~25 min apply; ~4.5 USD a day), record in `M3-RESULTS.md`. Then tear down with `scripts/empty-dev-buckets.sh dev` and `terraform destroy` (section 5). The script's JMESPath query has never run against real S3; its first real run is the teardown.
 2. One look by the person at Distribute and Status (colours and spacing, laptop and wide width; Playwright covers every numbered step) and on dev the two-browser checks (section 3). On dev, run `scripts/empty-dev-buckets.sh dev --dry-run` after the checks, show the output, and only then run it for real in the teardown.
