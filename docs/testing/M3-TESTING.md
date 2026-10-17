@@ -186,7 +186,8 @@ The person says yes before each push, apply and task run. M3 changes: the WebSoc
 | 1 to 11, 17, 18, 20 | **YES**, run by the session. Peak `DatabaseConnections` over six hours of runs (distributions of 1,100 to 1,300 deliveries): **67** (budget 79). All queues and DLQs at 0. Check 20 needed a real, closed connection id (a made-up id gets 400, not 410): the checks above now say so |
 | 5, 6, 19 | **YES** with wscat, no screenshot: `subscribed` before the first `task_update`, 417 and 364 frames with moving counts, and a `job_update` after a cancel with `cancelled` and `failed` apart |
 | 12 | **YES**, by the person (Raj sees Cardio rows only, live, no Cancel or Retry) |
-| 13, 14, 15, 16 | **Reported done by the person** ("Browser checks are done"). Not itemised in the last message: Sam's "not found" after the fix (D-M3-16), the F5 mid-run, the Offline switch, 15 minutes on the page. The person to confirm them one by one |
+| 13 | **YES, by the person** on dev, rechecked after the D-M3-16 fix (Raj sees only Cardio, Sam sees `Distribution not found`) |
+| 14, 15, 16 | **Skipped on dev by the person; covered by Playwright locally** (F5 mid-run, the Offline switch, 15 minutes on the page). Check 14's server side (1,300 rows over 14 pages) was run on dev by the session |
 | Findings from the person's browser checks | all fixed, redeployed and **rechecked by the person**: Open by ID and the empty Status page (D-M3-16); re-sign-in clears page errors, File column width (D-M3-17); cancelled is its own grey count, the "+N" popover stays open and pins, Preview and Download text and greyed look (D-M3-17). Result on 148eaed7: Delivered 507, Failed 0, Cancelled 793; both bars green and grey; Cancelled filter 793 grey rows; Failed 0 |
 | 21 | Not testable in one session (covered by a test) |
 | SNS email | still **PendingConfirmation**: the alarm email link was never clicked on this bring-up |

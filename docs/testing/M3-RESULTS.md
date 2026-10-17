@@ -176,9 +176,9 @@ The helper scripts that sent distributions (upload 100 small PDFs with the SHA-2
 | 10 | YES. Delivery's `WS_MANAGEMENT_ENDPOINT` is `https://7113obu8x5.execute-api.ap-southeast-2.amazonaws.com/v1`. The role policy (read from the Terraform state, because the session's permission mode refused `aws iam get-role-policy`) allows `execute-api:ManageConnections` on `arn:aws:execute-api:ap-southeast-2:346208529537:7113obu8x5/v1/POST/@connections/*` only |
 | 11 | YES. CloudWatch `DatabaseConnections`, `docbeam-dev-postgres`, last 100 minutes (six distributions of 1,100 to 1,300 deliveries): **peak 67**, the budget is 79 and the limit 80 |
 | 12 | **YES, by the person** in the browser (Raj: Cardio rows only, updating live, no Cancel or Retry). Two rounds of findings followed (sections 5 to 7), all rechecked by the person |
-| 13 | **Reported done by the person** ("Browser checks are done"). Sam's "Distribution not found" was not proved at first because the old distribution id was still in the address bar (D-M3-16); the person rechecked after the fix and did not itemise Sam's step in the last message, so confirm it. Server side Server side by API: Priya's job reached all 1,100 deliveries; the team-scoped reads are covered locally by `tracking.test.ts` and Playwright |
-| 14 | PARTLY. The server side is YES: a 1,300-delivery job pages as 14 pages of 100 (`total 1300`, 1,300 rows in all). Anantim has 13 destinations at the top level, not 14, so the run used 13. The two F5 presses are for the person's browser |
-| 15, 16 | Waiting on the person (the browser's Offline switch; 15 minutes on the page). Covered locally by `socket.test.ts` and the Playwright "connection drops" test |
+| 13 | **YES, by the person.** Sam's "Distribution not found" was not proved at first because the old distribution id was still in the address bar (D-M3-16). After the D-M3-16 fix the person rechecked it on dev and it passed. Server side: Priya's job reached all 1,100 deliveries; the team-scoped reads are covered locally by `tracking.test.ts` and Playwright |
+| 14 | **Skipped on dev by the person; covered by Playwright locally.** Server side YES: a 1,300-delivery job pages as 14 pages of 100 (`total 1300`, 1,300 rows in all). Anantim has 13 destinations at the top level, not 14, so the run used 13. The two F5 presses are for the person's browser |
+| 15, 16 | **Skipped on dev by the person; covered by Playwright locally** (the browser's Offline switch; 15 minutes on the page):  `socket.test.ts` and the Playwright "connection drops" test |
 | 17 | YES, through the API. Anantim sent 100 files to 13 destinations (1,300 deliveries) and cancelled at 443 completed: `{"cancelled":793}`. After 20 s: `status cancelled`, 507 completed, 793 failed (`CANCELLED`), 0 pending, 0 in progress. 30 seconds later: unchanged, and the Delivery log has **0** `task delivered` lines after the cancel |
 | 18 | YES. Task queue, Job queue, Upload Events queue and the three DLQs all `0` visible, `0` in flight |
 | 20 | **YES, after a correction to the check.** A made-up connection id such as `ghost-2` or `GhostAbCd12XyZ9=` gets `BadRequestException: Invalid connectionId` (a 400, not a 410): the push is logged as `push failed` and the row stays until it expires. A 410 only comes for an id API Gateway really issued. So the check used a real id: a wscat connection was opened and closed, its id `gdxmH09ItlgYKABwlA==` was read from the `ws` log, the `$connect` and `subscribe` events were replayed for it, and a new distribution was sent. The line, from `/aws/lambda/docbeam-dev-delivery`: `{"level":"info","name":"delivery","msg":"connection gone (410); row deleted","jobId":"b7109410-db45-44ec-a6c6-f60f8ac063cb","connectionId":"gdxmH09ItlgYKABwlA=="}` (two deliveries raced to it, so it appeared twice) |
@@ -208,7 +208,95 @@ Connected (press CTRL+C to quit)
 
 ## 4. Final check: YES / NO
 
-Written after sections 2 and 3 (see `docs/STATUS.md` for where the milestone stands).
+Walked line by line through the M3 prompt in `docs/PLAN.md` and TDD Steps 3.1 to 3.4, after the AWS round, the person's browser checks and the teardown (2026-10-17). Sections 5 to 7 are findings made after the first pass; their fixes are in this table too.
+
+### 4.1 TDD Step 3.1: status endpoints and cancel
+
+| Requirement | | Evidence |
+|---|---|---|
+| `GET /jobs`, `GET /jobs/:jobId`, `GET /jobs/:jobId/tasks`, with the page-level count query and paging | YES | `services/docbeam-api/src/routes/jobs-read.ts` (`countsFor`, one query per page); `tests/integration/tracking.test.ts` "returns tasks with reasons, filters by status and pages"; on dev a 1,300-delivery job paged as 14 pages of 100 (section 3, check 14) |
+| Team visibility: non-senders get their teams from the platform, cached 60 s; open only a job with a delivery to their teams; only those deliveries and counts | YES | `services/docbeam-api/src/platform.ts:32` `TEAMS_CACHE_MS = 60_000`, `job-access.ts`; `platform.test.ts` "user teams"; `tracking.test.ts` "GET /jobs, /jobs/:id…" (Raj sees 2 of 5, Sam 404 with the same error as a missing job); Playwright team-viewer test; the person's check 12 and 13 on dev |
+| The team list finds jobs through `idx_tasks_team`, with the same cache | YES | `schema.ts:109`, `jobs-read.ts:70` |
+| `POST /jobs/:jobId/cancel`; queued messages of cancelled tasks are dropped at the claim; the job reads cancelled once nothing is open | YES | `jobs-actions.ts`, `task-outcome.ts` `failPendingTasks`; integration "POST /jobs/:id/cancel while deliveries run" (running one finishes, queued messages stop at the claim, job closes and reads cancelled); on dev: cancel at 443 of 1,300 gave 793 cancelled, 507 delivered, 0 delivered afterwards (check 17) |
+| `POST /jobs/:jobId/retry`: only RETRIES_EXHAUSTED and FANOUT_FAILED; window 24 h and files under 2 days; refused for a cancelled job | YES | `jobs-actions.ts`, `tracking.ts` `retryState`; `tracking.test.ts` "retryState" and integration "POST /jobs/:id/retry" (4 tests) |
+| `GET /audit` as in the contracts, team-scoped | YES | `routes/audit.ts`; integration "GET /audit is scoped…" |
+| After a cancel the API pushes one `job_update` to the open dashboards; its task role may post to connections | YES | `jobs-actions.ts:66` and `:125` (`pushJobUpdate`), `infra/envs/dev/async.tf` push policy; `ws.test.ts` "sends one job update after a cancel"; on dev a wscat run received the `job_update` with `cancelled 736, failed 0` |
+| Only the sender may cancel or retry (403, 404 for outsiders) | YES | integration "answers 409 NOTHING_TO_CANCEL…", "POST /jobs/:id/retry" |
+| (D-M3-17) cancelled deliveries are their own count, never failed | YES | `tracking.ts`, `jobs-read.ts`, `push.ts`; unit, integration and Playwright tests (section 7); on dev 148eaed7: failed 0, cancelled 793 |
+
+### 4.2 TDD Step 3.2: WebSocket API and WS Handlers
+
+| Requirement | | Evidence |
+|---|---|---|
+| A second API Gateway of type WebSocket with `$connect`, `subscribe`, `$disconnect` | YES | `infra/modules/websocket-api`; on dev: protocol `WEBSOCKET`, routes `$connect`, `subscribe`, `$disconnect`, stage `v1` (check 8) |
+| `$connect` checks the token (none, bad, service token: 401); the row keeps the token's expiry | YES | `workers/ws/src/handler.ts`; `handler.test.ts`, `ws.test.ts`; on dev `wscat` with no token and `?token=bad`: `Unexpected server response: 401` (checks 3, 4) |
+| `subscribe`: sender and team members; an outsider gets the same answer as a missing job | YES | `ws.test.ts` "subscribe"; on dev a random id gives `subscribe_error NOT_FOUND`, a real job `subscribed` (check 5) |
+| Database access: directly in dev, through RDS Proxy in prod | YES (prod: code and plan only) | dev env in `ws` Lambda (`DB_HOST`, check 9); prod config validated, `terraform plan` only, never applied (AGENTS "Prod") |
+| Pushes reach the sender and the delivery's team only, with counts each may see; a 410 deletes the row | YES | `push.ts`, `ws.test.ts` "pushes"; on dev the 410 log line `connection gone (410); row deleted` for a real closed connection (check 20) |
+| Dev connections stay within the budget | YES | dev peak `DatabaseConnections` 67 over six hours (budget 79); `db.test.ts` budget 79 |
+| Terraform for it, applied on dev by the person's yes, and destroyed again | YES | `infra/modules/websocket-api`, six gateway routes; dev applied in four steps (ECR, the stack, the stage fix, the authorizer and routes), `No changes` on the re-plan, destroy of 274 resources, nothing left behind (section 8 below) |
+
+### 4.3 TDD Step 3.3: catch-up
+
+| Requirement | | Evidence |
+|---|---|---|
+| Connect on page load, subscribe when a job opens, and only then fetch its tasks | YES | `web/src/live/socket.ts`, `web/src/tracking/useJob.ts`; `socket.test.ts`, `StatusPage.test.tsx` "does not fetch until the live connection has answered…"; on dev wscat: `subscribed` before the first `task_update` |
+| Reconnect with the new token after every refresh; on every reconnect subscribe again and refetch once; ignore pushes older than the row | YES (dev browser steps skipped, see 4.6) | `socket.test.ts` (new token, back-off, resync once), `apply.test.ts`, `TaskTable.test.tsx` "ignores a push that is older than the row"; Playwright "the live connection drops mid-run and the page catches up without a reload" |
+
+### 4.4 TDD Step 3.4: web app part 3
+
+| Requirement | | Evidence |
+|---|---|---|
+| Job list with status chips, a Mine / My teams switch, counts refreshing every 30 seconds | YES | `JobList.tsx`, `usePolledJobs.ts`; `usePolledJobs.test.ts`; Playwright "the list updates its counts by itself, every 30 seconds…" |
+| Job detail: virtualized table for up to 2,000 tasks, status filter, failure reasons inline | YES | `TaskTable.tsx`, `tracking/virtual.ts`; `virtual.test.ts`, `TaskTable.test.tsx` (2,000 rows, only the window drawn); Playwright "a failure shows its reason in the row…" |
+| Retry failed deliveries and Cancel distribution for the sender; team viewers see neither | YES | `JobDetailView.tsx`; `StatusPage.test.tsx` "Cancel and Retry"; Playwright Cancel, Retry and team-viewer tests; the person's check 12 |
+| An Audit tab, a full-history Audit trail page with filters | YES | `AuditList.tsx`, `AuditTrailPage.tsx`; `AuditTrailPage.test.tsx`; Playwright "the Audit trail page filters by kind of event" |
+| A clear message when a file has expired | YES | `TaskTable.tsx` `ExpiredNote`, `tracking.ts` `fileExpired`; integration "marks a delivery whose staged file is past 33 days". Not testable on dev in one session (check 21) |
+| WebSocket client with reconnect | YES | `web/src/live/socket.ts`, `socket.test.ts` |
+| Preview and Download buttons on each delivered file, **wired up in M4** | YES (shown, off, by design) | `FileActions.tsx`, `TaskTable.tsx`: icon buttons, off with "Preview and download arrive in the next milestone" (the person's decision, D-M3-17); `ui.spec.ts` |
+| The "+N" popover (task 11b) | YES | `Popover.tsx`, `DestinationChips.tsx`; `DestinationChips.test.tsx`; Playwright `tooltips.spec.ts` and `popover.spec.ts` (hover, scroll inside, pin, Esc, outside click, keyboard) |
+
+### 4.5 The M3 task list and the other deliverables
+
+| Requirement | | Evidence |
+|---|---|---|
+| Teardown script and its test; README and Tear down sections (task 1, D-M2-23) | YES | `scripts/empty-dev-buckets.sh`, `tests/scripts/empty-dev-buckets.test.ts` (7 tests); run for real: dry run 1,006 and 8,174 versions, then both buckets `empty`, then destroy completed |
+| `/favicon.ico` (task 2, D-M3-1) | YES | on dev `curl -sI $APP/favicon.ico`: `HTTP/2 200`, `image/svg+xml` (check 1) |
+| Integration tests: cancel while running, team-scoped visibility, push (task 12) | YES | `tracking.test.ts` (17 tests), `ws.test.ts` (10 tests), 17 files, 157 tests passed |
+| Testing document `M3-TESTING.md` with the five sections (AGENTS "How to work" 3) | YES | `docs/testing/M3-TESTING.md` |
+| The testing round run, evidence recorded (AGENTS 4) | YES | this file, sections 1 to 7 |
+| Browser checks written as numbered steps for the person, marked YES only after the person reports (AGENTS 4) | YES | `M3-TESTING.md` 1.3 (22 steps, all covered by Playwright) and 3a: the person reported check 12 and check 13 on dev and rechecked every fix |
+| Demo: submit a job, watch counts and rows change live, see failure reasons inline, refresh mid-run without losing anything | YES | locally by Playwright "counts and rows change live, and a reload mid-run loses nothing"; on dev the live counts by wscat (417 frames) and the person's browser |
+| Walkthrough `docs/walkthrough/M3.md` (AGENTS 6) | YES | written in this close |
+| STATUS updated, branch pushed, pull request opened (AGENTS 7) | YES | `docs/STATUS.md`; the pull request is in the close report |
+| Free plan, Sydney only, no Console changes, no secrets in files, prod never applied | YES | all AWS changes were `terraform apply` or the project's scripts; the seed password was read into a shell variable inside scripts and never printed; only `terraform plan` ran for prod (`validate` and `fmt`) |
+
+### 4.6 NOs and accepted gaps
+
+| Item | | Reason |
+|---|---|---|
+| Dev browser steps for checks 14 (F5 mid-run), 15 (Offline switch) and 16 (15 minutes on the page) | NO, accepted | skipped on dev by the person; covered by Playwright locally (`track.spec.ts`, `socket.test.ts`). Check 14's server side (1,300 rows over 14 pages) was run on dev |
+| Check 21 (deliveries older than 33 days) on dev | NO, accepted | not testable in one session; covered by an integration test |
+| SNS alarm email confirmed on this bring-up | NO, accepted | the confirmation link was never clicked; the four alarms could not email while dev was up. Dev is now destroyed |
+| Anantim has 13 destinations, not 14, for the large runs | note | the 1,300-delivery run used all 13 |
+| Gateway access log on the WebSocket stage | NO, accepted | D-M3-15: needs an account-wide API Gateway CloudWatch role; the `ws` Lambda logs every event instead |
+| Mockup differences | NO, accepted | the Open-by-ID placeholder and an always-on Open button (D-M3-16); draggable columns removed (D-M3-12); the box, tabs and Cancel/Retry rules follow D-M3-10 and D-M3-16 |
+| Comparing the screens with the "Track a Job" diagram line by line | not done | the demo and the steps were checked; the diagram was not compared again in this close |
+| Plan sizes: the ECR step added 10 resources (5 repositories and 5 policies), not 5; the dev plan was 248, not 275 | note | the testing document's expectations were off, not the code |
+| Prod: apply, deploy | not run | by rule; prod stays as code (`terraform validate` and `fmt` clean) |
+
+**Result: PASS.** Every requirement is YES or an accepted NO with its reason. Two things need the person's eye in the pull request: D-M3-15 and the D-M3-17 contract change are listed in `docs/STATUS.md` as decisions to fold into the design documents.
+
+## 8. Teardown (2026-10-17, the person's yes)
+
+| Step | Result |
+|---|---|
+| `scripts/empty-dev-buckets.sh dev --dry-run` | `docbeam-dev-object-store-346208529537: would delete 1006 versions and 0 delete markers`; `docbeam-dev-platform-files-346208529537: would delete 8174 versions and 0 delete markers`; `Dry run: nothing was deleted.` |
+| `scripts/empty-dev-buckets.sh dev` | both buckets `empty` (1,006 and 8,174 deleted), `Done.` |
+| `terraform -chdir=infra/envs/dev destroy` | `Destroy complete! Resources: 274 destroyed.` (the security groups and subnets took about 20 minutes: they wait for the Lambda network interfaces to release) |
+| `terraform state list` | 0 resources |
+| `aws s3 ls` | only `docbeam-tfstate-346208529537` |
+| ECS clusters, API Gateway APIs, ECR repositories, Lambda functions, RDS instances, SQS queues, CloudFront distributions, `docbeam` VPCs, NAT gateways, `docbeam` secrets, SNS topics, `docbeam` log groups | all empty. Nothing left behind |
 
 ## 5. Fixes after the person's browser checks on dev (D-M3-16)
 

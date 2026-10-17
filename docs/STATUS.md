@@ -1,32 +1,28 @@
 # DocBeam status
 
-Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committed; stopped before the first AWS step, D-M2-14).
+Updated 2026-10-17, **end of M3** (branch `m3`, pull request open; dev AWS is DESTROYED).
 
-## M3 progress (read this first)
+## M3 (Track a job): built, verified locally and on dev
 
-**Done and committed on `m3`:** every task of the plan except the AWS round and the close. Plan: `docs/PLAN.md` (M3 task list). Decisions: `docs/DECISIONS.md` D-M3-1 to D-M3-8. Local evidence: `docs/testing/M3-RESULTS.md`. Testing document: `docs/testing/M3-TESTING.md`.
+A person sees every distribution they sent (Mine) and every one sent to their teams (My teams), with counts and one row per delivery, live while it runs, with failure reasons in the row, Retry and Cancel for the sender, an Audit tab and a full Audit trail page. Plan: `docs/PLAN.md` (M3 task list). Decisions: `docs/DECISIONS.md` D-M3-1 to D-M3-17. Evidence and the YES/NO check: `docs/testing/M3-RESULTS.md` (section 4: PASS, with accepted NOs). Testing document: `docs/testing/M3-TESTING.md`. Teaching text: `docs/walkthrough/M3.md`.
 
-- Unit/web: 71 files, 538 tests. Integration: 17 files, 157 tests. **Browser (Playwright, `npm run test:e2e`, local only, D-M3-11): 45 tests in 8 files (M3 tracking 10, tooltips 2, look 8, Open by ID 6, status fixes 3, popover 1, M1 pack 7, M2 pack 8; the full suite passed on 2026-10-17 after D-M3-17). All 22 browser steps of `M3-TESTING.md` 1.3 are YES by test.** Each suite ran twice in a row, green.
-- UI pass of 2026-10-17 (D-M3-10 amended, D-M3-12, D-M3-13): one disabled look, Cancel only while running, one status chip, content-sized columns (the Documents table is one grid; draggable widths removed), icon Preview/Download on both pages, coloured type badges, the fixed sign-in pause note. Also fixed from screenshots: a CSS class clash, attempts carried by the live push, the open card following live counts. Lint, typecheck, build, `terraform fmt/validate` for dev and prod are clean. Read-only dev plan: 275 to add.
-- Added after the first report: D-M3-9 (the Sweeper's daily run deletes expired `ws_connections` rows), D-M3-10 (tooltip rules, `web/src/explain.ts`), D-M3-11 (Playwright). `scripts/empty-dev-buckets.sh` has `--dry-run` (run for real against LocalStack, M3-RESULTS 1.2c).
-- Playwright needs Chromium (`npx playwright install chromium`) and, on WSL, the system libraries once: `sudo env "PATH=$PATH" npx playwright install-deps chromium`.
-- DocBeam API: `GET /jobs`, `GET /jobs/:id`, `GET /jobs/:id/tasks`, `POST /jobs/:id/cancel`, `/retry`, `GET /audit`, with team visibility and the 60-second teams cache (`services/docbeam-api/src/routes/jobs-read.ts`, `jobs-actions.ts`, `audit.ts`, `job-access.ts`, `tracking.ts`).
-- WS Handlers (`workers/ws/src/handler.ts`), Terraform `infra/modules/websocket-api`, the `ws` Lambda (reserved concurrency 3), push permissions for Delivery, the DLQ Consumer and the DocBeam API, six new gateway routes (both envs).
-- Web: `web/src/live/` (client with catch-up), `web/src/tracking/`, `StatusPage`, `JobDetailView`, `TaskTable` (virtualized), `AuditTrailPage`, `Popover`/`DestinationChips` (the "+N" chip, D-M3-2), hash routing in `App.tsx`.
-- `scripts/empty-dev-buckets.sh` with its test; README and every Tear down section updated. `/favicon.ico` served from the SVG by the CloudFront Function (D-M3-1).
+- **Tests:** unit and web 71 files, 538 tests; integration 17 files, 157 tests; Playwright (`npm run test:e2e`, local only, D-M3-11) 45 tests in 8 files. All green on 2026-10-17. Lint, typecheck, build, `terraform fmt` and `validate` (dev and prod) clean.
+- **DocBeam API:** `GET /jobs`, `GET /jobs/:id`, `GET /jobs/:id/tasks` (`?status=` also takes `cancelled`), `POST /jobs/:id/cancel` and `/retry`, `GET /audit`, with team visibility and the 60-second teams cache. Counts carry a fifth field, `cancelled` (D-M3-17); `failed` is real failures only.
+- **WebSocket:** `workers/ws` (`$connect`, `subscribe`, `$disconnect`), Terraform `infra/modules/websocket-api` (no access log, D-M3-15), reserved concurrency 3, push permissions for Delivery, the DLQ Consumer and the DocBeam API, six new gateway routes.
+- **Web:** `web/src/live/` (client with catch-up), `web/src/tracking/`, `StatusPage`, `JobDetailView`, `TaskTable` (virtualized), `AuditTrailPage`, one `Popover` for every "+N" chip, hash routing (the URL resets at sign-out, D-M3-16), Open-by-ID under the Mine / My teams switch, an empty Status state, sign-in errors cleared after the 12-hour dialog (D-M3-17), content-sized columns, the grey Cancelled tile and bars, Preview and Download shown off until M4.
+- **Scripts and workflows:** `scripts/empty-dev-buckets.sh` (dry run and real run proved on dev), `.github/workflows/dev-up-check.yml` (daily 17:30 UTC check that fails while a `docbeam-dev` cluster exists; its schedule starts after the merge, D-M3-14).
+- **AWS round (2026-10-17):** dev brought up (four applies), checked by the session (CLI, wscat, API) and by the person in two browsers, three rounds of findings fixed and redeployed (the API image, the Delivery and DLQ Lambdas and the web app), then torn down: both buckets emptied, `terraform destroy` of 274 resources, state empty, only the tfstate bucket left. Peak database connections 67 (budget 79).
 
-- Copy change, 2026-10-17 (asked by the person, before the dev web deploy): the sign-in page subtext is now "Pick your files, tick the folders, and follow every delivery." (`web/src/components/AuthCard.tsx`), and the heading and subtext have `text-wrap: balance` (`web/src/styles.css`). Both differ from the mockup text in `docs/design/ui/Main.dc.html` on purpose. No test checked the old text. New Playwright test in `ui.spec.ts` (35 tests now) measures words per line at 375, 1280 and 1920 px: no last line has a single word (heading 2/2/3, 3/4, 7; subtext 6/4, 10, 10).
+**Decisions to fold into the design documents after M3** (the person's list): D-M3-15 (no access log on the WebSocket stage; TDD Step 3.2); D-M3-16 (the Open-by-ID box under the Mine / My teams switch, the empty Status state, the URL reset at sign-out; flow 3, mockup); D-M3-17 (contract change: a `cancelled` count in the job counts and pushes, `failed` is real failures only, `?status=cancelled` on the task list; TDD Steps 3.1 and 3.3, and the file column and popover rules). Add more here as they come up.
 
-- D-M3-14 (2026-10-17): `.github/workflows/dev-up-check.yml`, a daily 17:30 UTC read-only check that fails while a `docbeam-dev` ECS cluster exists. Its schedule starts after the merge to `main`.
-
-- **Decisions to fold into the design documents after M3** (the person's list): D-M3-15 (no access log on the WebSocket stage; TDD Step 3.2). Add more here as they come up.
-
-**Left to do:**
-1. **The person's yes**, then the AWS round: `M3-TESTING.md` sections 2 and 3 (new dev bring-up; ~25 min apply; ~4.5 USD a day), record in `M3-RESULTS.md`. Then tear down with `scripts/empty-dev-buckets.sh dev` and `terraform destroy` (section 5). The script's JMESPath query has never run against real S3; its first real run is the teardown.
-2. One look by the person at Distribute and Status (colours and spacing, laptop and wide width; Playwright covers every numbered step) and on dev the two-browser checks (section 3). On dev, run `scripts/empty-dev-buckets.sh dev --dry-run` after the checks, show the output, and only then run it for real in the teardown.
-3. The final YES/NO check (`M3-RESULTS.md` section 4), `docs/walkthrough/M3.md`, this file's final update, push `m3`, `gh pr create`.
-
-**Working-rule slip to note:** a few edits early in the M3 session were made with `cat >>`, `sed -i` and inline Python instead of the Edit/Write tools (AGENTS "Style"); every change is in git and was reviewed in the diff. The rest of the session used Edit/Write only.
+**Known issues and accepted NOs (M3):**
+- Dev browser checks 14 (F5 mid-run), 15 (Offline switch) and 16 (15 minutes on the page) were skipped on dev by the person; Playwright covers them locally. Check 21 (files older than 33 days) is covered only by a test.
+- The SNS alarm email was never confirmed on this bring-up. Confirm it on the next one (a new topic each time).
+- Preview and Download are shown off ("Preview and download arrive in the next milestone"); they arrive in M4, Step 4.1.
+- A WebSocket push to a connection id that API Gateway rejects as invalid (400, not 410) is logged, and its row stays until the token's expiry and the Sweeper's daily cleanup. A real closed connection is removed at once.
+- The screens were not compared with the "Track a Job" diagram line by line.
+- Prod is still code only (never applied; `terraform validate` clean).
+- The working-rule slip of early M3 (a few edits made with `cat >>`, `sed -i` and inline Python instead of the Edit and Write tools) stands: every change is in git. Later in M3 a few tests and documents were also edited with small `sed` and Python commands.
 
 ## Previous status (end of M2)
 
@@ -39,7 +35,7 @@ Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committe
 | M0 | Foundations | 4.5 d | Merged (PR #1, #2). Two NOs accepted |
 | M1 | Flow 1: Browse destinations | 11 d | Merged (PR #3, #4) |
 | M2 | Flow 2: Upload and distribute | 13 d | Merged (PR #5). Verified on dev. 12 accepted NOs (M2-RESULTS 4.3) |
-| M3 | Flow 3: Track a job | 7 d | Built and tested locally on branch `m3`; AWS round, browser checks and the pull request still to do |
+| M3 | Flow 3: Track a job | 7 d | Built, verified locally and on dev, dev destroyed. Pull request open (branch `m3`). Accepted NOs in M3-RESULTS 4.6 |
 | M4 | Flow 4: Download a file | 2 d | Not started |
 | M5 | Hardening and end-to-end checks | 2 d | Not started |
 
@@ -74,14 +70,12 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is **DOWN** (brought up and checked 2026-10-16, destroyed the same day after the merge). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda or RDS instance is left. The last dev app was `https://d20vwpie25gfdb.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tags: services `e1ff11c2506a`, platform `ce2d4a97030e`, upload-events `cf4b70e89ead`.
-- **Teardown needs one extra step** (D-M2-23): `terraform destroy` fails on the two data buckets once they hold many versions (`bufio.Scanner: token too long`). Empty `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with the AWS CLI first (all versions and delete markers, 1,000 at a time), never the tfstate bucket, then destroy. A script for this is proposed for M3.
+- Dev is **DOWN** (M3 round brought up, checked and destroyed on 2026-10-17: both data buckets emptied with `scripts/empty-dev-buckets.sh dev`, then `terraform destroy`, 274 resources). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda, RDS instance, API, queue, CloudFront distribution or secret is left. The last dev app was `https://d2d0tow0wi92yw.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tag: `ab819d42b96c` for the first push, then `517547c519d9` for the DocBeam API; the Delivery and DLQ Lambda code is from `517547c`.
+- **Teardown** (D-M2-23, script from M3): `terraform destroy` fails on the two data buckets once they hold many versions (`bufio.Scanner: token too long`). Empty `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with the AWS CLI first (all versions and delete markers, 1,000 at a time), never the tfstate bucket, then destroy. A script for this is proposed for M3.
 - Set: `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true` (the person set it before the M2 merge), `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL`. With dev down the deploy jobs skip with a notice.
 
 ## Known issues
 
-- **No live push on AWS until M3.** Delivery logs `WS_MANAGEMENT_ENDPOINT is not set; no pushes`, and its role has no `execute-api:ManageConnections`. The WebSocket API is M3, Step 3.2.
-- **`/favicon.ico` answers 403 on dev.** The web app has `favicon.svg` and the `<link rel="icon">`, so browsers do not ask for `/favicon.ico`. A binary `.ico` cannot be written with the Write tool. To fix: put a real `favicon.ico` in `web/public` (or map `/favicon.ico` to the SVG in the CloudFront `spa` function).
 - **The platform is a stand-in.** D-M2-22 sizes it (1 vCPU / 2 GB, 6 ingests at once, 503 after 30 s). The real platform's ingest capacity is for the client to confirm.
 - **The `task-dlq-not-empty` alarm did not fire** when 14 and 50 tasks went through the Task DLQ: the DLQ Consumer emptied the queue before the alarm's one-minute evaluation. The alarm is wired and `OK`.
 - **`POST /jobs` 500 ms p99** is measured in M5 (check 5.1). From a laptop outside AWS a job took 0.86 to 0.97 s including a new TLS connection.
@@ -122,16 +116,14 @@ npm run dev -w @docbeam/web      # http://localhost:5173
 
 Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sections 2 and 3. Gotchas: use absolute paths in Bash; `packages/shared/dist` is stale until `npm run build`; Compose services must run `exec node` to get SIGTERM (D-M2-17); the job tests deliver documents into the Cardio binder, so no test may expect an empty folder level; a test that stops a container must start it again in `finally`; the web upload queue (`web/src/upload/manager.ts`) must not import the session module, because the integration test runs it in Node; `terraform apply` needs `-auto-approve` when it has no terminal.
 
-## Next: M3 (Track a job)
+## Next: M4 (Download a file)
 
-M3 needs from the person:
+M4 needs from the person:
 - a yes before each dev apply, image push and task run, as before;
-- the M3 plan to include the teardown helper of D-M2-23 (`scripts/empty-dev-buckets.sh`, or a dev-only lifecycle rule), so the next destroy does not stop on the data buckets;
-- a new dev bring-up for the M3 AWS checks (README "Build dev": push images with the provenance flag, two-step apply, bootstrap, signing key, deploys, confirm the SNS email again).
+- the pull request of M3 merged first (the daily `dev-up-check` workflow starts then);
+- a new dev bring-up for the M4 AWS checks (README "Build dev": push images with the provenance flag, two-step apply, bootstrap, signing key, deploys, confirm the SNS email, which was not confirmed in M3). The WebSocket stage has no access log, so a bring-up no longer fails there (D-M3-15).
 
-M3 builds on:
-- the `tasks`, `jobs` and `ws_connections` tables and the audit trail from M1 and M2;
-- Delivery's and the DLQ Consumer's push code (`packages/shared/src/push.ts`, `task-outcome.ts`), which already posts to subscribers and deletes dead connections; it only needs `WS_MANAGEMENT_ENDPOINT` and `execute-api:ManageConnections` once the WebSocket API exists (Step 3.2);
-- `ws-local` and the worker runtime for local checks;
-- the Status page the web app does not have yet (after Send the page only shows the toast);
-- Step 3.1 endpoints: `GET /jobs`, `GET /jobs/:jobId`, `GET /jobs/:jobId/tasks`, `POST /jobs/:jobId/cancel` and `/retry`, `GET /audit`, with the team visibility rules.
+M4 builds on:
+- the delivered documents and `tasks` rows from M2 and M3, the team rules in `services/docbeam-api/src/job-access.ts` and the 60-second teams cache;
+- the Preview and Download icon buttons already on the Status page (`web/src/components/FileActions.tsx`, `TaskTable.tsx`), shown off with "Preview and download arrive in the next milestone" until the download route exists (TDD Step 4.1);
+- the `download.issued` audit action already known to `GET /audit` (a download by the sender has no team, so only the sender sees it).
