@@ -697,6 +697,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Found on the bring-up (2026-10-17):** the first bootstrap task failed with "could not read root certificate file: Permission denied". `update-rds-ca.sh` wrote the bundle through `mktemp`, which makes it mode 0600, and `COPY` kept that mode, so the non-root user of each image could not read it. The script now runs `chmod 644`, and the `COPY` lines for the bundle use `--chmod=644` (`--chmod=644` also stripped the folder's execute bit, which failed the first retry, so the service images now `chmod 755` the folder and `chmod 644` the file in a `RUN` while still root; checked locally by reading the file as the `node` user), so an image no longer depends on the mode of the file on the build machine.
 - **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
 
+## D-M5-11. Check 5.1 is a NO for now (stop rule), re-measured at the end
+- **Date:** 2026-10-17
+- **Changes:** none to the design.
+- **What:** Check 5.1 (p99 under 500 ms) failed on two full runs: p99 749 ms, then 712 ms (server side, API Gateway `responseLatency`). The cause of the first was real and is fixed (D-M5-10). The second run still had two of five 100 x 20 jobs above 500 ms (535 and 705 ms inside the API), with 50 Delivery copies clearing the previous cancelled job on the same small database. Under the run's stop rule (the same problem failing twice: stop fixing, record NO, carry on) no more product code is changed for it. The harness now waits for the queues to empty between big submissions (D-M5-7) and the check is run once more after all other checks. Both outcomes are in `M5-RESULTS.md`.
+- **Why:** An unattended run must not spend its whole window on one metric.
+
 ## D-M5-10. POST /jobs: one parameter per array, and the two checks run together (found on dev, check 5.1)
 - **Date:** 2026-10-17
 - **Changes:** TDD Step 2.2 (no contract change). Code only.
