@@ -144,11 +144,67 @@ Not repeated in the browser because the integration suite covers them: the 101 M
 
 ## 2. Deploy to dev on AWS
 
-Not run. Waiting for the person's yes (`M3-TESTING.md` section 2).
+Run on 2026-10-17 with the person's yes before each push and apply. Image tag `ab819d42b96c` (the commit with the new sign-in copy). Dev address `https://d2d0tow0wi92yw.cloudfront.net`, WebSocket `wss://7113obu8x5.execute-api.ap-southeast-2.amazonaws.com/v1`.
+
+| Step | Result |
+|---|---|
+| 1 to 5 | `…:user/anantim-admin`. Variables as expected (`INFRA_APPLY_ENABLED` false). Tree clean. `terraform init` ok, state empty |
+| 6 | `apply -target=module.ecr`: plan `10 to add` (5 repositories and their 5 lifecycle policies; the testing document said 5), `Apply complete! 10 added` |
+| 7 | five images pushed with `--provenance=false --sbom=false`, all tagged `ab819d42b96c` |
+| 8, 9 | plan `248 to add` (275 in the local plan, which counts the authorizer's 17 and the 10 ECR resources). **The first apply failed** at the WebSocket stage: `BadRequestException: CloudWatch Logs role ARN must be set in account settings to enable logging`. Fixed by removing the stage's access log (D-M3-15, commit `b14adf9`). The second plan was `13 to add, 0 to change, 1 to destroy` (the empty log group the failed apply had made; the person approved it); `Apply complete! 13 added, 1 destroyed` |
+| 10 | The SNS subscription is still **PendingConfirmation**: it waits for the person to click the link in the email (the four alarms cannot email until then) |
+| 11 | `run-db-bootstrap.sh dev` and `run-task.sh dev auth signing-key`: `exit code: 0` each |
+| 12, 13 | Auth, Platform and DocBeam API deployed (migrations and seed ran). `check-internal.sh`: `3001 200`, `3002 200`, `3003 200` |
+| 14, 15 | `npm run build`, then the five workers deployed. Upload Events already ran this image: `Nothing to do` |
+| 16 | `Plan: 17 to add, 0 to change, 0 to destroy` (the authorizer and 16 routes), `Apply complete! 17 added` |
+| 17 | `deploy-web.sh dev`: `Deployed to https://d2d0tow0wi92yw.cloudfront.net` |
+| 18 | `terraform plan`: `No changes. Your infrastructure matches the configuration.` |
 
 ## 3. Verify on dev
 
-Not run.
+The helper scripts that sent distributions (upload 100 small PDFs with the SHA-256 signed in, wait for `scanStatus` `clean`, `POST /jobs`) were kept outside the repository. The seed password was read from Secrets Manager into a shell variable inside a script and never printed.
+
+| # | Result |
+|---|---|
+| 1 | YES. `curl -sI $APP/favicon.ico`: `HTTP/2 200`, `content-type: image/svg+xml` |
+| 2 | YES. Priya's token: `GET /api/jobs` `200` and `[]`. Without the header: `401` |
+| 3, 4 | YES. `wscat -c $WS` and `?token=bad`: `error: Unexpected server response: 401`. (wscat prints nothing when its input is not piped and there is no terminal; the runs fed it input, and the later ones ran under `script`) |
+| 5, 6, 19 | **YES, with wscat (no screenshot).** Connected with Priya's token, subscribed to a random id, then sent 100 files to 11 destinations (1,100 deliveries) and subscribed to the new job. Messages (token removed, first lines of `wscat-clean.txt`, below). 417 `task_update` frames were captured before the capture ended; the job finished `completed`, 1,100 of 1,100 |
+| 7 | YES. `ws` log, last 30 minutes: 6 `$connect`, 4 `subscribe`, 4 `$disconnect` events, 0 `"level":"error"` lines. (After the ghost tests a `subscribe reply not sent` warning for the ghost ids is expected, see check 20) |
+| 8 | YES, by CLI (the Console is for reading only): API `docbeam-dev-ws`, protocol `WEBSOCKET`, routes `$connect`, `subscribe`, `$disconnect`, stage `v1` |
+| 9 | YES. `docbeam-dev-ws`: reserved concurrency `3`, in `vpc-020f18993ac289fc2`, environment keys `AUTH_URL`, `CLIENT_SECRET_WS_HANDLERS_ARN`, `JWT_ISSUER`, `DB_NAME`, `JWKS_URL`, `PLATFORM_URL`, `DB_HOST`, `DB_SECRET_ARN`: ARNs only, no secret values |
+| 10 | YES. Delivery's `WS_MANAGEMENT_ENDPOINT` is `https://7113obu8x5.execute-api.ap-southeast-2.amazonaws.com/v1`. The role policy (read from the Terraform state, because the session's permission mode refused `aws iam get-role-policy`) allows `execute-api:ManageConnections` on `arn:aws:execute-api:ap-southeast-2:346208529537:7113obu8x5/v1/POST/@connections/*` only |
+| 11 | YES. CloudWatch `DatabaseConnections`, `docbeam-dev-postgres`, last 100 minutes (six distributions of 1,100 to 1,300 deliveries): **peak 67**, the budget is 79 and the limit 80 |
+| 12 | Waiting on the person (browser) |
+| 13 | Waiting on the person (two browsers). Server side by API: Priya's job reached all 1,100 deliveries; the team-scoped reads are covered locally by `tracking.test.ts` and Playwright |
+| 14 | PARTLY. The server side is YES: a 1,300-delivery job pages as 14 pages of 100 (`total 1300`, 1,300 rows in all). Anantim has 13 destinations at the top level, not 14, so the run used 13. The two F5 presses are for the person's browser |
+| 15, 16 | Waiting on the person (the browser's Offline switch; 15 minutes on the page). Covered locally by `socket.test.ts` and the Playwright "connection drops" test |
+| 17 | YES, through the API. Anantim sent 100 files to 13 destinations (1,300 deliveries) and cancelled at 443 completed: `{"cancelled":793}`. After 20 s: `status cancelled`, 507 completed, 793 failed (`CANCELLED`), 0 pending, 0 in progress. 30 seconds later: unchanged, and the Delivery log has **0** `task delivered` lines after the cancel |
+| 18 | YES. Task queue, Job queue, Upload Events queue and the three DLQs all `0` visible, `0` in flight |
+| 20 | **YES, after a correction to the check.** A made-up connection id such as `ghost-2` or `GhostAbCd12XyZ9=` gets `BadRequestException: Invalid connectionId` (a 400, not a 410): the push is logged as `push failed` and the row stays until it expires. A 410 only comes for an id API Gateway really issued. So the check used a real id: a wscat connection was opened and closed, its id `gdxmH09ItlgYKABwlA==` was read from the `ws` log, the `$connect` and `subscribe` events were replayed for it, and a new distribution was sent. The line, from `/aws/lambda/docbeam-dev-delivery`: `{"level":"info","name":"delivery","msg":"connection gone (410); row deleted","jobId":"b7109410-db45-44ec-a6c6-f60f8ac063cb","connectionId":"gdxmH09ItlgYKABwlA=="}` (two deliveries raced to it, so it appeared twice) |
+| 21 | Not testable in one session (covered by `tracking.test.ts`) |
+
+**Findings:**
+- **F1** (fixed, D-M3-15): a WebSocket stage cannot have an access log without an account-wide API Gateway CloudWatch role.
+- **F2** (check changed): a fake connection id gives 400, not 410; use a closed real id. The commands in `M3-TESTING.md` check 20 now say so.
+- **F3** (accepted, no change): a stale row for an id that API Gateway rejects as invalid is never deleted by a push; it goes with the token's expiry (15 minutes) and the Sweeper's daily cleanup (D-M3-9). A real dead connection is cleaned at once (check 20).
+- **F4**: the testing document expected 5 repositories to add (10 with the lifecycle policies) and the dev plan changed from 275 to 248 after the authorizer's 17 and the ECR 10 are taken out.
+
+wscat, check 19 (token removed):
+
+```
+Connected (press CTRL+C to quit)
+> {"action":"subscribe","jobId":"00000000-0000-4000-8000-000000000001"}
+< {"type":"subscribe_error","jobId":"00000000-0000-4000-8000-000000000001","code":"NOT_FOUND"}
+> {"action":"subscribe","jobId":"21090b76-934b-4e8a-8d39-ebd2113f45e3"}
+< {"type":"subscribed","jobId":"21090b76-934b-4e8a-8d39-ebd2113f45e3"}
+< {"type":"task_update","jobId":"21090b76-934b-4e8a-8d39-ebd2113f45e3","taskId":"03770765-5095-4cce-98f5-9cef8d5bb2aa","status":"completed","attemptCount":1,"updatedAt":"2026-10-17T01:47:15.079Z","counts":{"pending":1095,"in_progress":3,"completed":2,"failed":0}}
+< {"type":"task_update","jobId":"21090b76-934b-4e8a-8d39-ebd2113f45e3","taskId":"0053a66c-e136-453c-acdf-24f7ecedde33","status":"completed","attemptCount":1,"updatedAt":"2026-10-17T01:47:15.080Z","counts":{"pending":1095,"in_progress":3,"completed":2,"failed":0}}
+  … (417 task_update frames in all)
+< {"type":"task_update","jobId":"21090b76-934b-4e8a-8d39-ebd2113f45e3","taskId":"700b2d44-1122-4229-accc-42843b3ec981","status":"completed","attemptCount":1,"updatedAt":"2026-10-17T01:47:22.073Z","counts":{"pending":675,"in_progress":8,"completed":417,"failed":0}}
+```
+
+`subscribed` came back before the first `task_update`, and the counts in the last frame (417 completed, 675 pending) are the live state at 01:47:22.
 
 ## 4. Final check: YES / NO
 

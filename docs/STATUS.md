@@ -19,6 +19,8 @@ Updated 2026-10-16, **during M3** (branch `m3`, all local work done and committe
 
 - D-M3-14 (2026-10-17): `.github/workflows/dev-up-check.yml`, a daily 17:30 UTC read-only check that fails while a `docbeam-dev` ECS cluster exists. Its schedule starts after the merge to `main`.
 
+- **Decisions to fold into the design documents after M3** (the person's list): D-M3-15 (no access log on the WebSocket stage; TDD Step 3.2). Add more here as they come up.
+
 **Left to do:**
 1. **The person's yes**, then the AWS round: `M3-TESTING.md` sections 2 and 3 (new dev bring-up; ~25 min apply; ~4.5 USD a day), record in `M3-RESULTS.md`. Then tear down with `scripts/empty-dev-buckets.sh dev` and `terraform destroy` (section 5). The script's JMESPath query has never run against real S3; its first real run is the teardown.
 2. One look by the person at Distribute and Status (colours and spacing, laptop and wide width; Playwright covers every numbered step) and on dev the two-browser checks (section 3). On dev, run `scripts/empty-dev-buckets.sh dev --dry-run` after the checks, show the output, and only then run it for real in the teardown.
