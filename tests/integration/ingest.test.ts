@@ -113,7 +113,8 @@ describe('POST /documents', () => {
     const { rows } = await db.query('SELECT count(*) FROM documents WHERE source_task_id = $1', [taskId]);
     expect(Number(rows[0].count)).toBe(1);
     // The loser removed its own object: no live object exists under any other document id for this task.
-    const listed = await s3.send(new ListObjectVersionsCommand({ Bucket: BUCKET, Prefix: 'documents/' }));
+    // Only this document's key is listed: the bucket keeps every earlier run's objects, and one page holds 1,000.
+    const listed = await s3.send(new ListObjectVersionsCommand({ Bucket: BUCKET, Prefix: `documents/${results[0]!.body.documentId}` }));
     const live = new Set((listed.Versions ?? []).filter((v) => v.IsLatest).map((v) => v.Key));
     const deleted = new Set((listed.DeleteMarkers ?? []).filter((m) => m.IsLatest).map((m) => m.Key));
     const kept = [...live].filter((k) => !deleted.has(k));

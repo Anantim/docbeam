@@ -10,7 +10,8 @@ Run on 2026-10-17, unattended (D-M5-0), against a dev built from nothing with `d
 |---|---|---|
 | Lint, types, build | `npm run lint`, `npm run typecheck`, `npm run build` | all exit 0 |
 | Unit and web | `npm test` | 76 files, 577 tests passed |
-| Integration (Compose, LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 169 tests. In the last full round 168 passed and `web-upload.test.ts` timed out at 120 s while the laptop was also running the load check; run alone it passed in 22.8 s. An earlier full run the same day: 169 of 169 |
+| Integration (Compose, LocalStack, real ClamAV) | `npm run test:integration` | **169 tests in 18 files.** Full round on 2026-10-17 (during the M5 run): **168 passed, 1 failed** — `web-upload.test.ts` hit its 120 s timeout while the same laptop was running the load check (CPU and network shared); run alone it passed in 22.8 s. Full round on 2026-10-18 after the timing and sweeper changes: first run 168 of 169 (`ingest.test.ts` "stores one document for two parallel repeats": it listed `documents/` and read one page of 1,000 object versions, and the local bucket keeps every earlier run's objects, so the winner's key could fall off the page; not proven, but the test now lists only its own key), second run **169 of 169**, and `ingest.test.ts` alone three times 11 of 11 |
+| Unit and web, 2026-10-18 | `npm test` | 77 files, 583 tests passed |
 | Browser, local | `npm run test:e2e` | 49 passed (6.7 min) |
 | Terraform | `terraform fmt -check -recursive infra`; `validate` dev and prod | clean |
 | Public check | `scripts/check-public.sh` | PASS: gitleaks over 139+ commits on every branch and over the files on disk; no `.env`, key, state or tfvars file ever added; no private key block; no email address except example and noreply ones (the older author address is accepted, D-M5-2, and mapped by `.mailmap`) |
@@ -56,33 +57,34 @@ Failure rate (`m5-failure-rate.sh`, `failure-rate.txt`): over the whole bring-up
 
 ## 4. YES/NO against the prompt and the TDD M5 list
 
-| Requirement | |
-|---|---|
-| TDD: 100 x 20 job accepted in under 500 ms at p99 | **NO** (808 ms; section 5) |
-| TDD: removing the sender from one team: 100 NOT_AUTHORIZED_AT_DELIVERY, 1,900 complete | YES (5.2) |
-| TDD: platform stopped 5 minutes, backlog drains, DLQ empty | YES (5.3) |
-| TDD: FILE_NOT_READY, FILE_NOT_UPLOADED | YES (5.4) |
-| TDD: browsing under 1 s for a user in 50 teams | YES (5.5) |
-| TDD: 1 GB multipart, combined checksum, matching SHA-256 | YES (5.6) |
-| TDD: team viewer sees only their team, 404 otherwise | YES (5.7) |
-| TDD: failover during a run, nothing lost | YES (5.8) |
-| TDD: EICAR refused, never downloadable | YES (5.9) |
-| TDD: cancel mid-run | YES (5.10) |
-| TDD: refresh reuse; 5 wrong passwords | YES (5.11) |
-| TDD: security (401, cross-team 404, expired links, gitleaks) and a POST with no body works through CloudFront | YES (5.12, D-M5-5) |
-| TDD: dropped job message, sweeper within 3 minutes | YES, 179 s (5.13) |
-| TDD: manual checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview) | YES, run in a real browser by Playwright (5.14). A person has not clicked through them; the steps are in `M5-TESTING.md` 1.3 |
-| Prompt: `scripts/m5-submit-load.sh` and the other scripts, re-runnable | YES (`scripts/m5-*.sh`, `m5-all.sh`, `scripts/m5/`) |
-| Prompt: every check run on dev with evidence; failures fixed and re-run | YES, except 5.1, which was re-run three times and is recorded as NO (D-M5-11) |
-| Prompt: `M5-TESTING.md`, `M5-RESULTS.md` | YES |
-| Prompt: `docs/RUNBOOK-first-bring-up.md`, proved by building dev from nothing | YES (section 2) |
-| Prompt: database TLS checking the chain, D-M1-10 | YES (D-M5-4, `tls.txt`) |
-| Prompt: README for a first-time visitor | YES (`README.md`) |
-| Prompt: `docs/DEMO-SCRIPT.md` with bring-up and teardown commands | YES, with `scripts/demo-files.sh`, `demo-send.sh`, `demo-outage.sh` |
-| Prompt: repository safe to make public (gitleaks over history, no `.env` or keys, no real emails) | YES (`scripts/check-public.sh`) |
-| Prompt: STATUS release summary | YES |
-| Prompt: D-M5-1 recorded first | YES |
-| Prompt: do not deploy prod | YES, never touched |
+| Requirement | | Evidence |
+|---|---|---|
+| TDD: 100 x 20 job accepted in under 500 ms at p99 | **NO** (808 ms; section 5) | `m5-evidence/submit-load.txt` |
+| TDD: removing the sender from one team: 100 NOT_AUTHORIZED_AT_DELIVERY, 1,900 complete | YES (5.2) | `m5-evidence/removed-member.txt` |
+| TDD: platform stopped 5 minutes, backlog drains, DLQ empty | YES (5.3) | `m5-evidence/platform-outage.txt` |
+| TDD: FILE_NOT_READY, FILE_NOT_UPLOADED | YES (5.4) | `m5-evidence/file-checks.txt` |
+| TDD: browsing under 1 s for a user in 50 teams | YES (5.5) | `m5-evidence/browse.txt` |
+| TDD: 1 GB multipart, combined checksum, matching SHA-256 | YES (5.6) | `m5-evidence/multipart-1gb.txt` |
+| TDD: team viewer sees only their team, 404 otherwise | YES (5.7) | `m5-evidence/team-viewer.txt` |
+| TDD: failover during a run, nothing lost | YES (5.8) | `m5-evidence/failover.txt` |
+| TDD: EICAR refused, never downloadable | YES (5.9) | `m5-evidence/eicar.txt` |
+| TDD: cancel mid-run | YES (5.10) | `m5-evidence/cancel.txt` |
+| TDD: refresh reuse; 5 wrong passwords | YES (5.11) | `m5-evidence/auth.txt` |
+| TDD: security (401, cross-team 404, expired links, gitleaks) and a POST with no body works through CloudFront | YES (5.12, D-M5-5) | `m5-evidence/security.txt` |
+| TDD: dropped job message, sweeper within 3 minutes | YES, 179 s (5.13); to be re-run after D-M5-15 | `m5-evidence/sweeper.txt` |
+| TDD: manual checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview) | YES, run in a real browser by Playwright (5.14). A person has not clicked through them; the steps are in `M5-TESTING.md` 1.3 | `m5-evidence/browser.txt`, `browser-4.txt`, `*.png` |
+| Prompt: `scripts/m5-submit-load.sh` and the other scripts, re-runnable | YES (`scripts/m5-*.sh`, `m5-all.sh`, `scripts/m5/`) | command: `ls scripts/m5-*.sh scripts/m5/` |
+| Prompt: every check run on dev with evidence; failures fixed and re-run | YES, except 5.1, which was re-run three times and is recorded as NO (D-M5-11) | `m5-evidence/summary.txt` (every run, with exit codes) |
+| Prompt: `M5-TESTING.md`, `M5-RESULTS.md` | YES | the two files in `docs/testing/` |
+| Prompt: `docs/RUNBOOK-first-bring-up.md`, proved by building dev from nothing | YES (section 2) | section 2 above; the 247 + 26 apply counts are in the runbook; `m5-evidence/teardown.txt` for the destroy |
+| Prompt: database TLS checking the chain, D-M1-10 | YES (D-M5-4, `tls.txt`) | `m5-evidence/tls.txt` |
+| Prompt: README for a first-time visitor | YES (`README.md`) | file `README.md` |
+| Prompt: `docs/DEMO-SCRIPT.md` with bring-up and teardown commands | YES, with `scripts/demo-files.sh`, `demo-send.sh`, `demo-outage.sh` | files `docs/DEMO-SCRIPT.md`, `scripts/demo-*.sh` |
+| Prompt: repository safe to make public (gitleaks over history, no `.env` or keys, no real emails) | YES (`scripts/check-public.sh`) | command: `scripts/check-public.sh` (PASS, section 1) |
+| Prompt: STATUS release summary | YES | `docs/STATUS.md`, section "M5 (Hardening…): release summary" |
+| Prompt: D-M5-1 recorded first | YES | `docs/DECISIONS.md` line 669 (D-M5-1, the first M5 entry) |
+| Delivery failure rate: no system failures after the fixes | **YES**: 0% over 12,872 tasks after the fixes (deployed 16:10 UTC). The 853 RETRIES_EXHAUSTED (3.5% of 24,398) came from the first failover run, before D-M5-13: that run is how the pool bug was found | `m5-evidence/failure-rate.txt`, `failover-run1.txt`; command `scripts/m5-failure-rate.sh` |
+| Prompt: do not deploy prod | YES, never touched | command: `aws s3 ls s3://docbeam-tfstate-346208529537/ --recursive` lists only `envs/dev/terraform.tfstate` (no `envs/prod`), checked 2026-10-18 |
 
 **One NO means the milestone fails** (AGENTS.md). M5 is reported as FAILED on 5.1, with the reason below.
 
