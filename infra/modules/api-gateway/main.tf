@@ -63,7 +63,11 @@ resource "aws_apigatewayv2_authorizer" "jwt" {
 
 resource "aws_apigatewayv2_route" "this" {
   # Without the authorizer only the public routes exist. A protected route is never created without it.
-  for_each = { for k, r in var.routes : k => r if r.public || var.jwt_authorizer_enabled }
+  # POST /auth/register is left out when public registration is switched off (D-M5-20).
+  for_each = {
+    for k, r in var.routes : k => r
+    if(r.public || var.jwt_authorizer_enabled) && (var.public_registration_enabled || k != "POST /auth/register")
+  }
 
   api_id             = aws_apigatewayv2_api.this.id
   route_key          = each.key
@@ -88,7 +92,8 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 
   dynamic "route_settings" {
-    for_each = toset(var.tight_routes)
+    # Only routes that exist: a protected route is absent until the authorizer is on (D-M1-13).
+    for_each = toset([for k in var.tight_routes : k if contains(keys(aws_apigatewayv2_route.this), k)])
 
     content {
       route_key              = route_settings.value
