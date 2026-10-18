@@ -1,0 +1,120 @@
+name: dev-teardown
+
+# Tears dev down (D-M5-21). Scheduled once, on Monday 2026-10-19 at 14:17 UTC, and it can be started by hand from the
+# Actions tab. Dev only: there are no inputs, and every command targets docbeam-dev and infra/envs/dev. It signs in with
+# the deploy user's keys, like the other workflows.
+#
+# A scheduled run does nothing after 2026-10-20, so the yearly cron entry (it fires on 19 October of every year) never
+# tears anything down again. A run started by hand is not limited by that date.
+on:
+  schedule:
+    - cron: '17 14 19 10 *' # 14:17 UTC on 19 October (a Monday in 2026)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs at once would fight over the Terraform state lock.
+concurrency:
+  group: dev-teardown
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: '0'
+  # The variables the runbook passes to apply and destroy (RUNBOOK-first-bring-up.md section 8). The two tags are the
+  # ones dev was built with; a destroy does not depend on their value.
+  TF_VAR_alarm_email: ${{ vars.ALARM_EMAIL }}
+  IMAGE_TAG: 47e890049549
+
+jobs:
+  teardown:
+    name: Tear down dev
+    if: github.repository == 'Anantim/docbeam'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120 # emptying the data buckets and destroying about 300 resources took 35 minutes last time
+    environment: dev
+    steps:
+      - name: Check the date of a scheduled run
+        id: when
+        run: |
+          set -euo pipefail
+          today=$(date -u +%F)
+          if [ "${{ github.event_name }}" = "schedule" ] && [[ "$today" > "2026-10-20" ]]; then
+            echo "::notice::Scheduled run on $today, after 2026-10-20. This teardown was a one-off, so nothing is done."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Run on $today (${{ github.event_name }}): going on."
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.when.outputs.go == 'true'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.when.outputs.go == 'true'
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Is there a dev cluster
+        id: cluster
+        if: steps.when.outputs.go == 'true'
+        run: |
+          set -euo pipefail
+          found=$(aws ecs describe-clusters --clusters docbeam-dev-cluster --query "clusters[?status=='ACTIVE'].clusterName" --output text)
+          if [ -z "$found" ]; then
+            echo "::notice::There is no docbeam-dev ECS cluster, so dev is already down. Nothing to tear down."
+            echo "up=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found the cluster $found: tearing dev down."
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.cluster.outputs.up == 'true'
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init (dev)
+        if: steps.cluster.outputs.up == 'true'
+        run: terraform -chdir=infra/envs/dev init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Empty the two dev data buckets
+        if: steps.cluster.outputs.up == 'true'
+        run: scripts/empty-dev-buckets.sh dev
+
+      - name: Show what will be destroyed
+        if: steps.cluster.outputs.up == 'true'
+        run: |
+          terraform -chdir=infra/envs/dev plan -destroy -no-color \
+            -var image_tag="$IMAGE_TAG" -var upload_events_image_tag="$IMAGE_TAG" | tail -n 5
+
+      - name: Destroy dev
+        if: steps.cluster.outputs.up == 'true'
+        run: |
+          terraform -chdir=infra/envs/dev destroy -auto-approve -no-color \
+            -var image_tag="$IMAGE_TAG" -var upload_events_image_tag="$IMAGE_TAG"
+
+      - name: Check that dev is gone
+        if: steps.cluster.outputs.up == 'true'
+        run: |
+          set -euo pipefail
+          left=$(aws ecs list-clusters --query "clusterArns[?contains(@, 'cluster/docbeam-dev')]" --output text)
+          state=$(terraform -chdir=infra/envs/dev state list)
+          failed=false
+          if [ -n "$left" ]; then
+            echo "::error::A docbeam-dev ECS cluster is still there: $left"
+            failed=true
+          fi
+          if [ -n "$state" ]; then
+            echo "::error::The Terraform state for dev is not empty: $(echo "$state" | wc -l) resources are left."
+            echo "$state" | head -n 20
+            failed=true
+          fi
+          if [ "$failed" = true ]; then
+            echo "::error::Dev was NOT fully torn down. It is still costing money. Run this workflow again or follow RUNBOOK-first-bring-up.md section 8."
+            exit 1
+          fi
+          echo "Dev is down: no docbeam-dev cluster and the Terraform state is empty."

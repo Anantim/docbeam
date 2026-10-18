@@ -112,6 +112,8 @@ Switches (the person sets them): `ECS_DEPLOY_ENABLED=true` and `LAMBDA_DEPLOY_EN
 
 ## 8. Tear down
 
+The workflow `.github/workflows/dev-teardown.yml` does exactly the steps below for dev, from the Actions tab (Run workflow), and it is also scheduled once for 2026-10-19 14:17 UTC (D-M5-21). By hand:
+
 ```bash
 scripts/empty-dev-buckets.sh dev --dry-run      # names and counts only
 scripts/empty-dev-buckets.sh dev                # empties the two data buckets (all versions); never the state bucket
