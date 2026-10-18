@@ -101,7 +101,7 @@ DLQ Consumer > WebSocket API: push update (sender and that team's viewers)
 
 // Lost-message recovery (ADR-014)
 Scheduler > Sweeper Lambda: every minute (re-send), daily (cleanup)
-Sweeper Lambda > Job Queue: re-send jobs not fanned out 2 min after queued
+Sweeper Lambda > Job Queue: re-send jobs not fanned out 1 min after queued
 Sweeper Lambda > Object Store: delete files not submitted within 24 h (daily)
 
 // Live status connections

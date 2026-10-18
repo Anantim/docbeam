@@ -109,8 +109,8 @@ Diagram: Document Distribution Flow
 7. If the Document Platform does not answer, the DocBeam API returns 503 PLATFORM_UNAVAILABLE and creates nothing. Web Client shows "The platform is not answering. Try again." and the next Send reuses the same key, so a retry can never create a second job.
 8. In **one database transaction**, the DocBeam API creates the job, links the files to it, creates one task for every file and destination pair (all marked pending, in one statement) and writes "job submitted" to the audit trail. Either all of this is saved or none of it is.
 9. It puts one message on the Job Queue. The message holds only the job ID.
-10. It replies "job accepted", with the job ID and number of tasks, in under 500 ms. The user is free to leave; everything below happens in the background.
-11. **If that queue message is lost** (the send fails, or the API crashes just after saving), the Sweeper Lambda catches it. Every minute it looks for jobs that have not started 2 minutes after they were queued and sends their message again (ADR-014). The job starts within about 3 minutes instead of never.
+10. It replies "job accepted", with the job ID and number of tasks, in under 500 ms (under 1 s at peak delivery load). The user is free to leave; everything below happens in the background.
+11. **If that queue message is lost** (the send fails, or the API crashes just after saving), the Sweeper Lambda catches it. Every minute it looks for jobs that have not started 1 minute after they were queued and sends their message again (ADR-014). The job starts within about 2 minutes instead of never.
 
 #### Split the job into tasks (fan-out)
 

@@ -252,7 +252,7 @@ Context. Workers read SQS messages. Fan-out sends task messages; delivery fetche
 **Consequences**
 
 - Every Lambda reaches PostgreSQL through RDS Proxy in prod. The AWS Free plan blocks RDS Proxy, so in dev each Lambda copy connects to the instance directly with at most one connection; the worst case (79 of 100 connections) is checked by a unit test. This build is shown on dev only and stays on the Free plan, so M5 also runs without the proxy; prod keeps it in its Terraform. The ECS services keep direct connections with their own small pools.
-- The Delivery Lambda gets 1,024 MB of memory and a 120-second timeout, and streams the file, so even a 1 GB file finishes in well under a minute. Its call to the platform has its own 100-second limit, so a slow platform is a normal temporary error with backoff.
+- The Delivery Lambda gets 3,008 MB of memory and a 120-second timeout, and streams the file; a 1 GB file was delivered in 37 seconds on dev. At 1,024 MB the same file timed out, because a Lambda's network speed grows with its memory (D-M5-12). Its call to the platform has its own 100-second limit, so a slow platform is a normal temporary error with backoff.
 - The Task Queue trigger caps Delivery at 50 runs at a time (maximum concurrency on the event source mapping, set in Terraform), so a burst cannot drain the proxy pool (or, in dev, the instance's connections). This is used instead of reserved concurrency, because messages throttled by reserved concurrency would use up their attempts.
 - Capping the number of deliveries does not cap the platform's load. On dev, 50 deliveries of 120 MB files at once ran the 0.5 GB platform out of memory. The platform stand-in therefore takes at most 6 files at once and answers 503 PLATFORM_BUSY after 30 seconds of waiting, which Delivery retries like any temporary error. The real platform's capacity is for the client to confirm.
 
@@ -308,11 +308,11 @@ Context. ADR-008 commits the job and its tasks, then sends one job message. If s
 | 3 | **Sweeper: a scheduled Lambda re-sends messages for jobs that never started** (chosen) | Simple, and nothing new on the submission path. Repeated job messages are harmless because fan-out is safe to repeat. |
 | 4 | Send the message before committing | Moves the problem: a message could point at a job that never saved. |
 
-> **Decision.** Option 3, keeping the immediate send in the request. Submission and each retry set jobs.queued_at, and fan-out sets jobs.fanned_out_at when it starts. A Sweeper Lambda runs every minute and re-sends the message for any job not yet fanned out and not finished 2 minutes after it was queued. Once a day, the same Lambda deletes uploaded files still not submitted 24 hours after upload; submission refuses files that old, so a file is never deleted while a job is claiming it.
+> **Decision.** Option 3, keeping the immediate send in the request. Submission and each retry set jobs.queued_at, and fan-out sets jobs.fanned_out_at when it starts. A Sweeper Lambda runs every minute and re-sends the message for any job not yet fanned out and not finished 1 minute after it was queued (2 minutes until M5; shortened so the 3-minute promise holds with a margin, D-M5-15). Once a day, the same Lambda deletes uploaded files still not submitted 24 hours after upload; submission refuses files that old, so a file is never deleted while a job is claiming it.
 
 **Consequences**
 
-- In the rare failure case, fan-out starts up to about 3 minutes late, but it always starts.
+- In the rare failure case, fan-out starts up to about 2 minutes late (about 2 min 10 s at worst; 113 seconds measured on dev), but it always starts.
 - Two new columns (jobs.queued_at and jobs.fanned_out_at), a partial index for the sweeper's query, and one scheduled Lambda, shown in the architecture diagram's Async zone.
 
 ### ADR-015: Sign-in length and refresh tokens

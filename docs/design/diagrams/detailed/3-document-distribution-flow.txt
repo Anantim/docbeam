@@ -132,7 +132,7 @@ DocBeam API > Job Queue: Send one fan-out message
 DocBeam API --> Web Client: 201 Job accepted (jobId, taskCount)
 
 opt [label: message lost after commit (ADR-014)] {
-  Sweeper Lambda > DocBeam DB: Every minute, find jobs not fanned out and not finished 2 min after queued_at
+  Sweeper Lambda > DocBeam DB: Every minute, find jobs not fanned out and not finished 1 min after queued_at
   Sweeper Lambda > Job Queue: Re-send the fan-out message
 }
 
