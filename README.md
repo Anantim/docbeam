@@ -4,7 +4,7 @@
 
 DocBeam is a batch document distribution app for clinical trial teams. It is a portfolio project: designed first (`docs/design/`), then built in six milestones, and shown running on AWS (Sydney) from Terraform. Prod is written but never deployed.
 
-> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (3 min 40 s, no sound, recorded on dev; the script is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)).
+> **Demo video:** none in the repository (the recording was deleted); the script to record one is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md).
 
 ## The problem
 

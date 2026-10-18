@@ -1,6 +1,6 @@
 # Demo script: a 3 to 5 minute screen recording on dev
 
-What the video shows, in order: sign in, upload files, the virus test file refused, a 2,000-delivery send, the Audit tab (who sent what, where and when), Raj seeing only the Cardio deliveries and Sam getting "not found", live tracking, the platform stopped and the backlog draining, a preview and a download. Target length 3 to 5 minutes. `scripts/demo/record.ts` records every step in a browser (1280 x 720, a cursor, a caption per step, no voice); this table is the plan it follows. Record at 1080p with the browser zoom at 110%.
+What the video shows, in order: sign in, upload files, the virus test file refused, a 2,000-delivery send, the Audit tab (who sent what, where and when), Raj seeing only the Cardio deliveries and Sam getting "not found", live tracking, the platform stopped and the backlog draining, a preview and a download. Target length 3 to 5 minutes. A video was recorded from this plan on 2026-10-18 and then deleted by the person, together with the recorder script (`scripts/demo/record.ts`, a Playwright script: 1280 x 720, a cursor, a caption per step, no voice); both are in git history (commit `9b2141e`). Record at 1080p with the browser zoom at 110%.
 
 The video link goes into the README ("Demo video" section) when it exists.
 
