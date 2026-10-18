@@ -32,6 +32,8 @@ const PW = password();
 
 const ANANTIM = 'anantim.patil@example.com';
 const LOAD = 'load.user@example.com';
+const RAJ = 'raj.mehta@example.com'; // Cardio only
+const SAM = 'sam.ito@example.com'; // Neuro only
 const FOLDERS = [
   'Cardio / CARDIO-301 Regulatory / IRB approvals',
   'Cardio / CARDIO-301 Regulatory / Protocol amendments',
@@ -171,11 +173,13 @@ async function tick(s: Scene, path: string): Promise<void> {
 async function main(): Promise<void> {
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: 'chromium' }); // the new headless mode has the PDF viewer for the preview
   const newContext = (): Promise<BrowserContext> =>
     browser.newContext({ baseURL: BASE, viewport: SIZE, recordVideo: { dir: join(OUT, 'raw'), size: SIZE } });
 
-  // Scene 1: Anantim uploads, is refused on malware, sends 13 files to 3 folders.
+  let jobId = '';
+
+  // Scene 1: Anantim uploads, is refused on malware, sends 13 files to 3 folders, opens the Audit tab.
   await scene(newContext, 'send-files', async (s) => {
     const { page } = s;
     await page.goto('/');
@@ -215,6 +219,37 @@ async function main(): Promise<void> {
     await s.pause(2500);
     await s.say('All 39 delivered.');
     await s.pause(2500);
+
+    jobId = page.url().split('/status/')[1] ?? '';
+
+    await s.say('The Audit tab records who sent what, to where, and when.');
+    await s.click(page.getByRole('tab', { name: /^Audit/ }));
+    await page.getByText('Distribution sent').first().waitFor({ timeout: 20_000 }).catch(() => undefined); // the wording is checked in the frames
+    await s.pause(9000);
+  });
+
+  // Scenes 2 and 3: the same distribution seen by Raj (Cardio only) and by Sam (Neuro only).
+  await scene(newContext, 'raj-cardio-only', async (s) => {
+    const { page } = s;
+    await page.goto('/');
+    await s.say('Raj is in the Cardio team only.');
+    await signIn(s, RAJ);
+    await page.goto(`/#/status/${jobId}`);
+    await expect(page.locator('.ttable .trow').first()).toBeVisible({ timeout: 30_000 });
+    await s.say('He sees only the Cardio deliveries of this distribution, and nothing for Oncology.');
+    await s.move(page.locator('.ttable'));
+    await s.pause(9000);
+  });
+
+  await scene(newContext, 'sam-not-found', async (s) => {
+    const { page } = s;
+    await page.goto('/');
+    await s.say('Sam is in the Neuro team only.');
+    await signIn(s, SAM);
+    await page.goto(`/#/status/${jobId}`);
+    await expect(page.getByText('Distribution not found')).toBeVisible({ timeout: 30_000 });
+    await s.say('For this distribution Sam gets "not found", the same answer as for one that does not exist.');
+    await s.pause(8000);
   });
 
   // Scene 2: the big send as Load User, the platform stopped and started, a preview and a download.
@@ -224,7 +259,7 @@ async function main(): Promise<void> {
     await s.say('A second user, in 50 teams, sends a bigger one.');
     await signIn(s, LOAD);
 
-    await s.say('100 files to 20 folders: 2,000 deliveries in one action (sent from a script).');
+    await s.say('100 files to 20 folders: 2,000 deliveries in one action (sent from a script; upload and scan sped up).', true);
     const sent = run('scripts/demo-send.sh', [`--size=${DELIVERY_SIZE}`]);
     const jobId = /#\/status\/([0-9a-f-]{36})/.exec(sent)?.[1];
     if (!jobId) throw new Error('demo-send printed no address');
@@ -235,30 +270,40 @@ async function main(): Promise<void> {
     await page.mouse.wheel(0, 600);
     await s.pause(3000);
 
-    await s.say('Now I stop the Document Platform, the system the files are delivered into.');
+    await page.getByLabel('Counts').scrollIntoViewIfNeeded(); // the counts stay on screen from here on
+    await s.say('Now I stop the Document Platform, the system the files are delivered into. (Terminal step, sped up.)', true);
     platform('stop');
-    await s.say('The platform is down. Deliveries retry and wait. Nothing is lost.', true);
+    await s.say('The platform is down. Deliveries retry and wait. Nothing is lost.');
     await s.pause(20_000);
-    await s.say('Start the platform again.');
+    await s.say('Start the platform again. (Terminal step, sped up.)', true);
     platform('start');
     await s.say('The backlog drains by itself. The dead-letter queue stays empty.', true);
     await expect(page.getByLabel('Counts').locator('.n').first()).toHaveText('2000', { timeout: 20 * 60_000 });
+    await page.getByLabel('Counts').scrollIntoViewIfNeeded();
     await s.say('All 2,000 delivered, each exactly once.');
-    await s.pause(3500);
+    await s.pause(4500);
+  });
 
-    await s.say('Anyone in a destination team can open the file. Everyone else gets nothing.');
-    await page.getByLabel('Counts').scrollIntoViewIfNeeded(); // the table was scrolled; any row on screen is a delivered one
+  // Scene 4: back to Anantim for the preview and the download, then the closing caption.
+  await scene(newContext, 'preview-download', async (s) => {
+    const { page } = s;
+    await page.goto('/');
+    await s.say('Back to Anantim, who sent the first distribution. (Sign-in sped up.)', true);
+    await signIn(s, ANANTIM);
+    await page.goto(`/#/status/${jobId}`);
     const row = page.locator('.ttable .trow', { has: page.getByRole('button', { name: /^Preview / }) }).first();
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await s.say('Anyone in a destination team can open a file. Everyone else gets nothing.');
     await s.click(row.getByRole('button', { name: /^Preview / }));
     await expect(page.getByRole('dialog', { name: 'File preview' })).toBeVisible({ timeout: 30_000 });
-    await s.pause(3500);
+    await s.pause(4500);
     await page.keyboard.press('Escape');
     const saved = page.waitForEvent('download');
     await s.click(row.getByRole('button', { name: /^Download / }));
     await saved;
     await s.say('Download saves the file under its original name, on a link that works for two minutes.');
-    await s.pause(4000);
-    await s.say('Built with Terraform. 14 end-to-end checks passed on this system. The code and the design are on GitHub.');
+    await s.pause(4500);
+    await s.say('Built with Terraform and checked end to end on this system. The code and the design are on GitHub.');
     await s.pause(5000);
   });
 

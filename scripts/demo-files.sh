@@ -15,8 +15,10 @@ names=(
 i=0
 for n in "${names[@]}"; do
   i=$((i + 1))
-  # A minimal file that starts with %PDF, with different text in each so no two files are the same.
-  printf '%%PDF-1.7\n%% %s %s\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%%%EOF\n' "$n" "$i" >"$DIR/$n.pdf"
+  # A one-page PDF that shows its own name (so the preview shows something), with a different number in each so no two
+  # files are the same. It has no cross-reference table; PDF viewers rebuild it.
+  stream="BT /F1 22 Tf 30 100 Td ($n) Tj 0 -30 Td /F1 12 Tf (Demo file $i) Tj ET"
+  printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 420 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length %d>>stream\n%s\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%%%EOF\n' "${#stream}" "$stream" >"$DIR/$n.pdf"
 done
 
 # A 1x1 PNG

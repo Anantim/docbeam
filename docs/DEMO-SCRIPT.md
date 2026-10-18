@@ -1,6 +1,6 @@
 # Demo script: a 3 to 5 minute screen recording on dev
 
-What the video shows, in order: sign in, upload files, the virus test file refused, a 2,000-delivery send, live tracking, the platform stopped and the backlog draining, a download. Target length 4 minutes. Record at 1080p with the browser zoom at 110%.
+What the video shows, in order: sign in, upload files, the virus test file refused, a 2,000-delivery send, the Audit tab (who sent what, where and when), Raj seeing only the Cardio deliveries and Sam getting "not found", live tracking, the platform stopped and the backlog draining, a preview and a download. Target length 3 to 5 minutes. `scripts/demo/record.ts` records every step in a browser (1280 x 720, a cursor, a caption per step, no voice); this table is the plan it follows. Record at 1080p with the browser zoom at 110%.
 
 The video link goes into the README ("Demo video" section) when it exists.
 
@@ -41,12 +41,17 @@ export SEED_PW=$(aws secretsmanager get-secret-value --secret-id docbeam-dev/see
 | 1:00 | The refused file | "Every upload is scanned for malware. This is the standard antivirus test file." | Add `EICAR test file.pdf`. Show it turn to Refused ("infected"). Say it is deleted and can never be sent or downloaded. |
 | 1:20 | Mapping, Review | "Files go to folders. Here are 13 files to 3 folders, 39 deliveries." | Map the files, click Review, then Send. |
 | 1:40 | Status page | "Each delivery is tracked. The counts move live." | Watch the counts and rows change. Open one delivered row. |
-| 2:00 | Second window, Load User | "Now a big one: 100 files to 20 folders, 2,000 deliveries, sent in one action." | In a terminal off screen run `scripts/demo-send.sh`; paste the printed address into the second window. |
-| 2:20 | Live tracking | "Counts, per-delivery status, failures with a reason. Nothing is polled; it is pushed over a WebSocket." | Scroll the table (it draws only the rows in view). Point at the bars. |
-| 2:45 | Terminal and Status page | "Now I stop the Document Platform. This is what an outage looks like." | Run `scripts/demo-outage.sh stop`. Show deliveries turn amber (retrying), nothing is lost. |
-| 3:15 | Status page | "Start it again. The backlog drains by itself and the dead-letter queue stays empty." | Run `scripts/demo-outage.sh start`. Watch the counts climb to 2,000 delivered. |
-| 3:45 | Status page, one delivered row | "Anyone in a destination team can open the file; everyone else gets nothing." | Click Preview on a PDF, then Download. Show the countdown bar for the 2-minute link. |
-| 4:00 | End | "Everything was built with Terraform, and 14 end-to-end checks passed on this system. The code and the design are on GitHub." | Stop. |
+| 1:55 | Status page, Audit tab | "The Audit tab records who sent what, to where, and when." | Click the Audit tab of the distribution just sent. Point at the "Distribution sent" row (sender, time) and the per-delivery rows (file, destination). About 12 seconds. |
+| 2:10 | Raj's window (Cardio only) | "Raj is in the Cardio team only. He sees only the Cardio deliveries of this distribution, and nothing for Oncology." | Sign in as `raj.mehta@example.com`, open the distribution (same address). Point at the rows: Cardio folders only. About 20 seconds. |
+| 2:30 | Sam's window (Neuro only) | "Sam is in the Neuro team only. For this distribution he gets 'not found', the same answer as for one that does not exist." | Sign in as `sam.ito@example.com`, open the same address: "Distribution not found". About 15 seconds. |
+| 2:45 | Second window, Load User | "Now a big one: 100 files to 20 folders, 2,000 deliveries, sent in one action." | In a terminal off screen run `scripts/demo-send.sh`; paste the printed address into the second window. |
+| 3:05 | Live tracking | "Counts, per-delivery status, failures with a reason. Nothing is polled; it is pushed over a WebSocket." | Scroll the table (it draws only the rows in view). Point at the bars. |
+| 3:30 | Terminal and Status page | "Now I stop the Document Platform. This is what an outage looks like." | Run `scripts/demo-outage.sh stop`. Show deliveries turn amber (retrying), nothing is lost. |
+| 4:00 | Status page | "Start it again. The backlog drains by itself and the dead-letter queue stays empty." | Run `scripts/demo-outage.sh start`. Watch the counts climb to 2,000 delivered. |
+| 4:30 | Status page, one delivered row | "Anyone in a destination team can open the file; everyone else gets nothing." | Click Preview on a PDF, then Download. Show the countdown bar for the 2-minute link. |
+| 4:50 | End | "Built with Terraform and checked end to end on this system. The code and the design are on GitHub." | Stop. |
+
+The times above are the live pace of about 5 minutes. The recorded video speeds up the waiting parts (the upload and scan of the big send, the terminal steps and the drain), so it runs 3 to 5 minutes.
 
 If a step goes wrong, stop recording, fix it, start again from the top of that row.
 
