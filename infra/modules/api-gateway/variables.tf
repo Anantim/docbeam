@@ -49,6 +49,12 @@ variable "default_burst_limit" {
   default = 100
 }
 
+variable "public_registration_enabled" {
+  description = "false removes the public POST /auth/register route (D-M5-20). The Auth Service still has the route; only the gateway stops forwarding it."
+  type        = bool
+  default     = true
+}
+
 variable "tight_routes" {
   description = "Route keys with their own tight throttle (D-G19)."
   type        = list(string)
