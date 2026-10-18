@@ -1,0 +1,11 @@
+100 requests. Columns: time tasks total key(pool) files(pool) claim(pool) insert commit | pool: wait maxWait acquires maxWaiting total minIdle newConn | gc throttled
+23:05:49.901 2000 total 530.1 | key 81 (pool 0.1 ) files 14.2 (pool 0.5 ) claim 49.6 (pool 0.2 ) insert 125.5 commit 104.6 | pool wait 0.7 max 0.5 acq 3 waiting 0 total 1 minIdle 1 new 0 | gc 3.4 thr 0
+23:04:19.961 2000 total 413.1 | key 83.9 (pool 75.6 ) files 38.7 (pool 0.3 ) claim 12.6 (pool 0.2 ) insert 156.9 commit 9.2 | pool wait 76.1 max 75.6 acq 3 waiting 0 total 1 minIdle 0 new 1 | gc 3.4 thr 0
+23:07:39.477 2000 total 327.1 | key 32.4 (pool 29.2 ) files 13.5 (pool 0.2 ) claim 20.5 (pool 0.1 ) insert 126.4 commit 18.8 | pool wait 29.6 max 29.2 acq 3 waiting 0 total 1 minIdle 0 new 1 | gc 3.6 thr 0
+23:05:19.015 2000 total 311.1 | key 88.2 (pool 84.7 ) files 8.1 (pool 0.5 ) claim 11 (pool 0.2 ) insert 118.9 commit 10.7 | pool wait 85.4 max 84.7 acq 3 waiting 0 total 1 minIdle 0 new 1 | gc 5 thr 0
+23:06:17.596 2000 total 303 | key 8.1 (pool 0.1 ) files 14 (pool 0.3 ) claim 22.7 (pool 0.2 ) insert 166.8 commit 16.1 | pool wait 0.6 max 0.3 acq 3 waiting 0 total 1 minIdle 1 new 0 | gc 1.4 thr 0
+23:01:27.215 20 total 286.7 | key 2.1 (pool 0.2 ) files 5 (pool 0.3 ) claim 6.6 (pool 0.2 ) insert 7.5 commit 5.3 | pool wait 0.8 max 0.3 acq 3 waiting 0 total 1 minIdle 1 new 0 | gc 1.4 thr 0
+23:06:02.651 2000 total 272.6 | key 10.5 (pool 0.1 ) files 7.5 (pool 0.7 ) claim 21.7 (pool 0.2 ) insert 122.2 commit 16.1 | pool wait 1 max 0.7 acq 3 waiting 0 total 1 minIdle 1 new 0 | gc 1.5 thr 0
+23:03:12.398 2000 total 251.2 | key 2.5 (pool 0.1 ) files 4.8 (pool 0.4 ) claim 31.8 (pool 0.2 ) insert 89.8 commit 8.3 | pool wait 0.6 max 0.4 acq 3 waiting 0 total 1 minIdle 1 new 0 | gc 1.4 thr 0
+big 10 poolWait max 85.4 poolMaxWaiting max 0.0 newConn total 3.0 gc max 5.0 throttled max 0.0
+small 90 poolWait max 1.0 poolMaxWaiting max 0.0 newConn total 0.0 gc max 1.4 throttled max 0.0

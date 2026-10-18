@@ -16,6 +16,7 @@ locals {
   db_env = {
     DB_HOST       = module.rds.lambda_db_host
     DB_NAME       = "docbeam_db"
+    DB_CA_FILE    = "/var/task/rds-ca-bundle.pem" # shipped in every function's code (D-M5-4)
     DB_SECRET_ARN = module.rds.app_secret_arns["docbeam"]
   }
   db_secret_arns  = [module.rds.app_secret_arns["docbeam"]]
@@ -106,7 +107,9 @@ module "delivery" {
   name     = local.name
   function = "delivery"
 
-  memory_size = 1024
+  # 3,008 MB (the most a new account allows, like Upload Events): a 1 GiB delivery used all of 1,024 MB and timed out
+  # at 120 s on dev (M5 check 5.6, D-M5-12). Lambda CPU grows with memory as well.
+  memory_size = 3008
   timeout     = 120
   vpc_id      = module.network.vpc_id
   subnet_ids  = module.network.private_subnet_ids
@@ -129,6 +132,13 @@ module "delivery" {
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
         Resource = local.object_store_objects
+      },
+      {
+        # Without s3:ListBucket, S3 answers a HEAD of a missing key with 403, not 404, and Delivery could not tell a
+        # removed file (FILE_NOT_UPLOADED) from a refused one (D-M5-8).
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = module.s3.object_store_arn
       },
       local.push_policy,
     ]

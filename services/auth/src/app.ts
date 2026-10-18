@@ -1,5 +1,5 @@
 import cookie from '@fastify/cookie';
-import { jwtAuth, registerErrorHandler } from '@docbeam/shared';
+import { acceptEmptyBodies, jwtAuth, registerErrorHandler } from '@docbeam/shared';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from './config.js';
 import type { Db } from './db.js';
@@ -11,6 +11,7 @@ import { createTokenIssuer } from './tokens.js';
 export async function buildApp(config: Config, db: Db): Promise<FastifyInstance> {
   const app = Fastify({ logger: { level: config.LOG_LEVEL } });
   registerErrorHandler(app);
+  acceptEmptyBodies(app);
   await app.register(cookie);
   await app.register(jwtAuth, { issuer: config.JWT_ISSUER, jwksUrl: config.JWKS_URL });
 

@@ -103,7 +103,8 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
       { name = "PGHOST", value = var.db_host },
       { name = "PGPORT", value = "5432" },
       { name = "PGDATABASE", value = "postgres" },
-      { name = "PGSSLMODE", value = "require" },
+      { name = "PGSSLMODE", value = "verify-full" },
+      { name = "PGSSLROOTCERT", value = "/etc/rds-ca-bundle.pem" },
     ]
     secrets = concat(
       [

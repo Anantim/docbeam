@@ -1,0 +1,13 @@
+
+> test:e2e:dev
+> playwright test -c playwright.dev.config.ts m5-browser-dev -g WebSocket
+
+
+Running 1 test using 1 worker
+
+websocket: page showed 498 delivered before the drop and no counts (error message) after 30 s offline; the server had 1588
+websocket: back online, the page caught up to 2000 (server had 1588) and followed the run to 2000
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:192:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up (4.1m)
+
+  1 passed (4.1m)
+exit=0

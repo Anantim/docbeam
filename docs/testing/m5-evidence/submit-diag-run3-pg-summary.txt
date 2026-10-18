@@ -1,0 +1,26 @@
+samples logged in the timed window: 227 (a sample is logged only when something waits, a lock is ungranted, or 3+ backends are active; else every 5 s)
+flagged: 181
+wait events seen (type, event, state): backend-samples
+  ('Lock', 'tuple', 'active') 1793
+  ('Lock', 'transactionid', 'active') 355
+  ('IO', 'WALSync', 'active') 30
+  ('LWLock', 'WALWrite', 'active') 24
+  ('Lock', 'tuple', 'idle') 8
+  ('IO', 'DataFileExtend', 'active') 4
+  ('LWLock', 'LockManager', 'active') 3
+  ('LWLock', 'XidGen', 'active') 2
+  ('Lock', 'tuple', 'idle in transaction') 2
+  ('Timeout', 'SpinDelay', 'active') 1
+  ('LWLock', 'BufferContent', 'active') 1
+  ('IO', 'WALWrite', 'active') 1
+  ('IO', 'WALSync', 'idle') 1
+  ('LWLock', 'WALWrite', 'idle') 1
+  ('LWLock', 'WALWrite', 'idle in transaction') 1
+  ('IO', 'WALSync', 'idle in transaction') 1
+max active backends: 51  max backends: 63  ungranted locks max: 50
+longest running query seen (ms): 8479
+  23:03:14.842 active 51 backends 62 [('Lock', 'transactionid', 'active', 5, 1656), ('Lock', 'tuple', 'active', 45, 1640)]
+  23:06:07.490 active 51 backends 62 [('Lock', 'transactionid', 'active', 27, 2683), ('Lock', 'tuple', 'active', 22, 2243)]
+  23:07:53.147 active 51 backends 56 [('Lock', 'transactionid', 'active', 1, 1110), ('Lock', 'tuple', 'active', 49, 1110)]
+  23:07:53.549 active 51 backends 56 [('Lock', 'transactionid', 'active', 1, 1581), ('Lock', 'tuple', 'active', 49, 1581)]
+  23:06:06.866 active 50 backends 61 [('Lock', 'transactionid', 'active', 27, 1857), ('Lock', 'tuple', 'active', 22, 1417)]

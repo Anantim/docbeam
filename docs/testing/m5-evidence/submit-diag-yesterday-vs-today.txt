@@ -1,0 +1,60 @@
+== Y1 749 run (est. loop 13:10-13:18)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.01
+   RDS DiskQueueDepth max       0.15
+   RDS WriteIOPS max            116.4
+   RDS FreeableMemory MB min    41.4
+   RDS connections max          66.0
+   API ECS CPU % avg of min     2.38
+   API ECS CPU % max            20.44
+   API ECS memory % max         22.46
+== Y2 712 run (loop 14:21-14:24)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.0
+   RDS DiskQueueDepth max       0.08
+   RDS WriteIOPS max            61.58
+   RDS FreeableMemory MB min    38.52
+   RDS connections max          68.0
+   API ECS CPU % avg of min     4.2
+   API ECS CPU % max            19.83
+   API ECS memory % max         14.06
+== Y3 992 run (loop 17:09-17:13)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.0
+   RDS DiskQueueDepth max       0.21
+   RDS WriteIOPS max            101.13
+   RDS FreeableMemory MB min    86.4
+   RDS connections max          66.0
+   API ECS CPU % avg of min     2.85
+   API ECS CPU % max            10.56
+   API ECS memory % max         16.6
+== Y4 808 run (loop 17:43-17:47)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.0
+   RDS DiskQueueDepth max       0.16
+   RDS WriteIOPS max            78.72
+   RDS FreeableMemory MB min    83.73
+   RDS connections max          67.0
+   API ECS CPU % avg of min     2.78
+   API ECS CPU % max            12.02
+   API ECS memory % max         17.29
+== T-A quiet (20:58-21:00)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.0
+   RDS DiskQueueDepth max       0.02
+   RDS WriteIOPS max            13.21
+   RDS FreeableMemory MB min    94.8
+   RDS connections max          15.0
+   API ECS CPU % avg of min     3.93
+   API ECS CPU % max            8.74
+   API ECS memory % max         18.46
+== T-B load (21:33-21:37)
+   RDS BurstBalance % min       None
+   RDS WriteLatency s max       0.0
+   RDS DiskQueueDepth max       0.12
+   RDS WriteIOPS max            71.6
+   RDS FreeableMemory MB min    44.32
+   RDS connections max          66.0
+   API ECS CPU % avg of min     3.33
+   API ECS CPU % max            6.88
+   API ECS memory % max         16.6

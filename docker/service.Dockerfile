@@ -40,6 +40,11 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules node_modules
 COPY --from=build /repo/packages/shared/package.json packages/shared/
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
+# The RDS certificate bundle: the database connection checks the certificate chain (D-M5-4).
+COPY --from=build /repo/packages/shared/certs/rds-ca-bundle.pem packages/shared/certs/rds-ca-bundle.pem
+# Still root here: the folder and the file must be readable by the `node` user the image runs as.
+RUN chmod 755 packages/shared/certs && chmod 644 packages/shared/certs/rds-ca-bundle.pem
+ENV DB_CA_FILE=/repo/packages/shared/certs/rds-ca-bundle.pem
 COPY --from=build /repo/services/${SERVICE}/package.json services/${SERVICE}/
 COPY --from=build /repo/services/${SERVICE}/dist services/${SERVICE}/dist
 COPY --from=build /repo/services/${SERVICE}/migrations services/${SERVICE}/migrations

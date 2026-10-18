@@ -1,0 +1,12 @@
+[14:28:11] Changes AWS (approved with --yes): pauses the Delivery trigger, runs the platform seed variant (removes the load user from Load Team 20), resumes the trigger, then restores the seed
+PASS  2,000 tasks accepted: 201, 2000 tasks
+[14:33:46] Task queue holds {"visible":2000,"inFlight":0,"delayed":0} with Delivery paused
+PASS  with Delivery paused no delivery has started (all 2,000 pending): {"pending":2000,"in_progress":0,"completed":0,"failed":0,"cancelled":0}
+PASS  the seed variant removed exactly one membership: membersRemoved":0 membersRemoved":1
+[14:35:15] job e1e55b5b {"pending":1504,"in_progress":10,"completed":459,"failed":27,"cancelled":0}
+PASS  100 deliveries failed NOT_AUTHORIZED_AT_DELIVERY: {"NOT_AUTHORIZED_AT_DELIVERY":100}
+PASS  all 100 are for Load Team 20: Load Team 20 / Regulatory
+PASS  1,900 completed: {"pending":0,"in_progress":0,"completed":1900,"failed":100,"cancelled":0}
+PASS  seed restored: the load user is back in Load Team 20: membersAdded in the restore log: true
+
+PASS removed-member (7/7 lines)

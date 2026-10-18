@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "prebundle": "node -e \"require('node:fs').mkdirSync('dist/lambda',{recursive:true});require('node:fs').copyFileSync('../../packages/shared/certs/rds-ca-bundle.pem','dist/lambda/rds-ca-bundle.pem')\"",
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --minify --sourcemap --outfile=dist/lambda/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {

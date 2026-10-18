@@ -1,0 +1,62 @@
+[14:53:41] pass 1: hashing 1 GiB (64 parts of 16 MiB)
+PASS  the API chose a multipart upload: 64 parts of 16777216 bytes
+[14:53:49] pass 2: uploading the parts, 4 at a time
+[14:54:02] 10/64 parts sent
+[14:54:12] 20/64 parts sent
+[14:54:20] 30/64 parts sent
+[14:54:28] 40/64 parts sent
+[14:54:36] 50/64 parts sent
+[14:54:43] 60/64 parts sent
+PASS  multipart complete accepted: 200 {"fileId":"0f1f262e-f93c-4b90-80b0-0ef152a7f96e"}
+[14:54:49] waiting for the ClamAV scan of 1 GiB
+PASS  scanned clean: clean after 95 s
+PASS  combined checksum stored from S3 (<base64>-<parts>): H6RKxvzzu6q5s4DlrZmgPxvrtSZ/m3xNlk39qQJOsnw=-64
+PASS  stored size and SHA-256 are the local ones: 1073741824 bytes, c9ea3d6a56d1b54db1fa41ec6c1e25694859d39560e0e2eb3202789b6030f51e
+PASS  submitted: 201 {"jobId":"f670b16b-a5bd-4b0e-add4-1544ec14a454","taskCount":1}
+[14:57:27] job f670b16b {"pending":1,"in_progress":0,"completed":0,"failed":0,"cancelled":0}
+[14:58:02] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[14:58:37] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[14:59:12] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[14:59:47] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:00:22] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:00:56] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:01:31] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:02:06] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:02:41] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:03:16] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:03:51] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:04:25] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:05:01] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:05:36] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:06:11] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:06:45] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:07:20] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:07:55] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:08:30] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:09:01] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:09:36] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:10:11] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:10:46] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:11:21] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:11:55] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:12:30] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:13:05] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:13:40] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:14:15] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:14:50] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:15:24] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:15:59] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:16:34] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:17:09] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:17:44] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:18:19] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:18:54] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:19:29] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:20:04] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:20:38] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:21:13] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+[15:21:48] job f670b16b {"pending":0,"in_progress":1,"completed":0,"failed":0,"cancelled":0}
+PASS  delivered: {"pending":0,"in_progress":0,"completed":1,"failed":0,"cancelled":0}
+PASS  the platform document has the same SHA-256 and size: 1073741824 bytes, c9ea3d6a56d1b54db1fa41ec6c1e25694859d39560e0e2eb3202789b6030f51e (local c9ea3d6a56d1b54db1fa41ec6c1e25694859d39560e0e2eb3202789b6030f51e)
+
+PASS multipart-1gb (8/8 lines)

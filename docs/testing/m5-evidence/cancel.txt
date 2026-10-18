@@ -1,0 +1,12 @@
+PASS  2,000 tasks accepted: 201
+PASS  cancel accepted with 202 (a POST with no body): 202 {"cancelled":1720}
+[11:47:59] job 00a08447 {"pending":0,"in_progress":0,"completed":280,"failed":0,"cancelled":1720}
+PASS  nothing is left pending or running: {"pending":0,"in_progress":0,"completed":280,"failed":0,"cancelled":1720}
+PASS  the job reads cancelled: cancelled
+PASS  waiting deliveries show CANCELLED: 1720 cancelled of 1720 reported
+PASS  running deliveries finished (completed did not drop): 280 at cancel, 280 after
+PASS  counts are final a minute later: {"pending":0,"in_progress":0,"completed":280,"failed":0,"cancelled":1720}
+PASS  no real failures: {"pending":0,"in_progress":0,"completed":280,"failed":0,"cancelled":1720}
+PASS  cancelled tasks carry the code CANCELLED: 1720 tasks
+
+PASS cancel (9/9 lines)

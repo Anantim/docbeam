@@ -1,0 +1,4 @@
+# whole bring-up (since 2026-10-17T10:00:00Z), includes failover run 1 before the pool fix
+{"days":1,"total":24398,"completed":23442,"open":0,"systemFailures":853,"userFailures":103,"cancelled":63627,"systemFailurePercent":3.4962,"byCode":{"RETRIES_EXHAUSTED":853,"NOT_AUTHORIZED_AT_DELIVERY":100,"FILE_NOT_UPLOADED":3}}
+# since the pool fix and the other fixes were deployed (2026-10-17T16:10:00Z)
+{"days":1,"total":12872,"completed":12872,"open":0,"systemFailures":0,"userFailures":0,"cancelled":24129,"systemFailurePercent":0,"byCode":{}}

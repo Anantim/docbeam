@@ -12,7 +12,7 @@ import { parse, UUID_PATTERN } from '../validate.js';
 
 const uuid = z.string().regex(UUID_PATTERN);
 
-const jobBody = z.object({
+export const jobBody = z.object({
   // Counts are checked by validateBatch (422 INVALID_BATCH). These caps only keep an absurd body from being parsed.
   files: z.array(z.object({ fileId: uuid, sha256: z.string() })).max(1_000),
   mappings: z
@@ -102,35 +102,50 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
     const key = typeof header === 'string' ? header.trim() : '';
     if (!key) throw new ApiError(400, 'IDEMPOTENCY_KEY_REQUIRED', 'Send an Idempotency-Key header.');
     if (key.length > 200) throw new ApiError(400, 'VALIDATION_ERROR', 'The Idempotency-Key is too long.');
+    // Laps since the request reached the service; the plugin logs them (timing.ts). Everything before this line
+    // (body read, JSON parse, token check) was lapped by the plugin and the auth hook.
+    const timer = request.submitTimer;
+    timer?.lap('authMs');
     const body = parse(jobBody, request.body, 'Send files and mappings.');
+    timer?.lap('schemaMs');
 
     // A repeated key returns the job it made, with no new checks (and so no call to the platform).
     const earlier = await findJob(principal.userId, key);
     if (earlier) return reply.code(200).send(earlier);
+    timer?.lap('keyLookupMs');
 
     const batch = validateBatch({
       files: body.files,
       mappings: body.mappings.map((m) => ({ fileId: m.fileId, destinations: m.destinations })),
     });
     if (!batch.ok) throw new ApiError(422, 'INVALID_BATCH', batch.reason);
+    if (timer) timer.size = { files: body.files.length, destinations: batch.destinationCount, tasks: batch.taskCount };
+    timer?.lap('batchMs');
 
     try {
-      const problem = firstFileProblem(body.files, await loadFiles(body.files.map((f) => f.fileId)), principal.userId, new Date());
-      if (problem) throw problem;
-
       // One call for every distinct destination. The team comes from the platform, never from the browser.
       const wanted = new Map<string, DestinationInput>();
       for (const m of body.mappings) {
         for (const d of m.destinations) wanted.set(`${d.binderId}:${d.folderId ?? ''}`, { binderId: d.binderId, folderId: d.folderId ?? null });
       }
       const keys = [...wanted.keys()];
-      const checked = await platform.checkDestinations(principal.userId, [...wanted.values()]);
+      // The file check and the destination check do not depend on each other, so they run together (D-M5-10).
+      // A file problem is still reported first: the destination answer is only looked at after it.
+      const call = platform.checkDestinations(principal.userId, [...wanted.values()]);
+      const checking = timer ? timer.span('destinationCallMs', call) : call;
+      checking.catch(() => undefined); // read below; this only stops an unhandled rejection when a file problem comes first
+      const problem = firstFileProblem(body.files, await loadFiles(body.files.map((f) => f.fileId)), principal.userId, new Date());
+      if (problem) throw problem;
+      timer?.lap('filesMs');
+
+      const checked = await checking;
       if (!checked.ok) {
         return reply.code(422).send({
           ...errorBody('DESTINATION_NOT_FOUND', 'Some destinations were not found or are not in your teams.'),
           notFound: checked.notFound,
         });
       }
+      timer?.lap('destinationWaitMs');
       const resolved = new Map(keys.map((k, i) => [k, checked.destinations[i]]));
 
       const jobId = randomUUID();
@@ -142,6 +157,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
         }),
       );
       const fileIds = body.files.map((f) => f.fileId);
+      timer?.lap('rowsMs');
 
       // One transaction: the job, the claim on its files, every task, and the audit event.
       const created = await db
@@ -167,6 +183,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
                AND created_at > now() - interval '24 hours'
             RETURNING id`);
           if (claimed.rows.length !== fileIds.length) throw new FileClaimLost();
+          timer?.lap('claimMs'); // begin, the job row and the claim on the files
 
           await tx.execute(sql`
             INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, folder_id, destination_path)
@@ -178,6 +195,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
                 ${pgArray(rows.map((r) => r.folderId), 'uuid')},
                 ${pgArray(rows.map((r) => r.path), 'text')}
               ) AS t(file_id, team_id, binder_id, folder_id, path)`);
+          timer?.lap('tasksMs');
 
           await tx.insert(auditEvents).values({
             actorId: principal.userId,
@@ -202,6 +220,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
           );
         });
 
+      timer?.lap('commitMs'); // the audit row and the commit
       if (!created) {
         const winner = await findJob(principal.userId, key);
         if (winner) return reply.code(200).send(winner);
@@ -214,6 +233,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
       } catch (error) {
         request.log.error({ err: error, jobId }, 'job message not sent; the sweeper will send it');
       }
+      timer?.lap('queueMs');
       return reply.code(201).send({ jobId, taskCount: rows.length });
     } catch (error) {
       // A parallel request with the same key may have claimed the files first. Its job is the answer.

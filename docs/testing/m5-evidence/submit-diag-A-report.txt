@@ -1,0 +1,54 @@
+
+== API Gateway, POST /jobs (2026-10-17T20:58:14Z to 2026-10-17T21:00:30Z)
+gateway                        n=101  lat_p50=32  lat_p99=225  lat_max=282  il_p50=30  il_p99=220  il_max=281
+
+== The API's own phases, ms, per job size (tasks per job); from the "submit timing" log line
+-- jobs of 2000 tasks: 10 requests
+   bodyReadMs                  p50=3  p99=6.1
+   jsonParseMs                 p50=0.5  p99=0.6
+   authMs                      p50=0.4  p99=0.4
+   schemaMs                    p50=0.9  p99=7.2
+   keyLookupMs                 p50=1.5  p99=3.2
+   batchMs                     p50=1.1  p99=2
+   filesMs                     p50=3.4  p99=6.2
+   destinationCallMs           p50=6.4  p99=42.7
+   destinationWaitMs           p50=3.7  p99=38
+   rowsMs                      p50=0.6  p99=1.3
+   claimMs                     p50=7  p99=98.3
+   tasksMs                     p50=85.9  p99=108.3
+   commitMs                    p50=3.9  p99=4.8
+   queueMs                     p50=8  p99=11.9
+   totalMs                     p50=123.4  p99=276.8
+-- jobs of 20 tasks: 90 requests
+   bodyReadMs                  p50=0.2  p99=0.4
+   jsonParseMs                 p50=0  p99=0.1
+   authMs                      p50=0.4  p99=6
+   schemaMs                    p50=0.1  p99=1.6
+   keyLookupMs                 p50=1.5  p99=34.2
+   batchMs                     p50=0  p99=0.2
+   filesMs                     p50=1.5  p99=13.7
+   destinationCallMs           p50=6.4  p99=100.1
+   destinationWaitMs           p50=4.8  p99=86.6
+   rowsMs                      p50=0  p99=0.2
+   claimMs                     p50=3.3  p99=82.3
+   tasksMs                     p50=2  p99=5
+   commitMs                    p50=2.4  p99=9.4
+   queueMs                     p50=8.8  p99=56.4
+   totalMs                     p50=26.1  p99=216.4
+-- the 5 slowest requests
+   {"size.tasks":"2000","ms.totalMs":"276.8","ms.bodyReadMs":"6.1","ms.authMs":"0.4","ms.schemaMs":"1.1","ms.filesMs":"6.2","ms.destinationWaitMs":"38","ms.claimMs":"98.3","ms.tasksMs":"108.3","ms.commitMs":"4.8","ms.queueMs":"6.6"}
+   {"size.tasks":"20","ms.totalMs":"216.4","ms.bodyReadMs":"0.4","ms.authMs":"6","ms.schemaMs":"1.6","ms.filesMs":"13.7","ms.destinationWaitMs":"86.6","ms.claimMs":"5.5","ms.tasksMs":"5","ms.commitMs":"6.3","ms.queueMs":"56.4"}
+   {"size.tasks":"2000","ms.totalMs":"203.3","ms.bodyReadMs":"2.8","ms.authMs":"0.4","ms.schemaMs":"7.2","ms.filesMs":"3.5","ms.destinationWaitMs":"3.6","ms.claimMs":"85.5","ms.tasksMs":"85.1","ms.commitMs":"4.6","ms.queueMs":"5.5"}
+   {"size.tasks":"2000","ms.totalMs":"127.5","ms.bodyReadMs":"3.1","ms.authMs":"0.4","ms.schemaMs":"0.9","ms.filesMs":"3.3","ms.destinationWaitMs":"3.7","ms.claimMs":"8.2","ms.tasksMs":"91.4","ms.commitMs":"2.6","ms.queueMs":"10.3"}
+   {"size.tasks":"2000","ms.totalMs":"127.4","ms.bodyReadMs":"2.3","ms.authMs":"0.4","ms.schemaMs":"0.9","ms.filesMs":"3.3","ms.destinationWaitMs":"6.5","ms.claimMs":"7.5","ms.tasksMs":"90.5","ms.commitMs":"2.9","ms.queueMs":"9.4"}
+
+== Load balancer, TargetResponseTime (all requests to the DocBeam API target group), seconds
+docbeam-dev-docbeam-api        p50 s=0  p99 s=0.3  slowest request s=1.8  windows=1
+
+== CPU
+DocBeam API (ECS %)            avg of minutes=3.9  max of minute averages=4.7  max single sample=8.7
+Platform (ECS %)               avg of minutes=0.3  max of minute averages=0.6  max single sample=0.8
+Auth (ECS %)                   avg of minutes=0  max of minute averages=0  max single sample=0.1
+RDS CPUUtilization %           minutes=3  avg=5  max=6  min=4.3
+RDS CPUCreditBalance           minutes=1  avg=5.6  max=5.6  min=5.6
+RDS DatabaseConnections        minutes=3  avg=13  max=15  min=11

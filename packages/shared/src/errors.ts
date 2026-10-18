@@ -22,6 +22,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A POST with no body and no content type (cancel, retry, a download link, a token refresh) must work for any
+ * client (D-M5-5). Through CloudFront and the gateway such a request can arrive chunked with nothing in it, which
+ * Fastify answers with 415 unless a catch-all parser exists. An empty body is accepted; a body of a type no route
+ * reads is still refused with 415.
+ */
+export function acceptEmptyBodies(app: FastifyInstance): void {
+  app.addContentTypeParser('*', { parseAs: 'buffer' }, (_request, body, done) => {
+    if (body.length === 0) return done(null, undefined);
+    done(new ApiError(415, 'VALIDATION_ERROR', 'Send the body as application/json.'), undefined);
+  });
+}
+
 /** Sends every error, including schema and not-found errors, in the shared shape. */
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err: FastifyError | ApiError, request, reply) => {

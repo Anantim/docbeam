@@ -19,8 +19,12 @@ export interface Deps {
   log: Logger;
 }
 
-/** A job that should have started fan-out two minutes after it was queued (ADR-014). */
-const STALE = "interval '2 minutes'";
+/**
+ * A job that should have started fan-out one minute after it was queued (ADR-014, D-M5-15). The run is every
+ * minute, so the message goes out at most 2 minutes after the commit, and fan-out follows within seconds: the
+ * promised 3 minutes always holds with a margin.
+ */
+const STALE = "interval '1 minute'";
 /** A run handles at most this many jobs; the next minute handles the rest. */
 const RESEND_LIMIT = 100;
 /** Unsubmitted files are refused after 24 hours, so the same age is safe to delete (Step 2.5). */

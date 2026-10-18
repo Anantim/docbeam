@@ -665,3 +665,120 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Changes:** Status page, mockup banner.
 - **What:** After Download: "<file> is downloading. Its link works for this one file for another m:ss.", then "The link for <file> has expired and storage now refuses it. Click Download for a fresh one." A 410 shows "<file> is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder." A 404 shows "That file is not available to you." Dismiss closes it. The mockup's "Skip to expiry" is a demo control and is left out (G16).
 - **Why:** Matches the mockup copy; no demo controls.
+
+## D-M5-1. M5 runs on dev without RDS Proxy; prod is never deployed
+- **Date:** 2026-10-17
+- **Changes:** D-M0-6 (which planned M5 with `enable_rds_proxy = true` on the Paid plan), PLAN.md "Run M5 with the RDS Proxy on".
+- **What:** This project is shown on dev only and stays on the Free plan. M5 runs on dev with `enable_rds_proxy = false`. Prod stays ready as code and is checked with `terraform plan` at most. The failover drill switches dev to Multi-AZ for the drill only; if the Free plan blocks that, stop and ask.
+- **Why:** The Free plan blocks RDS Proxy, and the Paid plan is only needed if prod is ever deployed.
+
+## D-M5-2. Commit email
+- **Date:** 2026-10-17
+- **Changes:** none to the design. Applies to the public-readiness check.
+- **What:** 127 older commits carry the person's Gmail address as author and committer. This is accepted: it is the author's own identity, not a leaked file. No history rewrite. From M5 on, this repository's `git config user.email` is the GitHub noreply address. The person will add a `.mailmap` later.
+- **Why:** A rewrite changes every commit SHA and image tag and breaks PR links. A `.mailmap` fixes how tools show the name without that cost.
+
+## D-M5-3. Dev uptime during M5
+- **Date:** 2026-10-17
+- **Changes:** AGENTS.md cost rule (tear dev down after each task's AWS testing), for M5 only.
+- **What:** One bring-up from nothing with the runbook, kept up until the checks, the person's browser steps and the demo recording are done. Dev is torn down first if the credit usage gets close to the limit or the person will be away more than half a day. The database is switched back to Single-AZ straight after the failover drill.
+- **Why:** One bring-up proves the runbook once and costs about 7 to 10 USD, while repeated bring-ups cost time. Multi-AZ costs extra, so it stays on only for the drill.
+
+## D-M5-0. M5 run unattended (2026-10-17)
+- **Date:** 2026-10-17
+- **Changes:** AGENTS.md "AWS changes need a yes", for this run only.
+- **What:** The person was away 8 to 12 hours and gave standing approval for M5: commits and pushes on `m5`, the PR, `terraform apply` on dev (including the Multi-AZ switch and back), image pushes, deploys, one-off tasks, trigger pauses, scaling, object deletes, the queue purge, the reboot and the dev teardown. Never prod, never repo settings or secrets, never history rewrite, never merge. The `.mailmap` is added by this run (D-M5-2). The SNS email is not confirmed; alarms are read in CloudWatch. The browser checks (slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview) are run with Playwright on dev; only the demo recording is left to the person. Stop rules: the same problem failing twice is recorded as NO and skipped; anything unsafe tears dev down; a usage warning tears dev down first; dev always ends Single-AZ. If every check is YES dev stays up for the demo, otherwise it is torn down.
+- **Why:** Records the terms of an unattended run.
+
+## D-M5-4. Database TLS checks the certificate chain
+- **Date:** 2026-10-17
+- **Changes:** D-M1-10 ("connections built from parts use TLS without chain checks"), TDD Launch plan "Build decisions".
+- **What:** `packages/shared/certs/rds-ca-bundle.pem` holds the RDS global bundle plus Amazon Root CA 1 (for a prod RDS Proxy), public certificates only, rebuilt by `scripts/update-rds-ca.sh`. `withDatabaseUrl` builds `sslmode=verify-full&sslrootcert=<DB_CA_FILE>` and throws when `DB_CA_FILE` is missing, so a connection can never skip the check by accident. ECS images set `DB_CA_FILE` to the file in the image; every Lambda gets `DB_CA_FILE=/var/task/rds-ca-bundle.pem` from Terraform and the file is copied into `dist/lambda/` by each worker's `prebundle` step (and so into the Upload Events image). The bootstrap task uses `PGSSLMODE=verify-full` with `PGSSLROOTCERT`. Local `DATABASE_URL` is unchanged (Compose Postgres has no TLS).
+- **Found on the bring-up (2026-10-17):** the first bootstrap task failed with "could not read root certificate file: Permission denied". `update-rds-ca.sh` wrote the bundle through `mktemp`, which makes it mode 0600, and `COPY` kept that mode, so the non-root user of each image could not read it. The script now runs `chmod 644`, and the `COPY` lines for the bundle use `--chmod=644` (`--chmod=644` also stripped the folder's execute bit, which failed the first retry, so the service images now `chmod 755` the folder and `chmod 644` the file in a `RUN` while still root; checked locally by reading the file as the `node` user), so an image no longer depends on the mode of the file on the build machine.
+- **Why:** The TDD asks for it in M5. Skipping the chain check allows a man in the middle inside the VPC.
+
+## D-M5-11. Check 5.1 is a NO for now (stop rule), re-measured at the end
+- **Date:** 2026-10-17
+- **Changes:** none to the design.
+- **What:** Check 5.1 (p99 under 500 ms) failed on two full runs: p99 749 ms, then 712 ms (server side, API Gateway `responseLatency`). The cause of the first was real and is fixed (D-M5-10). The second run still had two of five 100 x 20 jobs above 500 ms (535 and 705 ms inside the API), with 50 Delivery copies clearing the previous cancelled job on the same small database. Under the run's stop rule (the same problem failing twice: stop fixing, record NO, carry on) no more product code is changed for it. The harness now waits for the queues to empty between big submissions (D-M5-7) and the check is run once more after all other checks. Both outcomes are in `M5-RESULTS.md`.
+- **Final result (2026-10-17, after the other checks):** one more full run on a laptop doing nothing else, with the waiting between big submissions: p50 32 ms, **p99 808 ms**, max 1,645 ms at the gateway (100 requests counted). A fourth run, which overlapped a local test round on the same laptop, gave p99 992 ms. So four runs: 749, 712, 992 and 808 ms. **Check 5.1 is a NO.** What is known: the 10,000-parameter insert was a real cause and is fixed (the route's own timer fell from up to 1.6 s to 0.1 to 0.8 s, and the median submission takes 32 ms); the five 100 x 20 submissions still take 0.35 to 1.6 s at the gateway, and in the last run the gateway's integration latency was within 2 ms of its latency, so the time is in the API task, not in the gateway. The route's timer starts after the token check and the body parse, and it shows less than the gateway does (for example 801 ms against 1,643 ms), so up to about 800 ms of the biggest requests is spent before the route's own code: the JWT check, reading and validating the 100 KB body, or waiting for the 0.5 vCPU task while the previous cancelled job is cleaned up. That part was not traced. To look at next (not done): log the time at the start of the handler (`reply.elapsedTime`), try 1 vCPU for the DocBeam API, and measure from inside AWS.
+- **Why:** An unattended run must not spend its whole window on one metric.
+
+## D-M5-13. Database pools time out dead connections (found in the failover drill, check 5.8)
+- **Date:** 2026-10-17
+- **Changes:** D-M0-6 (pool limits), TDD Failure modes row "PostgreSQL" (Multi-AZ fails over in about 1 to 2 minutes, which the delivery backoff rides out). No contract change.
+- **What:** First drill run: RDS reported the failover from 15:36:43 to 15:37:12 UTC (29 s). The Document Platform then answered 500 INTERNAL_ERROR for **more than 10 minutes** ("timeout exceeded when trying to connect"; 1,089 errors in 3 minutes at 15:47). Its pool of two connections held sockets to the old primary that were dead but silent, so every query on them waited for ever and the pool was blocked for good; `/health` does not touch the database, so ECS did not replace the task. Without a restart the system would not have recovered. Now `SERVICE_POOL` and `LAMBDA_POOL` set `query_timeout` 20 s (a hung query fails and the pool throws that connection away) and TCP keep-alive, the three services handle an idle connection's `error` event instead of crashing on it, and a unit test pins the two settings. The drill was run again after the change (`failover.txt`; the first run is `failover-run1.txt`).
+- **Why:** The TDD says a failover "which the delivery backoff rides out". It only does if the services reconnect by themselves. Local tests cannot show this: Compose Postgres never fails over.
+
+## D-M5-12. The Delivery Lambda gets 3,008 MB (found on dev, check 5.6)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.4 and Concurrency table (Lambda memory 1,024 MB in the code; the design gives no number for Delivery).
+- **What:** A 1 GiB file delivered by a Delivery copy with 1,024 MB used all 1,024 MB and hit the 120-second timeout, twice (14:59 and 15:11 UTC; the message came back after its 720-second visibility timeout each time). With 3,008 MB the same task completed in **36.9 seconds** (`REPORT … Duration: 36899.61 ms … Max Memory Used: 1212 MB`), and the platform document had the same size and SHA-256 as the local file. `memory_size = 3008` in `infra/envs/dev/async.tf` and `infra/envs/prod/async.tf`. Lambda CPU grows with memory, which is likely most of the gain; the stream is also buffered further ahead of the platform than the design assumed, which is a point to look at if the memory ever has to go down again. The 50-concurrent cap is unchanged, so the connection budget (D-M0-6) is unchanged.
+- **Why:** The check is in the success list ("A 1 GB multipart upload completes … and is delivered with a matching SHA-256"). The change costs nothing when files are small, because Lambda bills the time used.
+
+## D-M5-10. POST /jobs: one parameter per array, and the two checks run together (found on dev, check 5.1)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.2 (no contract change). Code only.
+- **What:** `pgArray` (`services/docbeam-api/src/sql.ts`) used to make one bound parameter per element, so a 100-file, 20-folder job sent 10,000 parameters in the task insert. Measured on dev with a timing log added to the route (`job submitted ... ms`): the task insert took 0.8 to 1.3 s and everything else under 130 ms; p50 of the 100 x 20 jobs at the gateway was 1.3 s. Now each array is one parameter, a Postgres array literal cast to its type (`arrayLiteral`, with unit tests for quotes, commas and braces). The file check and the platform's destination check also start together; a file problem is still reported first. After the change the 2,000-task insert took 100 to 190 ms and a whole 100 x 20 request 190 to 535 ms inside the API.
+- **Why:** The success metric is under 500 ms at p99 whatever the batch size. LocalStack tests could not show it: the cost grew with the number of tasks and was invisible on 4-task test jobs.
+
+## D-M5-8. Delivery may list the Object Store bucket (found on dev, check 5.4)
+- **Date:** 2026-10-17
+- **Changes:** TDD Step 2.4 / Concurrency ("a file removed after submitting fails only that file's tasks with FILE_NOT_UPLOADED"). IAM only, no code change.
+- **What:** The Delivery role gets `s3:ListBucket` on the Object Store bucket (dev and prod `async.tf`). Before this, a `HEAD` of a key that was deleted got **403** from S3, not 404 (S3 hides whether a key exists from a caller who cannot list the bucket). Delivery's SDK error was `Unknown: UnknownError`, which it treats as a temporary error, so the removed file's tasks went back to pending and would have ended as RETRIES_EXHAUSTED after about 17 minutes instead of FILE_NOT_UPLOADED at once. LocalStack answers 404, so the integration tests never saw it. After the change the same check passes: `{"failed/FILE_NOT_UPLOADED":3}` for the removed file and 3 completed for the other.
+- **Why:** The TDD asks for a visible, immediate, per-file failure. `ListBucket` only lets the worker see key names it already holds; the bucket policy still limits object reads to the allow-listed roles.
+
+## D-M5-9. "Paused" means two more minutes of waiting (found on dev, checks 5.2 and 5.4)
+- **Date:** 2026-10-17
+- **Changes:** G23 and PLAN 5.2 ("pause the Task Queue trigger"). Scripts only.
+- **What:** After `update-event-source-mapping --no-enabled` the mapping reads `Disabled`, but on dev six deliveries still ran 50 seconds later. `setTrigger` now waits 120 seconds after `Disabled`, and checks 5.2 and 5.4 first assert that every task is still pending before they act. A check that cannot prove the pause fails instead of passing by luck.
+- **Why:** The two checks are only meaningful if no delivery started before the member was removed or the object was deleted.
+
+## D-M5-5. A POST with no body works for any client
+- **Date:** 2026-10-17
+- **Changes:** STATUS known issue (M4), TDD M5 security line. No contract change.
+- **What:** `acceptEmptyBodies` (`packages/shared/src/errors.ts`) adds a catch-all content-type parser to the DocBeam API and the Auth Service: an empty body is accepted whatever the content type or transfer encoding, a body of a type no route reads still gets 415. `POST /jobs/:id/cancel`, `/retry`, `/files/:id/downloads` and `/auth/refresh` and `/auth/logout` now work from curl through CloudFront. The Platform is internal and not changed.
+- **Why:** Through CloudFront and the gateway a request with no body can arrive chunked and with no content type, and Fastify answers that with 415. The web app always sends a body, so it never hit this.
+
+## D-M5-6. Dev Multi-AZ variable, seed variant and failure-rate tool
+- **Date:** 2026-10-17
+- **Changes:** none to the design.
+- **What:** `db_multi_az` (default `false`) in `infra/envs/dev` switches dev RDS to Multi-AZ for the failover drill only (G22). `services/platform/seed/dev-load-m5-removed.json` is the dev load hierarchy with Load Team 20 emptied of members; loading it prunes the load user from that team (check 5.2, G23), and loading `dev-load.json` puts the membership back. `services/docbeam-api/src/failure-rate-run.ts` prints the TDD Monitoring query (system failures over all non-cancelled tasks) as JSON.
+- **Why:** The checks must be re-runnable by script.
+
+## D-M5-7. The submit-speed check cancels what it submits
+- **Date:** 2026-10-17
+- **Changes:** none to the design (PLAN 5.1 says only "100 x 20 job accepted in under 500 ms at p99").
+- **What:** `scripts/m5-submit-load.sh` submits 100 jobs of mixed size (5 of 100 x 20 files, 20 of 10 x 20, 75 of 1 x 20) and cancels each right after it is accepted. p99 is read from the API Gateway access log (`responseLatency`, route `POST /jobs`) in Logs Insights, with the client numbers next to it.
+- **Why:** Delivering about 21,000 tasks through the 6-ingest stand-in platform would take hours and prove nothing more about submit speed. Deliveries of full 2,000-task jobs are proved by checks 5.2, 5.3, 5.8 and 5.10.
+- **Added later the same day:** after each 100-file job is cancelled the script waits for the queues to empty before the next submission. With no wait, the previous job's 2,000 cancelled messages were still being claimed by 50 Delivery copies (68 database connections, database CPU 45%) while the next job was timed, and the slowest of five 100 x 20 submissions was 705 ms in the API. This measures the endpoint, not a worst case of two big batches a few seconds apart.
+
+## D-M5-14. POST /jobs is timed phase by phase from the request's arrival (check 5.1)
+- **Date:** 2026-10-18
+- **Changes:** none to the design. Observability only.
+- **What:** `services/docbeam-api/src/timing.ts`. A timer starts in the `onRequest` hook, before the body is read. One log line per `POST /jobs` (message `submit timing`) carries `size` (`files`, `destinations`, `tasks`), `status` and `ms`: `bodyReadMs` (from arrival to the end of the body read), `jsonParseMs`, `authMs` (parse end to the handler, which includes the token check), `schemaMs` (zod), `keyLookupMs`, `batchMs`, `filesMs` (the file query, with the destination call already running beside it), `destinationWaitMs` (extra wait for the platform after the files), `destinationCallMs` (the whole platform call, a span that overlaps the laps), `rowsMs`, `claimMs`, `tasksMs`, `commitMs`, `queueMs` and `totalMs` (Fastify `reply.elapsedTime`). The JSON content-type parser reads the body as a string and then runs Fastify's own parser, so read and parse are timed apart with the same behaviour. The old `job submitted` timing line is replaced. Logs Insights gives p50 and p99 per phase and per size from these lines (`m5-server-metrics.sh`). It is compared with API Gateway `IntegrationLatency` and the ALB `TargetResponseTime` to see whether time is lost before the service.
+- **Local measurement (`scripts/m5-schema-timing.sh`, a 100 x 20 body, 218 KiB, 200 runs, `docker --cpus`):** at 0.25 vCPU JSON.parse p50 0.5 ms, zod p50 1.5 ms, validateBatch p50 1.7 ms, **but p99 80 to 95 ms for each**; at 0.5 vCPU p99 47 to 57 ms; at 2 vCPU p99 under 2 ms. The work itself is cheap; a small CPU quota stalls it in bursts (CFS throttling). **Corrected by D-M5-16:** on dev the container's CPU-quota throttling was 0 ms in every request, so this laptop result does not explain the dev stalls.
+- **Why:** The route's own timer started after the body parse and the token check, so up to 800 ms of the slow requests was unexplained (D-M5-11).
+
+## D-M5-17. Requirement change: submit speed has two targets (check 5.1)
+- **Date:** 2026-10-18
+- **Decided by:** the person (a requirement change, not a design finding of the build).
+- **Changes:** success metric "a 100 x 20 job (2,000 deliveries) is accepted in under 500 ms at p99" (TDD Step 5 list and the blueprint metric). `docs/design/` is not edited; this entry wins over it (AGENTS.md).
+- **What:** The original target stays. It now applies to **normal operation**: 2,000 deliveries accepted in under **500 ms at p99** with no delivery load on the system. A second target applies **under peak delivery load**: under **1 s at p99**, with Delivery copies running at full concurrency (the load of runs B, 2, 3 and the four runs of 2026-10-17). Both are read at the API Gateway (`responseLatency`, Logs Insights, 100 requests), as before.
+- **Why (the person's reasons):** 1 s is the usual limit for an action to feel immediate; comparable batch-submit APIs, such as Dropbox's `finish_batch`, publish no stricter promise (not checked by this build); the 500 ms figure was set before anything was measured.
+- **Evidence it is graded on (`M5-RESULTS.md` section 8):** normal operation: run A (Delivery paused) p99 225 ms, max 282 ms: **one run only**. Peak load: seven runs, p99 749, 712, 992, 808 (2026-10-17), 330, 590, 419 ms (this bring-up): all under 1 s, **worst 992 ms, a margin of 8 ms**. Single requests did go over 1 s (max 1,152 ms in the 992 run and 1,645 ms in the 808 run). The 749 run was on code since changed (D-M5-10), and the 992 run overlapped other work on the laptop.
+- **Known limit kept (not fixed):** under peak load the slow requests lose their time in small database queries while up to 49 Delivery copies queue on one job's row lock and wait on the write-ahead log of a `db.t4g.micro` with 38 to 94 MB free memory (D-M5-16). Not proven to be the only cause; yesterday's four failures could not be explained further. Fixes planned, not done: a larger dev database class (`db.t4g.small`, about 0.4 USD a day more), a shorter job-row lock in the cancel transaction, and the same check on prod's Multi-AZ instance before it is deployed. The phase timing stays in place (D-M5-14, D-M5-16).
+- **Why recorded this way:** the target was changed after measuring, so the original, the new wording and the thin margin are all written down; the pass is not hidden.
+
+## D-M5-16. 5.1 diagnosis tooling: pool, GC, CPU-limit and lock sampling (check 5.1)
+- **Date:** 2026-10-18
+- **Changes:** none to the design. Observability and scripts only.
+- **What:** The `submit timing` line (D-M5-14) now also carries `gcMs`, `throttledMs` (the container's cgroup `cpu.stat`), and, from a wrapper on the pool's `connect` (`instrumentPool`, `AsyncLocalStorage` per request): `poolWaitMs`, `poolMaxWaitMs`, `poolAcquires`, `poolMaxWaiting`, `poolTotal`, `poolMinIdle`, `newConnections`, and `<phase>Pool` (the pool wait inside a lap). `scripts/m5-pg-sample.sh <minutes>` runs a one-off task that samples `pg_stat_activity` and `pg_locks` every 250 ms (wait events, ungranted locks, active backends). `m5-submit-load.sh --quiet` pauses Delivery for a run; `m5-submit-report.sh` prints every phase, the load balancer and the CPU of the API, platform and database.
+- **What the data showed (run 3, `M5-RESULTS.md` section 8):** no query ever waited for a pool connection (`poolMaxWaiting` 0, one connection open); the only pool waits were 30 to 85 ms to open a connection in 3 big requests; GC at most 5 ms; throttling 0 ms. So a larger DocBeam API pool, or a separate pool for submits, would not have helped, and **was not tried**. The time is in the database: up to 49 backends waiting on the row lock of one job (Delivery copies finishing tasks of a job being cancelled), WAL waits, 63 connections on a `db.t4g.micro`; the quiet run (Delivery paused) had none of it. Connection budget unchanged (79 of 100 worst case, D-M0-6).
+- **Why:** The first runs showed the slow requests losing their time in two small queries; a pool wait, a lock wait and a process stall look alike from outside, and each has a different fix.
+
+## D-M5-15. The Sweeper re-sends a job after 1 minute, not 2 (check 5.13)
+- **Date:** 2026-10-18
+- **Changes:** ADR-014 and TDD Step 2.5 (the stale age, "2 minutes" in the design).
+- **What:** `STALE` in `workers/sweeper/src/index.ts` is now `interval '1 minute'`. Worst case by design: the job waits 1 minute to be stale, then up to one schedule interval (1 minute, `rate(1 minute)`) for the run that sees it, plus the Lambda start and the fan-out start (seconds). That is about 2 minutes 10 seconds. With the old 2 minutes it was 3 minutes plus the fan-out time, so the 3-minute promise could be broken; check 5.13 passed at 179 s of 180 only by luck. A job whose first message is merely slow is sent again after 1 minute; fan-out is safe to repeat (ADR-014), so a duplicate does nothing. Cost: none (the sweeper already runs every minute; it reads the same one query).
+- **Why:** The success list says a lost message is recovered within 3 minutes. A promise must hold with a margin, not by a second.

@@ -1,0 +1,64 @@
+[16:15:56] Changes AWS (approved with --yes): applies db_multi_az=true to the dev database (about +0.6 USD a day), reboots it with failover during a run, then applies db_multi_az=false
+[16:16:11] waiting for the standby to be built (10 to 30 minutes)
+PASS  2,000 tasks accepted: 201
+[16:20:34] rebooting with failover at 2026-10-17T16:20:34.861Z with {"pending":1798,"in_progress":27,"completed":175,"failed":0,"cancelled":0}
+PASS  the failover hit the middle of the run (at least 1,000 deliveries still ahead): {"pending":1798,"in_progress":27,"completed":175,"failed":0,"cancelled":0}
+[16:32:51] longest stretch with no new completion: 523 s (255 reads)
+[16:32:54] switching the database back to Single-AZ
+PASS  dev database is Single-AZ again: MultiAZ=false
+
+(The script then stopped with an AWS CLI error and printed no verdict: its call to `aws rds describe-events` gave both a
+start time and a duration, which RDS refuses. The script is fixed: it now reads the events with a start and an end time,
+proves the result from the databases itself, and any check that throws ends with a FAIL line. The lines below were written
+by hand on 2026-10-17 from the databases, CloudWatch and the RDS events, as the person asked.)
+
+=== Verdict, written from the databases (job 88980f83-420a-429d-932a-72632726f1dc) ===
+
+RDS events (docbeam-dev-postgres):
+  16:20:53  Multi-AZ instance failover started
+  16:21:10  DB instance restarted
+  16:21:13  Multi-AZ instance failover completed          -> failover time 20 s
+
+DocBeam database, tasks of the three drill jobs (files named m5-failover-*):
+  run 1, 15:36 (before the pool fix, D-M5-13):  2000 tasks: 1147 completed, 853 RETRIES_EXHAUSTED   <- the bug
+  run 2, 16:13 (after the fix, script crashed): 2000 tasks: 2000 completed, 0 failed, 0 RETRIES_EXHAUSTED
+  run 3, 16:20 (this run):                      2000 tasks: 2000 completed, 0 failed, 0 RETRIES_EXHAUSTED, completed_at 16:32:49
+
+Platform database, documents named m5-failover-*:
+  run 1: 1147 documents. Runs 2 and 3: 4000 documents with 4000 distinct source_task_id.
+  All runs: 5147 documents, 5147 distinct source_task_id  -> each completed task stored exactly once, no duplicates.
+
+Task DLQ and Job DLQ, CloudWatch ApproximateNumberOfMessagesVisible, maximum over 16:19 to 16:35: 0 and 0.
+
+PASS  all 2,000 tasks of run 3 completed exactly once (2000 tasks, 2000 completed, 2000 documents with 2000 distinct source_task_id)
+PASS  none RETRIES_EXHAUSTED (0 in runs 2 and 3; run 1 had 853 before the fix)
+PASS  Task DLQ and Job DLQ stayed at 0 over the window
+PASS  failover time from RDS: 20 s (16:20:53 to 16:21:13)
+PASS  dev database is Single-AZ again (MultiAZ=false, status available)
+
+=== The 523 s pause, explained ===
+
+It is the longest quiet stretch between two completed deliveries, measured at the tail of the run. It is not a stop of
+the system. Delivery logs, per minute (UTC):
+
+  task delivered:  16:20 = 720   16:21 = 1148   16:22 = 124   16:24 = 7   16:25 = 3   16:32 = 1
+  so 1992 of 2000 were done by 16:22:xx, within 90 s of the failover, and 8 stragglers followed.
+
+What happened:
+  1. 16:20:53 to 16:21:13, the database was gone for about 15 s. 1,264 delivery attempts failed on the database
+     (1,236 ECONNREFUSED, 22 "connection timeout", 6 "Query read timeout" -- the new 20 s query timeout at work) and the
+     Platform answered 500 to 21 requests between 16:20:55 and 16:21:10. Before the pool fix the Platform stayed broken
+     for more than 10 minutes (run 1).
+  2. Each failed message was put back with the retry gap for its receive count: 30 s, then 2 min, then 5 min, then 10 min.
+     The first retry, 30 s later, found the database back, so almost every task finished in the 16:21 and 16:22 minutes.
+  3. Tasks that failed twice waited the next gap (2 min): 7 delivered at 16:24. Tasks that failed a third time waited
+     5 min: 3 delivered at 16:25.
+  4. The last task was delivered at 16:32:49, about 714 s after the failover. That is the queue's 12-minute visibility
+     timeout (720 s), not a retry gap: an attempt that was cut off by the failover without setting a retry gap returned
+     to the queue only when its visibility timeout ran out. This is the most likely cause: the timing matches to the
+     second, but that single task's own log lines were not traced.
+  So: failover 20 s + retry gaps (30 s, 2 min, 5 min) for the stragglers + one 12-minute visibility wait = a quiet
+  tail of 523 s. Nothing was lost and nothing was stored twice. Limit found: after a database failover a message can
+  wait up to 12 minutes; a shorter queue visibility timeout would shorten that, at the cost of the 6 x rule of the design.
+
+PASS failover (verdict from the databases; the script's own run is above)

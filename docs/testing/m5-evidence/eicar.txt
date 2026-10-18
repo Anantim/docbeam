@@ -1,0 +1,8 @@
+PASS  the EICAR file is marked infected: infected
+PASS  the clean file is marked clean: clean
+PASS  submitting the EICAR file is refused: 422 FILE_NOT_READY
+PASS  the object was deleted from the Object Store: head-object found nothing
+PASS  it can never be downloaded (404, even for its owner): 404
+PASS  a file.refused audit event exists: 2 file.refused events
+
+PASS eicar (6/6 lines)

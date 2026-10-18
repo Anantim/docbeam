@@ -25,12 +25,12 @@ function setup(queryRows: unknown[][] = []) {
 }
 
 describe('resend', () => {
-  it('asks only for jobs with no fan-out and no end, two minutes after they were queued', async () => {
+  it('asks only for jobs with no fan-out and no end, one minute after they were queued', async () => {
     const s = setup([[]]);
     await resend(s.deps);
     expect(s.queries[0]).toContain('fanned_out_at IS NULL');
     expect(s.queries[0]).toContain('completed_at IS NULL');
-    expect(s.queries[0]).toContain("interval '2 minutes'");
+    expect(s.queries[0]).toContain("interval '1 minute'");
     expect(s.sent).toHaveLength(0);
   });
 

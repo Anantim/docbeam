@@ -1,0 +1,22 @@
+== empty buckets 18:16:32
+docbeam-dev-platform-files-346208529537: deleted 26000 so far
+docbeam-dev-platform-files-346208529537: deleted 27000 so far
+docbeam-dev-platform-files-346208529537: deleted 27511 so far
+docbeam-dev-platform-files-346208529537: empty (27511 versions and delete markers deleted).
+Done. Now run: terraform -chdir=infra/envs/dev destroy (README, Tear down).
+== destroy 18:22:21
+              [31m-[0m[0m metric_name = "Errors" [90m-> null[0m[0m
+          [31m-[0m[0m format          = "{\"requestId\":\"$context.requestId\",\"routeKey\":\"$context.routeKey\",\"status\":$context.status,\"authError\":\"$context.authorizer.error\",\"integError\":\"$context.integrationErrorMessage\",\"latency\":$context.responseLatency,\"integrationLatency\":\"$context.integrationLatency\"}" [90m-> null[0m[0m
+[1mPlan:[0m [0m0 to add, 0 to change, 275 to destroy.
+Destroy complete! Resources: 275 destroyed.[0m
+== state 18:49:50
+0
+2026-10-14 06:41:18 docbeam-tfstate-346208529537
+0
+0
+0
+0
+0
+None
+0
+teardown done 18:50:17

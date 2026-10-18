@@ -1,0 +1,44 @@
+
+> test:e2e:dev
+> playwright test -c playwright.dev.config.ts m5-browser-dev
+
+
+Running 4 tests using 1 worker
+
+slow connection: 2 MiB uploaded and verified in 51 s at about 64 KiB/s
+  ✓  1 [chromium] › tests/e2e/m5-browser-dev.spec.ts:67:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered (57.7s)
+multipart resume: 2 parts stored before the drop, 2 shown right after Retry
+  ✓  2 [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts (2.5m)
+  ✘  3 [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page (27.2s)
+  -  4 [chromium] › tests/e2e/m5-browser-dev.spec.ts:189:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up
+
+
+  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page 
+
+    Error: m5-57b637.png decoded by the browser
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [240, 160]
+    Received: undefined
+
+      180 |     await expect(img).toBeVisible({ timeout: 30_000 });
+      181 |     const size = await img.evaluate('(el) => [el.naturalWidth, el.naturalHeight]');
+    > 182 |     expect(size, `${f.name} decoded by the browser`).toEqual([240, 160]);
+          |                                                      ^
+      183 |     await page.screenshot({ path: evidence(`preview-${f.name.endsWith('.png') ? 'png' : 'jpg'}`) });
+      184 |     await page.keyboard.press('Escape');
+      185 |     await expect(dialog).toBeHidden();
+        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:182:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m5-browser-dev-PNG-and-JPG-fce20--show-the-image-in-the-page-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m5-browser-dev-PNG-and-JPG-fce20--show-the-image-in-the-page-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page 
+  1 did not run
+  2 passed (3.9m)
+exit=1

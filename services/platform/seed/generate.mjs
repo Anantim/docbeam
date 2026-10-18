@@ -76,7 +76,12 @@ const load = {
   }),
 };
 
+// The same hierarchy with Load Team 20 emptied of members (M5 check 5.2, G23). Loading it prunes the load user from
+// that team. Loading dev-load.json again puts the membership back.
+const loadRemoved = { ...load, teams: load.teams.map((t) => (t.name === 'Load Team 20' ? { ...t, members: [] } : t)) };
+
 const dir = dirname(fileURLToPath(import.meta.url));
 writeFileSync(join(dir, 'demo.json'), JSON.stringify(demo, null, 2) + '\n');
 writeFileSync(join(dir, 'dev-load.json'), JSON.stringify(load) + '\n');
-console.log('wrote demo.json and dev-load.json');
+writeFileSync(join(dir, 'dev-load-m5-removed.json'), JSON.stringify(loadRemoved) + '\n');
+console.log('wrote demo.json, dev-load.json and dev-load-m5-removed.json');

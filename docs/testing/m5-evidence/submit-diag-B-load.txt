@@ -1,0 +1,12 @@
+[21:05:36] 100 jobs, 1090 files, up to 20 destinations each
+[21:33:48] WINDOW from=2026-10-17T21:33:48.273Z (deliveries running)
+[21:37:37] WINDOW to=2026-10-17T21:37:37.600Z
+PASS  every job accepted with files x 20 tasks: 100 of 100
+[21:37:37] Waiting 180 s for the gateway access log, then reading it server side
+PASS  server-side POST /jobs, requests counted: 100
+PASS  server-side POST /jobs p99 under 500 ms: p50 30 ms, p99 330 ms, max 379 ms (API Gateway responseLatency)
+[21:40:44] client side (includes the internet): p50 301 ms, p99 1699 ms; the 10 jobs of 100 x 20: 921, 1699, 1605, 1569, 1552, 1574, 1735, 1588, 1528, 1539 ms
+PASS  DLQs empty afterwards (job, task, upload events): 0, 0, 0
+
+PASS submit-load (4/4 lines)
+exit 0
