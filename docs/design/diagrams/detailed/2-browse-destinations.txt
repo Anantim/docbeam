@@ -19,7 +19,7 @@ Auth Service > Auth DB: Look up user, check sign-in pause and password hash
 alt [label: credentials valid and sign-in not paused] {
   Auth Service > Auth DB: Reset wrong-password count, store refresh token hash (new sign-in, ends in 12 h)
   Auth Service > Auth Service: Sign 15-minute JWT
-  Auth Service --> Web Client: Return token, refresh token in a Secure HttpOnly cookie for /auth
+  Auth Service --> Web Client: Return token, refresh token in a Secure HttpOnly cookie for /api/auth
 }
 else [label: credentials invalid or sign-in paused] {
   Auth Service > Auth DB: Count the wrong password (5 in a row pause sign-in for 15 min)
