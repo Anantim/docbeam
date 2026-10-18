@@ -4,7 +4,7 @@
 
 DocBeam is a batch document distribution app for clinical trial teams. It is a portfolio project: designed first (`docs/design/`), then built in six milestones, and shown running on AWS (Sydney) from Terraform. Prod is written but never deployed.
 
-> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (3 min 5 s, recording of the live dev site made in OBS, cropped to the page; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). The dev site it shows has since been torn down.
+> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (3 min 5 s, recording of the live dev site made in OBS, cropped to the page; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). The dev site it shows is kept up for a day or two of review and is then torn down.
 
 ## The problem
 
