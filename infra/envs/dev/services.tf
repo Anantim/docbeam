@@ -109,6 +109,10 @@ module "api_gateway" {
   cors_allowed_origins       = var.cors_allowed_origins
   routes                     = local.public_routes
   jwt_authorizer_enabled     = var.jwt_authorizer_enabled
+
+  public_registration_enabled = var.public_registration_enabled
+  # 5 a second, burst 10, on login, refresh and the upload links (D-M5-20). The multipart routes keep the default.
+  tight_routes = ["POST /auth/login", "POST /auth/refresh", "POST /uploads"]
 }
 
 module "auth" {

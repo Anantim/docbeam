@@ -8,7 +8,7 @@ DocBeam lets a coordinator send up to 100 files to up to 20 team folders in one 
 
 ## The accounts
 
-All are fictional (`@example.com`). Each person sees only the teams they belong to.
+All are fictional (`@example.com`). Each person sees only the teams they belong to. Creating new accounts is switched off on dev, so use these (the "Create an account" link will not work).
 
 | Sign in as | Teams | What they can see |
 |---|---|---|

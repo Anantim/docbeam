@@ -39,6 +39,12 @@ variable "cors_allowed_origins" {
   default     = ["http://localhost:5173"]
 }
 
+variable "public_registration_enabled" {
+  description = "false in dev: the repository is public, so the gateway does not forward POST /auth/register and nobody can create accounts (D-M5-20). The seed creates its users through the internal Auth address, not the gateway. Set true for a moment to re-run check 5.11 (scripts/m5-auth.sh), then apply false again."
+  type        = bool
+  default     = false
+}
+
 variable "jwt_authorizer_enabled" {
   description = "false only for the first bring-up of a new environment, until the Auth Service answers through CloudFront (D-M1-13). Apply again with true."
   type        = bool

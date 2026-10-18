@@ -79,7 +79,7 @@ Run alone and in this order: `scripts/m5-all.sh` (or one by one). Each prints `P
 | 5.3 | Platform outage | `scripts/m5-platform-outage.sh --yes` | scales the platform to 0 for 5 minutes | 2,000 of 2,000 completed once, the DLQs 0 |
 | 5.13 | Lost job message | `scripts/m5-sweeper.sh --yes` | pauses the Fan-out trigger, purges the Job Queue | fan-out starts within 3 minutes (by design at most about 2 minutes 10 seconds after D-M5-15) |
 | 5.6 | 1 GiB multipart | `scripts/m5-multipart-1gb.sh` | no | stored combined checksum `…-64`; scanned clean; delivered; the platform document has the same SHA-256 |
-| 5.11 | Auth | `scripts/m5-auth.sh` | no | reuse of a refresh token ends the sign-in; 5 wrong passwords pause for 15 minutes |
+| 5.11 | Auth | `scripts/m5-auth.sh` | no. **Needs public registration on:** the script registers its test users through the gateway, which dev has closed since D-M5-20. Before running it: `terraform -chdir=infra/envs/dev apply -var public_registration_enabled=true` (with the usual `-var image_tag=…`); afterwards apply again without it (the default is `false`) | reuse of a refresh token ends the sign-in; 5 wrong passwords pause for 15 minutes |
 | 5.8 | Failover | `scripts/m5-failover.sh --yes` | Multi-AZ on, reboot with failover, Multi-AZ off | deliveries pause, then all 2,000 complete; dev is Single-AZ again |
 
 Then: `scripts/m5-failure-rate.sh 1` (the failure rate: system failures over all tasks) and `scripts/m5-server-metrics.sh --since=<start of the checks>` (server-side latency per route).
