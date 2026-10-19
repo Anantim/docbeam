@@ -826,3 +826,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Date:** 2026-10-19. **Decided by:** the person. **Changes:** D-M5-21's time.
 - **What:** `.github/workflows/dev-teardown.yml` now runs once at **04:30 UTC on 2026-10-20** (10:00 IST, `cron: 30 4 20 10 *`) instead of 14:17 UTC on 2026-10-19, so testers keep dev one more evening. The date guard moves to 2026-10-21: a scheduled run after that date does nothing, so the yearly cron entry never tears anything down again. The manual run is unchanged. The tester guide gives the new time.
 - **Cost:** about 0.6 USD more of dev time (about 14 more hours at 4.5 USD a day).
+
+## D-F1-1. F1 round: the agent skills could not be installed; CODE-WALKTHROUGH.md does not exist
+- **Date:** 2026-10-20. **Decided by:** the agent (the person is away, standing instruction to decide and record).
+- **What:** The F1 prompt asked for the skills ui-ux-pro-max, frontend-design, vercel-react-best-practices, grilling, grill-with-docs and code-review. `npx skills ls -g` showed none installed. All five outside ones were found (`nextlevelbuilder/ui-ux-pro-max-skill`, `anthropics/skills@frontend-design`, `vercel-labs/agent-skills@vercel-react-best-practices`, `mattpocock/skills@grill-with-docs` and `@grilling`), but the install command was **refused by the permission system** (untrusted code integration). Per the run's rule it was not worked around. `code-review` is built into the session and is used. For the rest, the agent applies the same practices by hand (design tokens, a grill of each plan against `docs/design` and this file, React rules from its own knowledge) and says so in the final report.
+- **Also:** the prompt names `docs/CODE-WALKTHROUGH.md`; it does not exist in the repository. Part 8 creates it (files, routes, components) instead of updating it.
+- **Why:** The rules say a refused action is recorded, skipped, and the run carries on.
