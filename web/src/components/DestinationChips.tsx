@@ -11,7 +11,7 @@ interface Props {
 
 /** What the popover shows for a hidden destination: its path without the team, which the group header names. */
 function withoutTeam(path: string): string {
-  const parts = path.replace(/ \(top level\)$/, '').split(' / ');
+  const parts = path.split(' / ');
   return parts.length > 1 ? parts.slice(1).join(' / ') : (parts[0] ?? '');
 }
 

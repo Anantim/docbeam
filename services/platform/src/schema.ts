@@ -43,7 +43,7 @@ export const folders = pgTable(
     binderId: uuid('binder_id')
       .notNull()
       .references(() => binders.id),
-    /** NULL = top level of the binder. */
+    /** Always set for a new document (D-F1-3). NULL only in documents delivered before that, at the top of a binder. */
     parentFolderId: uuid('parent_folder_id').references((): AnyPgColumn => folders.id),
     name: text('name').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
