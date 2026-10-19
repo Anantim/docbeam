@@ -128,11 +128,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
       try {
         const page = await apiFetch<{ items: { id: string; name: string }[]; nextCursor: string | null }>(pageUrl('/teams', cursor));
         const nodes = page.items.map((t): TreeNode => ({ id: t.id, kind: 'team', name: t.name, binderId: null, pathNames: [t.name] }));
-        setRoots((r) => {
-          const all = [...(r ?? []), ...nodes];
-          onTeams(all.map((n) => n.name));
-          return all;
-        });
+        setRoots((r) => (cursor === null ? nodes : [...(r ?? []), ...nodes]));
         setRootsNext(page.nextCursor);
       } catch {
         if (cursor === null) setRootError(true);
@@ -142,12 +138,17 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
         setFlag(setBusy, ROOT, false);
       }
     },
-    [onTeams],
+    [],
   );
 
   useEffect(() => {
     void loadTeams(null);
   }, [loadTeams]);
+
+  // The shell shows the team names that are loaded so far.
+  useEffect(() => {
+    if (roots) onTeams(roots.map((n) => n.name));
+  }, [roots, onTeams]);
 
   const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
   const chosen = useMemo(() => new Set(selected.map(destinationKey)), [selected]);

@@ -8,7 +8,7 @@ const PAGING = 'paging.user@example.com';
 test('a folder of 60 children loads a page when it opens and the next page when the list is scrolled', async ({ page }) => {
   const calls: Array<{ url: string; ms: number }> = [];
   page.on('requestfinished', async (r) => {
-    if (/\/api\/(teams|binders|folders)\//.test(r.url()) || /\/api\/teams(\?|$)/.test(r.url())) calls.push({ url: r.url(), ms: r.timing().responseEnd });
+    if (/\/api\/(teams|binders|folders)(\/|\?|$)/.test(r.url())) calls.push({ url: r.url(), ms: r.timing().responseEnd });
   });
   await signIn(page, PAGING);
   await expect(page.locator('.row .name.team')).toHaveText(['Paging Team']);
