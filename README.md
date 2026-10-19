@@ -173,6 +173,7 @@ Deploy jobs skip, with a notice, when their switch is not `true`, when the envir
 | [docs/STATUS.md](docs/STATUS.md), [docs/PLAN.md](docs/PLAN.md) | where the build is, the task lists |
 | [docs/testing/](docs/testing/) | per milestone: how it was tested and the evidence |
 | [docs/walkthrough/](docs/walkthrough/) | plain-English tours of what each milestone built |
+| [docs/CODE-WALKTHROUGH.md](docs/CODE-WALKTHROUGH.md) | every file in the repository and why it exists, in reading order |
 
 ## Folder map
 
