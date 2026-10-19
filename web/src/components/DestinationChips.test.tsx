@@ -11,7 +11,7 @@ const PATHS = [
   'Cardio / CARDIO-301 Regulatory / Consent forms',
   'Cardio / CARDIO-302 Safety / Reports',
   'Oncology / ONC-100 / Imaging',
-  'Neuro / NEURO-9 (top level)',
+  'Neuro / NEURO-9 / Site approvals',
 ];
 
 describe('DestinationChips', () => {

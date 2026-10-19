@@ -5,7 +5,7 @@ import { Submission } from './submit.js';
 
 const body = (extra = ''): JobBody => ({
   files: [{ fileId: `f1${extra}`, sha256: 'a'.repeat(64) }],
-  mappings: [{ fileId: `f1${extra}`, destinations: [{ binderId: 'b1' }] }],
+  mappings: [{ fileId: `f1${extra}`, destinations: [{ binderId: 'b1', folderId: 'f1' }] }],
 });
 const describeIt = (binderId: string, folderId: string | null) => `${binderId}/${folderId ?? 'top'}`;
 

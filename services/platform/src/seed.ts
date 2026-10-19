@@ -24,7 +24,7 @@ export const seedFileSchema = z.object({
       id: z.uuid(),
       name: z.string().min(1),
       members: z.array(z.string().email()),
-      binders: z.array(z.object({ id: z.uuid(), name: z.string().min(1), folders: z.array(folderSchema) })),
+      binders: z.array(z.object({ id: z.uuid(), name: z.string().min(1), folders: z.array(folderSchema).min(1) })),
     }),
   ),
 });

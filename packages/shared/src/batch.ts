@@ -2,6 +2,7 @@
 // page stops a bad batch before the server would. Pure code: no Node imports.
 import { LIMITS } from './limits.js';
 
+/** A destination is a folder. `folderId` is optional in the type only so that validateBatch can refuse a binder. */
 export interface BatchDestination {
   binderId: string;
   folderId?: string | null;
@@ -42,6 +43,8 @@ export function validateBatch(batch: BatchInput): BatchResult {
 
     const own = new Set<string>();
     for (const destination of mapping.destinations) {
+      // Only a folder can receive files. A binder is a heading in the tree (D-F1-3).
+      if (!destination.folderId) return fail('Choose a folder. Files cannot go to a binder.');
       const key = destinationKey(destination);
       if (own.has(key)) return fail('A file is sent to the same destination twice.');
       own.add(key);

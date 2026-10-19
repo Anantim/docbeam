@@ -6,7 +6,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { LIMITS } from '../../packages/shared/src/limits.ts';
 import {
-  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, fetchRetry, finish, GATEWAY_LOG_GROUP, gatewayLatency, insights, job, log, login, loadDestinations,
+  account, alarmStates, Api, appUrl, aws, awsJson, countBy, EICAR, expect, fetchRetry, finish, GATEWAY_LOG_GROUP, gatewayLatency, insights, job, log, login, loadDestinations, firstFolder, type SeedBinder,
   mustLogin, NAME, percentile, queueDepth, queueMaxVisible, queueUrl, randomBlocks, REGION, ROOT, runTask, setPlatformCount, setTrigger,
   sh, sha256Hex, sleep, smallPdf, submit, tasksOf, tf, uploadClean, uploadSmall, USERS, waitDone, waitScanned, type Uploaded,
 } from './lib.ts';
@@ -25,7 +25,7 @@ function needYes(what: string): void {
 }
 
 const demo = JSON.parse(readFileSync(`${ROOT}services/platform/seed/demo.json`, 'utf8')) as {
-  teams: Array<{ id: string; name: string; binders: Array<{ id: string; name: string }> }>;
+  teams: Array<{ id: string; name: string; binders: SeedBinder[] }>;
 };
 const team = (n: string) => demo.teams.find((t) => t.name === n)!;
 const cardio = team('Cardio');
@@ -367,8 +367,8 @@ const checks: Record<string, () => Promise<void>> = {
     const raj = await mustLogin(USERS.raj);
     const sam = await mustLogin(USERS.sam);
     const [both, onc] = await uploadClean(priya, 2, 'm5-viewer');
-    const s = await submit(priya, [both!], [{ binderId: cardio.binders[0]!.id }, { binderId: oncology.binders[0]!.id }]);
-    const s2 = await submit(priya, [onc!], [{ binderId: oncology.binders[0]!.id }]);
+    const s = await submit(priya, [both!], [firstFolder(cardio.binders[0]!), firstFolder(oncology.binders[0]!)]);
+    const s2 = await submit(priya, [onc!], [firstFolder(oncology.binders[0]!)]);
     expect('both jobs accepted', s.reply.status === 201 && s2.reply.status === 201, `${s.reply.status}, ${s2.reply.status}`);
     await waitDone(priya, s.jobId, 10 * 60_000);
     await waitDone(priya, s2.jobId, 10 * 60_000);
@@ -406,7 +406,7 @@ const checks: Record<string, () => Promise<void>> = {
     const st = (id: string) => states.find((s) => s.fileId === id)?.scanStatus;
     expect('the EICAR file is marked infected', st(bad!.fileId) === 'infected', `${st(bad!.fileId)}`);
     expect('the clean file is marked clean', st(clean!.fileId) === 'clean', `${st(clean!.fileId)}`);
-    const s = await submit(priya, [bad!], [{ binderId: cardio.binders[0]!.id }]);
+    const s = await submit(priya, [bad!], [firstFolder(cardio.binders[0]!)]);
     expect('submitting the EICAR file is refused', s.reply.status === 422 && s.reply.body.error.code === 'FILE_NOT_READY', `${s.reply.status} ${s.reply.body?.error?.code}`);
     const key = String(sqlTask('docbeam-api', `SELECT s3_key FROM files WHERE id = '${bad!.fileId}'`)[0]!.s3_key);
     const head = sh('aws', ['s3api', 'head-object', '--bucket', objectBucket(), '--key', key, '--region', REGION], { allowFail: true });
@@ -523,11 +523,11 @@ const checks: Record<string, () => Promise<void>> = {
     const curlPost = (path: string, token: string): string =>
       sh('curl', ['-s', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'POST', `${base}/api${path}`, '-H', `authorization: Bearer ${token}`]);
     const [fileA, fileB] = await uploadClean(priya, 2, 'm5-sec');
-    const toCancel = await submit(priya, [fileA!], [{ binderId: cardio.binders[0]!.id }]);
+    const toCancel = await submit(priya, [fileA!], [firstFolder(cardio.binders[0]!)]);
     const cancelled = curlPost(`/jobs/${toCancel.jobId}/cancel`, priya.token);
     expect('curl -X POST (no body) cancel: 202', ['202', '409'].includes(cancelled), cancelled);
     expect('curl -X POST (no body) retry: not 415', ['409', '404'].includes(curlPost(`/jobs/${toCancel.jobId}/retry`, priya.token)), 'a refusal that is not 415');
-    const kept = await submit(priya, [fileB!], [{ binderId: cardio.binders[0]!.id }]);
+    const kept = await submit(priya, [fileB!], [firstFolder(cardio.binders[0]!)]);
     const done = await waitDone(priya, kept.jobId, 10 * 60_000);
     const dl = curlPost(`/files/${fileB!.fileId}/downloads`, priya.token);
     expect('curl -X POST (no body) download link: 201', done.counts.completed === 1 && dl === '201', `${dl}, job ${JSON.stringify(done.counts)}`);
@@ -535,7 +535,7 @@ const checks: Record<string, () => Promise<void>> = {
     // Cross-team and the link's life.
     const raj = await mustLogin(USERS.raj);
     const [onc] = await uploadClean(priya, 1, 'm5-sec-onc');
-    const j2 = await submit(priya, [onc!], [{ binderId: oncology.binders[0]!.id }]);
+    const j2 = await submit(priya, [onc!], [firstFolder(oncology.binders[0]!)]);
     await waitDone(priya, j2.jobId, 10 * 60_000);
     await sleep(65_000);
     for (const mode of ['download', 'preview']) {

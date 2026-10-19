@@ -126,21 +126,28 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
   await signIn(page, 'load.user@example.com'); // in 50 teams (the load seed)
   await page.getByLabel('Choose files').setInputFiles([{ name: `limit-${randomUUID().slice(0, 6)}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
   const team = (n: number) => `Load Team ${String(n).padStart(2, '0')}`;
-  const tickBinder = async (n: number, binder: string): Promise<void> => {
-    const box = page.getByRole('checkbox', { name: new RegExp(` to ${team(n)} / ${binder} \\(top level\\)$`) });
-    if (!(await box.isVisible())) await page.getByRole('button', { name: `Expand ${team(n)}` }).click();
+  // Only folders can be ticked: open the team, then the binder inside it, then tick the folder.
+  const tickFolder = async (n: number, binder: string, folder: string): Promise<void> => {
+    const box = page.getByRole('checkbox', { name: new RegExp(` to ${team(n)} / ${binder} / ${folder}$`) });
+    if (!(await box.isVisible())) {
+      const teamBlock = page.getByRole('button', { name: new RegExp(`^(Expand|Collapse) ${team(n)}$`) }).locator('xpath=ancestor::div[2]');
+      if ((await teamBlock.getByRole('button', { name: `Expand ${binder}` }).count()) === 0) {
+        await page.getByRole('button', { name: `Expand ${team(n)}` }).click();
+      }
+      await teamBlock.getByRole('button', { name: `Expand ${binder}` }).click();
+    }
     await box.click();
   };
   for (let n = 1; n <= 10; n += 1) {
-    await tickBinder(n, 'Regulatory');
-    await tickBinder(n, 'Operations');
+    await tickFolder(n, 'Regulatory', 'RA');
+    await tickFolder(n, 'Operations', 'OA');
   }
   await expect(page.locator('.dest-head .n')).toContainText('20 of 20 destinations');
 
-  await tickBinder(11, 'Regulatory'); // the 21st
+  await tickFolder(11, 'Regulatory', 'RA'); // the 21st
   await expect(page.getByText('A distribution can have at most 20 destinations.')).toBeVisible();
   await expect(page.locator('.dest-head .n')).toContainText('20 of 20 destinations');
-  await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory \\(top level\\)$`) })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).not.toBeChecked();
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 

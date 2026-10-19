@@ -30,9 +30,9 @@ describe('destination tree', () => {
     expect(visibleIds([team], loaded, 'zzz')!.size).toBe(0);
   });
 
-  it('turns a node into a destination with its path, teams excluded', () => {
+  it('turns a folder into a destination with its path; teams and binders are not destinations', () => {
     expect(destinationFor(team)).toBeNull();
-    expect(destinationFor(binder)).toEqual({ binderId: 'b1', folderId: null, path: 'Cardio / CARDIO-301 Regulatory (top level)' });
+    expect(destinationFor(binder)).toBeNull();
     expect(destinationFor(folder)).toEqual({
       binderId: 'b1',
       folderId: 'f1',

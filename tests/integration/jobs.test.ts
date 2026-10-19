@@ -10,7 +10,9 @@ const cardio = demo.teams.find((t: { name: string }) => t.name === 'Cardio');
 const regulatory = cardio.binders[0];
 const irb = regulatory.folders[0];
 const amendments = regulatory.folders[1];
-const neuroBinder: string = demo.teams.find((t: { name: string }) => t.name === 'Neuro').binders[0].id;
+const neuro = demo.teams.find((t: { name: string }) => t.name === 'Neuro').binders[0];
+const neuroBinder: string = neuro.id;
+const neuroFolder: string = neuro.folders[0].id;
 
 let db: pg.Client;
 let priya: { id: string; token: string };
@@ -60,7 +62,7 @@ async function unconfirmedFile(): Promise<Ready> {
   return { fileId: created.body.uploads[0].fileId, sha256: sha(data) };
 }
 
-const dest = (folder: { id: string } | null = irb) => ({ binderId: regulatory.id, folderId: folder?.id ?? null });
+const dest = (folder: { id: string } = irb) => ({ binderId: regulatory.id, folderId: folder.id });
 
 function submit(files: Ready[], destinations: object[][], key: string | null = randomUUID(), token = priya.token) {
   return call(DOCBEAM_URL, '/jobs', {
@@ -79,7 +81,7 @@ const count = async (sql: string, params: unknown[] = []): Promise<number> =>
 describe('POST /jobs', () => {
   it('creates the job, claims the files, writes one pending task per delivery and one audit event', async () => {
     const [a, b] = [await readyFile(), await readyFile()];
-    const reply = await submit([a, b], [[dest(irb), dest(amendments)], [dest(null)]]);
+    const reply = await submit([a, b], [[dest(irb), dest(amendments)], [dest(irb)]]);
     expect(reply.status).toBe(201);
     expect(reply.body.taskCount).toBe(3);
     const jobId: string = reply.body.jobId;
@@ -94,11 +96,11 @@ describe('POST /jobs', () => {
       expect(t).toMatchObject({ status: 'pending', attempt_count: 0, team_id: cardio.id, binder_id: regulatory.id });
     }
     expect(tasks.map((t) => t.destination_path)).toEqual([
-      'Cardio / CARDIO-301 Regulatory',
+      'Cardio / CARDIO-301 Regulatory / IRB approvals',
       'Cardio / CARDIO-301 Regulatory / IRB approvals',
       'Cardio / CARDIO-301 Regulatory / Protocol amendments',
     ].sort());
-    expect(tasks.filter((t) => t.folder_id === null)).toHaveLength(1);
+    expect(tasks.filter((t) => t.folder_id === null)).toHaveLength(0);
 
     const claimed = (await db.query('SELECT job_id FROM files WHERE id = ANY($1)', [[a.fileId, b.fileId]])).rows;
     expect(claimed.every((r) => r.job_id === jobId)).toBe(true);
@@ -198,14 +200,26 @@ describe('POST /jobs', () => {
   it('answers 422 DESTINATION_NOT_FOUND, alike for a missing binder and another team\'s binder, and creates nothing', async () => {
     const file = await readyFile();
     const jobsBefore = await count('SELECT count(*) FROM jobs WHERE submitted_by_user_id = $1', [priya.id]);
-    const missing = await submit([file], [[{ binderId: randomUUID(), folderId: null }]]);
-    const foreign = await submit([file], [[{ binderId: neuroBinder, folderId: null }]]);
+    const missing = await submit([file], [[{ binderId: randomUUID(), folderId: randomUUID() }]]);
+    const foreign = await submit([file], [[{ binderId: neuroBinder, folderId: neuroFolder }]]);
     for (const reply of [missing, foreign]) {
       expect(reply.status).toBe(422);
       expect(reply.body.error.code).toBe('DESTINATION_NOT_FOUND');
       expect(reply.body.notFound).toHaveLength(1);
     }
     expect(foreign.body.error.message).toBe(missing.body.error.message);
+    expect(await count('SELECT count(*) FROM files WHERE id = $1 AND job_id IS NOT NULL', [file.fileId])).toBe(0);
+    expect(await count('SELECT count(*) FROM jobs WHERE submitted_by_user_id = $1', [priya.id])).toBe(jobsBefore);
+  });
+
+  it('answers 422 INVALID_BATCH for a binder with no folder, with or without the key, and creates nothing (D-F1-3)', async () => {
+    const file = await readyFile();
+    const jobsBefore = await count('SELECT count(*) FROM jobs WHERE submitted_by_user_id = $1', [priya.id]);
+    for (const binderOnly of [{ binderId: regulatory.id }, { binderId: regulatory.id, folderId: null }]) {
+      const reply = await submit([file], [[dest(), binderOnly]]);
+      expect(reply.status).toBe(422);
+      expect(reply.body.error.code).toBe('INVALID_BATCH');
+    }
     expect(await count('SELECT count(*) FROM files WHERE id = $1 AND job_id IS NOT NULL', [file.fileId])).toBe(0);
     expect(await count('SELECT count(*) FROM jobs WHERE submitted_by_user_id = $1', [priya.id])).toBe(jobsBefore);
   });
@@ -219,8 +233,8 @@ describe('POST /jobs', () => {
        SELECT id, $2, 'bulk.pdf', 10, 'application/pdf', repeat('c', 64), 'staging/bulk/' || id, 'x', now(), 'clean' FROM unnest($1::uuid[]) AS id`,
       [ids, owner],
     );
-    // 20 destinations: both folder levels of the Cardio seed, using binders and folders of the 50-team load seed would
-    // need more users; so use the binder top level plus nested folders of the two Cardio binders.
+    // 20 destinations: the folders of the two Cardio binders, nested ones included (the 50-team load seed would need
+    // more users).
     const cardioDestinations: object[] = [];
     const walk = (binderId: string, folders: { id: string; folders: unknown[] }[]) => {
       for (const f of folders) {
@@ -228,10 +242,7 @@ describe('POST /jobs', () => {
         walk(binderId, f.folders as { id: string; folders: unknown[] }[]);
       }
     };
-    for (const binder of cardio.binders) {
-      cardioDestinations.push({ binderId: binder.id, folderId: null });
-      walk(binder.id, binder.folders);
-    }
+    for (const binder of cardio.binders) walk(binder.id, binder.folders);
     const chosen = cardioDestinations.slice(0, 20);
     expect(chosen.length).toBeGreaterThan(1);
 

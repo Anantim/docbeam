@@ -71,8 +71,17 @@ function screenWith(manager: FakeManager, submit = vi.fn(async () => ({ jobId: '
   return submit;
 }
 
+const FOLDER = 'Cardio / CARDIO-301 Regulatory / IRB approvals';
+
+/** Opens the binder if it is still closed, then returns the folder's tick. */
+async function folderTick(user: ReturnType<typeof userEvent.setup>, name: string | RegExp) {
+  const expand = await screen.findByRole('button', { name: /^(Expand|Collapse) CARDIO-301 Regulatory$/ });
+  if (expand.getAttribute('aria-expanded') === 'false') await user.click(expand);
+  return screen.findByRole('checkbox', { name });
+}
+
 const tickTop = async (user: ReturnType<typeof userEvent.setup>, scope: string) =>
-  user.click(await screen.findByRole('checkbox', { name: `Send ${scope} to Cardio / CARDIO-301 Regulatory (top level)` }));
+  user.click(await folderTick(user, `Send ${scope} to ${FOLDER}`));
 
 beforeEach(() => {
   apiFetch.mockReset();
@@ -101,7 +110,7 @@ describe('Distribute', () => {
 
   it('does not allow ticks before there is a file', async () => {
     screenWith(new FakeManager([]));
-    const box = await screen.findByRole('checkbox', { name: /to Cardio \/ CARDIO-301 Regulatory \(top level\)/ });
+    const box = await folderTick(userEvent.setup(), /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/);
     expect((box as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('No documents yet')).toBeTruthy();
   });
@@ -117,7 +126,7 @@ describe('Distribute', () => {
     expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('1 file')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Use all files' }));
-    const box = await screen.findByRole('checkbox', { name: 'Send all 2 files to Cardio / CARDIO-301 Regulatory (top level)' });
+    const box = await screen.findByRole('checkbox', { name: `Send all 2 files to ${FOLDER}` });
     expect(box.getAttribute('aria-checked')).toBe('mixed');
     expect(screen.getByText('1 file has no destination')).toBeTruthy();
   });
@@ -129,7 +138,7 @@ describe('Distribute', () => {
     await tickTop(user, 'all 1 file');
 
     const review = screen.getByRole('region', { name: 'Review' });
-    await user.click(within(review).getByRole('button', { name: 'Remove a.pdf from CARDIO-301 Regulatory' }));
+    await user.click(within(review).getByRole('button', { name: 'Remove a.pdf from IRB approvals' }));
     expect(manager.remove).toHaveBeenCalledWith('id-a.pdf');
     expect(notify).toHaveBeenCalledWith('a.pdf had no other destination, so it was removed from this distribution.');
   });
@@ -171,8 +180,8 @@ describe('Distribute', () => {
           { fileId: 'server-b.pdf', sha256: 'a'.repeat(64) },
         ],
         mappings: [
-          { fileId: 'server-a.pdf', destinations: [{ binderId: 'b-reg' }] },
-          { fileId: 'server-b.pdf', destinations: [{ binderId: 'b-reg' }] },
+          { fileId: 'server-a.pdf', destinations: [{ binderId: 'b-reg', folderId: 'f-irb' }] },
+          { fileId: 'server-b.pdf', destinations: [{ binderId: 'b-reg', folderId: 'f-irb' }] },
         ],
       },
       'key-1',

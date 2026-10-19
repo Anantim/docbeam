@@ -9,13 +9,8 @@ import { addPdfs, CARDIO_DELEGATION, CARDIO_IRB, CARDIO_PROTOCOL, chip, ONC_ETHI
 const CARDIO_TRAINING = 'Cardio / CARDIO-301 Site files / Training records';
 const ONC_CVS = 'Oncology / ONC-118 Regulatory / Investigator CVs';
 const ONC_TEMPS = 'Oncology / ONC-118 Pharmacy / Temperature logs';
-const BINDERS = [
-  'Cardio / CARDIO-301 Regulatory (top level)',
-  'Cardio / CARDIO-301 Site files (top level)',
-  'Oncology / ONC-118 Pharmacy (top level)',
-  'Oncology / ONC-118 Regulatory (top level)',
-];
-const FOLDERS = [CARDIO_IRB, CARDIO_PROTOCOL, CARDIO_DELEGATION, CARDIO_TRAINING, ONC_ETHICS, ONC_CVS, ONC_TEMPS];
+const CARDIO_2026 = 'Cardio / CARDIO-301 Regulatory / Protocol amendments / 2026';
+const FOLDERS = [CARDIO_IRB, CARDIO_PROTOCOL, CARDIO_2026, CARDIO_DELEGATION, CARDIO_TRAINING, ONC_ETHICS, ONC_CVS, ONC_TEMPS];
 
 const centre = async (locator: Locator): Promise<{ x: number; y: number }> => {
   const box = (await locator.boundingBox())!;
@@ -82,9 +77,9 @@ async function exercise(page: Page, more: Locator, where: string): Promise<void>
 test('the +N popover stays open for the chip and the panel, scrolls inside, is pinned by a click, on Distribute and on Status', async ({ page }) => {
   await signIn(page, PRIYA);
   const [name] = await addPdfs(page, 1, 'popscroll');
-  for (const path of [...FOLDERS, ...BINDERS]) await tick(page, path);
+  for (const path of FOLDERS) await tick(page, path);
 
-  // Distribute: the Documents table shows one chip and "+10".
+  // Distribute: the Documents table shows one chip and "+7".
   const row = page.locator('.frow', { hasText: name as string });
   await exercise(page, row.getByRole('button', { name: /^Show \d+ more folders$/ }), 'Distribute');
 

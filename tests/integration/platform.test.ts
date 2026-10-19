@@ -109,20 +109,22 @@ describe('service routes (ADR-013)', () => {
     const token = await serviceToken('docbeam-api', 'memberships:read');
     const regulatory = binder('Cardio', 'CARDIO-301 Regulatory');
     const amendments = regulatory.folders.find((f) => f.name === 'Protocol amendments')!;
+    const irb = regulatory.folders.find((f) => f.name === 'IRB approvals')!;
+    const pharmacy = binder('Oncology', 'ONC-118 Pharmacy');
     const res = await call(PLATFORM_URL, '/destinations/check', {
       token,
       json: {
         userId: priya.id,
         destinations: [
-          { binderId: regulatory.id },
+          { binderId: regulatory.id, folderId: irb.id },
           { binderId: regulatory.id, folderId: amendments.folders[0]!.id },
-          { binderId: binder('Oncology', 'ONC-118 Pharmacy').id },
+          { binderId: pharmacy.id, folderId: pharmacy.folders[0]!.id },
         ],
       },
     });
     expect(res.status).toBe(200);
     expect(res.body.destinations).toEqual([
-      { binderId: regulatory.id, folderId: null, teamId: team('Cardio').id, teamName: 'Cardio', path: 'Cardio / CARDIO-301 Regulatory' },
+      { binderId: regulatory.id, folderId: irb.id, teamId: team('Cardio').id, teamName: 'Cardio', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' },
       {
         binderId: regulatory.id,
         folderId: amendments.folders[0]!.id,
@@ -130,7 +132,28 @@ describe('service routes (ADR-013)', () => {
         teamName: 'Cardio',
         path: 'Cardio / CARDIO-301 Regulatory / Protocol amendments / 2026',
       },
-      { binderId: binder('Oncology', 'ONC-118 Pharmacy').id, folderId: null, teamId: team('Oncology').id, teamName: 'Oncology', path: 'Oncology / ONC-118 Pharmacy' },
+      {
+        binderId: pharmacy.id,
+        folderId: pharmacy.folders[0]!.id,
+        teamId: team('Oncology').id,
+        teamName: 'Oncology',
+        path: `Oncology / ONC-118 Pharmacy / ${pharmacy.folders[0]!.name}`,
+      },
+    ]);
+  });
+
+  it('answers 422 for a destination with no folder: a binder is not a destination (D-F1-3)', async () => {
+    const token = await serviceToken('docbeam-api', 'memberships:read');
+    const regulatory = binder('Cardio', 'CARDIO-301 Regulatory');
+    const res = await call(PLATFORM_URL, '/destinations/check', {
+      token,
+      json: { userId: priya.id, destinations: [{ binderId: regulatory.id }, { binderId: regulatory.id, folderId: null }] },
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('DESTINATION_NOT_FOUND');
+    expect(res.body.notFound).toEqual([
+      { binderId: regulatory.id, folderId: null },
+      { binderId: regulatory.id, folderId: null },
     ]);
   });
 
@@ -139,27 +162,28 @@ describe('service routes (ADR-013)', () => {
     const good = binder('Cardio', 'CARDIO-301 Regulatory');
     const neuro = binder('Neuro', 'NEU-207 Regulatory');
     const missing = randomUUID();
+    const missingFolder = randomUUID();
     const wrongFolder = binder('Cardio', 'CARDIO-301 Site files').folders[0]!;
     const res = await call(PLATFORM_URL, '/destinations/check', {
       token,
       json: {
         userId: priya.id,
         destinations: [
-          { binderId: good.id },
-          { binderId: neuro.id },
-          { binderId: missing },
+          { binderId: good.id, folderId: good.folders[0]!.id },
+          { binderId: neuro.id, folderId: neuro.folders[0]!.id },
+          { binderId: missing, folderId: missingFolder },
           { binderId: good.id, folderId: wrongFolder.id },
-          { binderId: 'not-a-uuid' },
+          { binderId: 'not-a-uuid', folderId: missingFolder },
         ],
       },
     });
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('DESTINATION_NOT_FOUND');
     expect(res.body.notFound).toEqual([
-      { binderId: neuro.id, folderId: null },
-      { binderId: missing, folderId: null },
+      { binderId: neuro.id, folderId: neuro.folders[0]!.id },
+      { binderId: missing, folderId: missingFolder },
       { binderId: good.id, folderId: wrongFolder.id },
-      { binderId: 'not-a-uuid', folderId: null },
+      { binderId: 'not-a-uuid', folderId: missingFolder },
     ]);
   });
 
@@ -176,7 +200,7 @@ describe('service routes (ADR-013)', () => {
     expect((await call(PLATFORM_URL, path)).status).toBe(401);
     const ingestOnly = await serviceToken('delivery-worker', 'documents:ingest');
     expect((await call(PLATFORM_URL, path, { token: ingestOnly })).status).toBe(403);
-    const body = { userId: priya.id, destinations: [{ binderId: team('Cardio').binders[0]!.id }] };
+    const body = { userId: priya.id, destinations: [{ binderId: team('Cardio').binders[0]!.id, folderId: team('Cardio').binders[0]!.folders[0]!.id }] };
     expect((await call(PLATFORM_URL, '/destinations/check', { token: priya.token, json: body })).status).toBe(401);
   });
 });

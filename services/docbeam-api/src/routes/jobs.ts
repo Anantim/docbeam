@@ -13,7 +13,8 @@ import { parse, UUID_PATTERN } from '../validate.js';
 const uuid = z.string().regex(UUID_PATTERN);
 
 export const jobBody = z.object({
-  // Counts are checked by validateBatch (422 INVALID_BATCH). These caps only keep an absurd body from being parsed.
+  // Counts and the folder rule are checked by validateBatch (422 INVALID_BATCH, D-F1-3), so folderId may be absent
+  // here and fail with the same code as every other batch rule. These caps only keep an absurd body from being parsed.
   files: z.array(z.object({ fileId: uuid, sha256: z.string() })).max(1_000),
   mappings: z
     .array(z.object({ fileId: uuid, destinations: z.array(z.object({ binderId: uuid, folderId: uuid.nullish() })).max(1_000) }))

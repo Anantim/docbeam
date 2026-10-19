@@ -30,12 +30,8 @@ const file = (id: string, status: FileStatus = 'verified'): PageFile => ({
   serverId: `server-${id}`,
 });
 
-const dest = (n: number, folder = true): Destination => ({
-  binderId: `b${n}`,
-  folderId: folder ? `f${n}` : null,
-  path: `Team / Binder ${n}${folder ? ' / Folder' : ' (top level)'}`,
-});
-const key = (d: Destination): string => `${d.binderId}:${d.folderId ?? ''}`;
+const dest = (n: number): Destination => ({ binderId: `b${n}`, folderId: `f${n}`, path: `Team / Binder ${n} / Folder` });
+const key = (d: Destination): string => `${d.binderId}:${d.folderId}`;
 const none = new Set<string>();
 
 function tick(mapping: Mapping, files: PageFile[], selected: Set<string>, d: Destination): Mapping {
@@ -171,13 +167,13 @@ describe('readiness', () => {
 });
 
 describe('buildJobRequest', () => {
-  it('uses the server file ids and omits folderId for a top-level destination', () => {
+  it('uses the server file ids and always names the folder', () => {
     const files = [file('a')];
-    let mapping = tick(emptyMapping, files, none, dest(1, true));
-    mapping = tick(mapping, files, none, dest(2, false));
+    let mapping = tick(emptyMapping, files, none, dest(1));
+    mapping = tick(mapping, files, none, dest(2));
     expect(buildJobRequest(mapping, files)).toEqual({
       files: [{ fileId: 'server-a', sha256: 'a'.repeat(64) }],
-      mappings: [{ fileId: 'server-a', destinations: [{ binderId: 'b1', folderId: 'f1' }, { binderId: 'b2' }] }],
+      mappings: [{ fileId: 'server-a', destinations: [{ binderId: 'b1', folderId: 'f1' }, { binderId: 'b2', folderId: 'f2' }] }],
     });
   });
 
@@ -189,6 +185,5 @@ describe('buildJobRequest', () => {
 describe('describeDestination', () => {
   it('splits a path into the team and the last name', () => {
     expect(describeDestination('Cardio / CARDIO-301 Regulatory / IRB approvals')).toEqual({ team: 'Cardio', name: 'IRB approvals' });
-    expect(describeDestination('Cardio / CARDIO-301 Regulatory (top level)')).toEqual({ team: 'Cardio', name: 'CARDIO-301 Regulatory' });
   });
 });

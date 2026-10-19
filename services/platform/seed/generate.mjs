@@ -32,11 +32,15 @@ function team(name, members, binders) {
     id: uuid5(`team:${name}`),
     name,
     members,
-    binders: binders.map(([binderName, items]) => ({
-      id: uuid5(`binder:${name}/${binderName}`),
-      name: binderName,
-      folders: folders(`${name}/${binderName}`, items),
-    })),
+    binders: binders.map(([binderName, items]) => {
+      // Only folders receive files (D-F1-3), so a binder with no folder could never be used.
+      if (items.length === 0) throw new Error(`Binder ${name}/${binderName} needs at least one folder.`);
+      return {
+        id: uuid5(`binder:${name}/${binderName}`),
+        name: binderName,
+        folders: folders(`${name}/${binderName}`, items),
+      };
+    }),
   };
 }
 

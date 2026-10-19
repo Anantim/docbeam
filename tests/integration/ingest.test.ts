@@ -10,7 +10,9 @@ const demo = JSON.parse(readFileSync(new URL('../../services/platform/seed/demo.
 const cardio = demo.teams.find((t: { name: string }) => t.name === 'Cardio');
 const binderId: string = cardio.binders[0].id;
 const folderId: string = cardio.binders[0].folders[0].id;
-const neuroBinderId: string = demo.teams.find((t: { name: string }) => t.name === 'Neuro').binders[0].id;
+const neuro = demo.teams.find((t: { name: string }) => t.name === 'Neuro').binders[0];
+const neuroBinderId: string = neuro.id;
+const neuroFolderId: string = neuro.folders[0].id;
 const BUCKET = `${PREFIX}-platform-files`;
 
 let db: pg.Client;
@@ -121,15 +123,13 @@ describe('POST /documents', () => {
     expect(kept).toContain(`documents/${results[0]!.body.documentId}`);
   });
 
-  it('puts a document at the top level of a binder when no folder is given', async () => {
+  it('answers 404 DESTINATION_NOT_FOUND and stores nothing when no folder is given: a binder is not a destination (D-F1-3)', async () => {
     const taskId = randomUUID();
     const res = await ingest({ taskId, folder: null });
-    expect(res.status).toBe(201);
-    const { rows } = await db.query('SELECT folder_id FROM documents WHERE source_task_id = $1', [taskId]);
-    expect(rows[0].folder_id).toBeNull();
-    // Leave no document at the top of the binder: platform.test.ts expects that level to be empty,
-    // and a second run on the same database would otherwise fail.
-    await db.query('DELETE FROM documents WHERE source_task_id = $1', [taskId]);
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('DESTINATION_NOT_FOUND');
+    const { rows } = await db.query('SELECT count(*) FROM documents WHERE source_task_id = $1', [taskId]);
+    expect(Number(rows[0].count)).toBe(0);
   });
 
   it('answers 403 NOT_A_MEMBER when the user is not in the binder\'s team', async () => {
@@ -181,7 +181,7 @@ describe('POST /documents', () => {
   });
 
   it('is not reachable for a member of another binder\'s team through the neuro binder', async () => {
-    const res = await ingest({ binder: neuroBinderId, folder: null });
+    const res = await ingest({ binder: neuroBinderId, folder: neuroFolderId });
     expect(res.status).toBe(403);
   });
 });
