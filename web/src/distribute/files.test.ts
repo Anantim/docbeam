@@ -35,6 +35,7 @@ describe('acceptFiles', () => {
 
 describe('formatSize', () => {
   it('uses KB, MB and GB with 1,024 steps', () => {
+    expect(formatSize(0)).toBe('0 KB');
     expect(formatSize(300)).toBe('1 KB');
     expect(formatSize(2048)).toBe('2 KB');
     expect(formatSize(1.5 * 1024 ** 2)).toBe('1.5 MB');

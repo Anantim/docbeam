@@ -49,8 +49,73 @@ describe('usePolledJobs', () => {
     expect(result.current.jobs?.[0]?.counts.completed).toBe(6);
   });
 
+  it('stops asking once no listed job is pending or in progress', async () => {
+    api.jobs.mockResolvedValueOnce([job('a', 'in_progress', 2)]).mockResolvedValueOnce([job('a', 'completed', 10)]);
+    const { result } = renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(2);
+    expect(result.current.jobs?.[0]?.status).toBe('completed');
+    await act(async () => {
+      vi.advanceTimersByTime(300_000);
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(2);
+  });
+
+  it('never polls a list that starts with nothing running', async () => {
+    api.jobs.mockResolvedValue([job('a', 'completed', 10), job('b', 'cancelled')]);
+    renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    await act(async () => {
+      vi.advanceTimersByTime(300_000);
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads once more when the person comes back to the tab, and starts again if a job is running', async () => {
+    api.jobs.mockResolvedValueOnce([job('a', 'completed', 10)]).mockResolvedValue([job('b', 'pending')]);
+    renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(3);
+  });
+
+  it('loads again when refresh is called (a new distribution was sent)', async () => {
+    api.jobs.mockResolvedValueOnce([job('a', 'completed', 10)]).mockResolvedValueOnce([job('b', 'pending'), job('a', 'completed', 10)]);
+    const { result } = renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.jobs).toHaveLength(2);
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(api.jobs).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps trying after a first load that failed', async () => {
+    api.jobs.mockImplementationOnce(() => Promise.reject(new Error('down'))).mockResolvedValue([job('a', 'completed', 10)]);
+    const { result } = renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    expect(result.current.error).toBe('The list could not be loaded.');
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(result.current.jobs).toHaveLength(1);
+    expect(result.current.error).toBe('');
+  });
+
   it('waits while the tab is hidden', async () => {
-    api.jobs.mockResolvedValue([]);
+    api.jobs.mockResolvedValue([job('a', 'in_progress', 1)]);
     renderHook(() => usePolledJobs('mine'));
     await act(async () => undefined);
     const spy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
@@ -78,7 +143,7 @@ describe('usePolledJobs', () => {
   });
 
   it('keeps the last list and reports an error when a refresh fails', async () => {
-    api.jobs.mockResolvedValueOnce([job('a', 'completed', 10)]).mockImplementationOnce(() => Promise.reject(new Error('down')));
+    api.jobs.mockResolvedValueOnce([job('a', 'in_progress', 10)]).mockImplementationOnce(() => Promise.reject(new Error('down')));
     const { result } = renderHook(() => usePolledJobs('mine'));
     await act(async () => undefined);
     await act(async () => {
