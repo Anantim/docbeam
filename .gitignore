@@ -17,3 +17,6 @@ playwright-report/
 backend.hcl
 *.tsbuildinfo
 
+
+# Vitest JSON reports
+.vitest/
