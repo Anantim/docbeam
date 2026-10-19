@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { PageFile } from '../upload/manager.js';
 import { jobChip, taskLook } from '../tracking/format.js';
 import { statusView } from './FileTable.js';
-import { StatusChip, TONES } from './StatusChip.js';
+import { StatusChip } from './StatusChip.js';
 import { TypeBadge } from './TypeBadge.js';
 
 afterEach(cleanup);
@@ -27,7 +27,6 @@ describe('one status chip, one colour meaning (D-M3-12)', () => {
     const chip = screen.getByText('Delivered');
     expect(chip.className).toContain('status-chip');
     expect(chip.getAttribute('data-tone')).toBe('ok');
-    expect(chip.style.background).not.toBe('');
     expect(chip.querySelector('.status-dot')).not.toBeNull();
     expect(chip.getAttribute('title')).toBe('Delivered to the folder in the platform.');
   });
@@ -54,10 +53,9 @@ describe('one status chip, one colour meaning (D-M3-12)', () => {
     expect(statusView(file('checking')).tone).toBe('warn');
   });
 
-  it('has five tones, each with its own colours', () => {
-    const tones = Object.values(TONES);
-    expect(tones).toHaveLength(5);
-    expect(new Set(tones.map((t) => t.bg + t.fg)).size).toBe(5);
+  it('sets no colour itself: the tone attribute picks the tokens in styles.css (D-F1-5)', () => {
+    render(<StatusChip tone="bad" label="Failed" />);
+    expect(screen.getByText('Failed').getAttribute('style')).toBeNull();
   });
 });
 
@@ -68,11 +66,10 @@ describe('TypeBadge', () => {
     ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'XLSX'],
     ['image/png', 'PNG'],
     ['image/jpeg', 'JPG'],
-  ])('%s shows %s, with its colour', (contentType, label) => {
+  ])('%s shows %s', (contentType, label) => {
     render(<TypeBadge contentType={contentType} />);
     const badge = screen.getByText(label);
     expect(badge.getAttribute('data-type')).toBe(label);
-    expect(badge.style.background).not.toBe('');
     cleanup();
   });
 });

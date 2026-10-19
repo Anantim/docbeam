@@ -118,27 +118,21 @@ test('a file state on Distribute and a delivery state on Status are the same chi
   expect(await page.locator('.status-chip.big').getAttribute('data-tone')).toBe('ok');
 });
 
-test('file type badges are coloured by type and keep their text', async ({ page }) => {
+test('file type badges show the type as text, in one neutral style: colour is kept for status (D-F1-5)', async ({ page }) => {
   await signIn(page, PRIYA);
   const bytes = Buffer.from('x');
   const files = [
-    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF', bg: '#FEE4E2', fg: '#B42318' },
-    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX', bg: '#D1E0FF', fg: '#1849A9' },
-    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX', bg: '#D1FADF', fg: '#05603A' },
-    { name: 'd.png', mimeType: 'image/png', type: 'PNG', bg: '#E9D7FE', fg: '#6941C6' },
-    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG', bg: '#E9D7FE', fg: '#6941C6' },
+    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF' },
+    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX' },
+    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX' },
+    { name: 'd.png', mimeType: 'image/png', type: 'PNG' },
+    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG' },
   ];
   const unique = files.map((f) => ({ ...f, name: `${randomUUID().slice(0, 6)}-${f.name}` }));
   await page.getByLabel('Choose files').setInputFiles(unique.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: bytes })));
-  for (const f of unique) {
-    const badge = page.locator('.frow', { hasText: f.name }).locator('.typetile');
-    await expect(badge).toHaveText(f.type);
-    await expect(badge).toHaveCSS('background-color', rgb(f.bg));
-    await expect(badge).toHaveCSS('color', rgb(f.fg));
-  }
-  // PDF red, DOCX blue, XLSX green, PNG and JPG purple: three of the five pairs differ, and PNG equals JPG.
-  const colours = await page.locator('.frow .typetile').evaluateAll((els: BrowserElement[]) => els.map((e) => getComputedStyle(e).color));
-  expect(new Set(colours).size).toBe(4);
+  for (const f of unique) await expect(page.locator('.frow', { hasText: f.name }).locator('.typetile')).toHaveText(f.type);
+  const colours = await page.locator('.frow .typetile').evaluateAll((els: BrowserElement[]) => els.map((e) => getComputedStyle(e).color + getComputedStyle(e).backgroundColor));
+  expect(new Set(colours).size).toBe(1);
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 

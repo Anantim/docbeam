@@ -48,7 +48,7 @@ describe('DestinationChips', () => {
     // The two visible folders are not repeated.
     expect(panel.textContent).not.toContain('Protocol amendments');
     expect(panel.textContent).not.toContain('Consent forms');
-    expect([...panel.querySelectorAll('.popover-team')].map((e) => e.textContent)).toEqual(['CCardio', 'OOncology', 'NNeuro']);
+    expect([...panel.querySelectorAll('.popover-team')].map((e) => e.textContent)).toEqual(['Cardio', 'Oncology', 'Neuro']);
   });
 
   it('opens on hover and closes when the pointer leaves unless a click kept it open', async () => {

@@ -37,7 +37,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
           </div>
         )}
         <div>
-          <label htmlFor="again" style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+          <label htmlFor="again">
             Password for {email}
           </label>
           <input
@@ -50,7 +50,6 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ minHeight: 40 }}
           />
         </div>
         <div className="actions">

@@ -157,11 +157,11 @@ describe('live counts', () => {
     expect(tile('Delivered').textContent).toBe('3');
     expect(tile('Failed').textContent).toBe('0');
     expect(tile('Cancelled').textContent).toBe('5');
-    expect(tile('Cancelled').style.color).not.toBe(tile('Failed').style.color);
+    expect(tile('Cancelled').getAttribute('data-tone')).toBe('idle'); // grey
+    expect(tile('Failed').getAttribute('data-tone')).toBe('bad'); // red
     const segments = [...document.querySelectorAll('.jbar.thick > div')] as HTMLElement[];
-    expect(segments.map((s) => s.style.background)).toContain('rgb(152, 162, 179)'); // grey, #98A2B3
-    expect(segments.find((s) => s.style.background === 'rgb(240, 68, 56)')?.style.width).toBe('0%'); // no red
-    expect(segments.find((s) => s.style.background === 'rgb(152, 162, 179)')?.style.width).toBe('62.5%');
+    expect(segments.find((s) => s.getAttribute('data-tone') === 'bad')?.style.width).toBe('0%'); // no red
+    expect(segments.find((s) => s.getAttribute('data-tone') === 'idle')?.style.width).toBe('62.5%');
     // The filter chip carries the same number.
     expect(screen.getByRole('button', { name: 'Cancelled, 5 deliveries' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Failed, 0 deliveries' })).toBeTruthy();

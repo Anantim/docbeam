@@ -5,6 +5,7 @@ import type { PageFile } from '../upload/manager.js';
 import { DestinationChips } from './DestinationChips.js';
 import { PreviewButton } from './FileActions.js';
 import { StatusChip, type Tone } from './StatusChip.js';
+import { CheckIcon, CloseIcon, MinusIcon, RetryIcon } from './Icons.js';
 import { TypeBadge } from './TypeBadge.js';
 
 interface StatusView {
@@ -72,7 +73,7 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
             title="Select all files"
             onClick={onToggleAll}
           >
-            <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? '✓' : someOn ? '–' : ''}</span>
+            <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? <CheckIcon size={12} /> : someOn ? <MinusIcon size={12} /> : null}</span>
           </button>
           <div className="hcell" role="columnheader">
             Name
@@ -104,11 +105,11 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                   aria-label={`${f.name} was refused for malware and cannot be selected or sent`}
                   title={`${f.name} was refused for malware and cannot be selected or sent`}
                 >
-                  ✕
+                  <CloseIcon size={14} />
                 </span>
               ) : (
                 <button className="ck" type="button" role="checkbox" aria-checked={on} aria-label={`Select ${f.name}`} title={`Select ${f.name}`} onClick={() => onToggleSelected(f.id)}>
-                  <span className="box">{on ? '✓' : ''}</span>
+                  <span className="box">{on ? <CheckIcon size={12} /> : null}</span>
                 </button>
               )}
               <div className="fname">
@@ -148,11 +149,11 @@ export function FileTable({ files, mapping, selected, onToggleSelected, onToggle
                 {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} />}
                 {canRetry && (
                   <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} title={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
-                    ↻
+                    <RetryIcon />
                   </button>
                 )}
                 <button className="icon" type="button" aria-label={`Remove ${f.name}`} title={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
-                  ✕
+                  <CloseIcon />
                 </button>
               </div>
             </div>

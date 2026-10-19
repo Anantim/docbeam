@@ -1,3 +1,5 @@
+import { DownloadIcon, EyeIcon } from './Icons.js';
+
 // Preview (an eye) and Download (an arrow) as icon buttons, the same on Distribute and on Status (D-M3-12).
 // An icon-only button has an aria-label and a title with the same text (D-M3-10). A button that is off puts
 // the reason in that text.
@@ -15,7 +17,7 @@ export function PreviewButton({ name, offBecause, onClick, small = false }: Prop
   const label = offBecause ? `Preview ${name}. ${offBecause}` : `Preview ${name}`;
   return (
     <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={label} title={label} disabled={!!offBecause} onClick={onClick}>
-      👁
+      <EyeIcon />
     </button>
   );
 }
@@ -24,7 +26,7 @@ export function DownloadButton({ name, offBecause, onClick, small = false }: Pro
   const label = offBecause ? `Download ${name}. ${offBecause}` : `Download ${name}`;
   return (
     <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={label} title={label} disabled={!!offBecause} onClick={onClick}>
-      ⬇
+      <DownloadIcon />
     </button>
   );
 }
