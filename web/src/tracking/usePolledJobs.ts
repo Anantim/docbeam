@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
 import { trackingApi, type JobSummary } from './api.js';
 
@@ -13,11 +13,15 @@ export const LIST_REFRESH_MS = 30_000;
 export function usePolledJobs(scope: 'mine' | 'team', enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0) {
   const [state, setState] = useState<{ jobs: JobSummary[] | null; error: string }>({ jobs: null, error: '' });
 
+  // Only the newest answer counts, so a slow old reply cannot bring back an older list.
+  const latest = useRef(0);
   const refresh = useCallback(async (): Promise<void> => {
+    const mine = ++latest.current;
     try {
-      setState({ jobs: await trackingApi.jobs(scope), error: '' });
+      const jobs = await trackingApi.jobs(scope);
+      if (mine === latest.current) setState({ jobs, error: '' });
     } catch (e) {
-      setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.' }));
+      if (mine === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.' }));
     }
   }, [scope]);
 
@@ -38,7 +42,8 @@ export function usePolledJobs(scope: 'mine' | 'team', enabled = true, intervalMs
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [enabled, refresh]);
 
-  const running = runningCount(state.jobs) > 0;
+  // A failed load keeps polling too, so the list recovers by itself.
+  const running = runningCount(state.jobs) > 0 || state.error !== '';
   useEffect(() => {
     if (!enabled || !running) return;
     const id = setInterval(() => {

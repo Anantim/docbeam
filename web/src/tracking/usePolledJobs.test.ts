@@ -102,6 +102,18 @@ describe('usePolledJobs', () => {
     expect(api.jobs).toHaveBeenCalledTimes(3);
   });
 
+  it('keeps trying after a first load that failed', async () => {
+    api.jobs.mockImplementationOnce(() => Promise.reject(new Error('down'))).mockResolvedValue([job('a', 'completed', 10)]);
+    const { result } = renderHook(() => usePolledJobs('mine'));
+    await act(async () => undefined);
+    expect(result.current.error).toBe('The list could not be loaded.');
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(result.current.jobs).toHaveLength(1);
+    expect(result.current.error).toBe('');
+  });
+
   it('waits while the tab is hidden', async () => {
     api.jobs.mockResolvedValue([job('a', 'in_progress', 1)]);
     renderHook(() => usePolledJobs('mine'));
