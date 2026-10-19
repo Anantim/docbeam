@@ -107,7 +107,14 @@ const checks: Record<string, () => Promise<void>> = {
     await sleep(180_000);
     const server = await gatewayLatency('POST /jobs', t0, Date.now());
     expect('server-side POST /jobs, requests counted', server.count >= sizes.length, `${server.count}`);
-    expect('server-side POST /jobs p99 under 500 ms', server.p99 < 500, `p50 ${server.p50} ms, p99 ${server.p99} ms, max ${server.max} ms (API Gateway responseLatency)`);
+    // Two targets (D-M5-17): under 500 ms at p99 in normal operation (a --quiet run, no deliveries), under 1 s at p99
+    // under peak delivery load (the default run, deliveries at full concurrency).
+    const limitMs = quiet ? 500 : 1000;
+    expect(
+      `server-side POST /jobs p99 under ${limitMs} ms (${quiet ? 'normal operation' : 'peak delivery load'})`,
+      server.p99 < limitMs,
+      `p50 ${server.p50} ms, p99 ${server.p99} ms, max ${server.max} ms (API Gateway responseLatency)`,
+    );
     log(`client side (includes the internet): p50 ${percentile(clientMs, 50).toFixed(0)} ms, p99 ${percentile(clientMs, 99).toFixed(0)} ms; the ${bigMs.length} jobs of 100 x 20: ${bigMs.map((m) => m.toFixed(0)).join(', ')} ms`);
     await waitQuiet();
     const dlq = ['job', 'task', 'upload-events'].map((q) => queueDepth(`${q}-dlq`).visible);
