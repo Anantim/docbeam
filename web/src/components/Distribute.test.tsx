@@ -16,9 +16,9 @@ const { Distribute } = await import('./Distribute.js');
 const { Submission } = await import('../distribute/submit.js');
 
 const answers: Record<string, unknown> = {
-  '/teams': [{ id: 't-cardio', name: 'Cardio' }],
-  '/teams/t-cardio/binders': [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }],
-  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [] },
+  '/teams': { items: [{ id: 't-cardio', name: 'Cardio' }], nextCursor: null },
+  '/teams/t-cardio/binders': { items: [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }], nextCursor: null },
+  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [], nextCursor: null },
 };
 
 const pageFile = (name: string, status: FileStatus): PageFile => ({

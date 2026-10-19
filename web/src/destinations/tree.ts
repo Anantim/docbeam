@@ -11,6 +11,13 @@ export interface TreeNode {
 
 export interface Loaded {
   children: TreeNode[];
+  /** The cursor for the next page of this level, or null when every page is loaded (D-F1-6). */
+  nextCursor: string | null;
+}
+
+/** A browse URL for one page: the first page has no query, so it is the plain route. */
+export function pageUrl(path: string, cursor: string | null): string {
+  return cursor === null ? path : `${path}?cursor=${encodeURIComponent(cursor)}`;
 }
 
 /** Which nodes the filter keeps: every match, and the parents that lead to one. Case-insensitive substring. */

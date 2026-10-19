@@ -9,14 +9,17 @@ vi.mock('../auth/session.js', () => ({ apiFetch: (path: string) => apiFetch(path
 const { Destinations } = await import('./Destinations.js');
 
 const answers: Record<string, unknown> = {
-  '/teams': [
-    { id: 't-cardio', name: 'Cardio' },
-    { id: 't-onc', name: 'Oncology' },
-  ],
-  '/teams/t-cardio/binders': [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }],
-  '/teams/t-onc/binders': [{ id: 'b-onc', name: 'ONC-118 Regulatory' }],
-  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [{ id: 'd1', name: 'ignored.pdf' }] },
-  '/binders/b-onc/contents': { folders: [], documents: [] },
+  '/teams': {
+    items: [
+      { id: 't-cardio', name: 'Cardio' },
+      { id: 't-onc', name: 'Oncology' },
+    ],
+    nextCursor: null,
+  },
+  '/teams/t-cardio/binders': { items: [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }], nextCursor: null },
+  '/teams/t-onc/binders': { items: [{ id: 'b-onc', name: 'ONC-118 Regulatory' }], nextCursor: null },
+  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [{ id: 'd1', name: 'ignored.pdf' }], nextCursor: null },
+  '/binders/b-onc/contents': { folders: [], documents: [], nextCursor: null },
 };
 
 beforeEach(() => {
@@ -103,5 +106,111 @@ describe('Destinations tree', () => {
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'zzz');
     expect(screen.getByText('No binders or folders match.')).toBeTruthy();
+  });
+});
+
+describe('Destinations tree, paged levels (D-F1-6)', () => {
+  // A stand-in for the browser's IntersectionObserver that the test fires by hand.
+  let fire: () => void = () => {};
+  beforeEach(() => {
+    class FakeObserver {
+      constructor(private cb: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        fire = () => this.cb([{ isIntersecting: true }]);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const folders = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => ({ id: `f${from + i}`, name: `Batch ${String(from + i).padStart(3, '0')}` }));
+
+  it('loads nothing before a row is opened, then a page when it opens, then the next page when the end scrolls into view', async () => {
+    const user = userEvent.setup();
+    apiFetch.mockImplementation(async (path: string) => {
+      if (path === '/teams') return { items: [{ id: 't', name: 'Paging Team' }], nextCursor: null };
+      if (path === '/teams/t/binders') return { items: [{ id: 'b', name: 'Archive' }], nextCursor: null };
+      if (path === '/binders/b/contents') return { folders: folders(1, 20), documents: [], nextCursor: 'c1' };
+      if (path === '/binders/b/contents?cursor=c1') return { folders: folders(21, 40), documents: [], nextCursor: 'c2' };
+      if (path === '/binders/b/contents?cursor=c2') return { folders: folders(41, 60), documents: [], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
+    expect(apiFetch).not.toHaveBeenCalledWith('/binders/b/contents');
+    await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
+    await screen.findByText('Batch 020');
+    expect(screen.queryByText('Batch 021')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy();
+
+    fire(); // the end of the list scrolls into view
+    await screen.findByText('Batch 040');
+    expect(screen.getByText('Batch 001')).toBeTruthy(); // the first page is kept
+    fire();
+    await screen.findByText('Batch 060');
+    expect(apiFetch).toHaveBeenCalledTimes(5); // teams, binders, and three pages: nothing was asked twice
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull(); // the last page: no more row
+  });
+
+  it('shows a loading row while a page is on its way, and a retry when it fails', async () => {
+    const user = userEvent.setup();
+    let release: (v: unknown) => void = () => {};
+    let fail = true;
+    apiFetch.mockImplementation(async (path: string) => {
+      if (path === '/teams') return { items: [{ id: 't', name: 'Paging Team' }], nextCursor: null };
+      if (path === '/teams/t/binders') return { items: [{ id: 'b', name: 'Archive' }], nextCursor: null };
+      if (path === '/binders/b/contents') return { folders: folders(1, 2), documents: [], nextCursor: 'c1' };
+      if (path === '/binders/b/contents?cursor=c1') {
+        if (fail) {
+          fail = false;
+          throw new Error('network');
+        }
+        return new Promise((r) => (release = r));
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
+    await screen.findByText('Batch 002');
+    await user.click(screen.getByRole('button', { name: 'Show more' }));
+    await screen.findByText('Could not load more.');
+    expect(screen.getByText('Batch 002')).toBeTruthy(); // what was loaded stays
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText('Loading more…');
+    release({ folders: folders(3, 3), documents: [], nextCursor: null });
+    await screen.findByText('Batch 003');
+  });
+
+  it('stops after the folders: a page that holds a document ends the list, and the document pages are never read', async () => {
+    const user = userEvent.setup();
+    apiFetch.mockImplementation(async (path: string) => {
+      if (path === '/teams') return { items: [{ id: 't', name: 'Paging Team' }], nextCursor: null };
+      if (path === '/teams/t/binders') return { items: [{ id: 'b', name: 'Archive' }], nextCursor: null };
+      if (path === '/binders/b/contents') return { folders: folders(1, 2), documents: [{ id: 'd1', name: 'x.pdf' }], nextCursor: 'docs-next' };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
+    await screen.findByText('Batch 002');
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+    expect(apiFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('pages the teams too: the next page of teams loads when the end of the list is reached', async () => {
+    apiFetch.mockImplementation(async (path: string) => {
+      if (path === '/teams') return { items: [{ id: 't1', name: 'Alpha' }], nextCursor: 'k' };
+      if (path === '/teams?cursor=k') return { items: [{ id: 't2', name: 'Beta' }], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    });
+    const onTeams = vi.fn();
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={onTeams} />);
+    await screen.findByText('Alpha');
+    expect(screen.queryByText('Beta')).toBeNull();
+    fire();
+    await screen.findByText('Beta');
+    await waitFor(() => expect(onTeams).toHaveBeenLastCalledWith(['Alpha', 'Beta']));
   });
 });

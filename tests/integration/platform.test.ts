@@ -31,24 +31,24 @@ beforeAll(async () => {
 describe('browse: only your own teams (flow 1, "Who can see what")', () => {
   it('lists only the caller\'s teams', async () => {
     const p = await call(PLATFORM_URL, '/teams', { token: priya.token });
-    expect(p.body.map((t: { name: string }) => t.name)).toEqual(['Cardio', 'Oncology']);
+    expect(p.body.items.map((t: { name: string }) => t.name)).toEqual(['Cardio', 'Oncology']);
     const r = await call(PLATFORM_URL, '/teams', { token: raj.token });
-    expect(r.body.map((t: { name: string }) => t.name)).toEqual(['Cardio']);
+    expect(r.body.items.map((t: { name: string }) => t.name)).toEqual(['Cardio']);
     const s = await call(PLATFORM_URL, '/teams', { token: sam.token });
-    expect(s.body.map((t: { name: string }) => t.name)).toEqual(['Neuro']);
+    expect(s.body.items.map((t: { name: string }) => t.name)).toEqual(['Neuro']);
   });
 
   it('a user in no team gets an empty list', async () => {
     const nobody = await registerAndLogin();
     const res = await call(PLATFORM_URL, '/teams', { token: nobody.token });
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body).toEqual({ items: [], nextCursor: null });
   });
 
   it('lists a member\'s binders and answers 404 for another team', async () => {
     const own = await call(PLATFORM_URL, `/teams/${team('Cardio').id}/binders`, { token: priya.token });
     expect(own.status).toBe(200);
-    expect(own.body.map((b: { name: string }) => b.name)).toEqual(['CARDIO-301 Regulatory', 'CARDIO-301 Site files']);
+    expect(own.body.items.map((b: { name: string }) => b.name)).toEqual(['CARDIO-301 Regulatory', 'CARDIO-301 Site files']);
     const other = await call(PLATFORM_URL, `/teams/${team('Neuro').id}/binders`, { token: priya.token });
     expect(other.status).toBe(404);
     expect(other.body.error.code).toBe('NOT_FOUND');
@@ -95,12 +95,161 @@ describe('browse: only your own teams (flow 1, "Who can see what")', () => {
   it('browses a user in 50 teams in under a second (dev load seed)', async () => {
     const load = await login('load.user@example.com');
     const started = performance.now();
-    const teams = await call(PLATFORM_URL, '/teams', { token: load.token });
-    expect(teams.body).toHaveLength(50);
-    const binders = await call(PLATFORM_URL, `/teams/${teams.body[0].id}/binders`, { token: load.token });
-    const contents = await call(PLATFORM_URL, `/binders/${binders.body[0].id}/contents`, { token: load.token });
+    const teams = await call(PLATFORM_URL, '/teams?limit=100', { token: load.token });
+    expect(teams.body.items).toHaveLength(50);
+    const binders = await call(PLATFORM_URL, `/teams/${teams.body.items[0].id}/binders`, { token: load.token });
+    const contents = await call(PLATFORM_URL, `/binders/${binders.body.items[0].id}/contents`, { token: load.token });
     expect(contents.status).toBe(200);
     expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
+
+describe('browse pages (F1 part B, D-F1-6)', () => {
+  type Item = { id: string; name: string };
+  const walk = async (path: string, token: string, limit: number, key: (b: any) => Item[]): Promise<{ pages: Item[][]; cursors: Array<string | null> }> => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const pages: Item[][] = [];
+    const cursors: Array<string | null> = [];
+    let cursor: string | null = null;
+    do {
+      const res: { status: number; body: any } = await call(PLATFORM_URL, `${path}?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { token }); // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect(res.status).toBe(200);
+      pages.push(key(res.body));
+      cursor = res.body.nextCursor;
+      cursors.push(cursor);
+    } while (cursor !== null && pages.length < 50);
+    return { pages, cursors };
+  };
+  const sorted = (names: string[]) => [...names].sort((a, b) => a.localeCompare(b, 'en', { numeric: false }));
+
+  it('pages the 50 teams of the load user by name then id: 20, 20, 10, then null', async () => {
+    const load = await login('load.user@example.com');
+    const { pages, cursors } = await walk('/teams', load.token, 20, (b) => b.items);
+    expect(pages.map((p) => p.length)).toEqual([20, 20, 10]);
+    expect(cursors).toEqual([expect.any(String), expect.any(String), null]);
+    const names = pages.flat().map((t) => t.name);
+    expect(new Set(names).size).toBe(50); // no repeat, no gap
+    expect(names).toEqual(sorted(names));
+    expect(names[0]).toBe('Load Team 01');
+    expect(names[49]).toBe('Load Team 50');
+  });
+
+  it('default limit is 20; the largest limit is 100; a bigger or odd one is a 400', async () => {
+    const load = await login('load.user@example.com');
+    expect((await call(PLATFORM_URL, '/teams', { token: load.token })).body.items).toHaveLength(20);
+    expect((await call(PLATFORM_URL, '/teams?limit=100', { token: load.token })).body.nextCursor).toBeNull();
+    for (const bad of ['0', '101', 'abc', '-3']) {
+      const res = await call(PLATFORM_URL, `/teams?limit=${bad}`, { token: load.token });
+      expect(res.status, bad).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
+  it('a limit that fits exactly gives a null cursor on the last page, not an empty extra page', async () => {
+    const load = await login('load.user@example.com');
+    const { pages } = await walk('/teams', load.token, 25, (b) => b.items);
+    expect(pages.map((p) => p.length)).toEqual([25, 25]);
+  });
+
+  it('a bad cursor is a 400, on every route', async () => {
+    const load = await login('load.user@example.com');
+    const team0 = (await call(PLATFORM_URL, '/teams?limit=1', { token: load.token })).body.items[0] as Item;
+    const binder0 = (await call(PLATFORM_URL, `/teams/${team0.id}/binders`, { token: load.token })).body.items[0] as Item;
+    for (const path of ['/teams', `/teams/${team0.id}/binders`, `/binders/${binder0.id}/contents`]) {
+      for (const cursor of ['garbage', Buffer.from('[1,2]').toString('base64url'), Buffer.from(JSON.stringify([0, 'x', 'not-a-uuid'])).toString('base64url')]) {
+        const res = await call(PLATFORM_URL, `${path}?cursor=${cursor}`, { token: load.token });
+        expect(res.status, `${path} ${cursor}`).toBe(400);
+        expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      }
+    }
+  });
+
+  it('pages a folder of 60 children, 20 at a time, and carries the same access rule on every page', async () => {
+    const paging = await login('paging.user@example.com');
+    const teams = (await call(PLATFORM_URL, '/teams', { token: paging.token })).body.items as Item[];
+    expect(teams.map((t) => t.name)).toEqual(['Paging Team']);
+    const binders = (await call(PLATFORM_URL, `/teams/${teams[0]!.id}/binders`, { token: paging.token })).body.items as Item[];
+    const top = (await call(PLATFORM_URL, `/binders/${binders[0]!.id}/contents`, { token: paging.token })).body.folders as Item[];
+    expect(top.map((f) => f.name)).toEqual(['Archive 2026', 'Empty box']);
+    const archive = top[0]!;
+
+    const { pages } = await walk(`/folders/${archive.id}/contents`, paging.token, 20, (b) => b.folders);
+    expect(pages.map((p) => p.length)).toEqual([20, 20, 20]);
+    const names = pages.flat().map((f) => f.name);
+    expect(names[0]).toBe('Batch 001');
+    expect(names[59]).toBe('Batch 060');
+    expect(new Set(names).size).toBe(60);
+
+    // A page deep in the list is still refused to a stranger, and to a person of another team.
+    const first = await call(PLATFORM_URL, `/folders/${archive.id}/contents?limit=20`, { token: paging.token });
+    const cursor = encodeURIComponent(first.body.nextCursor);
+    for (const outsider of [priya, raj, sam]) {
+      const res = await call(PLATFORM_URL, `/folders/${archive.id}/contents?limit=20&cursor=${cursor}`, { token: outsider.token });
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    }
+    expect((await call(PLATFORM_URL, `/folders/${archive.id}/contents?limit=20&cursor=${cursor}`)).status).toBe(401);
+    // Team and binder pages too.
+    expect((await call(PLATFORM_URL, `/teams/${teams[0]!.id}/binders?limit=1`, { token: priya.token })).status).toBe(404);
+    // An empty folder is an empty page, not a 404.
+    const empty = await call(PLATFORM_URL, `/folders/${top[1]!.id}/contents`, { token: paging.token });
+    expect(empty.body).toEqual({ folders: [], documents: [], nextCursor: null });
+  });
+
+  it('a cursor taken from one folder does not read another folder\'s rows', async () => {
+    const paging = await login('paging.user@example.com');
+    const teams = (await call(PLATFORM_URL, '/teams', { token: paging.token })).body.items as Item[];
+    const binders = (await call(PLATFORM_URL, `/teams/${teams[0]!.id}/binders`, { token: paging.token })).body.items as Item[];
+    const top = (await call(PLATFORM_URL, `/binders/${binders[0]!.id}/contents`, { token: paging.token })).body.folders as Item[];
+    const first = await call(PLATFORM_URL, `/folders/${top[0]!.id}/contents?limit=5`, { token: paging.token });
+    // The cursor only says "after Batch 005": used on the empty folder it returns nothing, not Archive's rows.
+    const other = await call(PLATFORM_URL, `/folders/${top[1]!.id}/contents?cursor=${encodeURIComponent(first.body.nextCursor)}`, { token: paging.token });
+    expect(other.body.folders).toEqual([]);
+  });
+});
+
+describe('browse pages across folders and documents (F1 part B)', () => {
+  const { pool } = createDb(`postgres://platform_app:${env.PLATFORM_APP_PASSWORD}@localhost:5432/platform_db`);
+
+  it('lists folders first, then documents, by name then id, and a page can end between them', async () => {
+    const member = await registerAndLogin(uniqueEmail('mixpage'));
+    const ids = new Map([[member.email.toLowerCase(), member.id]]);
+    const { db } = createDb(`postgres://platform_app:${env.PLATFORM_APP_PASSWORD}@localhost:5432/platform_db`);
+    const folderNames = ['b-folder', 'a-folder', 'c-folder'];
+    const binderId = randomUUID();
+    const topId = randomUUID();
+    const file: SeedFile = {
+      users: [],
+      teams: [
+        {
+          id: randomUUID(),
+          name: 'Mixed page team',
+          members: [member.email],
+          binders: [{ id: binderId, name: 'Mixed', folders: [{ id: topId, name: 'Top', folders: folderNames.map((name) => ({ id: randomUUID(), name, folders: [] })) }] }],
+        },
+      ],
+    };
+    await applySeed(db, file, ids);
+    for (const name of ['z-doc.pdf', 'm-doc.pdf', 'a-doc.pdf']) {
+      await pool.query(
+        `INSERT INTO documents (binder_id, folder_id, name, size_bytes, content_type, checksum_sha256, storage_key, uploaded_by_user_id)
+         VALUES ($1, $2, $3, 1, 'application/pdf', $4, $5, $6)`,
+        [binderId, topId, name, 'a'.repeat(64), `documents/${randomUUID()}`, member.id],
+      );
+    }
+    // Six children, two at a time: folders a, b | c, then documents a | m, z.
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    const sizes: number[] = [];
+    do {
+      const res: { status: number; body: any } = await call(PLATFORM_URL, `/folders/${topId}/contents?limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { token: member.token }); // eslint-disable-line @typescript-eslint/no-explicit-any
+      expect(res.status).toBe(200);
+      seen.push(...res.body.folders.map((f: { name: string }) => f.name), ...res.body.documents.map((d: { name: string }) => d.name));
+      sizes.push(res.body.folders.length + res.body.documents.length);
+      cursor = res.body.nextCursor;
+    } while (cursor !== null && sizes.length < 10);
+    expect(sizes).toEqual([2, 2, 2]);
+    expect(seen).toEqual(['a-folder', 'b-folder', 'c-folder', 'a-doc.pdf', 'm-doc.pdf', 'z-doc.pdf']);
+    await pool.end();
   });
 });
 
@@ -232,13 +381,13 @@ describe('seed script (Step 1.2)', () => {
     expect(second).toMatchObject({ teamsChanged: 0, bindersChanged: 0, foldersChanged: 0, membersAdded: 0, membersRemoved: 0 });
 
     const visible = await call(PLATFORM_URL, '/teams', { token: member.token });
-    expect(visible.body.map((t: { name: string }) => t.name)).toEqual(['Seed test team']);
+    expect(visible.body.items.map((t: { name: string }) => t.name)).toEqual(['Seed test team']);
 
     file.teams[0]!.members = [stranger];
     const pruned = await applySeed(db, file, ids);
     expect(pruned.membersRemoved).toBe(1);
     const after = await call(PLATFORM_URL, '/teams', { token: member.token });
-    expect(after.body).toEqual([]);
+    expect(after.body).toEqual({ items: [], nextCursor: null });
   });
 
   it('afterAll closes the pool', async () => {

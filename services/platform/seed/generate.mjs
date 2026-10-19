@@ -69,15 +69,22 @@ const demo = {
 // 50 teams with nested folders for one user, to test the browse target at its limit.
 const loadUser = { email: 'load.user@example.com', name: 'Load User' };
 const level = (prefix) => ['A', 'B', 'C'].map((n) => [`${prefix}${n}`, [[`${prefix}${n}-1`, [`${prefix}${n}-1-x`, `${prefix}${n}-1-y`]], `${prefix}${n}-2`]]);
+// One more user in one team whose folder "Archive 2026" holds 60 subfolders, for the browse paging tests (F1 part B):
+// three pages of 20, and a scroll that has to load them.
+const pagingUser = { email: 'paging.user@example.com', name: 'Paging User' };
+const batches = Array.from({ length: 60 }, (_, i) => `Batch ${String(i + 1).padStart(3, '0')}`);
 const load = {
-  users: [loadUser],
-  teams: Array.from({ length: 50 }, (_, i) => {
-    const name = `Load Team ${String(i + 1).padStart(2, '0')}`;
-    return team(name, [loadUser.email], [
-      ['Regulatory', level('R')],
-      ['Operations', level('O')],
-    ]);
-  }),
+  users: [loadUser, pagingUser],
+  teams: [
+    ...Array.from({ length: 50 }, (_, i) => {
+      const name = `Load Team ${String(i + 1).padStart(2, '0')}`;
+      return team(name, [loadUser.email], [
+        ['Regulatory', level('R')],
+        ['Operations', level('O')],
+      ]);
+    }),
+    team('Paging Team', [pagingUser.email], [['PAGING-1 Archive', [['Archive 2026', batches], 'Empty box']]]),
+  ],
 };
 
 // The same hierarchy with Load Team 20 emptied of members (M5 check 5.2, G23). Loading it prunes the load user from

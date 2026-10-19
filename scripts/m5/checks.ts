@@ -153,7 +153,7 @@ const checks: Record<string, () => Promise<void>> = {
       await setTrigger('delivery', true).catch(() => undefined);
       const back = runTask('platform', 'seed');
       const restored = /"file":"dev-load.json".*"membersAdded":1/.test(back);
-      const teams = listOf((await api.get('/teams')).body);
+      const teams = listOf((await api.get('/teams?limit=100')).body);
       expect('seed restored: the load user is back in Load Team 20', restored || teams.length === 50, `membersAdded in the restore log: ${restored}`);
     }
   },
@@ -242,20 +242,35 @@ const checks: Record<string, () => Promise<void>> = {
     const t0 = Date.now() - 60_000;
     const first: number[] = [];
     const tree: number[] = [];
+    const walk: number[] = [];
     let teams = 0;
     for (let i = 0; i < 100; i += 1) {
+      // The first page of teams is the first level of the tree (D-F1-6: 20 per page, the web app asks for no more).
       const a = await api.get('/teams');
       first.push(a.ms);
-      teams = listOf(a.body).length;
       const id = listOf(a.body)[0]?.id ?? listOf(a.body)[0]?.teamId;
       const b = await api.get(`/teams/${id}/binders`);
       tree.push(a.ms + b.ms);
       if (a.status !== 200 || b.status !== 200) throw new Error(`browse gave ${a.status} and ${b.status}`);
+      if (i % 10 === 0) {
+        // The whole list, page by page: 50 teams are three pages (20, 20, 10).
+        const started = Date.now();
+        let cursor: string | null = null;
+        teams = 0;
+        do {
+          const p: { status: number; body: any } = await api.get(`/teams${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`); // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (p.status !== 200) throw new Error(`teams page gave ${p.status}`);
+          teams += listOf(p.body).length;
+          cursor = p.body.nextCursor ?? null;
+        } while (cursor !== null);
+        walk.push(Date.now() - started);
+      }
     }
-    expect('the load user is in 50 teams', teams === 50, `${teams}`);
-    log(`client side: GET /teams p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms; teams + first binders p99 ${percentile(tree, 99).toFixed(0)} ms`);
-    // The first level of the tree is the team list (Blueprint: "time until the first level is usable").
-    expect('first level (the 50 teams) usable under 1 s at p99, measured from this machine over the internet, 100 runs', percentile(first, 99) < 1000, `p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms, max ${Math.max(...first).toFixed(0)} ms`);
+    expect('the load user is in 50 teams (read in pages of 20)', teams === 50, `${teams}`);
+    log(`client side: GET /teams (first page of 20) p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms; teams + first binders p99 ${percentile(tree, 99).toFixed(0)} ms; all 3 pages in a row max (10 runs, so p99 is the max) ${percentile(walk, 99).toFixed(0)} ms (${walk.length} runs)`);
+    // The first level of the tree is the first page of the team list (Blueprint: "time until the first level is usable").
+    expect('first level (the first page of teams) usable under 1 s at p99, measured from this machine over the internet, 100 runs', percentile(first, 99) < 1000, `p50 ${percentile(first, 50).toFixed(0)} ms, p99 ${percentile(first, 99).toFixed(0)} ms, max ${Math.max(...first).toFixed(0)} ms`);
+    expect('all 50 teams, three pages in a row, under 1 s at p99', percentile(walk, 99) < 1000, `p99 ${percentile(walk, 99).toFixed(0)} ms, max ${Math.max(...walk).toFixed(0)} ms`);
     // Not a requirement: two calls in a row over the internet, so the network round trip counts twice.
     log(`second level (teams, then the first team's binders, two calls in a row): p99 ${percentile(tree, 99).toFixed(0)} ms from this machine`);
     await sleep(90_000);
