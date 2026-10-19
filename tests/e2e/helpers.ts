@@ -90,11 +90,12 @@ const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Ticks a folder in the Destinations tree by its full path, opening its binder first. */
 export async function tick(page: Page, path: string): Promise<void> {
   const box = page.getByRole('checkbox', { name: new RegExp(` to ${escape(path)}$`) });
-  // Open the binder and any folder above the one to tick, top down. A level that is already open shows Collapse.
+  // The tree starts with the teams only (D-F1-4): open the team, the binder and any folder above the one to tick, top
+  // down. A level that is already open shows Collapse.
   const parts = path.split(' / ');
-  for (let i = 1; i < parts.length - 1 && !(await box.isVisible()); i += 1) {
-    const expand = page.getByRole('button', { name: `Expand ${parts[i]}` });
-    await expect(expand.or(page.getByRole('button', { name: `Collapse ${parts[i]}` }))).toBeVisible();
+  for (let i = 0; i < parts.length - 1 && !(await box.isVisible()); i += 1) {
+    const expand = page.getByRole('button', { name: `Expand ${parts[i]}`, exact: true });
+    await expect(expand.or(page.getByRole('button', { name: `Collapse ${parts[i]}`, exact: true }))).toBeVisible();
     if (await expand.isVisible()) await expand.click();
   }
   await box.click();

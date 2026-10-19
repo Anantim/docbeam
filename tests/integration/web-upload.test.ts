@@ -105,8 +105,8 @@ describe('web upload queue against the Compose stack', () => {
     const files = [...manager.getSnapshot()];
     const destination = { binderId: binder.id as string, folderId: folder.id as string, path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' };
     const ticked = toggleDestination(emptyMapping, files, new Set(), destination);
-    expect(readiness(ticked.mapping, files).ready).toBe(true);
-    const body = buildJobRequest(ticked.mapping, files);
+    expect(readiness(ticked, files).ready).toBe(true);
+    const body = buildJobRequest(ticked, files);
     expect(body).not.toBeNull();
 
     const key = crypto.randomUUID();

@@ -845,3 +845,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Choice made:** the DocBeam API's zod schema keeps `folderId` optional (`nullish`) so that a missing one reaches `validateBatch` and returns the 422 `INVALID_BATCH` the prompt asks for. A required zod field would have given 400 `VALIDATION_ERROR`.
 - **Old data:** jobs and tasks already stored with a binder-level destination (`folder_id` null) are still read and shown as they are. A pending old task that is retried would now fail at the platform with a not-found error.
 - **Why:** a delivery into the top of a binder is not something the clients' coordinators use; the tree was offering a choice that confused them.
+
+## D-F1-4. Distribute screen: tick in any order, check only at Send, tree starts at team level
+- **Date:** 2026-10-20. **Decided by:** the agent, from the person's F1 prompt (Part 4, items 1 and 2; the prompt is cut off in item 2, see D-F1-2).
+- **What:**
+  1. A folder can be ticked before or after files are added. A folder ticked while the page has no file is *held* (`Mapping.held`); the files added next, once they have no destination yet, go to the held folders (`applyHeld`), and the held list is cleared. Files added later than that start with no destination, as before.
+  2. Nothing is refused at the tick any more, not even a 21st destination (the toast is gone). The batch is checked only at Send, with `validateBatch`; the first problem is the reason, shown beside the Send button (and as its title). The three green or grey check chips are replaced by that one line: they showed the same facts twice. The header count can read "21 of 20 destinations".
+  3. The destination tree always starts with the teams only, whatever their number (the old rule opened up to 5 teams). Each click opens one level; a level is loaded when it is opened.
+- **Reading made of item 2:** the sentence stops at "It opens one level". It is read as "it opens one level at a time". If the person meant something else, tell the next session.
+- **Why:** the order of work differs between coordinators, and the screen was blocking the first tick and shouting at the 21st. One quiet line says what is missing.

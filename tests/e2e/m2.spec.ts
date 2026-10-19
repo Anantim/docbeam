@@ -18,6 +18,7 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   await expect(row(page, name as string).locator('.status-chip')).toHaveText('Verified');
   // Verified, but nowhere to send it yet: Send says what is missing.
   await expect(send0).toHaveAttribute('title', '1 file has no destination yet. Tick a folder');
+  await expect(page.locator('.send-reason')).toHaveText('1 file has no destination yet. Tick a folder');
   await expect(page.locator('.steps li.cur')).toContainText('Map destinations');
 
   await tick(page, CARDIO_IRB);
@@ -27,7 +28,7 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   await expect(page.locator('.summary .big').nth(0)).toHaveText('1');
   await expect(page.locator('.summary .big').nth(1)).toHaveText('1');
   await expect(page.locator('.summary .big').nth(2)).toHaveText('1');
-  await expect(page.locator('.sendbar .check.ok')).toHaveCount(3); // 1 file added, all verified, every file has a destination
+  await expect(page.locator('.send-reason')).toHaveText(''); // nothing is missing
 
   await send(page);
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
@@ -35,6 +36,21 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   // Sending cleared the page.
   await page.getByRole('button', { name: 'Distribute' }).click();
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
+});
+
+test('folders can be ticked before any file is added, and the files added next go to them (D-F1-4)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await tick(page, CARDIO_IRB);
+  await tick(page, CARDIO_PROTOCOL);
+  await expect(page.locator('.dest-head .n')).toContainText('2 of 20 destinations');
+  await expect(page.locator('.send-reason')).toHaveText('Add a file first');
+  await expect(page.getByRole('button', { name: /^Send 0 deliver/ })).toBeDisabled();
+
+  await addPdfs(page, 2, 'order');
+  await expect(page.getByRole('button', { name: 'Send 4 deliveries' })).toBeEnabled();
+  await expect(page.locator('.send-reason')).toHaveText('');
+  await expect(page.locator('.summary .big').nth(1)).toHaveText('2');
+  await page.getByRole('button', { name: 'Clear' }).click();
 });
 
 test('a file type that is not allowed is listed under Not added, and can be dismissed', async ({ page }) => {
@@ -125,6 +141,7 @@ test('Review lists every folder with its files; a file can be removed from a fol
 test('a distribution can have at most 20 destinations', async ({ page }) => {
   await signIn(page, 'load.user@example.com'); // in 50 teams (the load seed)
   await page.getByLabel('Choose files').setInputFiles([{ name: `limit-${randomUUID().slice(0, 6)}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
+  await expect(page.getByText('Verified', { exact: true })).toHaveCount(1, { timeout: 90_000 }); // the reason names the first problem
   const team = (n: number) => `Load Team ${String(n).padStart(2, '0')}`;
   // Only folders can be ticked: open the team, then the binder inside it, then tick the folder.
   const tickFolder = async (n: number, binder: string, folder: string): Promise<void> => {
@@ -144,10 +161,15 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
   }
   await expect(page.locator('.dest-head .n')).toContainText('20 of 20 destinations');
 
-  await tickFolder(11, 'Regulatory', 'RA'); // the 21st
-  await expect(page.getByText('A distribution can have at most 20 destinations.')).toBeVisible();
-  await expect(page.locator('.dest-head .n')).toContainText('20 of 20 destinations');
-  await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).not.toBeChecked();
+  // The 21st can be ticked. The limit is checked at Send: Send is off and says why (D-F1-4).
+  await tickFolder(11, 'Regulatory', 'RA');
+  await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).toBeChecked();
+  await expect(page.locator('.dest-head .n')).toContainText('21 of 20 destinations');
+  await expect(page.locator('.send-reason')).toHaveText('A distribution can have at most 20 destinations.');
+  await expect(page.getByRole('button', { name: /^Send \d+ deliver/ })).toBeDisabled();
+
+  await tickFolder(11, 'Regulatory', 'RA'); // untick it: valid again
+  await expect(page.locator('.send-reason')).not.toHaveText('A distribution can have at most 20 destinations.');
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 

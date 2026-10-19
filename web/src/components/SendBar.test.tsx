@@ -5,7 +5,7 @@ import { SendBar } from './SendBar.js';
 
 afterEach(cleanup);
 const noop = (): void => undefined;
-const base = { checks: [], deliveries: 4, error: null, onClear: noop, onSend: noop };
+const base = { deliveries: 4, error: null, onClear: noop, onSend: noop };
 
 describe('SendBar titles', () => {
   it('says why Send is off, and why Clear is off', () => {
@@ -16,6 +16,13 @@ describe('SendBar titles', () => {
     const clear = screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement;
     expect(clear.disabled).toBe(true);
     expect(clear.title).toBe('Nothing to clear');
+  });
+
+  it('shows the reason beside the button while Send is off, and nothing once it is on', () => {
+    const { rerender } = render(<SendBar {...base} ready={false} reason="Add a file first" sending={false} canClear={false} />);
+    expect(screen.getByRole('status').textContent).toBe('Add a file first');
+    rerender(<SendBar {...base} ready reason={null} sending={false} canClear />);
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('has no title on a button that is on', () => {

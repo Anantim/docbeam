@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
 import {
+  applyHeld,
   buildJobRequest,
+  chosenKeys,
   deliveryCount,
   destinationCounts,
   emptyMapping,
@@ -60,7 +62,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const scopeIds = new Set(scope);
   const selectedUsable = usable.filter((f) => selected.has(f.id));
   const counts = destinationCounts(mapping, [...files]);
-  const inUse = [...counts.keys()].flatMap((k) => (mapping.destinations[k] ? [mapping.destinations[k]] : []));
+  const inUse = chosenKeys(mapping, [...files]).flatMap((k) => (mapping.destinations[k] ? [mapping.destinations[k]] : []));
   const deliveries = deliveryCount(mapping, [...files]);
   const state = readiness(mapping, [...files]);
   const allMapped = usable.length > 0 && usable.every((f) => (mapping.files[f.id]?.length ?? 0) > 0);
@@ -88,16 +90,17 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     [manager],
   );
 
+  // Folders ticked before any file was added go to the files that arrive next (D-F1-4).
+  useEffect(() => {
+    setMapping((m) => applyHeld(m, [...files]));
+  }, [files]);
+
   const onToggleDestination = useCallback(
     (destination: Destination) => {
-      const out = toggleDestination(mapping, [...files], selected, destination);
-      if (out.refused) notify(out.refused, 'error');
-      else {
-        setMapping(out.mapping);
-        setSendError(null);
-      }
+      setMapping(toggleDestination(mapping, [...files], selected, destination));
+      setSendError(null);
     },
-    [files, mapping, notify, selected],
+    [files, mapping, selected],
   );
 
   const onRemoveFile = (id: string) => {
@@ -177,7 +180,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
                   <div className="lead">files</div>
                 </div>
                 <div>
-                  <div className="big">{counts.size}</div>
+                  <div className="big">{inUse.length}</div>
                   <div className="lead">destinations</div>
                 </div>
                 <div>
@@ -236,7 +239,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}
-            disabled={usable.length === 0}
             onUseAll={selectedUsable.length > 0 ? () => setSelected(new Set()) : undefined}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
             countOf={(d) => counts.get(destinationKey(d)) ?? 0}
@@ -253,13 +255,12 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
       </div>
 
       <SendBar
-        checks={state.checks}
         deliveries={deliveries}
         ready={state.ready}
         reason={state.reason}
         sending={sending}
         error={sendError}
-        canClear={files.length > 0}
+        canClear={files.length > 0 || mapping.held.length > 0}
         onClear={clearAll}
         onSend={() => void send()}
       />

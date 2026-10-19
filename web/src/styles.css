@@ -222,9 +222,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .sendbar { position: sticky; bottom: 0; z-index: 10; background: rgba(255,255,255,.96); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(16,24,40,.05); padding: 12px 24px; display: flex; flex-direction: column; gap: 10px; }
 .sendbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
 .send-error { font-size: 13px; }
-.checks { display: flex; flex-wrap: wrap; gap: 6px; }
-.check { padding: 4px 10px; border-radius: 2px; background: #f2f4f7; color: var(--muted); font-size: 12px; font-weight: 600; }
-.check.ok { background: #ecfdf3; color: #067647; }
+.send-reason { flex: 1; min-width: 0; font-size: 13px; color: var(--text-2); }
 
 /* preview dialog */
 .preview-overlay { background: rgba(16,24,40,.6); z-index: 90; }
