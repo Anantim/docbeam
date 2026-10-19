@@ -1,13 +1,14 @@
 import type { AuditEvent } from '../tracking/api.js';
 import { describeAudit, formatTime, shortId } from '../tracking/format.js';
 
-const TONES: Record<string, { bg: string; fg: string }> = {
-  sent: { bg: '#EEF3FF', fg: '#2B59C3' },
-  delivery: { bg: '#ECFDF3', fg: '#067647' },
-  retry: { bg: '#FFFAEB', fg: '#B54708' },
-  cancel: { bg: '#F2F4F7', fg: '#344054' },
-  download: { bg: '#F4F3FF', fg: '#5925DC' },
-  files: { bg: '#F2F4F7', fg: '#475467' },
+/** The tile colour of each kind of event: the same status tones as everywhere else (D-F1-5). */
+const TONES: Record<string, 'idle' | 'busy' | 'ok' | 'warn'> = {
+  sent: 'busy',
+  delivery: 'ok',
+  retry: 'warn',
+  cancel: 'idle',
+  download: 'busy',
+  files: 'idle',
 };
 
 interface RowProps {
@@ -19,16 +20,16 @@ interface RowProps {
 /** One audit event: a tile, the event, who did it, what happened, and when. */
 export function AuditRow({ event, onOpenJob }: RowProps) {
   const line = describeAudit(event);
-  const tone = TONES[line.tone] ?? { bg: '#F2F4F7', fg: '#475467' };
+  const tone = line.bad ? 'bad' : (TONES[line.tone] ?? 'idle');
   return (
     <div className="arow">
       <div className="mono atime">{formatTime(event.occurredAt)}</div>
-      <span className="atile" style={{ background: line.bad ? '#FEF3F2' : tone.bg, color: line.bad ? '#B42318' : tone.fg }} aria-hidden="true">
+      <span className="atile" data-tone={tone} aria-hidden="true">
         {line.glyph}
       </span>
       <div className="grow">
         <div className="atitle">
-          <span style={{ fontWeight: 600, color: line.bad ? '#B42318' : undefined }}>{line.title}</span>
+          <span className="atitle-text" data-tone={line.bad ? 'bad' : undefined}>{line.title}</span>
           <span className="by">by {line.who}</span>
         </div>
         <div className="adetail">{line.detail}</div>

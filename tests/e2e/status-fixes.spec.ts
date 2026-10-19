@@ -131,7 +131,7 @@ test('a distribution cancelled part way: tiles, both bars, chips, filters, rows 
     const t = await tiles(page);
     expect(Object.fromEntries(Object.entries(t).map(([k, v]) => [k, v.n]))).toEqual({ Delivered: 3, Failed: 0, 'In progress': 0, Waiting: 0, Cancelled: 5 });
     expect(t['Cancelled']!.colour).not.toBe(t['Failed']!.colour);
-    expect(t['Cancelled']!.colour).toBe(rgb('#667085'));
+    expect(t['Cancelled']!.colour).toBe(rgb('#344054')); // the grey (neutral) text of the idle tone
     expect(t['Failed']!.colour).toBe(rgb('#B42318'));
 
     // The bar in the header: 3 of 8 green, 5 of 8 grey, and no red or blue.

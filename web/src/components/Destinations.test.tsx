@@ -85,7 +85,7 @@ describe('Destinations tree', () => {
     expect((await screen.findByRole('checkbox', { name: /IRB approvals/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('shows the count and filters the loaded rows', async () => {
+  it('filters the loaded rows', async () => {
     const user = userEvent.setup();
     render(
       <Destinations
@@ -97,7 +97,6 @@ describe('Destinations tree', () => {
     await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
     await user.click(await screen.findByRole('button', { name: 'Expand Oncology' }));
     await screen.findByText('ONC-118 Regulatory');
-    expect(screen.getByText('1 of 20 destinations')).toBeTruthy();
     await user.type(screen.getByRole('searchbox'), 'onc-118');
     expect(screen.queryByText('CARDIO-301 Regulatory')).toBeNull();
     expect(screen.getByText('ONC-118 Regulatory')).toBeTruthy();

@@ -19,9 +19,6 @@ interface Props {
   children?: ReactNode;
 }
 
-/** Cancelled is grey in every bar and tile; red is for real failures only (D-M3-17). */
-export const CANCELLED_GREY = '#98A2B3';
-
 const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
 
 /** The Distributions list of the Status page: Mine and My teams, each card a chip and a progress bar. */
@@ -81,10 +78,10 @@ export function JobList({ scope, onScope, jobs, error, selectedId, onOpen, live,
               {scope === 'team' ? ' to your teams' : ''}
             </div>
             <div className="jbar" aria-hidden="true">
-              <div style={{ width: `${pct(c.completed, job.taskCount)}%`, background: '#12B76A' }} />
-              <div style={{ width: `${pct(c.failed, job.taskCount)}%`, background: '#F04438' }} />
-              <div style={{ width: `${pct(c.in_progress, job.taskCount)}%`, background: '#2B59C3' }} />
-              <div style={{ width: `${pct(c.cancelled, job.taskCount)}%`, background: CANCELLED_GREY }} />
+              <div data-tone="ok" style={{ width: `${pct(c.completed, job.taskCount)}%` }} />
+              <div data-tone="bad" style={{ width: `${pct(c.failed, job.taskCount)}%` }} />
+              <div data-tone="busy" style={{ width: `${pct(c.in_progress, job.taskCount)}%` }} />
+              <div data-tone="idle" style={{ width: `${pct(c.cancelled, job.taskCount)}%` }} />
             </div>
           </button>
         );

@@ -116,16 +116,21 @@ describe('Distribute', () => {
     screenWith(manager);
     const box = await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/);
     expect((box as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getByText('No documents yet')).toBeTruthy();
+    expect(screen.getByText('Drop files here')).toBeTruthy();
     await user.click(box);
     expect(screen.getByRole('checkbox', { name: /IRB approvals/ }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('1 of 20 destinations')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Add a file first');
     expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(false); // it can undo the ticks
 
     manager.set([pageFile('a.pdf', 'verified')]);
     await waitFor(() => expect((screen.getByRole('button', { name: /^Send 1 delivery$/ }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.getByRole('status').textContent).toBe('');
+
+    // The folder stays ticked for every file added while it is ticked (D-F1-5).
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Send 2 deliveries$/ })).toBeTruthy());
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified'), pageFile('c.pdf', 'verified')]);
+    await waitFor(() => expect((screen.getByRole('button', { name: /^Send 3 deliveries$/ }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('applies a tick to the selected files only, and shows the folder as mixed for the others', async () => {
@@ -134,9 +139,9 @@ describe('Distribute', () => {
     screenWith(manager);
 
     await user.click(screen.getByRole('checkbox', { name: 'Select a.pdf' }));
-    expect(screen.getByText(/1 selected\. Destinations you tick apply to these only\./)).toBeTruthy();
-    await tickTop(user, 'the 1 selected file');
-    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('1 file')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('1 selected file')).toBeTruthy();
+    await tickTop(user, '1 selected file');
+    expect((await screen.findByRole('checkbox', { name: `Send 1 selected file to ${FOLDER}` })).getAttribute('aria-checked')).toBe('true');
 
     await user.click(screen.getByRole('button', { name: 'Use all files' }));
     const box = await screen.findByRole('checkbox', { name: `Send all 2 files to ${FOLDER}` });

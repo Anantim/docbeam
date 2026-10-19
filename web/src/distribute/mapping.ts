@@ -9,7 +9,7 @@ export interface Mapping {
   destinations: Record<string, Destination>;
   /** For each file, the keys of its destinations. */
   files: Record<string, string[]>;
-  /** Folders ticked while the page had no file. The files added next go to them (`applyHeld`). */
+  /** Folders ticked for all files (nothing selected). Every file added while they stay ticked goes to them (`applyHeld`, D-F1-5). */
   held: string[];
 }
 
@@ -64,11 +64,15 @@ export function toggleDestination(mapping: Mapping, files: PageFile[], selected:
     if (mapping.held.includes(key)) return { ...mapping, held: mapping.held.filter((k) => k !== key) };
     return { ...mapping, destinations: { ...mapping.destinations, [key]: destination }, held: [...mapping.held, key] };
   }
+  // With nothing selected the tick is for all files, now and later: it also joins or leaves the held list.
+  const forAll = !files.some((f) => isUsable(f) && selected.has(f.id));
   const next: Mapping = { ...mapping, destinations: { ...mapping.destinations }, files: { ...mapping.files } };
   if (tickState(mapping, scope, key) === 'on') {
     for (const id of scope) next.files[id] = (next.files[id] ?? []).filter((k) => k !== key);
+    if (forAll) next.held = mapping.held.filter((k) => k !== key);
     return next;
   }
+  if (forAll && !mapping.held.includes(key)) next.held = [...mapping.held, key];
   next.destinations[key] = destination;
   for (const id of scope) {
     const keys = next.files[id] ?? [];
@@ -78,14 +82,15 @@ export function toggleDestination(mapping: Mapping, files: PageFile[], selected:
 }
 
 /**
- * Sends the held folders to the files that arrived after they were ticked (the ones with no destination yet), then
- * forgets them. The same mapping comes back when there is nothing to do, so it is safe to call after every change.
+ * Sends the held folders to every file that arrived after they were ticked (the ones with no destination yet). The
+ * folders stay held, so the next file gets them too, until they are unticked or the page is cleared. The same
+ * mapping comes back when there is nothing to do, so it is safe to call after every change.
  */
 export function applyHeld(mapping: Mapping, files: PageFile[]): Mapping {
   if (mapping.held.length === 0) return mapping;
   const fresh = files.filter(isUsable).filter((f) => mapping.files[f.id] === undefined);
   if (fresh.length === 0) return mapping;
-  const next: Mapping = { destinations: mapping.destinations, files: { ...mapping.files }, held: [] };
+  const next: Mapping = { destinations: mapping.destinations, files: { ...mapping.files }, held: mapping.held };
   for (const f of fresh) next.files[f.id] = [...mapping.held];
   return next;
 }
@@ -94,7 +99,7 @@ export function applyHeld(mapping: Mapping, files: PageFile[]): Mapping {
 export function removeDestination(mapping: Mapping, key: string): Mapping {
   const files: Mapping['files'] = {};
   for (const [id, keys] of Object.entries(mapping.files)) files[id] = keys.filter((k) => k !== key);
-  return { ...mapping, files };
+  return { ...mapping, files, held: mapping.held.filter((k) => k !== key) };
 }
 
 export interface RemovedFromFolder {

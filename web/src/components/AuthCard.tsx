@@ -37,14 +37,10 @@ export function AuthCard() {
           <h1>One upload. Every binder that needs it.</h1>
           <p>Pick your files, tick the folders, and follow every delivery.</p>
         </div>
-        <div className="foot">Clinical trial document distribution</div>
       </div>
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={(e) => void submit(e)}>
-          <div>
-            <h2>{registering ? 'Create account' : 'Sign in'}</h2>
-            <p className="sub">{registering ? 'Use your work email.' : 'Use your work account.'}</p>
-          </div>
+          <h2>{registering ? 'Create account' : 'Sign in'}</h2>
           {error && (
             <div role="alert" className="alert">
               {error}
@@ -75,7 +71,7 @@ export function AuthCard() {
             />
             {registering && <div className="hint">12 to 72 characters.</div>}
           </div>
-          <button className="btn" type="submit" disabled={busy} style={{ minHeight: 44 }}>
+          <button className="btn" type="submit" disabled={busy}>
             {registering ? 'Create account' : 'Sign in'}
           </button>
           <div className="auth-foot">

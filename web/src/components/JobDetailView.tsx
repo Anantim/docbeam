@@ -3,7 +3,6 @@ import { ApiFailure } from '../auth/session.js';
 import type { LiveClient } from '../live/socket.js';
 import { trackingApi, type Counts, type JobDetail, type TaskKind } from '../tracking/api.js';
 import { JOB_STATUS_MEANING } from '../explain.js';
-import { CANCELLED_GREY } from './JobList.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { useAudit } from '../tracking/useAudit.js';
@@ -13,7 +12,7 @@ import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
 import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
-import { StatusChip, TONES } from './StatusChip.js';
+import { StatusChip } from './StatusChip.js';
 import { DestinationChips } from './DestinationChips.js';
 import { Preview } from './Preview.js';
 import { TaskTable } from './TaskTable.js';
@@ -194,32 +193,32 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
         <div className="jcounts" aria-label="Counts">
           <div>
             <div className="lead">Delivered</div>
-            <div className="n" style={{ color: '#067647' }}>{c.completed}</div>
+            <div className="n" data-tone="ok">{c.completed}</div>
           </div>
           <div>
             <div className="lead">Failed</div>
-            <div className="n" style={{ color: '#B42318' }}>{c.failed}</div>
+            <div className="n" data-tone="bad">{c.failed}</div>
           </div>
           <div>
             <div className="lead">In progress</div>
-            <div className="n" style={{ color: '#2B59C3' }}>{c.in_progress}</div>
+            <div className="n" data-tone="busy">{c.in_progress}</div>
           </div>
           <div>
             <div className="lead">Waiting</div>
-            <div className="n" style={{ color: '#344054' }}>{c.pending}</div>
+            <div className="n" data-tone="idle">{c.pending}</div>
           </div>
           {c.cancelled > 0 && (
             <div>
               <div className="lead">Cancelled</div>
-              <div className="n" style={{ color: '#667085' }}>{c.cancelled}</div>
+              <div className="n" data-tone="idle">{c.cancelled}</div>
             </div>
           )}
         </div>
         <div className="jbar thick" aria-hidden="true">
-          <div style={{ width: `${bar(c.completed)}%`, background: '#12B76A' }} />
-          <div style={{ width: `${bar(c.failed)}%`, background: '#F04438' }} />
-          <div style={{ width: `${bar(c.in_progress)}%`, background: '#2B59C3' }} />
-          <div style={{ width: `${bar(c.cancelled)}%`, background: CANCELLED_GREY }} />
+          <div data-tone="ok" style={{ width: `${bar(c.completed)}%` }} />
+          <div data-tone="bad" style={{ width: `${bar(c.failed)}%` }} />
+          <div data-tone="busy" style={{ width: `${bar(c.in_progress)}%` }} />
+          <div data-tone="idle" style={{ width: `${bar(c.cancelled)}%` }} />
         </div>
       </div>
 
@@ -251,7 +250,7 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
                     aria-label={`${f.label}, ${plural(n, 'delivery', 'deliveries')}`}
                     onClick={() => setFilter(f.id)}
                   >
-                    {f.id !== 'all' && <span className="tdot" style={{ background: TONES[taskLook(f.id).tone].dot }} />}
+                    {f.id !== 'all' && <span className="tdot" data-tone={taskLook(f.id).tone} />}
                     {f.label}
                     <span className="num">{n}</span>
                   </button>
@@ -261,7 +260,7 @@ export function JobDetailView({ jobId, live, notify, onChanged, onCounts, signed
           )}
         </div>
         {files.banner && (
-          <div role="status" className="banner link-banner" style={{ background: isLive(files.banner, files.now) ? '#EEF3FF' : '#FEF3F2' }}>
+          <div role="status" className={`banner link-banner ${isLive(files.banner, files.now) ? '' : 'bad'}`}>
             <span>{bannerText(files.banner, files.now)}</span>
             <button className="btn2" type="button" onClick={files.dismiss}>
               Dismiss

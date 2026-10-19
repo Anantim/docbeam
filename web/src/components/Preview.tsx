@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CloseIcon } from './Icons.js';
 import { TypeBadge } from './TypeBadge.js';
 import { docxSrcdoc, xlsxSheets } from '../preview/office.js';
 import { sheetHtml, type SheetModel } from '../preview/render.js';
@@ -108,7 +109,7 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
             </select>
           )}
           <button className="icon" type="button" aria-label="Close preview" title="Close preview" onClick={onClose}>
-            ✕
+            <CloseIcon />
           </button>
         </div>
         <div className="preview-body">

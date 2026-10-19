@@ -5,7 +5,7 @@ import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
-import { StatusChip, TONES } from './StatusChip.js';
+import { StatusChip } from './StatusChip.js';
 import { taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
@@ -182,7 +182,7 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
       <div role="cell" className="attempts" title={used === 0 ? 'Not attempted yet' : `${used} of the ${MAX_ATTEMPTS} allowed attempts`}>
         <span aria-hidden="true" className="segs">
           {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
-            <span key={i} style={{ background: i < used ? TONES[look.tone].dot : '#E4E7EC' }} />
+            <span key={i} className={i < used ? '' : 'off'} data-tone={look.tone} />
           ))}
         </span>
         <span className="num">{used} of {MAX_ATTEMPTS}</span>

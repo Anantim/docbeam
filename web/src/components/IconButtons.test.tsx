@@ -90,7 +90,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
   });
 
   it('in the Not added list', () => {
-    const { container } = render(<AddFiles onPick={noop} rejected={[{ name: 'setup.exe', reason: 'This type is not allowed.' }]} onDismiss={noop} />);
+    const { container } = render(<AddFiles empty={false} onPick={noop} rejected={[{ name: 'setup.exe', reason: 'This type is not allowed.' }]} onDismiss={noop} />);
     expectClean(container, 2);
   });
 

@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../auth/session.js';
-import { teamColour } from '../destinations/colour.js';
-import { destinationKey, MAX_DESTINATIONS, type Destination } from '../destinations/selection.js';
+import { destinationKey, type Destination } from '../destinations/selection.js';
 import { destinationFor, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
+import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
 
 interface Props {
-  /** The destinations in use (the count in the header, and the ticks when `stateOf` is not given). */
+  /** The destinations in use (the ticks when `stateOf` is not given). */
   selected: Destination[];
   onToggle: (destination: Destination) => void;
   onTeams: (names: string[]) => void;
   /** Tick state for the files in scope. Without it a destination is on when it is in `selected`. */
   stateOf?: (destination: Destination) => TickState;
-  /** How many files go to a destination, shown as a badge. */
-  countOf?: (destination: Destination) => number;
   /** What a tick sends, for example "all 3 files" or "the 1 selected file". */
   scopeTitle?: string;
   /** Shows "Use all files" in the banner while some files are selected. */
@@ -34,7 +32,7 @@ async function loadChildren(node: TreeNode): Promise<TreeNode[]> {
   return folderNodes(node, contents.folders);
 }
 
-export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, scopeTitle = 'your files', onUseAll }: Props) {
+export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -100,12 +98,10 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
     const destination = destinationFor(node);
     const tick: TickState = !destination ? 'off' : stateOf ? stateOf(destination) : chosen.has(destinationKey(destination)) ? 'on' : 'off';
     const on = tick !== 'off';
-    const badge = destination && countOf ? countOf(destination) : 0;
-    const colour = teamColour(node.name);
 
     return (
       <div key={node.id}>
-        <div className={`row ${on ? 'on' : ''}`} style={{ paddingLeft: 4 + level * 26 }}>
+        <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
           {canExpand ? (
             <button
               type="button"
@@ -115,22 +111,17 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
               title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
               onClick={() => expand(node)}
             >
-              {isOpen ? '▾' : '▸'}
+              <ChevronIcon open={isOpen} size={14} />
             </button>
           ) : (
             <span className="spc" />
           )}
           {node.kind === 'team' ? (
             <>
-              <span className="teamsq" style={{ background: colour }}>
-                {node.name.charAt(0).toUpperCase()}
-              </span>
               <span className="name team">{node.name}</span>
-              <span className="kind">team</span>
             </>
           ) : node.kind === 'binder' ? (
             <>
-              <span aria-hidden="true">📘</span>
               <span className="name binder">{node.name}</span>
             </>
           ) : (
@@ -144,19 +135,20 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
                 onClick={() => destination && onToggle(destination)}
               >
                 <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
-                  {tick === 'on' ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</span> : null}
-                  {tick === 'mixed' ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>–</span> : null}
+                  {tick === 'on' ? <CheckIcon size={12} /> : null}
+                  {tick === 'mixed' ? <MinusIcon size={12} /> : null}
                 </span>
               </button>
-              <span aria-hidden="true">📁</span>
+              <span className="tree-icon" aria-hidden="true">
+                <FolderIcon />
+              </span>
               <span className="name">{node.name}</span>
-              {badge > 0 && <span className="badge">{badge === 1 ? '1 file' : `${badge} files`}</span>}
             </>
           )}
         </div>
-        {isOpen && busy.has(node.id) && <div className="status-line" style={{ paddingLeft: 30 + level * 26 }}>Loading…</div>}
+        {isOpen && busy.has(node.id) && <div className="status-line nested" style={{ ['--level' as string]: level }}>Loading…</div>}
         {isOpen && failed.has(node.id) && (
-          <div className="status-line err" style={{ paddingLeft: 30 + level * 26 }}>
+          <div className="status-line err nested" style={{ ['--level' as string]: level }}>
             Could not load this level.{' '}
             <button className="link" type="button" onClick={() => void load(node)}>
               Try again
@@ -172,15 +164,12 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
 
   return (
     <section aria-label="Destinations" className="card dest">
-      <div className="dest-head">
+      <div className="card-head">
         <h2>Destinations</h2>
-        <span className="n">
-          {selected.length} of {MAX_DESTINATIONS} destinations
-        </span>
       </div>
-      <div className={`banner ${onUseAll ? 'scoped' : ''}`}>
+      <div className={`scope ${onUseAll ? 'scoped' : ''}`}>
         <span>
-          Ticking a folder sends <strong>{scopeTitle}</strong> there
+          Sends <strong>{scopeTitle}</strong>
         </span>
         {onUseAll && (
           <button className="link" type="button" onClick={onUseAll}>
@@ -203,7 +192,11 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
       </div>
       <div className="tree">
         {rootError && <div className="status-line err">Could not load your teams. Reload the page to try again.</div>}
-        {!rootError && roots === null && <div className="status-line">Loading your teams…</div>}
+        {!rootError && roots === null && (
+          <div className="status-line" role="status">
+            Loading your teams…
+          </div>
+        )}
         {roots?.length === 0 && <div className="status-line">You are not in any team yet.</div>}
         {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
       </div>

@@ -1,9 +1,9 @@
-import { teamColour } from '../destinations/colour.js';
 import { formatSize } from '../distribute/files.js';
-import { PreviewButton } from './FileActions.js';
-import { TypeBadge } from './TypeBadge.js';
 import { describeDestination, isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
+import { PreviewButton } from './FileActions.js';
+import { ChevronIcon, CloseIcon } from './Icons.js';
+import { TypeBadge } from './TypeBadge.js';
 
 interface Props {
   files: readonly PageFile[];
@@ -13,70 +13,68 @@ interface Props {
   onRemoveFromFolder: (fileId: string, key: string) => void;
 }
 
-/** Every folder and the files going to it. Preview a file, or remove it from that folder with the cross. */
+/** Every folder with its files, one row each. A row opens to show the files going there (details on demand). */
 export function Review({ files, mapping, onPreview, onRemoveFolder, onRemoveFromFolder }: Props) {
   const usable = files.filter(isUsable);
   const folders = Object.entries(mapping.destinations)
     .map(([key, destination]) => ({ key, destination, files: usable.filter((f) => mapping.files[f.id]?.includes(key)) }))
     .filter((f) => f.files.length > 0);
-  const deliveries = folders.reduce((n, f) => n + f.files.length, 0);
+  if (folders.length === 0) return null;
 
   return (
     <section aria-label="Review" className="card review">
-      <div className="review-head">
-        <div className="review-title">
-          <h2>Review</h2>
-          <span className="lead">Every folder and the files going to it. Preview a file, or remove it with the cross.</span>
-        </div>
-        <div className="count-text">
-          {folders.length} {folders.length === 1 ? 'destination' : 'destinations'}, {deliveries} {deliveries === 1 ? 'delivery' : 'deliveries'}
-        </div>
+      <div className="card-head">
+        <h2>Review</h2>
       </div>
-      {folders.length === 0 ? (
-        <div className="empty-line">Tick folders in Destinations. Each folder you choose appears here with the files going to it.</div>
-      ) : (
-        <div className="review-grid">
-          {folders.map(({ key, destination, files: inside }) => {
-            const { team, name } = describeDestination(destination.path);
-            return (
-              <div className="review-card" key={key}>
-                <div className="review-card-head">
-                  <span className="teamsq" style={{ background: teamColour(team) }} title={team}>
-                    {team.charAt(0).toUpperCase()}
+      <div className="review-list">
+        {folders.map(({ key, destination, files: inside }) => {
+          const { name } = describeDestination(destination.path);
+          return (
+            <details className="review-item" key={key}>
+              <summary>
+                <span className="chev" aria-hidden="true">
+                  <ChevronIcon open={false} size={14} />
+                </span>
+                <span className="grow" title={destination.path}>
+                  <span className="rc-name">{name}</span> <span className="rc-path">{destination.path}</span>
+                </span>
+                <span className="size">{inside.length === 1 ? '1 file' : `${inside.length} files`}</span>
+                <button
+                  className="icon small"
+                  type="button"
+                  aria-label={`Remove ${destination.path}`}
+                  title={`Remove ${destination.path}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onRemoveFolder(key);
+                  }}
+                >
+                  <CloseIcon />
+                </button>
+              </summary>
+              {inside.map((f) => (
+                <div className="review-file" key={f.id}>
+                  <TypeBadge contentType={f.contentType} />
+                  <span className="grow ellipsis" title={f.name}>
+                    {f.name}
                   </span>
-                  <div className="grow" title={destination.path}>
-                    <div className="rc-name">{name}</div>
-                    <div className="rc-path">{destination.path}</div>
-                  </div>
-                  <span className="count-pill">{inside.length === 1 ? '1 file' : `${inside.length} files`}</span>
-                  <button className="icon small" type="button" aria-label={`Remove ${destination.path}`} title={`Remove ${destination.path}`} onClick={() => onRemoveFolder(key)}>
-                    ✕
+                  <span className="size">{formatSize(f.sizeBytes)}</span>
+                  <PreviewButton name={`${f.name} in ${name}`} small onClick={() => onPreview(f.id)} />
+                  <button
+                    className="icon small"
+                    type="button"
+                    aria-label={`Remove ${f.name} from ${name}`}
+                    title={`Remove ${f.name} from ${name}`}
+                    onClick={() => onRemoveFromFolder(f.id, key)}
+                  >
+                    <CloseIcon />
                   </button>
                 </div>
-                {inside.map((f) => (
-                  <div className="review-file" key={f.id}>
-                    <TypeBadge contentType={f.contentType} />
-                    <span className="grow ellipsis" title={f.name}>
-                      {f.name}
-                    </span>
-                    <span className="size">{formatSize(f.sizeBytes)}</span>
-                    <PreviewButton name={`${f.name} in ${name}`} small onClick={() => onPreview(f.id)} />
-                    <button
-                      className="icon small"
-                      type="button"
-                      aria-label={`Remove ${f.name} from ${name}`}
-                      title={`Remove ${f.name} from ${name}`}
-                      onClick={() => onRemoveFromFolder(f.id, key)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
+              ))}
+            </details>
+          );
+        })}
+      </div>
     </section>
   );
 }

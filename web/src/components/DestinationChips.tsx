@@ -1,5 +1,4 @@
 import { describeDestination } from '../distribute/mapping.js';
-import { teamColour } from '../destinations/colour.js';
 import { Popover } from './Popover.js';
 
 interface Props {
@@ -49,12 +48,7 @@ export function DestinationChips({ paths, visible = 2 }: Props) {
           <div className="popover-list" tabIndex={0}>
             {groupByTeam(hidden).map((group) => (
               <div className="popover-group" key={group.team}>
-                <div className="popover-team">
-                  <span className="teamsq" style={{ background: teamColour(group.team) }} aria-hidden="true">
-                    {group.team.slice(0, 1).toUpperCase()}
-                  </span>
-                  {group.team}
-                </div>
+                <div className="popover-team">{group.team}</div>
                 <ul>
                   {group.paths.map((path) => (
                     <li key={path} title={path}>

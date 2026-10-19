@@ -6,7 +6,6 @@ import {
   buildJobRequest,
   chosenKeys,
   deliveryCount,
-  destinationCounts,
   emptyMapping,
   isUsable,
   readiness,
@@ -28,7 +27,6 @@ import { FileTable } from './FileTable.js';
 import { Preview } from './Preview.js';
 import { Review } from './Review.js';
 import { SendBar } from './SendBar.js';
-import { currentStep, Steps } from './Steps.js';
 import type { Toast } from './Toasts.js';
 import { useLeaveWarning } from './useLeaveWarning.js';
 
@@ -61,21 +59,18 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const scope = scopeOf([...files], selected);
   const scopeIds = new Set(scope);
   const selectedUsable = usable.filter((f) => selected.has(f.id));
-  const counts = destinationCounts(mapping, [...files]);
   const inUse = chosenKeys(mapping, [...files]).flatMap((k) => (mapping.destinations[k] ? [mapping.destinations[k]] : []));
   const deliveries = deliveryCount(mapping, [...files]);
   const state = readiness(mapping, [...files]);
-  const allMapped = usable.length > 0 && usable.every((f) => (mapping.files[f.id]?.length ?? 0) > 0);
-  const totalBytes = usable.reduce((n, f) => n + f.sizeBytes, 0);
 
   const scopeTitle =
     selectedUsable.length > 0
       ? selectedUsable.length === 1
-        ? 'the 1 selected file'
-        : `the ${selectedUsable.length} selected files`
+        ? '1 selected file'
+        : `${selectedUsable.length} selected files`
       : usable.length > 0
         ? `all ${usable.length} ${usable.length === 1 ? 'file' : 'files'}`
-        : 'your files';
+        : 'all files';
 
   const pick = useCallback(
     (picked: File[]) => {
@@ -158,81 +153,34 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     <>
       <div className="page">
         <div className="page-head">
-          <div>
-            <h1>New distribution</h1>
-            <div className="lead">Upload each file once, then send it to every folder that needs it.</div>
-          </div>
-          <Steps current={currentStep(usable.length > 0, allMapped)} />
+          <h1>New distribution</h1>
         </div>
 
-        <div className="cols">
-          <section className="left" aria-label="Add files">
-            <AddFiles
-              onPick={pick}
-              rejected={rejected}
-              onDismiss={(name) => setRejected((r) => (name === undefined ? [] : r.filter((x) => x.name !== name)))}
+        <div className="workspace">
+          <AddFiles
+            empty={files.length === 0}
+            onPick={pick}
+            rejected={rejected}
+            onDismiss={(name) => setRejected((r) => (name === undefined ? [] : r.filter((x) => x.name !== name)))}
+          >
+            <FileTable
+              files={files}
+              mapping={mapping}
+              selected={selected}
+              onToggleSelected={(id) =>
+                setSelected((s) => {
+                  const next = new Set(s);
+                  if (!next.delete(id)) next.add(id);
+                  return next;
+                })
+              }
+              onToggleAll={() => setSelected(selectedUsable.length === usable.length ? new Set() : new Set(usable.map((f) => f.id)))}
+              onOnly={(id) => setSelected(new Set([id]))}
+              onPreview={setPreviewId}
+              onRetry={(id) => manager.retry(id)}
+              onRemove={onRemoveFile}
             />
-            <div className="card summary" aria-label="This distribution">
-              <h2>This distribution</h2>
-              <div className="stats">
-                <div>
-                  <div className="big">{usable.length}</div>
-                  <div className="lead">files</div>
-                </div>
-                <div>
-                  <div className="big">{inUse.length}</div>
-                  <div className="lead">destinations</div>
-                </div>
-                <div>
-                  <div className="big blue">{deliveries}</div>
-                  <div className="lead">deliveries</div>
-                </div>
-                <div>
-                  <div className="big">{formatSize(totalBytes)}</div>
-                  <div className="lead">uploaded once</div>
-                </div>
-              </div>
-              <div className="note">Each file is stored once, however many folders it goes to. Each folder it reaches is one delivery.</div>
-            </div>
-          </section>
-
-          <section className="card documents" aria-label="Documents">
-            <div className="doc-head">
-              <div className="doc-title">
-                <h2>Documents</h2>
-                <span className="count-pill">{files.length} of 100 files</span>
-              </div>
-              <div className="lead">
-                {selectedUsable.length > 0
-                  ? `${selectedUsable.length} selected. Destinations you tick apply to these only.`
-                  : 'or select files below to map them separately'}
-              </div>
-            </div>
-            {files.length === 0 ? (
-              <div className="empty-state">
-                <strong>No documents yet</strong>
-                <span>Add files on the left. They upload in the background while you choose destinations.</span>
-              </div>
-            ) : (
-              <FileTable
-                files={files}
-                mapping={mapping}
-                selected={selected}
-                onToggleSelected={(id) =>
-                  setSelected((s) => {
-                    const next = new Set(s);
-                    if (!next.delete(id)) next.add(id);
-                    return next;
-                  })
-                }
-                onToggleAll={() => setSelected(selectedUsable.length === usable.length ? new Set() : new Set(usable.map((f) => f.id)))}
-                onOnly={(id) => setSelected(new Set([id]))}
-                onPreview={setPreviewId}
-                onRetry={(id) => manager.retry(id)}
-                onRemove={onRemoveFile}
-              />
-            )}
-          </section>
+          </AddFiles>
 
           <Destinations
             selected={inUse}
@@ -241,7 +189,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             scopeTitle={scopeTitle}
             onUseAll={selectedUsable.length > 0 ? () => setSelected(new Set()) : undefined}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
-            countOf={(d) => counts.get(destinationKey(d)) ?? 0}
           />
         </div>
 

@@ -80,15 +80,34 @@ describe('folders ticked before any file (D-F1-4)', () => {
     expect(toggleDestination(held, [], none, d).held).toEqual([]);
   });
 
-  it('sends held folders to the files added next, once, and forgets them', () => {
+  it('sends held folders to every file added while they stay ticked (D-F1-5)', () => {
     const held = toggleDestination(toggleDestination(emptyMapping, [], none, dest(1)), [], none, dest(2));
     const files = [file('a'), file('b')];
     const applied = applyHeld(held, files);
     expect(applied.files).toEqual({ a: [key(dest(1)), key(dest(2))], b: [key(dest(1)), key(dest(2))] });
-    expect(applied.held).toEqual([]);
-    // A file added later gets nothing, and a second call changes nothing.
-    expect(applyHeld(applied, [...files, file('c')])).toBe(applied);
-    expect(readiness(applied, files).ready).toBe(true);
+    expect(applied.held).toEqual([key(dest(1)), key(dest(2))]);
+    // A second call changes nothing; a file added later gets the same folders.
+    expect(applyHeld(applied, files)).toBe(applied);
+    const later = applyHeld(applied, [...files, file('c')]);
+    expect(later.files.c).toEqual([key(dest(1)), key(dest(2))]);
+    expect(readiness(later, [...files, file('c')]).ready).toBe(true);
+  });
+
+  it('stops applying a folder once it is unticked for all files, or crossed out in Review', () => {
+    const files = [file('a')];
+    let m = applyHeld(toggleDestination(toggleDestination(emptyMapping, [], none, dest(1)), [], none, dest(2)), files);
+    m = toggleDestination(m, files, none, dest(1));
+    expect(m.held).toEqual([key(dest(2))]);
+    expect(applyHeld(m, [...files, file('b')]).files.b).toEqual([key(dest(2))]);
+    m = removeDestination(m, key(dest(2)));
+    expect(m.held).toEqual([]);
+  });
+
+  it('keeps a tick for selected files out of the held list', () => {
+    const files = [file('a'), file('b')];
+    const m = toggleDestination(emptyMapping, files, new Set(['a']), dest(1));
+    expect(m.held).toEqual([]);
+    expect(m.files.a).toEqual([key(dest(1))]);
   });
 
   it('waits while there is no usable file, and leaves a file that already has folders alone', () => {
@@ -103,7 +122,8 @@ describe('folders ticked before any file (D-F1-4)', () => {
     const files = [file('a')];
     const mapping = tick(emptyMapping, files, none, dest(1));
     expect(mapping.files.a).toEqual([key(dest(1))]);
-    expect(mapping.held).toEqual([]);
+    // Ticked for all files, so a file added next gets it too.
+    expect(applyHeld(mapping, [...files, file('b')]).files.b).toEqual([key(dest(1))]);
   });
 });
 

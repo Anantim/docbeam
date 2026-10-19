@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, CARDIO_IRB, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
 
 // M2, Upload and distribute, as a regression pack (flow 2): pick, upload, scan, map, review, send.
 // (The 101 MiB multipart upload, the platform stopped mid-run and the SIGTERM drain are covered by the
@@ -19,15 +19,10 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   // Verified, but nowhere to send it yet: Send says what is missing.
   await expect(send0).toHaveAttribute('title', '1 file has no destination yet. Tick a folder');
   await expect(page.locator('.send-reason')).toHaveText('1 file has no destination yet. Tick a folder');
-  await expect(page.locator('.steps li.cur')).toContainText('Map destinations');
 
   await tick(page, CARDIO_IRB);
   const sendBtn = page.getByRole('button', { name: 'Send 1 delivery' });
   await expect(sendBtn).toBeEnabled();
-  // The "This distribution" card: files, destinations, deliveries.
-  await expect(page.locator('.summary .big').nth(0)).toHaveText('1');
-  await expect(page.locator('.summary .big').nth(1)).toHaveText('1');
-  await expect(page.locator('.summary .big').nth(2)).toHaveText('1');
   await expect(page.locator('.send-reason')).toHaveText(''); // nothing is missing
 
   await send(page);
@@ -38,18 +33,21 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
 });
 
-test('folders can be ticked before any file is added, and the files added next go to them (D-F1-4)', async ({ page }) => {
+test('folders can be ticked before any file is added, and every file added while they stay ticked goes to them (D-F1-5)', async ({ page }) => {
   await signIn(page, PRIYA);
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
-  await expect(page.locator('.dest-head .n')).toContainText('2 of 20 destinations');
   await expect(page.locator('.send-reason')).toHaveText('Add a file first');
   await expect(page.getByRole('button', { name: /^Send 0 deliver/ })).toBeDisabled();
 
   await addPdfs(page, 2, 'order');
   await expect(page.getByRole('button', { name: 'Send 4 deliveries' })).toBeEnabled();
   await expect(page.locator('.send-reason')).toHaveText('');
-  await expect(page.locator('.summary .big').nth(1)).toHaveText('2');
+  // The folders stay ticked while the selection stands: a file added later goes to them too (D-F1-5).
+  await page.getByLabel('Choose files').setInputFiles([pdf('later.pdf')]);
+  await expect(page.getByText('Verified', { exact: true })).toHaveCount(3, { timeout: 90_000 });
+  await expect(page.getByRole('button', { name: 'Send 6 deliveries' })).toBeEnabled();
+  await expect(page.locator('.send-reason')).toHaveText('');
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 
@@ -101,13 +99,13 @@ test('ticking a folder applies to the selected file only, until "Use all files"'
   await signIn(page, PRIYA);
   const [a, b] = await addPdfs(page, 2, 'scope');
   await row(page, a as string).locator('.link.plain').click(); // "Click to map only this file"
-  await expect(page.locator('.banner.scoped')).toContainText('the 1 selected file');
+  await expect(page.locator('.scope.scoped')).toContainText('1 selected file');
   await tick(page, CARDIO_IRB);
   await expect(row(page, a as string).locator('.chips')).toContainText('IRB approvals');
   await expect(row(page, b as string)).toContainText('No destination yet');
 
   await page.getByRole('button', { name: 'Use all files' }).click();
-  await expect(page.locator('.banner')).toContainText('all 2 files');
+  await expect(page.locator('.scope')).toContainText('all 2 files');
   await page.getByRole('button', { name: 'Clear' }).click();
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
 });
@@ -118,15 +116,18 @@ test('Review lists every folder with its files; a file can be removed from a fol
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
   const review = page.locator('section[aria-label="Review"]');
-  await expect(review).toContainText('2 destinations, 4 deliveries');
-  await expect(review.locator('.review-card')).toHaveCount(2);
+  await expect(review.locator('.review-item')).toHaveCount(2);
+  // A folder opens to show its files (details on demand).
+  await expect(review.locator('.review-item').first()).not.toHaveAttribute('open', '');
+  await review.locator('.review-item > summary').first().click();
+  await expect(review.locator('.review-item').first().locator('.review-file')).toHaveCount(2);
+  await review.locator('.review-item').evaluateAll((items) => items.forEach((i) => ((i as unknown as { open: boolean }).open = true)));
 
   // Remove both files from Protocol amendments: the folder drops out of the review.
   await page.getByRole('button', { name: `Remove ${a} from Protocol amendments` }).click();
   await expect(page.getByText(`${a} will not go to Protocol amendments.`)).toBeVisible();
   await page.getByRole('button', { name: `Remove ${b} from Protocol amendments` }).click();
-  await expect(review.locator('.review-card')).toHaveCount(1);
-  await expect(review).toContainText('1 destination, 2 deliveries');
+  await expect(review.locator('.review-item')).toHaveCount(1);
 
   // Preview shows the file from the browser's own copy.
   await page.getByRole('button', { name: `Preview ${a} in IRB approvals` }).click();
@@ -159,12 +160,9 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
     await tickFolder(n, 'Regulatory', 'RA');
     await tickFolder(n, 'Operations', 'OA');
   }
-  await expect(page.locator('.dest-head .n')).toContainText('20 of 20 destinations');
-
   // The 21st can be ticked. The limit is checked at Send: Send is off and says why (D-F1-4).
   await tickFolder(11, 'Regulatory', 'RA');
   await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).toBeChecked();
-  await expect(page.locator('.dest-head .n')).toContainText('21 of 20 destinations');
   await expect(page.locator('.send-reason')).toHaveText('A distribution can have at most 20 destinations.');
   await expect(page.getByRole('button', { name: /^Send \d+ deliver/ })).toBeDisabled();
 
