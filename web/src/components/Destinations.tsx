@@ -77,7 +77,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
     return () => {
       cancelled = true;
     };
-  }, [load, onTeams]);
+  }, [onTeams]);
 
   const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
   const chosen = useMemo(() => new Set(selected.map(destinationKey)), [selected]);

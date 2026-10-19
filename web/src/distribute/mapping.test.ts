@@ -171,6 +171,9 @@ describe('readiness', () => {
     expect(readiness(tick(emptyMapping, uploading, none, d), uploading).reason).toBe('Waiting for 2 files to be verified');
     const one = [file('a', 'checking')];
     expect(readiness(tick(emptyMapping, one, none, d), one).reason).toBe('Waiting for 1 file to be verified');
+    // A file that will not verify on its own is not "waiting": it needs a retry or to go.
+    const stuck = [file('a', 'interrupted'), file('b', 'checking'), file('c', 'unchecked')];
+    expect(readiness(tick(emptyMapping, stuck, none, d), stuck).reason).toBe('2 files need a retry or to be removed');
     const verified = [file('a'), file('b')];
     const partly = tick(emptyMapping, verified, new Set(['a']), d);
     expect(readiness(partly, verified).reason).toBe('1 file has no destination yet. Tick a folder');

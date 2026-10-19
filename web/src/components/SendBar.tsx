@@ -21,7 +21,7 @@ export function SendBar({ deliveries, ready, reason, sending, error, canClear, o
       )}
       <div className="sendbar-row">
         <div className="send-reason" role="status">
-          {ready || sending ? null : reason}
+          {ready ? null : reason}
         </div>
         <button className="btn2" type="button" disabled={!canClear} title={canClear ? undefined : 'Nothing to clear'} onClick={onClear}>
           Clear

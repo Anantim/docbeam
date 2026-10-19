@@ -129,17 +129,19 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
 export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
   const infected = files.filter((f) => f.status === 'infected').length;
   const usable = files.filter(isUsable);
-  const waiting = usable.filter((f) => f.status !== 'verified').length;
+  const failed = usable.filter((f) => f.status === 'refused' || f.status === 'interrupted' || f.status === 'unchecked').length;
+  const waiting = usable.filter((f) => f.status !== 'verified').length - failed;
   const unmapped = usable.filter((f) => (mapping.files[f.id]?.length ?? 0) === 0).length;
   const batch = buildBatch(mapping, files);
 
   let reason: string | null = null;
   if (usable.length === 0) reason = infected > 0 ? 'Remove the file refused for malware first' : 'Add a file first';
   else if (infected > 0) reason = `Remove the ${plural(infected, 'file', 'files')} refused for malware first`;
+  else if (failed > 0) reason = `${plural(failed, 'file needs', 'files need')} a retry or to be removed`;
   else if (waiting > 0) reason = `Waiting for ${plural(waiting, 'file', 'files')} to be verified`;
   else if (unmapped > 0) reason = `${plural(unmapped, 'file has', 'files have')} no destination yet. Tick a folder`;
   else if (!batch.result.ok) reason = batch.result.reason;
-  return { ready: reason === null && batch.request !== null, reason, batch: batch.result };
+  return { ready: reason === null, reason, batch: batch.result };
 }
 
 function buildBatch(mapping: Mapping, files: PageFile[]): { request: JobBody | null; result: BatchResult } {

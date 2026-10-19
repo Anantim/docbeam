@@ -180,7 +180,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
                   <div className="lead">files</div>
                 </div>
                 <div>
-                  <div className="big">{counts.size}</div>
+                  <div className="big">{inUse.length}</div>
                   <div className="lead">destinations</div>
                 </div>
                 <div>
@@ -260,7 +260,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         reason={state.reason}
         sending={sending}
         error={sendError}
-        canClear={files.length > 0}
+        canClear={files.length > 0 || mapping.held.length > 0}
         onClear={clearAll}
         onSend={() => void send()}
       />

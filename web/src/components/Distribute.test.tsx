@@ -121,6 +121,7 @@ describe('Distribute', () => {
     expect(screen.getByRole('checkbox', { name: /IRB approvals/ }).getAttribute('aria-checked')).toBe('true');
     expect(screen.getByText('1 of 20 destinations')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Add a file first');
+    expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(false); // it can undo the ticks
 
     manager.set([pageFile('a.pdf', 'verified')]);
     await waitFor(() => expect((screen.getByRole('button', { name: /^Send 1 delivery$/ }) as HTMLButtonElement).disabled).toBe(false));
