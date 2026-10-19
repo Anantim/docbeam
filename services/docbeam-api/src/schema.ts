@@ -86,7 +86,7 @@ export const tasks = pgTable(
       .references(() => files.id),
     teamId: uuid('team_id').notNull(),
     binderId: uuid('binder_id').notNull(),
-    /** NULL = top level of the binder. */
+    /** Always set for a new task (D-F1-3). NULL only in tasks made before that, aimed at the top level of a binder. */
     folderId: uuid('folder_id'),
     /** For example "Cardio / CARDIO-301 Regulatory / Protocol amendments", from the destination check. */
     destinationPath: text('destination_path').notNull(),

@@ -163,7 +163,7 @@ function buildBatch(mapping: Mapping, files: PageFile[]): { request: JobBody | n
       destinations: (mapping.files[f.id] ?? []).flatMap((k) => {
         const d = mapping.destinations[k];
         if (!d) return [];
-        return [d.folderId ? { binderId: d.binderId, folderId: d.folderId } : { binderId: d.binderId }];
+        return [{ binderId: d.binderId, folderId: d.folderId }];
       }),
     })),
   };
@@ -172,7 +172,7 @@ function buildBatch(mapping: Mapping, files: PageFile[]): { request: JobBody | n
 
 export interface JobBody {
   files: { fileId: string; sha256: string }[];
-  mappings: { fileId: string; destinations: { binderId: string; folderId?: string }[] }[];
+  mappings: { fileId: string; destinations: { binderId: string; folderId: string }[] }[];
 }
 
 /** The body of POST /jobs, or null when the batch is not sendable. */
@@ -181,8 +181,8 @@ export function buildJobRequest(mapping: Mapping, files: PageFile[]): JobBody | 
   return result.ok ? request : null;
 }
 
-/** The pieces of a destination path the Review card shows: team, then the name of the binder or folder. */
+/** The pieces of a destination path the Review card shows: team, then the name of the folder. */
 export function describeDestination(path: string): { team: string; name: string } {
-  const parts = path.replace(/ \(top level\)$/, '').split(' / ');
+  const parts = path.split(' / ');
   return { team: parts[0] ?? '', name: parts[parts.length - 1] ?? '' };
 }

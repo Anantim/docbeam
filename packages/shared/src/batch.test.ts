@@ -3,7 +3,7 @@ import { type BatchInput, validateBatch } from './batch.js';
 import { isMultipart, LIMITS, partCount } from './limits.js';
 
 const id = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const dest = (n: number) => ({ binderId: id(1000 + n), folderId: null });
+const dest = (n: number) => ({ binderId: id(1000 + n), folderId: id(2000 + n) });
 
 /** `files` files, each sent to the first `perFile` of `destinations` destinations. */
 function batch(files: number, perFile: number, destinations = perFile): BatchInput {
@@ -61,10 +61,18 @@ describe('validateBatch', () => {
     expect(validateBatch(b)).toMatchObject({ ok: false, reason: expect.stringContaining('twice') });
   });
 
-  it('treats a binder top level and a folder in it as different destinations', () => {
+  it('treats two folders of one binder as different destinations', () => {
     const b = batch(1, 1);
     b.mappings[0]!.destinations.push({ binderId: id(1000), folderId: id(5) });
     expect(validateBatch(b)).toMatchObject({ ok: true, taskCount: 2, destinationCount: 2 });
+  });
+
+  it('refuses a destination with no folder: a binder is not a destination (D-F1-3)', () => {
+    for (const folderId of [null, undefined, '']) {
+      const b = batch(1, 1);
+      b.mappings[0]!.destinations.push({ binderId: id(1000), folderId });
+      expect(validateBatch(b)).toEqual({ ok: false, reason: 'Choose a folder. Files cannot go to a binder.' });
+    }
   });
 
   it('refuses a file listed twice', () => {

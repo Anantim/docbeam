@@ -137,6 +137,11 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
               <span className="name team">{node.name}</span>
               <span className="kind">team</span>
             </>
+          ) : node.kind === 'binder' ? (
+            <>
+              <span aria-hidden="true">📘</span>
+              <span className="name binder">{node.name}</span>
+            </>
           ) : (
             <>
               <button
@@ -154,7 +159,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
                   {tick === 'mixed' ? <span style={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>–</span> : null}
                 </span>
               </button>
-              <span aria-hidden="true">{node.kind === 'binder' ? '📘' : '📁'}</span>
+              <span aria-hidden="true">📁</span>
               <span className="name">{node.name}</span>
               {badge > 0 && <span className="badge">{badge === 1 ? '1 file' : `${badge} files`}</span>}
             </>

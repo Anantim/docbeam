@@ -328,15 +328,23 @@ export async function uploadClean(api: Api, count: number, label: string, size =
 
 // ---------------------------------------------------------------- destinations and jobs
 
+export interface SeedBinder {
+  id: string;
+  name: string;
+  folders: Array<{ id: string; name: string }>;
+}
 interface SeedTeam {
   id: string;
   name: string;
-  binders: Array<{ id: string; name: string }>;
+  binders: SeedBinder[];
 }
 export const loadTeams = (): SeedTeam[] => JSON.parse(readFileSync(`${ROOT}services/platform/seed/dev-load.json`, 'utf8')).teams as SeedTeam[];
 
-/** The root of the first binder of Load Team 01..n, as job destinations. */
-export const loadDestinations = (n: number): Array<{ binderId: string }> => loadTeams().slice(0, n).map((t) => ({ binderId: t.binders[0]!.id }));
+/** The first folder of a binder as a job destination. Only folders receive files (D-F1-3). */
+export const firstFolder = (binder: SeedBinder): { binderId: string; folderId: string } => ({ binderId: binder.id, folderId: binder.folders[0]!.id });
+
+/** The first folder of the first binder of Load Team 01..n, as job destinations. */
+export const loadDestinations = (n: number): Array<{ binderId: string; folderId: string }> => loadTeams().slice(0, n).map((t) => firstFolder(t.binders[0]!));
 
 export interface Submitted {
   jobId: string;
@@ -344,7 +352,7 @@ export interface Submitted {
   reply: Reply;
 }
 
-export async function submit(api: Api, files: Uploaded[], destinations: Array<{ binderId: string; folderId?: string | null }>, key = randomUUID()): Promise<Submitted> {
+export async function submit(api: Api, files: Uploaded[], destinations: Array<{ binderId: string; folderId: string }>, key = randomUUID()): Promise<Submitted> {
   const reply = await api.post(
     '/jobs',
     { files: files.map((f) => ({ fileId: f.fileId, sha256: f.sha256 })), mappings: files.map((f) => ({ fileId: f.fileId, destinations })) },

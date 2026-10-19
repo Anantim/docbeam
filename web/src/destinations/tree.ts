@@ -1,4 +1,4 @@
-/** One row of the destination tree. Teams are only headings; binders and folders can be ticked. */
+/** One row of the destination tree. Teams and binders are only headings; folders can be ticked. */
 export interface TreeNode {
   id: string;
   kind: 'team' | 'binder' | 'folder';
@@ -33,11 +33,8 @@ export function visibleIds(
   return keep;
 }
 
-export function destinationFor(node: TreeNode): { binderId: string; folderId: string | null; path: string } | null {
-  if (node.kind === 'team' || !node.binderId) return null;
-  return {
-    binderId: node.binderId,
-    folderId: node.kind === 'folder' ? node.id : null,
-    path: node.pathNames.join(' / ') + (node.kind === 'binder' ? ' (top level)' : ''),
-  };
+/** Only a folder is a destination. Teams and binders are headings (D-F1-3). */
+export function destinationFor(node: TreeNode): { binderId: string; folderId: string; path: string } | null {
+  if (node.kind !== 'folder' || !node.binderId) return null;
+  return { binderId: node.binderId, folderId: node.id, path: node.pathNames.join(' / ') };
 }

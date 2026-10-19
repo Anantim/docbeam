@@ -7,7 +7,7 @@ describe('destination selection', () => {
     expect(MAX_DESTINATIONS).toBe(20);
   });
 
-  it('keys a binder top level apart from a folder', () => {
-    expect(destinationKey({ binderId: 'b', folderId: null })).not.toBe(destinationKey({ binderId: 'b', folderId: 'f' }));
+  it('keys two folders of one binder apart', () => {
+    expect(destinationKey({ binderId: 'b', folderId: 'f1' })).not.toBe(destinationKey({ binderId: 'b', folderId: 'f2' }));
   });
 });

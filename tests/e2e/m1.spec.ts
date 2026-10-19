@@ -82,6 +82,16 @@ test('the tree loads a level only when it is opened', async ({ page }) => {
   expect(contents).toHaveLength(1); // opened again from what was loaded
 });
 
+test('a binder has no tick, only its folders do (D-F1-3)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await expect(page.getByText('CARDIO-301 Regulatory', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /CARDIO-301 Regulatory$/ })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
+  await expect(page.getByRole('checkbox', { name: /IRB approvals$/ })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /CARDIO-301 Regulatory$/ })).toHaveCount(0);
+});
+
 test("another team's binder answers 404, the same as one that does not exist", async ({ page }) => {
   await signIn(page, PRIYA); // Cardio and Oncology, not Neuro
   const token = (await page.evaluate("sessionStorage.getItem('docbeam.accessToken')")) as string;

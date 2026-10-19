@@ -57,11 +57,20 @@ describe('Destinations tree', () => {
     expect(onToggle).toHaveBeenCalledWith({ binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' });
   });
 
+  it('has no tick on a binder, only on its folders', async () => {
+    const user = userEvent.setup();
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+    await screen.findByRole('checkbox', { name: /IRB approvals/ });
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    expect(screen.queryByRole('checkbox', { name: /CARDIO-301 Regulatory$/ })).toBeNull();
+  });
+
   it('shows the count and filters the loaded rows', async () => {
     const user = userEvent.setup();
     render(
       <Destinations
-        selected={[{ binderId: 'b-reg', folderId: null, path: 'x' }]}
+        selected={[{ binderId: 'b-reg', folderId: 'f-irb', path: 'x' }]}
         onToggle={() => {}}
         onTeams={() => {}}
       />,

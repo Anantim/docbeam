@@ -56,9 +56,11 @@ export function registerDocumentRoutes(
 
   /** 404 for a binder or folder that is gone, 403 when the user left the team (ADR-013). */
   async function checkDestination(f: Fields): Promise<void> {
+    // A destination is a folder (D-F1-3): a document cannot go into a binder's top level.
+    if (!f.folderId) throw new ApiError(404, 'DESTINATION_NOT_FOUND', 'The destination was not found.');
     const r = await db.execute<{ folder_ok: boolean; member: boolean }>(sql`
-      SELECT (${f.folderId}::uuid IS NULL OR EXISTS (
-                SELECT 1 FROM folders fo WHERE fo.id = ${f.folderId}::uuid AND fo.binder_id = b.id)) AS folder_ok,
+      SELECT EXISTS (
+                SELECT 1 FROM folders fo WHERE fo.id = ${f.folderId}::uuid AND fo.binder_id = b.id) AS folder_ok,
              EXISTS (SELECT 1 FROM team_members m WHERE m.team_id = b.team_id AND m.user_id = ${f.onBehalfOf}) AS member
         FROM binders b WHERE b.id = ${f.binderId}`);
     const row = r.rows[0];

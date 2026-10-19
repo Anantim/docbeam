@@ -49,7 +49,8 @@ export function registerInternalRoutes(app: FastifyInstance, db: Db): void {
       idx,
       binderId: d.binderId,
       folderId: d.folderId ?? null,
-      valid: UUID.test(d.binderId) && (d.folderId == null || UUID.test(d.folderId)),
+      // A destination is a folder (D-F1-3): no folderId is "not found", like a malformed id.
+      valid: UUID.test(d.binderId) && d.folderId != null && UUID.test(d.folderId),
     }));
     const valid = wanted.filter((w) => w.valid);
 
@@ -69,8 +70,7 @@ export function registerInternalRoutes(app: FastifyInstance, db: Db): void {
         )
         SELECT i.idx, t.id AS team_id, t.name AS team_name, b.name AS binder_name,
                (SELECT string_agg(c.name, ' / ' ORDER BY c.depth DESC) FROM chain c WHERE c.idx = i.idx) AS folder_path,
-               (i.folder_id IS NULL
-                OR EXISTS (SELECT 1 FROM folders f WHERE f.id = i.folder_id AND f.binder_id = i.binder_id)) AS folder_ok
+               EXISTS (SELECT 1 FROM folders f WHERE f.id = i.folder_id AND f.binder_id = i.binder_id) AS folder_ok
           FROM input i
           JOIN binders b ON b.id = i.binder_id
           JOIN teams t ON t.id = b.team_id
