@@ -73,10 +73,12 @@ function screenWith(manager: FakeManager, submit = vi.fn(async () => ({ jobId: '
 
 const FOLDER = 'Cardio / CARDIO-301 Regulatory / IRB approvals';
 
-/** Opens the binder if it is still closed, then returns the folder's tick. */
+/** The tree starts with the teams only: opens the team and the binder if they are still closed, then returns the folder's tick. */
 async function folderTick(user: ReturnType<typeof userEvent.setup>, name: string | RegExp) {
-  const expand = await screen.findByRole('button', { name: /^(Expand|Collapse) CARDIO-301 Regulatory$/ });
-  if (expand.getAttribute('aria-expanded') === 'false') await user.click(expand);
+  for (const row of ['Cardio', 'CARDIO-301 Regulatory']) {
+    const expand = await screen.findByRole('button', { name: new RegExp(`^(Expand|Collapse) ${row}$`) });
+    if (expand.getAttribute('aria-expanded') === 'false') await user.click(expand);
+  }
   return screen.findByRole('checkbox', { name });
 }
 
@@ -102,17 +104,27 @@ describe('Distribute', () => {
     await tickTop(user, 'all 2 files');
     const send = screen.getByRole('button', { name: /^Send 2 deliveries$/ });
     expect((send as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Uploads in progress or being checked')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Waiting for 1 file to be verified');
 
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     await waitFor(() => expect((screen.getByRole('button', { name: /^Send 2 deliveries$/ }) as HTMLButtonElement).disabled).toBe(false));
   });
 
-  it('does not allow ticks before there is a file', async () => {
-    screenWith(new FakeManager([]));
-    const box = await folderTick(userEvent.setup(), /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/);
-    expect((box as HTMLButtonElement).disabled).toBe(true);
+  it('allows a tick before there is a file, and sends the files added next to that folder (D-F1-4)', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([]);
+    screenWith(manager);
+    const box = await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/);
+    expect((box as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByText('No documents yet')).toBeTruthy();
+    await user.click(box);
+    expect(screen.getByRole('checkbox', { name: /IRB approvals/ }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('1 of 20 destinations')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Add a file first');
+
+    manager.set([pageFile('a.pdf', 'verified')]);
+    await waitFor(() => expect((screen.getByRole('button', { name: /^Send 1 delivery$/ }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('applies a tick to the selected files only, and shows the folder as mixed for the others', async () => {
@@ -128,7 +140,7 @@ describe('Distribute', () => {
     await user.click(screen.getByRole('button', { name: 'Use all files' }));
     const box = await screen.findByRole('checkbox', { name: `Send all 2 files to ${FOLDER}` });
     expect(box.getAttribute('aria-checked')).toBe('mixed');
-    expect(screen.getByText('1 file has no destination')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('1 file has no destination yet. Tick a folder');
   });
 
   it('removes a file from one folder with the cross in Review, and drops a file left with no folder', async () => {

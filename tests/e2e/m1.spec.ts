@@ -69,6 +69,10 @@ test('the tree loads a level only when it is opened', async ({ page }) => {
     if (/\/api\/(binders|folders)\/[^/]+\/contents/.test(r.url())) contents.push(r.url());
   });
   await signIn(page, PRIYA);
+  await expect(page.locator('.row .name.team')).toHaveText(['Cardio', 'Oncology']); // the tree starts with the teams only
+  await expect(page.getByText('CARDIO-301 Regulatory', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await expect(page.getByText('CARDIO-301 Regulatory', { exact: true })).toBeVisible(); // the binders are listed
   expect(contents).toHaveLength(0); // but no binder's folders yet
 
@@ -84,6 +88,7 @@ test('the tree loads a level only when it is opened', async ({ page }) => {
 
 test('a binder has no tick, only its folders do (D-F1-3)', async ({ page }) => {
   await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await expect(page.getByText('CARDIO-301 Regulatory', { exact: true })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /CARDIO-301 Regulatory$/ })).toHaveCount(0);
 

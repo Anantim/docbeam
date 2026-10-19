@@ -12,10 +12,10 @@ test('a button that is off says why, and a button with only an icon says what it
   await expect(send).toBeDisabled();
   await expect(send).toHaveAttribute('title', 'Add a file first');
   await expect(page.getByRole('button', { name: 'Clear' })).toHaveAttribute('title', 'Nothing to clear');
+  await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
   const tickBox = page.getByRole('checkbox', { name: /IRB approvals$/ });
-  await expect(tickBox).toBeDisabled();
-  await expect(tickBox).toHaveAttribute('title', 'Add a file first');
+  await expect(tickBox).toBeEnabled(); // a folder can be ticked before any file is added (D-F1-4)
 
   // A file is added and checked: Send is still off, and says what is missing.
   const [name] = await addPdfs(page, 1, 'tips');

@@ -5,9 +5,6 @@ import { destinationKey, MAX_DESTINATIONS, type Destination } from '../destinati
 import { destinationFor, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 
-/** With a few teams the tree opens them at once; with 50 it waits for a click, so the page sends few requests. */
-const AUTO_OPEN_TEAMS = 5;
-
 interface Props {
   /** The destinations in use (the count in the header, and the ticks when `stateOf` is not given). */
   selected: Destination[];
@@ -21,8 +18,6 @@ interface Props {
   scopeTitle?: string;
   /** Shows "Use all files" in the banner while some files are selected. */
   onUseAll?: () => void;
-  /** No file can be sent yet, so nothing can be ticked. */
-  disabled?: boolean;
 }
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
@@ -39,7 +34,7 @@ async function loadChildren(node: TreeNode): Promise<TreeNode[]> {
   return folderNodes(node, contents.folders);
 }
 
-export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, scopeTitle = 'your files', onUseAll, disabled = false }: Props) {
+export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, scopeTitle = 'your files', onUseAll }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -77,10 +72,6 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
         const nodes = teams.map((t): TreeNode => ({ id: t.id, kind: 'team', name: t.name, binderId: null, pathNames: [t.name] }));
         setRoots(nodes);
         onTeams(nodes.map((n) => n.name));
-        if (nodes.length <= AUTO_OPEN_TEAMS) {
-          setOpen(new Set(nodes.map((n) => n.id)));
-          nodes.forEach((n) => void load(n));
-        }
       })
       .catch(() => !cancelled && setRootError(true));
     return () => {
@@ -149,9 +140,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, countOf, sc
                 role="checkbox"
                 aria-checked={tick === 'mixed' ? 'mixed' : on}
                 className="ck"
-                disabled={disabled}
                 aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
-                title={disabled ? 'Add a file first' : undefined}
                 onClick={() => destination && onToggle(destination)}
               >
                 <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>

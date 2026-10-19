@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Destination } from '../destinations/selection.js';
 import type { FileStatus, PageFile } from '../upload/manager.js';
 import {
+  applyHeld,
   buildJobRequest,
+  chosenKeys,
   deliveryCount,
   describeDestination,
   destinationCounts,
@@ -34,11 +36,8 @@ const dest = (n: number): Destination => ({ binderId: `b${n}`, folderId: `f${n}`
 const key = (d: Destination): string => `${d.binderId}:${d.folderId}`;
 const none = new Set<string>();
 
-function tick(mapping: Mapping, files: PageFile[], selected: Set<string>, d: Destination): Mapping {
-  const out = toggleDestination(mapping, files, selected, d);
-  expect(out.refused).toBeUndefined();
-  return out.mapping;
-}
+const tick = (mapping: Mapping, files: PageFile[], selected: Set<string>, d: Destination): Mapping =>
+  toggleDestination(mapping, files, selected, d);
 
 describe('scope and tick state', () => {
   const files = [file('a'), file('b'), file('c')];
@@ -69,21 +68,56 @@ describe('scope and tick state', () => {
     expect(deliveryCount(off, files)).toBe(0);
   });
 
-  it('ignores a tick when there are no files', () => {
-    expect(toggleDestination(emptyMapping, [], none, dest(1)).mapping).toBe(emptyMapping);
+});
+
+describe('folders ticked before any file (D-F1-4)', () => {
+  it('holds a folder ticked with no file, shows it ticked, and unticks it', () => {
+    const d = dest(1);
+    const held = toggleDestination(emptyMapping, [], none, d);
+    expect(held.held).toEqual([key(d)]);
+    expect(tickState(held, [], key(d))).toBe('on');
+    expect(chosenKeys(held, [])).toEqual([key(d)]);
+    expect(toggleDestination(held, [], none, d).held).toEqual([]);
+  });
+
+  it('sends held folders to the files added next, once, and forgets them', () => {
+    const held = toggleDestination(toggleDestination(emptyMapping, [], none, dest(1)), [], none, dest(2));
+    const files = [file('a'), file('b')];
+    const applied = applyHeld(held, files);
+    expect(applied.files).toEqual({ a: [key(dest(1)), key(dest(2))], b: [key(dest(1)), key(dest(2))] });
+    expect(applied.held).toEqual([]);
+    // A file added later gets nothing, and a second call changes nothing.
+    expect(applyHeld(applied, [...files, file('c')])).toBe(applied);
+    expect(readiness(applied, files).ready).toBe(true);
+  });
+
+  it('waits while there is no usable file, and leaves a file that already has folders alone', () => {
+    const held = toggleDestination(emptyMapping, [], none, dest(1));
+    expect(applyHeld(held, [])).toBe(held);
+    expect(applyHeld(held, [file('x', 'infected')])).toBe(held);
+    const mapped = { ...held, files: { a: [key(dest(2))] } };
+    expect(applyHeld(mapped, [file('a')])).toBe(mapped);
+  });
+
+  it('works in the other order too: files first, then folders', () => {
+    const files = [file('a')];
+    const mapping = tick(emptyMapping, files, none, dest(1));
+    expect(mapping.files.a).toEqual([key(dest(1))]);
+    expect(mapping.held).toEqual([]);
   });
 });
 
-describe('limits', () => {
-  it('refuses a 21st destination and keeps the mapping as it was', () => {
+describe('limits are checked at Send, not at the tick', () => {
+  it('lets a 21st destination be ticked, and Send says why it is off', () => {
     const files = [file('a')];
     let mapping = emptyMapping;
-    for (let n = 1; n <= 20; n += 1) mapping = tick(mapping, files, none, dest(n));
-    const refused = toggleDestination(mapping, files, none, dest(21));
-    expect(refused.refused).toBe('A distribution can have at most 20 destinations.');
-    expect(refused.mapping).toBe(mapping);
-    // An existing destination can still be ticked for another file.
-    expect(toggleDestination(mapping, [...files, file('b')], new Set(['b']), dest(3)).refused).toBeUndefined();
+    for (let n = 1; n <= 21; n += 1) mapping = tick(mapping, files, none, dest(n));
+    expect(destinationCounts(mapping, files).size).toBe(21);
+    const r = readiness(mapping, files);
+    expect(r.ready).toBe(false);
+    expect(r.reason).toBe('A distribution can have at most 20 destinations.');
+    // Unticking one makes it valid again.
+    expect(readiness(tick(mapping, files, none, dest(21)), files).ready).toBe(true);
   });
 
   it('counts 100 files x 20 destinations as 2,000 deliveries and sends it', () => {
@@ -128,7 +162,7 @@ describe('readiness', () => {
     const partly = tick(emptyMapping, verified, new Set(['a']), d);
     const r = readiness(partly, verified);
     expect(r.ready).toBe(false);
-    expect(r.checks[2]?.label).toBe('1 file has no destination');
+    expect(r.reason).toBe('1 file has no destination yet. Tick a folder');
   });
 
   it('says why Send is off, in a few words (the button\'s title)', () => {
@@ -155,14 +189,14 @@ describe('readiness', () => {
     const files = [file('a'), file('x', 'infected')];
     const r = readiness(tick(emptyMapping, files, none, d), files);
     expect(r.ready).toBe(false);
-    expect(r.checks[1]?.label).toBe('1 file was refused for malware: remove to continue');
+    expect(r.reason).toBe('Remove the 1 file refused for malware first');
   });
 
   it('is on when every file is verified and mapped', () => {
     const files = [file('a'), file('b')];
     const r = readiness(tick(emptyMapping, files, none, d), files);
     expect(r.ready).toBe(true);
-    expect(r.checks.every((c) => c.ok)).toBe(true);
+    expect(r.reason).toBeNull();
   });
 });
 

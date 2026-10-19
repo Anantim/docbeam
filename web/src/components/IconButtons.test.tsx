@@ -45,6 +45,7 @@ const file = (id: string, status: PageFile['status']): PageFile => ({
 const mapping = {
   destinations: { k1: { binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' } },
   files: { ok: ['k1'], bad: [], wait: [] },
+  held: [],
 };
 const noop = (): void => undefined;
 
@@ -96,6 +97,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
   it('in the Destinations tree (expand buttons and the folder ticks)', async () => {
     const user = userEvent.setup();
     const { container } = render(<Destinations selected={[]} onToggle={noop} onTeams={noop} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
     await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
     await screen.findByText('IRB approvals');
     expectClean(container, 2);
@@ -116,16 +118,5 @@ describe('every icon-only button has an aria-label and a title with the same tex
       </div>,
     );
     expect(iconButtonProblems(container)).toHaveLength(2);
-  });
-});
-
-describe('a button that is off says why', () => {
-  it('a folder tick before any file is added', async () => {
-    const user = userEvent.setup();
-    render(<Destinations selected={[]} onToggle={noop} onTeams={noop} disabled />);
-    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
-    const tick = await screen.findByRole('checkbox', { name: /IRB approvals/ });
-    expect((tick as HTMLButtonElement).disabled).toBe(true);
-    expect(tick.getAttribute('title')).toBe('Add a file first');
   });
 });

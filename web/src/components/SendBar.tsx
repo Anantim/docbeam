@@ -1,10 +1,7 @@
-import type { Check } from '../distribute/mapping.js';
-
 interface Props {
-  checks: Check[];
   deliveries: number;
   ready: boolean;
-  /** Why Send is off; shown as the button's title. */
+  /** Why Send is off, in a few words. Shown beside the button. */
   reason?: string | null;
   sending: boolean;
   error: string | null;
@@ -13,8 +10,8 @@ interface Props {
   onSend: () => void;
 }
 
-/** The sticky bar: the three checks, Clear and Send. */
-export function SendBar({ checks, deliveries, ready, reason, sending, error, canClear, onClear, onSend }: Props) {
+/** The sticky bar: why Send is off (if it is), Clear and Send. */
+export function SendBar({ deliveries, ready, reason, sending, error, canClear, onClear, onSend }: Props) {
   return (
     <div className="sendbar">
       {error && (
@@ -23,15 +20,9 @@ export function SendBar({ checks, deliveries, ready, reason, sending, error, can
         </div>
       )}
       <div className="sendbar-row">
-        <div className="checks">
-          {checks.map((c) => (
-            <span className={`check ${c.ok ? 'ok' : ''}`} key={c.label}>
-              <span aria-hidden="true">{c.ok ? '✓ ' : '○ '}</span>
-              <span>{c.label}</span>
-            </span>
-          ))}
+        <div className="send-reason" role="status">
+          {ready || sending ? null : reason}
         </div>
-        <div className="grow" />
         <button className="btn2" type="button" disabled={!canClear} title={canClear ? undefined : 'Nothing to clear'} onClick={onClear}>
           Clear
         </button>

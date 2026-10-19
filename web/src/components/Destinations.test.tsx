@@ -28,17 +28,29 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const openCardio = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
+  await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+};
+
 describe('Destinations tree', () => {
-  it('loads teams and binders, and a level only when it is opened', async () => {
+  it('starts with the teams only, and loads one level each time a row is opened', async () => {
     const user = userEvent.setup();
     render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    expect(screen.getByText('Oncology')).toBeTruthy();
+    expect(screen.queryByText('CARDIO-301 Regulatory')).toBeNull();
+    expect(apiFetch).toHaveBeenCalledTimes(1); // only /teams
+
+    await user.click(screen.getByRole('button', { name: 'Expand Cardio' }));
     await screen.findByText('CARDIO-301 Regulatory');
+    expect(apiFetch).toHaveBeenCalledWith('/teams/t-cardio/binders');
+    expect(apiFetch).not.toHaveBeenCalledWith('/teams/t-onc/binders');
     expect(apiFetch).not.toHaveBeenCalledWith('/binders/b-reg/contents');
 
     await user.click(screen.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
     await screen.findByText('IRB approvals');
     expect(apiFetch).toHaveBeenCalledWith('/binders/b-reg/contents');
-    expect(apiFetch).not.toHaveBeenCalledWith('/binders/b-onc/contents');
     expect(screen.queryByText('ignored.pdf')).toBeNull();
   });
 
@@ -52,7 +64,7 @@ describe('Destinations tree', () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
     render(<Destinations selected={[]} onToggle={onToggle} onTeams={() => {}} />);
-    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+    await openCardio(user);
     await user.click(await screen.findByRole('checkbox', { name: 'Send your files to Cardio / CARDIO-301 Regulatory / IRB approvals' }));
     expect(onToggle).toHaveBeenCalledWith({ binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' });
   });
@@ -60,10 +72,17 @@ describe('Destinations tree', () => {
   it('has no tick on a binder, only on its folders', async () => {
     const user = userEvent.setup();
     render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
-    await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
+    await openCardio(user);
     await screen.findByRole('checkbox', { name: /IRB approvals/ });
     expect(screen.getAllByRole('checkbox')).toHaveLength(1);
     expect(screen.queryByRole('checkbox', { name: /CARDIO-301 Regulatory$/ })).toBeNull();
+  });
+
+  it('lets a folder be ticked with no file on the page (the tick is not disabled)', async () => {
+    const user = userEvent.setup();
+    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    await openCardio(user);
+    expect((await screen.findByRole('checkbox', { name: /IRB approvals/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('shows the count and filters the loaded rows', async () => {
@@ -75,6 +94,8 @@ describe('Destinations tree', () => {
         onTeams={() => {}}
       />,
     );
+    await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Oncology' }));
     await screen.findByText('ONC-118 Regulatory');
     expect(screen.getByText('1 of 20 destinations')).toBeTruthy();
     await user.type(screen.getByRole('searchbox'), 'onc-118');
