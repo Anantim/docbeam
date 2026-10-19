@@ -2,7 +2,7 @@
 
 DocBeam lets a coordinator send up to 100 files to up to 20 team folders in one action, watch every delivery live, and download what was delivered. This guide is for a quick hands-on test of the **dev** system.
 
-- **Address:** https://dalv1a3ih6hi2.cloudfront.net (works only while dev is up; it is taken down automatically on Monday 2026-10-19 at 14:17 UTC, 19:47 IST, and everything on it is deleted).
+- **Address:** https://dalv1a3ih6hi2.cloudfront.net (works only while dev is up; it is taken down automatically on Tuesday 2026-10-20 at 04:30 UTC, 10:00 IST, and everything on it is deleted).
 - **Password:** the person who sent you this guide gives it to you. It is the same for every account below.
 - **Do not upload real or sensitive documents.** This is a test system. Use any harmless files you have (PDF, DOCX, XLSX, PNG or JPG, up to 1 GB each).
 

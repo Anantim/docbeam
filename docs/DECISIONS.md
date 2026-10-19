@@ -820,3 +820,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **What:** A repository ruleset, id `25326412`, "main: no force push, no deletion": target branch, condition `~DEFAULT_BRANCH` (`main`), enforcement **active**, **no bypass list**, exactly two rules: `non_fast_forward` (blocks force pushes) and `deletion` (blocks deleting the branch). Created with `gh api -X POST repos/Anantim/docbeam/rulesets` and read back with `gh api repos/Anantim/docbeam/rulesets/25326412` and `…/rules/branches/main`. No other rule: no required pull request and no required status check, because the person's script `~/update-docbeam-docs.sh` pushes straight to `main`. Nothing else in the settings was touched. There were no rulesets before and `main` had no classic branch protection.
 - **Check:** this entry was pushed straight to `main` as an ordinary fast-forward push after the ruleset was active, and was accepted (commit in the log of `main`).
 - **Why:** With the repository public, nobody should be able to rewrite or delete `main`; the history is not rewritten (D-M5-2), and a force push would be the only way to lose it. To undo: delete the ruleset in Settings, Rules, Rulesets (or `gh api -X DELETE repos/Anantim/docbeam/rulesets/25326412`).
+
+## D-M5-22. The scheduled dev teardown moves to Tuesday 2026-10-20, 10:00 IST
+
+- **Date:** 2026-10-19. **Decided by:** the person. **Changes:** D-M5-21's time.
+- **What:** `.github/workflows/dev-teardown.yml` now runs once at **04:30 UTC on 2026-10-20** (10:00 IST, `cron: 30 4 20 10 *`) instead of 14:17 UTC on 2026-10-19, so testers keep dev one more evening. The date guard moves to 2026-10-21: a scheduled run after that date does nothing, so the yearly cron entry never tears anything down again. The manual run is unchanged. The tester guide gives the new time.
+- **Cost:** about 0.6 USD more of dev time (about 14 more hours at 4.5 USD a day).
