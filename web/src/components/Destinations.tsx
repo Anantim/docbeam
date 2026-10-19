@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '../auth/session.js';
 import { destinationKey, type Destination } from '../destinations/selection.js';
-import { destinationFor, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
+import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
 
@@ -21,61 +21,133 @@ interface Props {
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
   folders.map((f) => ({ id: f.id, kind: 'folder', name: f.name, binderId: parent.binderId, pathNames: [...parent.pathNames, f.name] }));
 
-async function loadChildren(node: TreeNode): Promise<TreeNode[]> {
+interface Page {
+  children: TreeNode[];
+  nextCursor: string | null;
+}
+
+/** One page of one level. A level is read 20 rows at a time (the server's default), and only when it is asked for. */
+async function loadPage(node: TreeNode, cursor: string | null): Promise<Page> {
   if (node.kind === 'team') {
-    const binders = await apiFetch<{ id: string; name: string }[]>(`/teams/${node.id}/binders`);
-    return binders.map((b) => ({ id: b.id, kind: 'binder', name: b.name, binderId: b.id, pathNames: [...node.pathNames, b.name] }));
+    const page = await apiFetch<{ items: { id: string; name: string }[]; nextCursor: string | null }>(pageUrl(`/teams/${node.id}/binders`, cursor));
+    const children = page.items.map((b): TreeNode => ({ id: b.id, kind: 'binder', name: b.name, binderId: b.id, pathNames: [...node.pathNames, b.name] }));
+    return { children, nextCursor: page.nextCursor };
   }
   const path = node.kind === 'binder' ? `/binders/${node.id}/contents` : `/folders/${node.id}/contents`;
-  const contents = await apiFetch<{ folders: { id: string; name: string }[] }>(path);
-  // Documents are not destinations, so the tree keeps only the folders.
-  return folderNodes(node, contents.folders);
+  const page = await apiFetch<{ folders: { id: string; name: string }[]; documents: unknown[]; nextCursor: string | null }>(pageUrl(path, cursor));
+  // Documents are not destinations, so the tree keeps only the folders. Folders come before documents, so a page that
+  // holds a document means every folder is already loaded: the rest of the pages are documents and are never read.
+  return { children: folderNodes(node, page.folders), nextCursor: page.documents.length > 0 ? null : page.nextCursor };
+}
+
+/**
+ * The end of a list. It loads the next page when it scrolls into view (and has a button for browsers or people
+ * that cannot scroll to it). While the page loads it says so; if the load fails it offers a retry.
+ */
+function MoreRow({ busy, failed, level, onMore }: { busy: boolean; failed: boolean; level: number; onMore: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const request = useRef(onMore);
+  request.current = onMore;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || busy || failed || typeof IntersectionObserver === 'undefined') return;
+    const scroller = el.closest('.tree');
+    const watcher = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) request.current();
+      },
+      { root: scroller, rootMargin: '0px 0px 120px 0px' },
+    );
+    watcher.observe(el);
+    return () => watcher.disconnect();
+  }, [busy, failed]);
+  return (
+    <div ref={ref} className="status-line nested" style={{ ['--level' as string]: level }} role="status">
+      {busy ? (
+        'Loading more…'
+      ) : failed ? (
+        <>
+          Could not load more.{' '}
+          <button className="link" type="button" onClick={onMore}>
+            Try again
+          </button>
+        </>
+      ) : (
+        <button className="link" type="button" onClick={onMore}>
+          Show more
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
+  const [rootsNext, setRootsNext] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [failed, setFailed] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [rootError, setRootError] = useState(false);
+  // A level that is loading its next page, so the same page is never asked for twice.
+  const inFlight = useRef(new Set<string>());
+  const ROOT = 'root';
 
-  const load = useCallback(async (node: TreeNode) => {
-    setBusy((s) => new Set(s).add(node.id));
-    setFailed((s) => {
+  const setFlag = (set: (f: (s: Set<string>) => Set<string>) => void, id: string, on: boolean) =>
+    set((s) => {
       const n = new Set(s);
-      n.delete(node.id);
+      if (on) n.add(id);
+      else n.delete(id);
       return n;
     });
+
+  /** Loads the first page of a level, or the next one when it has a cursor. */
+  const load = useCallback(async (node: TreeNode, cursor: string | null) => {
+    if (inFlight.current.has(node.id)) return;
+    inFlight.current.add(node.id);
+    setFlag(setBusy, node.id, true);
+    setFlag(setFailed, node.id, false);
     try {
-      const children = await loadChildren(node);
-      setLoaded((m) => new Map(m).set(node.id, { children }));
+      const page = await loadPage(node, cursor);
+      setLoaded((m) => new Map(m).set(node.id, { children: [...(m.get(node.id)?.children ?? []), ...page.children], nextCursor: page.nextCursor }));
     } catch {
-      setFailed((s) => new Set(s).add(node.id));
+      setFlag(setFailed, node.id, true);
     } finally {
-      setBusy((s) => {
-        const n = new Set(s);
-        n.delete(node.id);
-        return n;
-      });
+      inFlight.current.delete(node.id);
+      setFlag(setBusy, node.id, false);
     }
   }, []);
 
+  const loadTeams = useCallback(
+    async (cursor: string | null) => {
+      if (inFlight.current.has(ROOT)) return;
+      inFlight.current.add(ROOT);
+      setFlag(setBusy, ROOT, true);
+      setFlag(setFailed, ROOT, false);
+      try {
+        const page = await apiFetch<{ items: { id: string; name: string }[]; nextCursor: string | null }>(pageUrl('/teams', cursor));
+        const nodes = page.items.map((t): TreeNode => ({ id: t.id, kind: 'team', name: t.name, binderId: null, pathNames: [t.name] }));
+        setRoots((r) => {
+          const all = [...(r ?? []), ...nodes];
+          onTeams(all.map((n) => n.name));
+          return all;
+        });
+        setRootsNext(page.nextCursor);
+      } catch {
+        if (cursor === null) setRootError(true);
+        else setFlag(setFailed, ROOT, true);
+      } finally {
+        inFlight.current.delete(ROOT);
+        setFlag(setBusy, ROOT, false);
+      }
+    },
+    [onTeams],
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ id: string; name: string }[]>('/teams')
-      .then((teams) => {
-        if (cancelled) return;
-        const nodes = teams.map((t): TreeNode => ({ id: t.id, kind: 'team', name: t.name, binderId: null, pathNames: [t.name] }));
-        setRoots(nodes);
-        onTeams(nodes.map((n) => n.name));
-      })
-      .catch(() => !cancelled && setRootError(true));
-    return () => {
-      cancelled = true;
-    };
-  }, [onTeams]);
+    void loadTeams(null);
+  }, [loadTeams]);
 
   const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
   const chosen = useMemo(() => new Set(selected.map(destinationKey)), [selected]);
@@ -87,7 +159,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
       else n.add(node.id);
       return n;
     });
-    if (!loaded.has(node.id) && !busy.has(node.id)) void load(node);
+    if (!loaded.has(node.id) && !busy.has(node.id)) void load(node, null);
   }
 
   function row(node: TreeNode, level: number) {
@@ -146,16 +218,23 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
             </>
           )}
         </div>
-        {isOpen && busy.has(node.id) && <div className="status-line nested" style={{ ['--level' as string]: level }}>Loading…</div>}
-        {isOpen && failed.has(node.id) && (
+        {isOpen && busy.has(node.id) && children === undefined && (
+          <div className="status-line nested" style={{ ['--level' as string]: level }} role="status">
+            Loading…
+          </div>
+        )}
+        {isOpen && failed.has(node.id) && children === undefined && (
           <div className="status-line err nested" style={{ ['--level' as string]: level }}>
             Could not load this level.{' '}
-            <button className="link" type="button" onClick={() => void load(node)}>
+            <button className="link" type="button" onClick={() => void load(node, null)}>
               Try again
             </button>
           </div>
         )}
         {isOpen && children?.map((c) => row(c, level + 1))}
+        {isOpen && children !== undefined && loaded.get(node.id)?.nextCursor != null && !keep && (
+          <MoreRow busy={busy.has(node.id)} failed={failed.has(node.id)} level={level + 1} onMore={() => void load(node, loaded.get(node.id)?.nextCursor ?? null)} />
+        )}
       </div>
     );
   }
@@ -199,6 +278,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
         )}
         {roots?.length === 0 && <div className="status-line">You are not in any team yet.</div>}
         {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
+        {roots !== null && rootsNext !== null && !keep && <MoreRow busy={busy.has(ROOT)} failed={failed.has(ROOT)} level={0} onMore={() => void loadTeams(rootsNext)} />}
       </div>
     </section>
   );
