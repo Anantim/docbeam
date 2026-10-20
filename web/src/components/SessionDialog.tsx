@@ -29,10 +29,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
       <div className="overlay" />
       <form ref={box} className="dialog" role="dialog" aria-modal="true" aria-label="Sign in again" onSubmit={(e) => void submit(e)}>
         <h2>Your sign-in has ended</h2>
-        <p>
-          You have been signed in for 12 hours, so DocBeam needs your password again. Nothing on this page is lost:
-          uploads, your mapping and open distributions stay as they are.
-        </p>
+        <p>Enter your password to carry on. Nothing on this page is lost.</p>
         {error && (
           <div role="alert" className="alert">
             {error}

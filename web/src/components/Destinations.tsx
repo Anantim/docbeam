@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../auth/session.js';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { MoreRow } from './MoreRow.js';
-import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
+import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon, SearchIcon } from './Icons.js';
 
 interface Props {
   /** The destinations in use (the ticks when `stateOf` is not given). */
@@ -39,6 +39,82 @@ async function loadPage(node: TreeNode, cursor: string | null): Promise<Page> {
   // Documents are not destinations, so the tree keeps only the folders. Folders come before documents, so a page that
   // holds a document means every folder is already loaded: the rest of the pages are documents and are never read.
   return { children: folderNodes(node, page.folders), nextCursor: page.documents.length > 0 ? null : page.nextCursor };
+}
+
+interface LineProps {
+  node: TreeNode;
+  level: number;
+  tick: TickState;
+  isOpen: boolean;
+  canExpand: boolean;
+  scopeTitle: string;
+  onExpand: (node: TreeNode) => void;
+  onToggle: (destination: Destination) => void;
+}
+
+/**
+ * One row of the tree. It is memoised on plain values, so ticking one folder draws that row again and not every
+ * row of the tree (F1 follow-up: 40 folders were 40 redraws per tick, now 1).
+ */
+const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, scopeTitle, onExpand, onToggle }: LineProps) {
+  const destination = destinationFor(node);
+  const on = tick !== 'off';
+  return (
+    <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
+      {canExpand ? (
+        <button
+          type="button"
+          className="exp"
+          data-nav={node.kind === 'folder' ? undefined : ''}
+          aria-expanded={isOpen}
+          aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
+          title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
+          onClick={() => onExpand(node)}
+        >
+          <ChevronIcon open={isOpen} size={14} />
+        </button>
+      ) : (
+        <span className="spc" />
+      )}
+      {node.kind === 'team' ? (
+        <span className="name team">{node.name}</span>
+      ) : node.kind === 'binder' ? (
+        <span className="name binder">{node.name}</span>
+      ) : (
+        <>
+          <button
+            type="button"
+            role="checkbox"
+            data-nav=""
+            aria-checked={tick === 'mixed' ? 'mixed' : on}
+            className="ck"
+            aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
+            onClick={() => destination && onToggle(destination)}
+          >
+            <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
+              {tick === 'on' ? <CheckIcon size={12} /> : null}
+              {tick === 'mixed' ? <MinusIcon size={12} /> : null}
+            </span>
+          </button>
+          <span className="tree-icon" aria-hidden="true">
+            <FolderIcon />
+          </span>
+          <span className="name">{node.name}</span>
+        </>
+      )}
+    </div>
+  );
+});
+
+/** Rows that look like the list while it loads. */
+function Skeleton({ rows = 3, label }: { rows?: number; label: string }) {
+  return (
+    <div className="tree-skeleton" role="status" aria-label={label} aria-busy="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <span className="skeleton" key={i} />
+      ))}
+    </div>
+  );
 }
 
 export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
@@ -113,15 +189,21 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
   const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
   const chosen = useMemo(() => new Set(selected.map(destinationKey)), [selected]);
 
-  function expand(node: TreeNode) {
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
+  const toggleRef = useRef(onToggle);
+  toggleRef.current = onToggle;
+  const toggle = useCallback((d: Destination) => toggleRef.current(d), []);
+
+  const expand = useCallback((node: TreeNode) => {
     setOpen((s) => {
       const n = new Set(s);
       if (n.has(node.id)) n.delete(node.id);
       else n.add(node.id);
       return n;
     });
-    if (!loaded.has(node.id) && !busy.has(node.id)) void load(node, null);
-  }
+    if (!loadedRef.current.has(node.id) && !inFlight.current.has(node.id)) void load(node, null);
+  }, [load]);
 
   function row(node: TreeNode, level: number) {
     if (keep && !keep.has(node.id)) return null;
@@ -130,62 +212,17 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
     const canExpand = children === undefined || children.length > 0;
     const destination = destinationFor(node);
     const tick: TickState = !destination ? 'off' : stateOf ? stateOf(destination) : chosen.has(destinationKey(destination)) ? 'on' : 'off';
-    const on = tick !== 'off';
 
     return (
       <div key={node.id}>
-        <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
-          {canExpand ? (
-            <button
-              type="button"
-              className="exp"
-              aria-expanded={isOpen}
-              aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-              title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-              onClick={() => expand(node)}
-            >
-              <ChevronIcon open={isOpen} size={14} />
-            </button>
-          ) : (
-            <span className="spc" />
-          )}
-          {node.kind === 'team' ? (
-            <>
-              <span className="name team">{node.name}</span>
-            </>
-          ) : node.kind === 'binder' ? (
-            <>
-              <span className="name binder">{node.name}</span>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={tick === 'mixed' ? 'mixed' : on}
-                className="ck"
-                aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
-                onClick={() => destination && onToggle(destination)}
-              >
-                <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
-                  {tick === 'on' ? <CheckIcon size={12} /> : null}
-                  {tick === 'mixed' ? <MinusIcon size={12} /> : null}
-                </span>
-              </button>
-              <span className="tree-icon" aria-hidden="true">
-                <FolderIcon />
-              </span>
-              <span className="name">{node.name}</span>
-            </>
-          )}
-        </div>
+        <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} onExpand={expand} onToggle={toggle} />
         {isOpen && busy.has(node.id) && children === undefined && (
-          <div className="status-line nested" style={{ ['--level' as string]: level }} role="status">
-            Loading…
+          <div className="nested" style={{ ['--level' as string]: level }}>
+            <Skeleton rows={2} label="Loading this level" />
           </div>
         )}
         {isOpen && failed.has(node.id) && children === undefined && (
-          <div className="status-line err nested" style={{ ['--level' as string]: level }}>
+          <div className="status-line err nested" style={{ ['--level' as string]: level }} role="alert">
             Could not load this level.{' '}
             <button className="link" type="button" onClick={() => void load(node, null)}>
               Try again
@@ -202,6 +239,24 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
 
   const nothingMatches = keep !== null && keep.size === 0;
 
+  // Arrow keys move through the tree: Up and Down between rows, Right opens a row, Left closes it (D-F1-10).
+  const onTreeKey = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.row')) return;
+    const anchors = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-nav]')];
+    const rowOf = (el: Element): Element | null => el.closest('.row');
+    const at = anchors.findIndex((a) => rowOf(a) === rowOf(target));
+    if (event.key === 'ArrowDown') anchors[at + 1]?.focus();
+    else if (event.key === 'ArrowUp') anchors[at - 1]?.focus();
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      const exp = rowOf(target)?.querySelector<HTMLButtonElement>('.exp');
+      const isOpen = exp?.getAttribute('aria-expanded') === 'true';
+      if (exp && isOpen === (event.key === 'ArrowLeft')) exp.click();
+      else return;
+    } else return;
+    event.preventDefault();
+  };
+
   return (
     <section aria-label="Destinations" className="card dest">
       <div className="card-head">
@@ -217,7 +272,8 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
           </button>
         )}
       </div>
-      <div className="filter">
+      <div className="filter search">
+        <SearchIcon size={14} />
         <label className="sr" htmlFor="dq">
           Filter destinations
         </label>
@@ -225,19 +281,33 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
           id="dq"
           className="field"
           type="search"
-          placeholder="Filter binders and folders"
+          placeholder="Search folders"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
-      <div className="tree">
-        {rootError && <div className="status-line err">Could not load your teams. Reload the page to try again.</div>}
-        {!rootError && roots === null && (
-          <div className="status-line" role="status">
-            Loading your teams…
+      <div className="tree" onKeyDown={onTreeKey}>
+        {rootError && (
+          <div className="state small" role="alert">
+            <strong>Could not load your teams</strong>
+            <button
+              className="btn2 btnsm"
+              type="button"
+              onClick={() => {
+                setRootError(false);
+                void loadTeams(null);
+              }}
+            >
+              Try again
+            </button>
           </div>
         )}
-        {roots?.length === 0 && <div className="status-line">You are not in any team yet.</div>}
+        {!rootError && roots === null && <Skeleton rows={4} label="Loading your teams" />}
+        {roots?.length === 0 && (
+          <div className="state small">
+            <strong>You are not in a team yet</strong>
+          </div>
+        )}
         {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
         {roots !== null && rootsNext !== null && !keep && <MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
       </div>

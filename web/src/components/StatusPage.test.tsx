@@ -204,7 +204,7 @@ describe('live counts', () => {
       counts: counts({ completed: 10 }),
     });
     expect(filterCounts()).toEqual({ All: 10, Completed: 10, Failed: 0, 'In progress': 0, Pending: 0 });
-    expect(within(screen.getByRole('complementary')).getByRole('status').textContent).toBe('Completed');
+    expect((screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement).textContent).toBe('Completed');
   });
 
   it('shows cancelled deliveries as their own grey bar segment and filter, not as failed', async () => {
@@ -319,7 +319,7 @@ describe('Cancel and Retry', () => {
     const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
     expect(retry.title).toBe('A cancelled distribution cannot be retried');
-    const chip = within(screen.getByRole('complementary')).getByRole('status');
+    const chip = (screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement);
     expect(chip.textContent).toBe('Cancelled');
     expect(chip.getAttribute('title')).toBe('The sender cancelled it and nothing is still running.');
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull(); // a cancelled one has no Cancel
@@ -338,7 +338,7 @@ describe('Cancel and Retry', () => {
     api.job.mockResolvedValue(detail({ counts: counts({ completed: 10 }), status: 'completed', cancel: { open: false, waiting: 0 } }));
     const page = renderPage();
     await opened(page);
-    expect(within(screen.getByRole('complementary')).getByRole('status').textContent).toBe('Completed');
+    expect((screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement).textContent).toBe('Completed');
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Retry failed' })).toBeNull();
   });

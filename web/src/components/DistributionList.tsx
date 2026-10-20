@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobScope, JobSummary } from '../tracking/api.js';
@@ -26,6 +27,65 @@ interface Props {
 }
 
 const SKELETON_ROWS = 5;
+
+interface RowProps {
+  job: JobSummary;
+  /** The live counts of the open distribution, or null: its row follows them. */
+  counts: Counts | null;
+  meId: string;
+  selected: boolean;
+  onOpen: (jobId: string) => void;
+}
+
+/** Two rows are the same when what they show is the same, so a refresh that changes nothing redraws no row. */
+const sameRow = (a: RowProps, b: RowProps): boolean =>
+  a.selected === b.selected &&
+  a.meId === b.meId &&
+  a.onOpen === b.onOpen &&
+  a.counts === b.counts &&
+  a.job.jobId === b.job.jobId &&
+  a.job.status === b.job.status &&
+  a.job.createdAt === b.job.createdAt &&
+  a.job.taskCount === b.job.taskCount &&
+  a.job.fileCount === b.job.fileCount &&
+  a.job.destinationCount === b.job.destinationCount &&
+  a.job.submittedBy.userId === b.job.submittedBy.userId &&
+  a.job.submittedBy.name === b.job.submittedBy.name &&
+  (Object.keys(a.job.counts) as Array<keyof Counts>).every((k) => a.job.counts[k] === b.job.counts[k]);
+
+const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps) {
+  const status = counts ? statusFromCounts(counts, job.status === 'cancelled') : job.status;
+  const chip = jobChip(status);
+  return (
+    <tr className={selected ? 'on' : ''} onClick={() => onOpen(job.jobId)}>
+      <td>
+        <button
+          type="button"
+          className="link mono dist-id"
+          title={job.jobId}
+          aria-current={selected ? 'true' : undefined}
+          aria-label={`Open distribution ${shortId(job.jobId)}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen(job.jobId);
+          }}
+        >
+          {shortId(job.jobId)}
+        </button>
+      </td>
+      <td>{formatWhen(job.createdAt)}</td>
+      <td className="ellipsis" title={job.submittedBy.name}>
+        {job.submittedBy.userId === meId ? 'You' : job.submittedBy.name}
+      </td>
+      <td className="num-col dist-more">{job.fileCount}</td>
+      <td className="num-col dist-more">{job.destinationCount}</td>
+      <td>
+        <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
+        {(status === 'pending' || status === 'in_progress') && <ProgressBar counts={counts ?? job.counts} total={job.taskCount} />}
+      </td>
+    </tr>
+  );
+}, sameRow);
 
 /**
  * The distributions, newest first, one row each: short id, when it was sent, who sent it, how many files and
@@ -90,38 +150,7 @@ export function DistributionList({ meId, scope, filtered = false, jobs, error, h
         <tbody>
           {jobs.map((job) => {
             const following = live && live.jobId === job.jobId ? live.counts : null;
-            const status = following ? statusFromCounts(following, job.status === 'cancelled') : job.status;
-            const chip = jobChip(status);
-            const selected = selectedId === job.jobId;
-            return (
-              <tr key={job.jobId} className={selected ? 'on' : ''} onClick={() => onOpen(job.jobId)}>
-                <td>
-                  <button
-                    type="button"
-                    className="link mono dist-id"
-                    title={job.jobId}
-                    aria-current={selected ? 'true' : undefined}
-                    aria-label={`Open distribution ${shortId(job.jobId)}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpen(job.jobId);
-                    }}
-                  >
-                    {shortId(job.jobId)}
-                  </button>
-                </td>
-                <td>{formatWhen(job.createdAt)}</td>
-                <td className="ellipsis" title={job.submittedBy.name}>
-                  {job.submittedBy.userId === meId ? 'You' : job.submittedBy.name}
-                </td>
-                <td className="num-col dist-more">{job.fileCount}</td>
-                <td className="num-col dist-more">{job.destinationCount}</td>
-                <td>
-                  <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
-                  {(status === 'pending' || status === 'in_progress') && <ProgressBar counts={following ?? job.counts} total={job.taskCount} />}
-                </td>
-              </tr>
-            );
+            return <Row key={job.jobId} job={job} counts={following} meId={meId} selected={selectedId === job.jobId} onOpen={onOpen} />;
           })}
         </tbody>
       </table>

@@ -52,8 +52,6 @@ export interface AuditLine {
   title: string;
   who: string;
   detail: string;
-  /** Glyph and colours of the tile. */
-  glyph: string;
   bad: boolean;
   tone: 'sent' | 'delivery' | 'retry' | 'cancel' | 'download' | 'files';
 }
@@ -75,47 +73,44 @@ export function describeAudit(e: Pick<AuditEvent, 'action' | 'detail' | 'actorId
         title: 'Distribution sent',
         who,
         detail: tasks ? `${plural(files, 'file', 'files')} to ${plural(num(d.destinationCount), 'destination', 'destinations')}, ${plural(tasks, 'delivery', 'deliveries')}.` : 'Distribution sent.',
-        glyph: 'S',
         bad: false,
         tone: 'sent',
       };
     }
     case 'task.completed':
-      return { title: 'Delivered', who, detail: where ? `${where}.` : 'A delivery completed.', glyph: 'D', bad: false, tone: 'delivery' };
+      return { title: 'Delivered', who, detail: where ? `${where}.` : 'A delivery completed.', bad: false, tone: 'delivery' };
     case 'task.failed': {
       const code = text(d.failureCode);
       return {
         title: code === 'CANCELLED' ? 'Delivery cancelled' : 'Delivery failed',
         who,
         detail: text(d.failureReason) || (where ? `${where}.` : 'A delivery failed.'),
-        glyph: 'D',
         bad: code !== 'CANCELLED',
         tone: 'delivery',
       };
     }
     case 'job.retried': {
       const n = num(d.retried);
-      return { title: 'Retry requested', who, detail: n ? `${plural(n, 'failed delivery', 'failed deliveries')} sent again.` : 'Failed deliveries were sent again.', glyph: 'R', bad: false, tone: 'retry' };
+      return { title: 'Retry requested', who, detail: n ? `${plural(n, 'failed delivery', 'failed deliveries')} sent again.` : 'Failed deliveries were sent again.', bad: false, tone: 'retry' };
     }
     case 'job.cancelled': {
       const n = num(d.cancelled);
-      return { title: 'Distribution cancelled', who, detail: n ? `${plural(n, 'waiting delivery', 'waiting deliveries')} cancelled.` : 'The sender cancelled the deliveries that had not started.', glyph: 'X', bad: false, tone: 'cancel' };
+      return { title: 'Distribution cancelled', who, detail: n ? `${plural(n, 'waiting delivery', 'waiting deliveries')} cancelled.` : 'The sender cancelled the deliveries that had not started.', bad: false, tone: 'cancel' };
     }
     case 'download.issued':
       return {
         title: d.mode === 'preview' ? 'Preview link issued' : 'Download link issued',
         who,
         detail: where ? `${where}.` : 'A link was issued.',
-        glyph: 'L',
         bad: false,
         tone: 'download',
       };
     case 'file.refused': {
       const reason = text(d.reason);
       const why = reason === 'MALWARE' ? 'malware found by the scan' : reason === 'MISMATCH' ? 'it did not match what was checked' : 'it could not be checked';
-      return { title: 'File refused', who: who === 'System' ? 'System' : who, detail: `${text(d.fileName) || 'A file'}: ${why}.`, glyph: 'F', bad: true, tone: 'files' };
+      return { title: 'File refused', who: who === 'System' ? 'System' : who, detail: `${text(d.fileName) || 'A file'}: ${why}.`, bad: true, tone: 'files' };
     }
     default:
-      return { title: e.action, who, detail: '', glyph: '?', bad: false, tone: 'files' };
+      return { title: e.action, who, detail: '', bad: false, tone: 'files' };
   }
 }

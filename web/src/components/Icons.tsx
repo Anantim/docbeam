@@ -67,3 +67,29 @@ export const MinusIcon = (p: Props) => (
     <path d="M4 8h8" />
   </Svg>
 );
+
+export const SendIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M2.5 8h9M8 4l4 4-4 4" />
+  </Svg>
+);
+
+export const FileIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M4 2.5h5l3 3v8H4v-11ZM9 2.5v3h3" />
+  </Svg>
+);
+
+export const LockIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="3.5" y="7" width="9" height="6.5" rx="1" />
+    <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+  </Svg>
+);
+
+export const SearchIcon = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="7" cy="7" r="4" />
+    <path d="m10 10 3.5 3.5" />
+  </Svg>
+);
