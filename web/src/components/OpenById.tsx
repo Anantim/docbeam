@@ -59,6 +59,7 @@ export function OpenById({ onOpen }: Props) {
       ref={wrap}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && open) {
+          e.preventDefault(); // the side panel's Escape handler leaves a key that is already taken
           e.stopPropagation();
           close();
         }

@@ -28,7 +28,7 @@ interface Props {
   onChanged: () => void;
   /** Called with the live counts whenever they change, so this distribution's row in the list follows them. */
   onCounts?: (jobId: string, counts: Counts) => void;
-  /** Changes after a sign-in from the 12-hour dialog: the distribution, its deliveries and its history are read again. */
+  /** Changes after a sign-in from the 12-hour dialog: the distribution and its deliveries are read again. */
   signedInAgain?: number;
 }
 

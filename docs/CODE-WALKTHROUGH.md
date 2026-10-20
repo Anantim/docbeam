@@ -197,7 +197,7 @@ Locally there is no Lambda and no API Gateway, so this package stands in for bot
 
 ## 8. web/: the React app
 
-A single-page app with two tabs: Distribute, and Status (one list of distributions with a side panel that holds the deliveries and the history, D-F1-7, D-F1-9). Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: small components and one stylesheet that starts with the design tokens (D-F1-5).
+A single-page app with two tabs: Distribute, and Status (one list of distributions with a side panel that holds the deliveries; no audit view, D-F1-7, D-F1-9, D-F1-13). Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: small components and one stylesheet that starts with the design tokens (D-F1-5).
 
 **Entry and build:** `index.html` (the page shell), `src/main.tsx` (mounts React), `src/App.tsx` (keeps the current screen and distribution in the URL hash, so a reload or shared link opens the same place), `src/styles.css` (the design tokens, then all styling), `public/favicon.svg`, `vite.config.ts` (the dev server proxies `/api/*` to the right service, the same single-site shape CloudFront gives on AWS), `package.json`, `tsconfig.json`.
 
