@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { test } from '@playwright/test';
+import { env } from '../integration/helpers.js';
 import { addPdfs, CARDIO_IRB, CARDIO_PROTOCOL, PRIYA, signIn, tick } from './helpers.js';
 
 // Takes a screenshot of every screen at 1440 and 1280 px wide (F1). It does not assert anything and only runs
@@ -18,19 +19,17 @@ test.describe('screens', () => {
 
   test('every screen at two widths', async ({ page }) => {
     mkdirSync(dir as string, { recursive: true });
-    const shot = async (name: string): Promise<void> => {
+    // A whole-page picture, or (for the scrolled page) what the viewport shows right now.
+    const shot = async (name: string, viewportOnly = false): Promise<void> => {
       for (const s of sizes) {
         await page.setViewportSize({ width: s.w, height: s.h });
         await page.waitForTimeout(250);
-        await page.screenshot({ path: `${dir}/${name}-${s.w}.png`, fullPage: true });
+        await page.screenshot({ path: `${dir}/${name}-${s.w}.png`, fullPage: !viewportOnly });
       }
     };
 
     await page.goto('/');
     await shot('01-sign-in');
-    await page.getByRole('button', { name: 'Create an account' }).click();
-    await shot('02-register');
-    await page.getByRole('button', { name: 'I already have an account' }).click();
     await page.getByLabel('Work email').fill('nobody@example.com');
     await page.getByLabel('Password').fill('wrong-password-here');
     await page.getByRole('button', { name: 'Sign in' }).click();
@@ -64,9 +63,23 @@ test.describe('screens', () => {
     await page.getByRole('button', { name: 'Close' }).click();
     await page.waitForTimeout(500);
     await shot('10-status-list');
-    await page.getByRole('button', { name: 'Upload events' }).click();
-    await page.waitForTimeout(1000);
-    await shot('11-upload-events');
+    await page.getByRole('button', { name: 'Open by ID' }).click();
+    await page.waitForTimeout(300);
+    await shot('11-open-by-id');
+    await page.keyboard.press('Escape');
+
+    // The same dialog on a long page, scrolled down: the backdrop still covers the whole viewport.
+    await page.getByRole('button', { name: 'Distribute' }).click();
+    await addPdfs(page, 12, 'long');
+    await page.getByLabel('Select all files').click();
+    await tick(page, CARDIO_IRB);
+    await page.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await page.getByRole('dialog').waitFor();
+    await shot('13-send-question-on-long-scrolled-page', true);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Clear' }).click();
+    await page.getByRole('button', { name: 'Status' }).click();
 
     // The sign-in-again dialog: the server stops accepting the token.
     await page.route('**/api/jobs**', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }) }));
@@ -74,5 +87,20 @@ test.describe('screens', () => {
     await page.getByRole('button', { name: 'My teams' }).click();
     await page.getByRole('dialog', { name: 'Sign in again' }).waitFor();
     await shot('12-session-dialog');
+
+    // And on a long page scrolled to the bottom: the backdrop covers the viewport, whatever the page height.
+    await page.unroute('**/api/jobs**');
+    await page.unroute('**/api/auth/refresh');
+    await page.getByRole('dialog').getByLabel('Password').fill(process.env.DEV_SEED_PASSWORD ?? (env.SEED_USER_PASSWORD as string));
+    await page.getByRole('dialog').getByRole('button', { name: 'Sign in again' }).click();
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Mine' }).click();
+    await page.locator('.dist-table tbody tr').first().waitFor();
+    await page.evaluate(`window.scrollTo(0, document.documentElement.scrollHeight)`);
+    await page.route('**/api/jobs**', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }) }));
+    await page.route('**/api/auth/refresh', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }) }));
+    await page.getByRole('button', { name: 'My teams' }).dispatchEvent('click'); // the page stays scrolled
+    await page.getByRole('dialog', { name: 'Sign in again' }).waitFor();
+    await shot('14-session-dialog-long-scrolled-page', true);
   });
 });

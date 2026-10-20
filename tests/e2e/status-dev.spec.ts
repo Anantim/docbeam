@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, CARDIO_IRB, distRow, openHistory, PRIYA, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, distRow, PRIYA, send, signIn, tick } from './helpers.js';
 
 // The changed screens on dev (F1): Distribute with the question before Send, and Status with its list, filters,
-// side panel and history. Needs DEV_APP_URL and DEV_SEED_PASSWORD (see playwright.dev.config.ts).
-test('send with the question first, then the list, a filter, the panel, its history and Esc, on dev', async ({ page }) => {
+// side panel. Needs DEV_APP_URL and DEV_SEED_PASSWORD (see playwright.dev.config.ts).
+test('send with the question first, then the list, a filter, the panel and Esc, on dev', async ({ page }) => {
   await signIn(page, PRIYA);
   await addPdfs(page, 1, 'f1dev');
   await tick(page, CARDIO_IRB);
@@ -18,8 +18,7 @@ test('send with the question first, then the list, a filter, the panel, its hist
 
   await expect(page.locator('.status-chip.big')).toHaveText('Completed', { timeout: 120_000 });
   await expect(page.getByRole('complementary').getByRole('region', { name: 'Deliveries' })).toBeVisible();
-  const history = await openHistory(page);
-  await expect(history).toContainText('Distribution sent');
+  await expect(page.getByText('History')).toHaveCount(0); // job history only, no audit trail (D-F1-13)
 
   // Esc closes the panel and the list is there with the distribution in it; the filters narrow it.
   await page.getByRole('button', { name: 'Close' }).focus();

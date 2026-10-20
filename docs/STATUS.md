@@ -13,6 +13,16 @@ Evidence and the YES/NO table for every point: `docs/testing/F1-RESULTS.md`. Dec
 - **Working-rule slips this round** (all in git, listed in D-F1-12): many mechanical edits by short Python scripts and `sed -i` instead of the Edit tool.
 - **Next:** nothing is blocked. If dev is brought up again, follow `docs/RUNBOOK-first-bring-up.md` (section 11: apply from saved plans); `scripts/demo/record.ts` makes a new video in about 20 minutes.
 
+### F1 follow-up (2026-10-20): job history only, no sign-up, session, Status layout
+
+Decisions D-F1-13 to D-F1-17 (`docs/DECISIONS.md`); every point with YES or NO in `docs/testing/F1-RESULTS.md` section 7. Checked locally only: dev is down.
+
+- **Done:** no audit view in the web app (the backend and `GET /audit` stay); no sign-up in the web app (`POST /auth/register` stays, off at the gateway); the sign-in dialog fix (stale-tolerant key cache in the services, the page ends the session only on a refused refresh) and one spacing rhythm for every dialog; Status with the compact list beside a 60 % panel, Esc closing from anywhere, an Open by ID icon button, a badge that counts running distributions only; Distribute with a designed empty state; `GET /teams` 50 per page.
+- **Teardown is manual.** `.github/workflows/dev-teardown.yml` has `workflow_dispatch` only; the one-off schedule is gone (D-F1-16).
+- **Tests:** unit 80 files, 639 tests; integration `platform`, `auth`, `tracking` 62 tests; Playwright local, the changed files all pass (the earlier full run had four failures in new tests, fixed); lint and typecheck clean.
+- **Known issues:** (1) the cause of the sign-in dialog was found by reading the code and fixed with tests that move the clock; it was not seen in a real 17-minute run, and a lost refresh answer can still end a session (the server treats the old refresh token as reuse; needs a grace period, which changes ADR-015); (2) the restored one-call browse assertion in `m5-browse-timing` has not run on dev; (3) the demo video predates the change (it shows History and the old sign-in), so it needs a new recording when dev is up; (4) `status-dev`, `download-dev` and `m5-browser-dev` were edited but not run on dev.
+- **Working-rule slips:** listed in D-F1-14.
+
 Earlier text of this file (before F1) follows.
 
 ## M5 (Hardening and end-to-end checks): release summary

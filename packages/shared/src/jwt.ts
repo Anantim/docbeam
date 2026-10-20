@@ -1,8 +1,65 @@
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import fp from 'fastify-plugin';
-import { createRemoteJWKSet, decodeProtectedHeader, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import { createLocalJWKSet, decodeProtectedHeader, errors, jwtVerify, type JSONWebKeySet, type JWTVerifyGetKey } from 'jose';
 import { JWT_AUDIENCE, type Scope } from './constants.js';
 import { ApiError } from './errors.js';
+
+/** The public keys could not be fetched and none were kept: the token may be fine, so this is not a 401 (D-F1-14). */
+export class KeysUnavailable extends Error {}
+
+export interface RemoteKeysOptions {
+  url: string;
+  /** How long keys are used before they are fetched again. */
+  maxAgeMs?: number;
+  /** The shortest time between two attempts to fetch, so a failing fetch is not repeated on every request. */
+  cooldownMs?: number;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+  /** Called when a fetch of keys fails and the old keys are used instead. */
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * The public keys of the Auth Service, kept in memory. After `maxAgeMs` they are fetched again, but a failed fetch keeps
+ * the old keys in use (keys change only when the Auth Service rotates them, rarely), and a token with a key id that is
+ * not known triggers one new fetch per cooldown (a rotation). jose's own `createRemoteJWKSet` throws when the fetch
+ * after its cache time fails, which answered every valid token with 401 and ended people's sign-ins about 10 minutes
+ * after a service started (D-F1-14).
+ */
+export function createRemoteKeys(options: RemoteKeysOptions): JWTVerifyGetKey {
+  const { url, maxAgeMs = 10 * 60_000, cooldownMs = 30_000, timeoutMs = 5_000, fetchImpl = fetch, now = Date.now, onError = () => undefined } = options;
+  let kept: { keys: JWTVerifyGetKey; at: number } | null = null;
+  let lastTry = Number.NEGATIVE_INFINITY;
+  let inFlight: Promise<void> | null = null;
+
+  async function load(): Promise<void> {
+    lastTry = now();
+    try {
+      const res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
+      if (!res.ok) throw new Error(`the keys answered ${res.status}`);
+      kept = { keys: createLocalJWKSet((await res.json()) as JSONWebKeySet), at: now() };
+    } catch (err) {
+      throw new KeysUnavailable(err instanceof Error ? err.message : 'the keys could not be fetched');
+    }
+  }
+  const fetchKeys = (): Promise<void> => (inFlight ??= load().finally(() => (inFlight = null)));
+  const mayTry = (): boolean => now() - lastTry >= cooldownMs;
+
+  return async (header, token) => {
+    if (!kept) await fetchKeys();
+    else if (now() - kept.at >= maxAgeMs && mayTry()) await fetchKeys().catch(onError);
+    try {
+      return await (kept as { keys: JWTVerifyGetKey }).keys(header, token);
+    } catch (err) {
+      if (err instanceof errors.JWKSNoMatchingKey && mayTry()) {
+        await fetchKeys().catch(onError);
+        return (kept as { keys: JWTVerifyGetKey }).keys(header, token);
+      }
+      throw err;
+    }
+  };
+}
 
 /** A user token: who someone is (ADR-015). */
 export interface UserPrincipal {
@@ -47,8 +104,8 @@ export function createTokenVerifier(options: VerifierOptions): TokenVerifier {
   let keys = options.keys;
   if (!keys) {
     if (!options.jwksUrl) throw new Error('createTokenVerifier needs jwksUrl or keys');
-    // jose caches the key set and refetches when it sees a new kid, so keys can rotate.
-    keys = createRemoteJWKSet(new URL(options.jwksUrl), { cacheMaxAge: 10 * 60_000, cooldownDuration: 30_000 });
+    // The keys are cached, fetched again when they are old or a new key id shows up, and kept when a fetch fails.
+    keys = createRemoteKeys({ url: options.jwksUrl });
   }
   const getKey = keys;
 
@@ -61,6 +118,7 @@ export function createTokenVerifier(options: VerifierOptions): TokenVerifier {
       ({ payload } = await jwtVerify(token, getKey, { issuer: options.issuer, audience, algorithms: ['RS256'] }));
     } catch (err) {
       if (err instanceof ApiError) throw err;
+      if (err instanceof KeysUnavailable) throw new ApiError(503, 'INTERNAL_ERROR', 'Your sign-in could not be checked just now. Try again in a moment.');
       if (err instanceof errors.JOSEError || err instanceof TypeError || err instanceof SyntaxError) throw unauthorized;
       throw err;
     }

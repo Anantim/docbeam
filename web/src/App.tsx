@@ -8,6 +8,7 @@ import { StatusPage } from './components/StatusPage.js';
 import { Toasts, type Toast } from './components/Toasts.js';
 import type { Claims } from './auth/token.js';
 import { liveClient } from './live/instance.js';
+import type { Counts } from './tracking/api.js';
 import { hashFor, parseHash, type Route, type View } from './tracking/route.js';
 import { runningCount, usePagedJobs } from './tracking/usePagedJobs.js';
 import { uploadManager } from './upload/instance.js';
@@ -59,7 +60,7 @@ export function App() {
     if (session.status === 'signedIn') wasSignedIn.current = true;
     else if (session.status === 'signedOut' && wasSignedIn.current) {
       wasSignedIn.current = false;
-      window.location.hash = hashFor({ view: 'distribute', jobId: null, uploads: false });
+      window.location.hash = hashFor({ view: 'distribute', jobId: null });
     }
   }, [session.status]);
 
@@ -73,7 +74,11 @@ export function App() {
   // My distributions, refreshed every 30 seconds. Also the badge on the Status tab.
   const mine = usePagedJobs('mine', token !== null, undefined, signedInAgain);
 
-  const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId, uploads: false }), [go]);
+  // The open distribution's live counts: the badge on the Status tab follows them (D-F1-15).
+  const [liveJob, setLiveJob] = useState<{ jobId: string; counts: Counts } | null>(null);
+  const onLive = useCallback((jobId: string, counts: Counts) => setLiveJob({ jobId, counts }), []);
+
+  const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId }), [go]);
 
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
@@ -87,7 +92,7 @@ export function App() {
 
   return (
     <>
-      <Shell claims={claims} teams={teams} view={view} onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null, uploads: v === 'status' && route.uploads })} running={runningCount(mine.jobs)}>
+      <Shell claims={claims} teams={teams} view={view} onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null })} running={runningCount(mine.jobs, liveJob)}>
         {/* Distribute stays mounted while another screen shows, so a prepared batch survives a look at Status. */}
         <div className="view" hidden={view !== 'distribute'}>
           <Distribute
@@ -103,10 +108,9 @@ export function App() {
           <StatusPage
             meId={claims.sub}
             jobId={route.jobId}
-            uploads={route.uploads}
             onOpen={openJob}
-            onOpenUploads={() => go({ view: 'status', jobId: null, uploads: true })}
             mine={mine}
+            onLive={onLive}
             notify={notify}
             signedInAgain={signedInAgain}
           />

@@ -133,9 +133,21 @@ describe('browse pages (F1 part B, D-F1-6)', () => {
     expect(names[49]).toBe('Load Team 50');
   });
 
-  it('default limit is 20; the largest limit is 100; a bigger or odd one is a 400', async () => {
+  it('teams come 50 at a time by default, binders and folders 20; the largest limit is 100; a bigger or odd one is a 400', async () => {
     const load = await login('load.user@example.com');
-    expect((await call(PLATFORM_URL, '/teams', { token: load.token })).body.items).toHaveLength(20);
+    const teams = await call(PLATFORM_URL, '/teams', { token: load.token });
+    expect(teams.body.items).toHaveLength(50); // all 50 teams of the load user in one call
+    expect(teams.body.nextCursor).toBeNull();
+    const firstTen = await call(PLATFORM_URL, '/teams?limit=10', { token: load.token });
+    expect(firstTen.body.items).toHaveLength(10);
+    expect(firstTen.body.nextCursor).toEqual(expect.any(String));
+    const paging = await login('paging.user@example.com');
+    const team = (await call(PLATFORM_URL, '/teams', { token: paging.token })).body.items[0] as { id: string };
+    const binder = (await call(PLATFORM_URL, `/teams/${team.id}/binders`, { token: paging.token })).body.items[0] as { id: string };
+    const top = (await call(PLATFORM_URL, `/binders/${binder.id}/contents`, { token: paging.token })).body.folders as Array<{ id: string }>;
+    const archive = await call(PLATFORM_URL, `/folders/${top[0]!.id}/contents`, { token: paging.token });
+    expect(archive.body.folders).toHaveLength(20); // folders stay at 20 a page
+    expect(archive.body.nextCursor).toEqual(expect.any(String));
     expect((await call(PLATFORM_URL, '/teams?limit=100', { token: load.token })).body.nextCursor).toBeNull();
     for (const bad of ['0', '101', 'abc', '-3']) {
       const res = await call(PLATFORM_URL, `/teams?limit=${bad}`, { token: load.token });

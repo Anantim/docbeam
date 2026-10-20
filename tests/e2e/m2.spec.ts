@@ -62,7 +62,7 @@ test('a file type that is not allowed is listed under Not added, and can be dism
   await expect(notAdded).toHaveCount(0);
 });
 
-test('a malware test file is refused by the scan, can never be sent, and only its owner sees the audit event', async ({ browser, page }) => {
+test('a malware test file is refused by the scan, can never be sent, and only its owner has the audit event (in the API; the page shows none)', async ({ page }) => {
   await signIn(page, PRIYA);
   const name = `eicar-${randomUUID().slice(0, 6)}.pdf`;
   await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/pdf', buffer: Buffer.from(EICAR) }]);
@@ -79,21 +79,24 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   await page.getByRole('button', { name: `Remove ${name}` }).click();
   await expect(row(page, name)).toHaveCount(0);
 
-  // The refusal is in Priya's audit trail, and nobody else's.
+  // The web app has no audit view (D-F1-13): a refused file shows only in the Distribute file list, and Status has no Upload events.
   await page.getByRole('button', { name: 'Status' }).click();
-  await page.getByRole('button', { name: 'Upload events' }).click();
-  await expect(page.getByRole('complementary', { name: 'Upload events' }).locator('.arow', { hasText: 'File refused' }).first()).toContainText('malware found by the scan');
+  await expect(page.getByRole('button', { name: 'Upload events' })).toHaveCount(0);
+  await expect(page.getByText('File refused')).toHaveCount(0);
 
-  const rajContext = await browser.newContext();
-  const raj = await rajContext.newPage();
-  try {
-    await signIn(raj, RAJ);
-    await raj.getByRole('button', { name: 'Status' }).click();
-    await raj.getByRole('button', { name: 'Upload events' }).click();
-    await expect(raj.getByRole('complementary', { name: 'Upload events' }).getByText('No upload events.')).toBeVisible();
-  } finally {
-    await rajContext.close();
-  }
+  // The backend still writes the refusal to Priya's audit trail, and to nobody else's.
+  const login = async (email: string): Promise<string> => {
+    const res = await page.request.post('/api/auth/login', { data: { email, password: env.SEED_USER_PASSWORD } });
+    expect(res.status()).toBe(200);
+    return (await res.json()).accessToken as string;
+  };
+  const refusals = async (email: string): Promise<number> => {
+    const res = await page.request.get('/api/audit?action=file.refused', { headers: { authorization: `Bearer ${await login(email)}` } });
+    expect(res.status()).toBe(200);
+    return ((await res.json()).events as Array<{ detail: { reason?: string } }>).filter((e) => JSON.stringify(e).includes(name)).length;
+  };
+  expect(await refusals(PRIYA)).toBeGreaterThan(0);
+  expect(await refusals(RAJ)).toBe(0);
 });
 
 test('ticking a folder applies to the selected file only, until "Use all files"', async ({ page }) => {

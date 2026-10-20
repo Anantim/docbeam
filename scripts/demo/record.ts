@@ -212,9 +212,7 @@ try {
   await say('Each delivery is tracked. The numbers move on their own, pushed over a WebSocket.', 3500);
   await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed' }).waitFor({ timeout: 300_000 }));
   await say('Every delivery has a status. Preview and Download are on completed rows.', 2500);
-  await click(page.locator('details.history summary'));
-  await page.locator('.panel').evaluate((el) => el.scrollTo(0, el.scrollHeight));
-  await say('History: who sent what, to where, and when.', 4000);
+  await say('The list narrows beside the panel. Esc closes the panel and the full list is back.', 4000);
   const address = page.url();
 
   // 6. Other people see what they should.

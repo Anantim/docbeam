@@ -2,7 +2,7 @@ import { ApiError } from '@docbeam/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Db } from '../db.js';
-import { cutPage, readPageQuery, type Position } from '../paging.js';
+import { cutPage, readPageQuery, TEAMS_DEFAULT_LIMIT, type Position } from '../paging.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,7 +66,7 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
 
   app.get('/teams', user, async (request) => {
     const userId = callerId(request);
-    const { limit, after } = readPageQuery(request.query);
+    const { limit, after } = readPageQuery(request.query, TEAMS_DEFAULT_LIMIT);
     const result = await db.execute<NamedRow>(sql`
       SELECT t.id, t.name
         FROM team_members m JOIN teams t ON t.id = m.team_id

@@ -63,6 +63,37 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
+  const six = (): TaskPage => ({ page: 1, limit: 100, total: 6, tasks: Array.from({ length: 6 }, (_, i) => row(i, { status: 'completed' })) });
+
+  it('draws all 6 deliveries of a distribution of 6 (the old 320 px box drew 5 and hid the sixth), with no scroll note', async () => {
+    api.tasks.mockImplementation(async () => six());
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
+    await screen.findByText(name(5));
+    for (let i = 0; i < 6; i += 1) expect(screen.getByText(name(i))).toBeTruthy();
+    expect(screen.getAllByRole('row').length - 1).toBe(6);
+    expect(screen.queryByText(/scroll the list/)).toBeNull();
+  });
+
+  it('says that the list scrolls when it does not fit, with the number of deliveries', async () => {
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
+    await screen.findByText(name(0));
+    expect(screen.getByText(/2,000 deliveries|2000 deliveries/)).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Delivery rows, scrolls' })).toBeTruthy();
+  });
+
+  it('at 320 px the box was 5 rows tall, so the sixth sat below the edge: the size hid it, not the data', async () => {
+    api.tasks.mockImplementation(async () => six());
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
+    await screen.findByText(name(0));
+    expect((screen.getByRole('region', { name: 'Delivery rows, scrolls' }) as HTMLElement).style.height).toBe('320px'); // 5 rows of 64 px
+    expect(screen.getByText(/scroll the list/)).toBeTruthy(); // and now the table says so
+  });
+});
+
 describe('TaskTable', () => {
   it('draws only the rows in view out of 2,000', async () => {
     const { live } = fakeLive();

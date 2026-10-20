@@ -8,13 +8,11 @@ import { trackingApi, type Counts, type JobDetail, type TaskKind, type TaskRow }
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { bannerText, isLive } from '../tracking/links.js';
-import { useAudit } from '../tracking/useAudit.js';
 import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
-import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { DestinationChips } from './DestinationChips.js';
-import { ChevronIcon, CloseIcon } from './Icons.js';
+import { CloseIcon } from './Icons.js';
 import { JobBar } from './JobBar.js';
 import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
@@ -43,12 +41,16 @@ const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 
   { id: 'cancelled', label: 'Cancelled', key: 'cancelled' },
 ];
 
-const TASKS_VIEWPORT = 320;
+/**
+ * How tall the deliveries table may grow before it scrolls inside the panel: 10 rows. A distribution of 6 deliveries
+ * shows all 6; the 5-row box of 320 px that came before hid the sixth (D-F1-15).
+ */
+const TASKS_VIEWPORT = 640;
 
 /**
- * One distribution, in the side panel of the Status view (D-F1-7): its status, Cancel and Retry for the sender, the
- * deliveries with their statuses, then the history of events. The progress bar and the filter numbers are the only
- * counts; the numbers move live.
+ * One distribution, in the side panel of the Status view (D-F1-7, D-F1-15): its status, Cancel and Retry for the
+ * sender, and the deliveries with their statuses. The progress bar and the filter numbers are the only counts; the
+ * numbers move live. There is no history of audit events: the web app shows job history only (D-F1-13).
  */
 export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0 }: Props) {
   const { state, counts, reloadKey, reloadAll } = useJob(jobId, live);
@@ -65,24 +67,12 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
   const files = useFileLink();
-  // The history is read again when the status changes (it began, finished or was cancelled), so it keeps up with the
-  // deliveries without a read for every push.
   const liveStatus = state.status === 'ready' ? statusFromCounts(counts ?? state.detail.counts, state.detail.cancelledAt !== null) : null;
-  const [statusChanges, setStatusChanges] = useState(0);
-  const lastStatus = useRef<typeof liveStatus>(null);
-  useEffect(() => {
-    if (liveStatus === null) return; // still loading
-    if (lastStatus.current !== null && lastStatus.current !== liveStatus) setStatusChanges((n) => n + 1);
-    lastStatus.current = liveStatus;
-  }, [liveStatus]);
   const { preview, download } = files;
   const onPreview = useCallback((t: TaskRow) => void preview(t.fileId, t.fileName), [preview]);
   const onDownload = useCallback((t: TaskRow) => void download(t.fileId, t.fileName), [download]);
   const announcement = state.status === 'ready' ? `${jobChip(liveStatus ?? state.detail.status).label}. ${(counts ?? state.detail.counts).completed} of ${state.detail.taskCount} completed.` : '';
   const announced = useThrottled(announcement, 5_000);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
-  const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges, enabled: historyOpen });
 
   const close = (
     <button className="icon" type="button" aria-label="Close" title="Close" onClick={onClose}>
@@ -254,14 +244,6 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             onDownload={onDownload}
           />
         </section>
-
-        <details className="panel-section history" aria-label="History" onToggle={(e) => setHistoryOpen(e.currentTarget.open)}>
-          <summary>
-            <ChevronIcon open={historyOpen} size={14} />
-            <h3>History</h3>
-          </summary>
-          {historyOpen && <AuditList {...history} onLoadMore={() => void history.loadMore()} empty="No events recorded for this distribution yet." />}
-        </details>
       </div>
 
       {files.viewing && (

@@ -75,16 +75,16 @@ const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps)
           {shortId(job.jobId)}
         </button>
       </td>
-      <td>{formatWhen(job.createdAt)}</td>
-      <td className="ellipsis" title={job.submittedBy.name}>
-        {job.submittedBy.userId === meId ? 'You' : job.submittedBy.name}
-      </td>
-      <td className="num-col dist-more">{job.fileCount}</td>
-      <td className="num-col dist-more">{job.destinationCount}</td>
       <td>
         <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
         {(status === 'pending' || status === 'in_progress') && <JobBar counts={counts ?? job.counts} total={job.taskCount} thin />}
       </td>
+      <td>{formatWhen(job.createdAt)}</td>
+      <td className="ellipsis dist-more" title={job.submittedBy.name}>
+        {job.submittedBy.userId === meId ? 'You' : job.submittedBy.name}
+      </td>
+      <td className="num-col dist-more">{job.fileCount}</td>
+      <td className="num-col dist-more">{job.destinationCount}</td>
     </tr>
   );
 }, sameRow);
@@ -138,15 +138,17 @@ export function DistributionList({ meId, scope, filtered = false, jobs, error, h
         <thead>
           <tr>
             <th scope="col">ID</th>
+            <th scope="col">Status</th>
             <th scope="col">Sent</th>
-            <th scope="col">Sender</th>
+            <th scope="col" className="dist-more">
+              Sender
+            </th>
             <th scope="col" className="num-col dist-more">
               Files
             </th>
             <th scope="col" className="num-col dist-more">
               Folders
             </th>
-            <th scope="col">Status</th>
           </tr>
         </thead>
         <tbody>

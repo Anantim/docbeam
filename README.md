@@ -15,7 +15,7 @@ DocBeam turns it into one action:
 1. Add the files once. They are checked and scanned for malware in the background; each shows Uploading, Checking, Ready or Refused.
 2. Tick the destination folders (only the teams you belong to are shown; only folders can be ticked, binders are headings). A tick goes to the selected files, or to all files, including files added later while it stays ticked.
 3. Send. One line says what goes where ("3 files to 5 folders: 15 deliveries"), a question asks once, and the server confirms the distribution at once and delivers every file-to-folder pair on its own, in the background.
-4. Watch the distribution in a side panel: the numbers and rows change live, a failure shows its reason, and the sender can retry the failed ones or cancel. Its History records who did what and when.
+4. Watch the distribution in a side panel: the numbers and rows change live, a failure shows its reason, and the sender can retry the failed ones or cancel. The page shows job history only; the audit records are kept by the backend.
 5. Anyone in a destination team can preview or download what was delivered. Nobody else can tell the file exists.
 
 ## Architecture
@@ -134,7 +134,8 @@ After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [do
 
 - **A design system.** The stylesheet starts with tokens (a neutral palette, one accent, status colours for status only, five text sizes, a 4 px scale, one radius, one shadow); one status chip; one icon style; one font. Screens work from 1024 px up.
 - **Distribute is two columns.** Files on the left (a click selects, Shift and Ctrl select more), Destinations on the right, one summary line and one Send button at the bottom, and one question before it goes ("Send 3 files to 5 folders?"). **Only folders are destinations; binders are headings.** A folder ticked for all files stays ticked for files added later.
-- **Status and audit are one view.** One list of distributions (Mine, My teams, All I can see, and a status filter), and a side panel for the one you open: deliveries with Retry failed and Cancel distribution, then its History. The address keeps the panel open.
+- **Status shows job history only (D-F1-13).** One list of distributions (Mine, My teams, All I can see, and a status filter), and a side panel for the one you open: its summary and deliveries with Retry failed and Cancel distribution. The list narrows beside the panel. There is no audit view in the page; `GET /audit` stays in the API.
+- **No sign-up in the web app (D-F1-17).** The study administrator sets accounts up (the seed script). `POST /auth/register` stays in the Auth Service and is switched off at the gateway by `public_registration_enabled`.
 - **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree and the list load 20 rows and more on scroll.
 - **Measured on dev (2026-10-20):** a 2,000-delivery submit p99 175 ms in normal operation and 452 ms under peak delivery load (server side); the first level of the tree for a user in 50 teams p99 848 ms from a laptop over the internet (27 ms at the gateway); ticking one of 40 folders draws one row (was 40).
 - **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm), 4 minutes 23 seconds, recorded by `scripts/demo/record.ts` on dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after-e3/](docs/testing/f1-evidence/after-e3/).

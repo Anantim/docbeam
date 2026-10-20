@@ -1,14 +1,9 @@
 name: dev-teardown
 
-# Tears dev down (D-M5-21). Scheduled once, on Tuesday 2026-10-20 at 04:30 UTC (10:00 IST), and it can be started by hand from the
-# Actions tab. Dev only: there are no inputs, and every command targets docbeam-dev and infra/envs/dev. It signs in with
-# the deploy user's keys, like the other workflows.
-#
-# A scheduled run does nothing after 2026-10-21, so the yearly cron entry (it fires on 20 October of every year) never
-# tears anything down again. A run started by hand is not limited by that date.
+# Tears dev down (D-M5-21, D-F1-16). It is started by hand from the Actions tab and has no schedule: the one-off schedule
+# of 2026-10-20 never ran and was removed. Dev only: there are no inputs, and every command targets docbeam-dev and
+# infra/envs/dev. It signs in with the deploy user's keys, like the other workflows.
 on:
-  schedule:
-    - cron: '30 4 20 10 *' # 04:30 UTC (10:00 IST) on 20 October (a Tuesday in 2026)
   workflow_dispatch:
 
 permissions:
@@ -35,24 +30,9 @@ jobs:
     timeout-minutes: 120 # emptying the data buckets and destroying about 300 resources took 35 minutes last time
     environment: dev
     steps:
-      - name: Check the date of a scheduled run
-        id: when
-        run: |
-          set -euo pipefail
-          today=$(date -u +%F)
-          if [ "${{ github.event_name }}" = "schedule" ] && [[ "$today" > "2026-10-21" ]]; then
-            echo "::notice::Scheduled run on $today, after 2026-10-21. This teardown was a one-off, so nothing is done."
-            echo "go=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Run on $today (${{ github.event_name }}): going on."
-            echo "go=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v4
-        if: steps.when.outputs.go == 'true'
 
       - uses: aws-actions/configure-aws-credentials@v4
-        if: steps.when.outputs.go == 'true'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -60,7 +40,6 @@ jobs:
 
       - name: Is there a dev cluster
         id: cluster
-        if: steps.when.outputs.go == 'true'
         run: |
           set -euo pipefail
           found=$(aws ecs describe-clusters --clusters docbeam-dev-cluster --query "clusters[?status=='ACTIVE'].clusterName" --output text)

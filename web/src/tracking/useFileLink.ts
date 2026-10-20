@@ -26,8 +26,6 @@ export function useFileLink() {
   const [banner, setBanner] = useState<LinkBanner | null>(null);
   const [viewing, setViewing] = useState<Viewing | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  /** How many links have been issued. The history reads again when it grows, so it shows the new event. */
-  const [issued, setIssued] = useState(0);
 
   // Tick once a second while a link is counting down.
   const counting = banner?.kind === 'live' && banner.expiresAt > now;
@@ -39,9 +37,7 @@ export function useFileLink() {
 
   const ask = useCallback(async (fileId: string, file: string, mode: 'download' | 'preview'): Promise<FileLink | null> => {
     try {
-      const link = await trackingApi.download(fileId, mode);
-      setIssued((n) => n + 1);
-      return link;
+      return await trackingApi.download(fileId, mode);
     } catch (e) {
       if (e instanceof ApiFailure && e.status === 410) setBanner({ kind: 'gone', file });
       else if (e instanceof ApiFailure && e.status === 404) setBanner({ kind: 'denied', file });
@@ -73,7 +69,6 @@ export function useFileLink() {
 
   return {
     banner,
-    issued,
     now,
     viewing,
     download,

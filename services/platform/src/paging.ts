@@ -1,6 +1,8 @@
 import { ApiError } from '@docbeam/shared';
 
+/** Binders and folders come 20 at a time; the list of teams comes 50 at a time, so a person in 50 teams gets them in one call (D-F1-16). */
 export const DEFAULT_LIMIT = 20;
+export const TEAMS_DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 100;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,10 +41,10 @@ export function decodeCursor(cursor: string): Position {
   return { rank, name, id };
 }
 
-/** Reads `limit` (1 to 100, default 20) and `cursor` from a query string; anything else is a 400. */
-export function readPageQuery(query: unknown): PageQuery {
+/** Reads `limit` (1 to 100, default 20 unless the route says otherwise) and `cursor` from a query string; anything else is a 400. */
+export function readPageQuery(query: unknown, defaultLimit: number = DEFAULT_LIMIT): PageQuery {
   const q = (query ?? {}) as Record<string, unknown>;
-  let limit = DEFAULT_LIMIT;
+  let limit = defaultLimit;
   if (q['limit'] !== undefined) {
     const raw = q['limit'];
     if (typeof raw !== 'string' || !/^\d{1,4}$/.test(raw)) throw new ApiError(400, 'VALIDATION_ERROR', `limit must be a whole number from 1 to ${MAX_LIMIT}.`);

@@ -6,7 +6,6 @@ import {
   chip,
   deleteStagedFiles,
   distRow,
-  openHistory,
   jobIdOf,
   ONC_ETHICS,
   PRIYA,
@@ -113,14 +112,11 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await sam.getByRole('button', { name: 'My teams' }).click();
       await expect(sam.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` })).toHaveCount(0);
 
-      // Raj's history of the distribution: Cardio deliveries, nothing about Oncology.
-      const audit = await openHistory(raj);
-      await expect(audit).toContainText('Delivered');
-      await expect(audit).toContainText('Distribution sent');
-      await expect(audit.locator('.arow', { hasText: 'Distribution sent' }).first()).toContainText('Distribution sent.');
-      await expect(audit).not.toContainText('Oncology');
-      // A refusal of Priya's own file (the malware test of m2.spec.ts) is only for her: not in this history.
-      await expect(audit).not.toContainText('File refused');
+      // Raj's panel of the distribution: Cardio deliveries, nothing about Oncology. The web app shows no audit trail (D-F1-13).
+      const panel = raj.getByRole('complementary');
+      await expect(panel).toContainText('Cardio');
+      await expect(panel).not.toContainText('Oncology');
+      await expect(raj.getByText(/Upload events|Distribution sent\.|File refused/)).toHaveCount(0);
     });
   } finally {
     await rajContext.close();
@@ -160,9 +156,6 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     const rows = await sql<{ n: number }>("SELECT count(*)::int AS n FROM tasks WHERE job_id = $1 AND status = 'completed'", [jobId]);
     expect(rows[0]?.n).toBe(0);
 
-    // The history has the cancel.
-    await openHistory(page);
-    await expect(page.locator('.audit-tab')).toContainText('Distribution cancelled');
   });
 });
 
@@ -225,9 +218,6 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
   expect(await stillThere(page)).toBe(true);
-
-  await openHistory(page);
-    await expect(page.locator('.audit-tab')).toContainText('Retry requested');
   expect(jobIdOf(page)).toBe(jobId);
 });
 
@@ -264,38 +254,51 @@ test('the list shows my distributions with their counts', async ({ page }) => {
   await expect(page.getByRole('columnheader', { name: 'Folders' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
   // A short id does not open anything; a full id or a link does.
-  await page.getByLabel('Open by ID').fill('3f1c2a9e');
+  await page.getByRole('button', { name: 'Open by ID' }).click();
+  const idField = page.getByLabel('Distribution ID or link');
+  await idField.fill('3f1c2a9e');
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('full distribution id');
   const firstTitle = (await cards.first().locator('.dist-id').getAttribute('title')) as string;
-  await page.getByLabel('Open by ID').fill(`http://localhost:5173/#/status/${firstTitle.toUpperCase()}`);
+  await idField.fill(`http://localhost:5173/#/status/${firstTitle.toUpperCase()}`);
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#/status/${firstTitle}$`));
 });
 
-test('a distribution opens in a side panel on the same page: deliveries, then its history; Upload events has its own panel', async ({ page }) => {
+test('a distribution opens in a side panel on the same page; the list narrows beside it; Esc closes; no audit view anywhere', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(page.getByRole('heading', { name: 'Distributions' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Upload events' })).toHaveCount(0);
+  await expect(page.getByRole('complementary')).toHaveCount(0);
+  const wide = (await page.locator('.dist-table').boundingBox())!.width;
+
   await page.locator('.dist-table tbody tr').first().click();
   const panel = page.getByRole('complementary');
   await expect(panel.getByRole('region', { name: 'Deliveries' })).toBeVisible();
-  await openHistory(page);
-  await expect(panel.locator('details.history .arow').first()).toBeVisible();
-  await expect(page.locator('.dist-table')).toBeVisible(); // the list stays beside it
+  await expect(panel.getByText('History')).toHaveCount(0);
+  await expect(page.locator('.dist-table')).toBeVisible(); // the list stays beside it, narrower
+  expect((await page.locator('.dist-table').boundingBox())!.width).toBeLessThan(wide * 0.6);
+  const list = (await page.locator('.dist-table').boundingBox())!.width;
+  const side = (await panel.boundingBox())!.width;
+  expect(side).toBeGreaterThan(list); // the panel takes the larger part
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
-  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/#\/status$/);
   await expect(page.getByRole('complementary')).toHaveCount(0);
+  expect((await page.locator('.dist-table').boundingBox())!.width).toBeGreaterThan(list); // the full list is back
 
-  await page.getByRole('button', { name: 'Upload events' }).click();
-  await expect(page).toHaveURL(/#\/status\/uploads$/);
-  await expect(page.getByRole('complementary', { name: 'Upload events' })).toBeVisible();
-  await page.reload(); // the address keeps the panel
-  await expect(page.getByRole('complementary', { name: 'Upload events' })).toBeVisible();
-  // The old Audit trail address opens Status.
+  // Old audit addresses open the first screens and the web app never asks for the audit trail.
+  const audit: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/audit')) audit.push(r.url());
+  });
   await page.evaluate("window.location.hash = '#/audit'");
+  await expect(page.getByRole('heading', { name: 'Distributions' }).or(page.getByRole('button', { name: 'Distribute' }))).toBeVisible();
+  await page.evaluate("window.location.hash = '#/status/uploads'");
   await expect(page.getByRole('heading', { name: 'Distributions' })).toBeVisible();
+  expect(audit).toEqual([]);
 });
 
 test('the two tabs are on, Copy link copies the address, and a prepared batch survives a look at Status', async ({ browser }) => {

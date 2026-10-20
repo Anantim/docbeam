@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PAUSE_NOTE } from './PauseNote.js';
 
-const session = vi.hoisted(() => ({ login: vi.fn(), register: vi.fn(), logout: vi.fn() }));
+const session = vi.hoisted(() => ({ login: vi.fn(), logout: vi.fn() }));
 vi.mock('../auth/session.js', () => {
   class AuthError extends Error {}
-  return { AuthError, login: session.login, register: session.register, logout: session.logout };
+  return { AuthError, login: session.login, logout: session.logout };
 });
 
 const { AuthCard } = await import('./AuthCard.js');
@@ -23,6 +23,17 @@ async function failToSignIn(): Promise<void> {
   await user.type(screen.getByLabelText('Password'), 'not-the-password');
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
 }
+
+describe('the sign-in page (D-F1-17)', () => {
+  it('has the tagline, the subtitle, one quiet line about accounts, and no way to register', () => {
+    render(<AuthCard />);
+    expect(screen.getByRole('heading', { name: 'One upload, every binder that needs it.' })).toBeTruthy();
+    expect(screen.getByText('Clinical trial document distribution for study teams')).toBeTruthy();
+    expect(screen.getByText('Accounts are set up by your study administrator.')).toBeTruthy();
+    expect(screen.queryByText(/create an account|create account|full name|register/i)).toBeNull();
+    expect(screen.queryByLabelText('Full name')).toBeNull();
+  });
+});
 
 describe('the sign-in pause note (D-M3-13)', () => {
   it('is not shown before a failed attempt', () => {
@@ -46,19 +57,6 @@ describe('the sign-in pause note (D-M3-13)', () => {
 
   it('says exactly what the person asked for', () => {
     expect(PAUSE_NOTE).toBe('After 5 wrong passwords in a row, sign-in pauses for 15 minutes. Wait, then try again.');
-  });
-
-  it('is not shown for a failed registration', async () => {
-    session.register.mockRejectedValue(new AuthError('We could not create that account.'));
-    const user = userEvent.setup();
-    render(<AuthCard />);
-    await user.click(screen.getByRole('button', { name: 'Create an account' }));
-    await user.type(screen.getByLabelText('Full name'), 'A Person');
-    await user.type(screen.getByLabelText('Work email'), 'a@example.com');
-    await user.type(screen.getByLabelText('Password'), 'a-long-enough-password');
-    await user.click(screen.getByRole('button', { name: 'Create account' }));
-    await screen.findByRole('alert');
-    expect(screen.queryByTestId('pause-note')).toBeNull();
   });
 
   it('is shown in the dialog that opens after 12 hours, after a failed attempt', async () => {

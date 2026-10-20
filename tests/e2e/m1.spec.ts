@@ -1,23 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { PRIYA, RAJ, SAM, signIn } from './helpers.js';
+import { newAccount, PRIYA, RAJ, SAM, signIn } from './helpers.js';
 
 // M1, Browse destinations, as a regression pack (flow 1): sign-in, and seeing only your own teams.
 const NEURO_BINDER = 'a3a4ad1e-e539-549e-80f9-508b960d620d'; // NEU-207 Regulatory, in the Neuro team only
 const PASSWORD = 'correct-horse-battery-staple';
 
-test('a new account can be created, sees an empty tree, signs out and signs in again', async ({ page }) => {
-  const email = `e2e.${randomUUID().slice(0, 8)}@example.com`;
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Create an account' }).click();
-  await page.getByLabel('Full name').fill('E2E Person');
-  await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
+test('an account the administrator set up sees an empty tree, signs out and signs in again; the web app offers no registration', async ({ page }) => {
+  // The page has no way to register (D-F1-17): it says who sets accounts up, and the old register address opens sign-in.
+  await page.goto('/#/register');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByText('Accounts are set up by your study administrator.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create an account' })).toHaveCount(0);
+  await expect(page.getByLabel('Full name')).toHaveCount(0);
 
-  // Registering signs in. A person in no team sees an empty tree.
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  // The account itself is made outside the page (here through the Auth Service, as the seed script does).
+  const email = await newAccount(page, 'E2E Person');
   await expect(page.getByText('You are not in a team yet')).toBeVisible();
   await expect(page.locator('.who .nm')).toHaveText('E2E Person');
 
@@ -29,15 +28,15 @@ test('a new account can be created, sees an empty tree, signs out and signs in a
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 });
 
-test('registering with an address that is already used gives one generic answer', async ({ page }) => {
+test('the sign-in page has the tagline and subtitle, and a wrong password gets one generic answer', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create an account' }).click();
-  await page.getByLabel('Full name').fill('Someone Else');
+  await expect(page.getByRole('heading', { name: 'One upload, every binder that needs it.' })).toBeVisible();
+  await expect(page.getByText('Clinical trial document distribution for study teams')).toBeVisible();
   await page.getByLabel('Work email').fill(PRIYA);
   await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('alert')).not.toContainText(/already|exists|taken/i); // it must not confirm the account exists
+  await expect(page.getByRole('alert')).not.toContainText(/no such|not found|exists/i); // it must not say whether the account exists
   await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
 });
 
@@ -144,6 +143,9 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
   const dialog = page.getByRole('dialog', { name: 'Sign in again' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Nothing on this page is lost');
+  // The page behind keeps what it showed: no "could not be loaded" error while the dialog is open (D-F1-14).
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByText(/could not be loaded/i)).toHaveCount(0);
 
   await page.unroute('**/api/jobs**');
   await page.unroute('**/api/auth/refresh');

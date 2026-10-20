@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { registerErrorHandler } from './errors.js';
-import { createTokenVerifier, jwtAuth } from './jwt.js';
+import { createRemoteKeys, createTokenVerifier, jwtAuth } from './jwt.js';
 
 const ISSUER = 'https://example.cloudfront.net/api';
 
@@ -129,5 +129,65 @@ describe('jwtAuth plugin', () => {
   it('leaves unguarded routes open', async () => {
     const res = await (await app()).inject({ url: '/health' });
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('createRemoteKeys: the public keys survive a failed fetch (D-F1-14)', () => {
+  const url = 'https://example.cloudfront.net/api/.well-known/jwks.json';
+  const keysAnswer = (...keys: JWK[]) => new Response(JSON.stringify({ keys }), { status: 200, headers: { 'content-type': 'application/json' } });
+
+  function setup(answers: Array<() => Response | Promise<Response>>) {
+    let clock = 1_000_000;
+    let calls = 0;
+    const errors: unknown[] = [];
+    const fetchImpl = (async () => {
+      const answer = answers[Math.min(calls, answers.length - 1)] as () => Response | Promise<Response>;
+      calls += 1;
+      return answer();
+    }) as typeof fetch;
+    const keys = createRemoteKeys({ url, fetchImpl, now: () => clock, onError: (e) => errors.push(e) });
+    const verify = createTokenVerifier({ issuer: ISSUER, keys });
+    return { verify, advance: (ms: number) => (clock += ms), calls: () => calls, errors };
+  }
+
+  it('keeps accepting a valid token after the cache time when the Auth Service cannot be reached', async () => {
+    const t = setup([() => keysAnswer(jwk), () => Promise.reject(new TypeError('fetch failed'))]);
+    await expect(t.verify(await sign(), { use: 'user' })).resolves.toMatchObject({ tokenUse: 'user' });
+    t.advance(11 * 60_000); // past the 10 minutes: the keys are due again, and the fetch fails
+    await expect(t.verify(await sign(), { use: 'user' })).resolves.toMatchObject({ tokenUse: 'user' });
+    expect(t.calls()).toBe(2);
+    expect(t.errors).toHaveLength(1);
+  });
+
+  it('does not try again for every request while the fetch keeps failing', async () => {
+    const t = setup([() => keysAnswer(jwk), () => new Response('', { status: 502 })]);
+    await t.verify(await sign(), { use: 'user' });
+    t.advance(11 * 60_000);
+    for (let i = 0; i < 5; i += 1) await t.verify(await sign(), { use: 'user' });
+    expect(t.calls()).toBe(2); // one failed try inside the 30-second cooldown
+    t.advance(31_000);
+    await t.verify(await sign(), { use: 'user' });
+    expect(t.calls()).toBe(3);
+  });
+
+  it('answers 503, not 401, when there are no keys at all and they cannot be fetched', async () => {
+    const t = setup([() => Promise.reject(new TypeError('fetch failed'))]);
+    await expect(t.verify(await sign(), { use: 'user' })).rejects.toMatchObject({ statusCode: 503 });
+  });
+
+  it('still answers 401 for a token that is wrong, with the keys in hand', async () => {
+    const t = setup([() => keysAnswer(jwk)]);
+    await expect(t.verify(await sign({ key: otherKey }), { use: 'user' })).rejects.toMatchObject({ statusCode: 401 });
+    await expect(t.verify(await sign({ expiresIn: '-1m' }), { use: 'user' })).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it('fetches again for a key id it does not know (a rotation), at most once per cooldown', async () => {
+    const pair2 = await generateKeyPair('RS256');
+    const jwk2 = { ...(await exportJWK(pair2.publicKey)), kid: 'key-3', alg: 'RS256', use: 'sig' };
+    const t = setup([() => keysAnswer(jwk), () => keysAnswer(jwk, jwk2)]);
+    await t.verify(await sign(), { use: 'user' });
+    t.advance(31_000);
+    await expect(t.verify(await sign({ kid: 'key-3', key: pair2.privateKey }), { use: 'user' })).resolves.toMatchObject({ tokenUse: 'user' });
+    expect(t.calls()).toBe(2);
   });
 });

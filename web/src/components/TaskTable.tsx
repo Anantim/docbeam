@@ -168,6 +168,11 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
           ))}
         </div>
       </div>
+      {total * ROW_HEIGHT > viewportHeight && (
+        <div className="tnote">
+          {plural(total, 'delivery', 'deliveries')}: scroll the list to see them all.
+        </div>
+      )}
     </div>
   );
 }
