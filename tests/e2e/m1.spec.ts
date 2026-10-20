@@ -18,7 +18,7 @@ test('a new account can be created, sees an empty tree, signs out and signs in a
 
   // Registering signs in. A person in no team sees an empty tree.
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
-  await expect(page.getByText('You are not in any team yet.')).toBeVisible();
+  await expect(page.getByText('You are not in a team yet')).toBeVisible();
   await expect(page.locator('.who .nm')).toHaveText('E2E Person');
 
   await page.getByRole('button', { name: 'Sign out' }).click();

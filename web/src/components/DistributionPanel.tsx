@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useThrottled } from './useThrottled.js';
 import { ApiFailure } from '../auth/session.js';
 import { formatSize } from '../distribute/files.js';
 import { JOB_STATUS_MEANING } from '../explain.js';
 import type { LiveClient } from '../live/socket.js';
-import { trackingApi, type Counts, type JobDetail, type TaskKind } from '../tracking/api.js';
+import { trackingApi, type Counts, type JobDetail, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { bannerText, isLive } from '../tracking/links.js';
@@ -74,6 +75,11 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     lastStatus.current = liveStatus;
   }, [liveStatus]);
   // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
+  const { preview, download } = files;
+  const onPreview = useCallback((t: TaskRow) => void preview(t.fileId, t.fileName), [preview]);
+  const onDownload = useCallback((t: TaskRow) => void download(t.fileId, t.fileName), [download]);
+  const announcement = state.status === 'ready' ? `${jobChip(liveStatus ?? state.detail.status).label}. ${(counts ?? state.detail.counts).completed} of ${state.detail.taskCount} completed.` : '';
+  const announced = useThrottled(announcement, 5_000);
   const [historyOpen, setHistoryOpen] = useState(false);
   const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges, enabled: historyOpen });
 
@@ -179,6 +185,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
       </div>
 
       <div className="panel-body">
+        <div className="sr" role="status" aria-live="polite">
+          {announced}
+        </div>
         <div className="lead">
           {detail.isSender ? 'You' : detail.submittedBy.name}, {formatWhen(detail.createdAt)}
           {detail.isSender ? '' : '. Only the deliveries to your teams are shown.'}
@@ -246,8 +255,8 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             reloadKey={reloadKey}
             live={live}
             viewportHeight={TASKS_VIEWPORT}
-            onPreview={(t) => void files.preview(t.fileId, t.fileName)}
-            onDownload={(t) => void files.download(t.fileId, t.fileName)}
+            onPreview={onPreview}
+            onDownload={onDownload}
           />
         </section>
 

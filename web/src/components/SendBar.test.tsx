@@ -9,10 +9,10 @@ const base = { summary: '2 files to 2 folders: 4 deliveries', error: null, onCle
 
 describe('SendBar titles', () => {
   it('says why Send is off, and why Clear is off', () => {
-    render(<SendBar {...base} ready={false} reason="Waiting for 2 files to be verified" sending={false} canClear={false} />);
+    render(<SendBar {...base} ready={false} reason="2 files are not ready yet" sending={false} canClear={false} />);
     const send = screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
-    expect(send.title).toBe('Waiting for 2 files to be verified');
+    expect(send.title).toBe('2 files are not ready yet');
     const clear = screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement;
     expect(clear.disabled).toBe(true);
     expect(clear.title).toBe('Nothing to clear');

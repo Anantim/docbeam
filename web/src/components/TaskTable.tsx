@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
@@ -133,7 +133,9 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
       <div className="trow thead" role="row">
         <div role="columnheader">File and folder</div>
         <div role="columnheader">Status</div>
-        <div role="columnheader">Attempts</div>
+        <div role="columnheader" className="tattempts">
+          Attempts
+        </div>
         <div role="columnheader">Details</div>
       </div>
       {error && (
@@ -141,7 +143,13 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
           {error}
         </div>
       )}
-      {!firstLoaded && !error && <div className="state small" role="status">Loading deliveries…</div>}
+      {!firstLoaded && !error && (
+        <div className="tree-skeleton" role="status" aria-label="Loading deliveries" aria-busy="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <span className="skeleton" key={i} />
+          ))}
+        </div>
+      )}
       {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
       <div
         ref={scroller}
@@ -163,7 +171,8 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
   );
 }
 
-function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
+/** One row's cells. Memoised: a scroll or a push for another row does not draw it again. */
+const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
   const look = taskLook(kind);
   const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
@@ -180,7 +189,7 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
       <div role="cell">
         <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[kind]} />
       </div>
-      <div role="cell" className="size" title={used === 0 ? 'Not attempted yet' : `${plural(used, 'attempt', 'attempts')} of the ${MAX_ATTEMPTS} allowed`}>
+      <div role="cell" className="size tattempts" title={used === 0 ? 'Not attempted yet' : `${plural(used, 'attempt', 'attempts')} of the ${MAX_ATTEMPTS} allowed`}>
         {used} of {MAX_ATTEMPTS}
       </div>
       <div role="cell" className="tdetail">
@@ -209,4 +218,4 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
       </div>
     </>
   );
-}
+});

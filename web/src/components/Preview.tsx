@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from './useFocusTrap.js';
-import { CloseIcon } from './Icons.js';
+import { CloseIcon, LockIcon } from './Icons.js';
 import { TypeBadge } from './TypeBadge.js';
 import { docxSrcdoc, xlsxSheets } from '../preview/office.js';
 import { sheetHtml, type SheetModel } from '../preview/render.js';
@@ -123,7 +123,10 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
           {view.kind === 'docx' && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={view.srcdoc} />}
           {view.kind === 'xlsx' && current && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={sheetHtml(current)} />}
         </div>
-        <div className="preview-note">🔒 {note}</div>
+        <div className="preview-note">
+          <LockIcon size={14} />
+          {note}
+        </div>
       </div>
     </>
   );

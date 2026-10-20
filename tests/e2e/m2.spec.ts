@@ -17,8 +17,8 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   const [name] = await addPdfs(page, 1, 'm2');
   await expect(row(page, name as string).locator('.status-chip')).toHaveText('Ready');
   // Ready, but nowhere to send it yet: Send says what is missing.
-  await expect(send0).toHaveAttribute('title', '1 file has no destination yet. Tick a folder');
-  await expect(page.locator('.send-reason')).toHaveText('1 file has no destination yet. Tick a folder');
+  await expect(send0).toHaveAttribute('title', '1 file has no folder. Tick a folder');
+  await expect(page.locator('.send-reason')).toHaveText('1 file has no folder. Tick a folder');
 
   await tick(page, CARDIO_IRB);
   const sendBtn = page.getByRole('button', { name: 'Send', exact: true });

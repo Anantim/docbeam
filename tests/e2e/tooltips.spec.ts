@@ -19,7 +19,7 @@ test('a button that is off says why, and a button with only an icon says what it
   // A file is added and checked: Send is still off, and says what is missing.
   const [name] = await addPdfs(page, 1, 'tips');
   await expect(send).toBeDisabled();
-  await expect(send).toHaveAttribute('title', '1 file has no destination yet. Tick a folder');
+  await expect(send).toHaveAttribute('title', '1 file has no folder. Tick a folder');
   await expect(tickBox).toBeEnabled();
   await expect(tickBox).not.toHaveAttribute('title', /.+/);
 

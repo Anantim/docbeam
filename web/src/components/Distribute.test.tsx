@@ -104,7 +104,7 @@ describe('Distribute', () => {
     await tickTop(user, 'all 2 files');
     const send = screen.getByRole('button', { name: 'Send' });
     expect((send as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('status').textContent).toBe('Waiting for 1 file to be verified');
+    expect(screen.getByRole('status').textContent).toBe('1 file is not ready yet');
 
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false));
@@ -146,7 +146,7 @@ describe('Distribute', () => {
     await user.click(screen.getByRole('button', { name: 'Use all files' }));
     const box = await screen.findByRole('checkbox', { name: `Send all 2 files to ${FOLDER}` });
     expect(box.getAttribute('aria-checked')).toBe('mixed');
-    expect(screen.getByRole('status').textContent).toBe('1 file has no destination yet. Tick a folder');
+    expect(screen.getByRole('status').textContent).toBe('1 file has no folder. Tick a folder');
   });
 
   it('asks before sending, with Cancel as the default answer, and sends nothing on Cancel or Esc', async () => {
