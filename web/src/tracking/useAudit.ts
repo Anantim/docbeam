@@ -32,7 +32,7 @@ export function useAudit({ jobId, actions, reloadKey = 0 }: Query) {
         setHasMore(out.hasMore);
         setError('');
       } catch (e) {
-        if (gen === generation.current) setError(e instanceof ApiFailure ? e.message : 'The audit trail could not be loaded.');
+        if (gen === generation.current) setError(e instanceof ApiFailure ? e.message : 'The history could not be loaded.');
       } finally {
         if (gen === generation.current) setLoading(false);
       }

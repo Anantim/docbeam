@@ -11,6 +11,8 @@ interface Props {
   error: string;
   hasMore: boolean;
   loadingMore: boolean;
+  /** The last request for the next page failed. */
+  moreFailed: boolean;
   onMore: () => void;
   onRetry: () => void;
   selectedId: string | null;
@@ -25,10 +27,10 @@ const SKELETON_ROWS = 5;
  * The distributions, newest first, one row each: short id, when it was sent, who sent it, how many files and
  * destinations, and its status. A row opens the side panel. The list is paged on scroll (D-F1-7).
  */
-export function DistributionList({ scope, jobs, error, hasMore, loadingMore, onMore, onRetry, selectedId, onOpen, live }: Props) {
+export function DistributionList({ scope, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, live }: Props) {
   if (jobs === null && error === '') {
     return (
-      <div className="card" aria-busy="true" aria-label="Loading distributions">
+      <div className="card" role="status" aria-busy="true" aria-label="Loading distributions">
         {Array.from({ length: SKELETON_ROWS }, (_, i) => (
           <div className="dist-skeleton" key={i}>
             <span className="skeleton" />
@@ -59,7 +61,7 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, onM
 
   return (
     <div className="card dist">
-      {error && !hasMore && (
+      {error && !(hasMore && moreFailed) && (
         <div className="alert dist-error" role="alert">
           {error}
         </div>
@@ -86,7 +88,7 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, onM
             const chip = jobChip(status);
             const selected = selectedId === job.jobId;
             return (
-              <tr key={job.jobId} className={selected ? 'on' : ''} onClick={() => onOpen(job.jobId)} aria-selected={selected}>
+              <tr key={job.jobId} className={selected ? 'on' : ''} onClick={() => onOpen(job.jobId)}>
                 <td>
                   <button
                     type="button"
@@ -116,7 +118,7 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, onM
           })}
         </tbody>
       </table>
-      {hasMore && <MoreRow className="state small" busy={loadingMore} failed={error !== ''} onMore={onMore} />}
+      {hasMore && <MoreRow className="state small" busy={loadingMore} failed={moreFailed} onMore={onMore} />}
     </div>
   );
 }

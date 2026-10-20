@@ -8,7 +8,8 @@ import { useAudit } from '../tracking/useAudit.js';
 import { AuditList } from './AuditList.js';
 import { CloseIcon } from './Icons.js';
 import { DistributionList } from './DistributionList.js';
-import { DistributionPanel, PanelFrame } from './DistributionPanel.js';
+import { DistributionPanel } from './DistributionPanel.js';
+import { PanelFrame } from './PanelFrame.js';
 
 type Jobs = ReturnType<typeof usePagedJobs>;
 
@@ -44,6 +45,7 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
   // Any new attempt to open something starts with a clean note.
   const open = (id: string): void => {
     setTypedError('');
+    setLiveCounts(null); // counts followed from an earlier look at a distribution are not this one's
     onOpen(id);
   };
 
@@ -116,6 +118,7 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
           error={list.error}
           hasMore={list.hasMore}
           loadingMore={list.loadingMore}
+          moreFailed={list.moreFailed}
           onMore={() => void list.loadMore()}
           onRetry={() => void list.refresh()}
           selectedId={jobId}
@@ -128,7 +131,11 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
             jobId={jobId}
             live={live}
             notify={notify}
-            onClose={() => onOpen(null)}
+            onClose={() => {
+              onOpen(null);
+              // Focus goes back to the row that opened the panel, not to the page.
+              requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="Open distribution ${jobId.slice(0, 8)}"]`)?.focus());
+            }}
             onCounts={followCounts}
             signedInAgain={signedInAgain}
             onChanged={() => {
@@ -148,7 +155,7 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
 function UploadEvents({ onClose, signedInAgain }: { onClose: () => void; signedInAgain: number }) {
   const history = useAudit({ actions: ['file.refused'], reloadKey: signedInAgain });
   return (
-    <PanelFrame jobId="" label="Upload events" onClose={onClose}>
+    <PanelFrame label="Upload events" onClose={onClose}>
       <div className="panel-head">
         <h2>Upload events</h2>
         <button className="icon" type="button" aria-label="Close" title="Close" onClick={onClose}>

@@ -67,6 +67,7 @@ const mine = (jobs: JobSummary[] | null = [], over: Partial<ReturnType<typeof us
   error: '',
   hasMore: false,
   loadingMore: false,
+  moreFailed: false,
   refresh: vi.fn(async () => undefined),
   loadMore: vi.fn(async () => undefined),
   ...over,

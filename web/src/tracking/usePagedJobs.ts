@@ -11,9 +11,11 @@ interface State {
   /** A full last page means another may follow. */
   hasMore: boolean;
   loadingMore: boolean;
+  /** The request for the next page failed (the rows already shown stay). */
+  moreFailed: boolean;
 }
 
-const first: State = { jobs: null, error: '', hasMore: false, loadingMore: false };
+const first: State = { jobs: null, error: '', hasMore: false, loadingMore: false, moreFailed: false };
 
 /** The rows of `more` that `rows` does not hold yet: a new distribution shifts the pages, so a row can come twice. */
 const unseen = (rows: JobSummary[], more: JobSummary[]): JobSummary[] => {
@@ -48,7 +50,7 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
         lastLength = rows.length;
         if (rows.length < LIST_PAGE) break;
       }
-      setState((s) => ({ ...s, jobs, error: '', hasMore: lastLength === LIST_PAGE, loadingMore: false }));
+      setState((s) => ({ ...s, jobs, error: '', hasMore: lastLength === LIST_PAGE, loadingMore: false, moreFailed: false }));
     } catch (e) {
       if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false }));
     }
@@ -58,14 +60,14 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
     if (state.jobs === null || !state.hasMore || state.loadingMore || moreInFlight.current) return;
     moreInFlight.current = true;
     const ticket = ++latest.current;
-    setState((s) => ({ ...s, loadingMore: true, error: '' }));
+    setState((s) => ({ ...s, loadingMore: true, moreFailed: false, error: '' }));
     try {
       const rows = await trackingApi.jobs(scope, pages.current + 1, LIST_PAGE);
       if (ticket !== latest.current) return;
       pages.current += 1;
-      setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], rows)], hasMore: rows.length === LIST_PAGE, loadingMore: false }));
+      setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], rows)], hasMore: rows.length === LIST_PAGE, loadingMore: false, moreFailed: false }));
     } catch (e) {
-      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false }));
+      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false, moreFailed: true }));
     } finally {
       moreInFlight.current = false;
     }

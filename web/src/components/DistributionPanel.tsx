@@ -14,6 +14,7 @@ import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { DestinationChips } from './DestinationChips.js';
 import { CloseIcon } from './Icons.js';
+import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
 import { StatusChip } from './StatusChip.js';
 import { TaskTable } from './TaskTable.js';
@@ -66,11 +67,11 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   // deliveries without a read for every push.
   const liveStatus = state.status === 'ready' ? statusFromCounts(counts ?? state.detail.counts, state.detail.cancelledAt !== null) : null;
   const [statusChanges, setStatusChanges] = useState(0);
-  const lastStatus = useRef(liveStatus);
+  const lastStatus = useRef<typeof liveStatus>(null);
   useEffect(() => {
-    if (lastStatus.current === liveStatus) return;
+    if (liveStatus === null) return; // still loading
+    if (lastStatus.current !== null && lastStatus.current !== liveStatus) setStatusChanges((n) => n + 1);
     lastStatus.current = liveStatus;
-    setStatusChanges((n) => n + 1);
   }, [liveStatus]);
   // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
   const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges });
@@ -83,7 +84,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
 
   if (state.status === 'loading') {
     return (
-      <PanelFrame jobId={jobId} onClose={onClose}>
+      <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
           <h2 className="mono">{shortId(jobId)}</h2>
           {close}
@@ -96,7 +97,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   }
   if (state.status === 'notFound') {
     return (
-      <PanelFrame jobId={jobId} onClose={onClose}>
+      <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
           <h2>Distribution not found</h2>
           {close}
@@ -109,7 +110,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   }
   if (state.status === 'error') {
     return (
-      <PanelFrame jobId={jobId} onClose={onClose}>
+      <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
           <h2 className="mono">{shortId(jobId)}</h2>
           {close}
@@ -162,7 +163,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   };
 
   return (
-    <PanelFrame jobId={jobId} onClose={onClose}>
+    <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
       <div className="panel-head">
         <div className="panel-title">
           <h2 className="mono" title={jobId}>
@@ -284,21 +285,6 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
         </ConfirmDialog>
       )}
     </PanelFrame>
-  );
-}
-
-/** The panel's box. Escape closes it while focus is inside, unless a dialog (a preview, a question, a popover) is open: that one takes the Escape. */
-export function PanelFrame({ jobId, onClose, label, children }: { jobId: string; onClose: () => void; label?: string; children: React.ReactNode }) {
-  return (
-    <aside
-      className="card panel"
-      aria-label={label ?? `Distribution ${shortId(jobId)}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) onClose();
-      }}
-    >
-      {children}
-    </aside>
   );
 }
 
