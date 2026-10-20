@@ -26,7 +26,7 @@ export function useFileLink() {
   const [banner, setBanner] = useState<LinkBanner | null>(null);
   const [viewing, setViewing] = useState<Viewing | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  /** How many links have been issued. The Audit tab reads again when it grows, so it shows the new event. */
+  /** How many links have been issued. The history reads again when it grows, so it shows the new event. */
   const [issued, setIssued] = useState(0);
 
   // Tick once a second while a link is counting down.

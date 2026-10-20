@@ -1,5 +1,5 @@
 import type { AuditEvent } from '../tracking/api.js';
-import { describeAudit, formatTime, shortId } from '../tracking/format.js';
+import { describeAudit, formatTime } from '../tracking/format.js';
 
 /** The tile colour of each kind of event: the same status tones as everywhere else (D-F1-5). */
 const TONES: Record<string, 'idle' | 'busy' | 'ok' | 'warn'> = {
@@ -13,12 +13,10 @@ const TONES: Record<string, 'idle' | 'busy' | 'ok' | 'warn'> = {
 
 interface RowProps {
   event: AuditEvent;
-  /** Show the distribution's short id as a link (the Audit trail page). */
-  onOpenJob?: (jobId: string) => void;
 }
 
 /** One audit event: a tile, the event, who did it, what happened, and when. */
-export function AuditRow({ event, onOpenJob }: RowProps) {
+export function AuditRow({ event }: RowProps) {
   const line = describeAudit(event);
   const tone = line.bad ? 'bad' : (TONES[line.tone] ?? 'idle');
   return (
@@ -34,11 +32,6 @@ export function AuditRow({ event, onOpenJob }: RowProps) {
         </div>
         <div className="adetail">{line.detail}</div>
       </div>
-      {event.jobId && onOpenJob && (
-        <button className="link mono" type="button" onClick={() => onOpenJob(event.jobId as string)} title={`Open distribution ${event.jobId}`}>
-          {shortId(event.jobId)}
-        </button>
-      )}
     </div>
   );
 }
@@ -52,7 +45,7 @@ interface ListProps {
   empty: string;
 }
 
-/** The flat list in a distribution's Audit tab. */
+/** The flat list of events, newest first, in the side panel. */
 export function AuditList({ events, hasMore, loading, error, onLoadMore, empty }: ListProps) {
   return (
     <div className="audit-tab">
@@ -61,15 +54,15 @@ export function AuditList({ events, hasMore, loading, error, onLoadMore, empty }
           {error}
         </div>
       )}
-      {!loading && !error && events.length === 0 && <div className="empty-line">{empty}</div>}
+      {!loading && !error && events.length === 0 && <div className="state small">{empty}</div>}
       {events.map((e) => (
         <AuditRow key={e.id} event={e} />
       ))}
-      {loading && events.length === 0 && <div className="empty-line">Loading…</div>}
+      {loading && events.length === 0 && <div className="state small" role="status">Loading…</div>}
       {hasMore && (
         <div className="load-more">
-          <button className="btn2" type="button" disabled={loading} onClick={onLoadMore}>
-            {loading ? 'Loading…' : 'Load more events'}
+          <button className="btn2 btnsm" type="button" disabled={loading} onClick={onLoadMore}>
+            {loading ? 'Loading…' : 'Show more'}
           </button>
         </div>
       )}

@@ -13,11 +13,14 @@ export interface JobSummary {
   submittedBy: { userId: string; name: string };
   createdAt: string;
   taskCount: number;
+  /** Files and folders the caller may see in the distribution (all of them for the sender). */
+  fileCount: number;
+  destinationCount: number;
   counts: Counts;
   status: JobStatus;
 }
 
-export interface JobDetail extends JobSummary {
+export interface JobDetail extends Omit<JobSummary, 'fileCount' | 'destinationCount'> {
   isSender: boolean;
   /** The server's clock when these counts were read. Pushes older than this are ignored. */
   asOf: string;
@@ -84,7 +87,7 @@ export const TASK_PAGE = 100;
 const post = <T>(path: string): Promise<T> => apiFetch<T>(path, { method: 'POST' });
 
 export const trackingApi = {
-  jobs: (scope: 'mine' | 'team', limit = 20): Promise<JobSummary[]> => apiFetch(`/jobs?scope=${scope}&limit=${limit}`),
+  jobs: (scope: 'mine' | 'team', page = 1, limit = 20): Promise<JobSummary[]> => apiFetch(`/jobs?scope=${scope}&page=${page}&limit=${limit}`),
   job: (jobId: string): Promise<JobDetail> => apiFetch(`/jobs/${jobId}`),
   tasks: (jobId: string, page: number, status?: TaskKind): Promise<TaskPage> =>
     apiFetch(`/jobs/${jobId}/tasks?page=${page}&limit=${TASK_PAGE}${status ? `&status=${status}` : ''}`),

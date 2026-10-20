@@ -16,20 +16,22 @@ describe('extractJobId', () => {
 });
 
 describe('parseHash and hashFor', () => {
+  const route = (view: 'distribute' | 'status', jobId: string | null, uploads = false) => ({ view, jobId, uploads });
   it.each([
-    ['', { view: 'distribute', jobId: null }],
-    ['#/', { view: 'distribute', jobId: null }],
-    ['#/status', { view: 'status', jobId: null }],
-    [`#/status/${ID}`, { view: 'status', jobId: ID }],
-    ['#/status/nonsense', { view: 'status', jobId: null }],
-    ['#/audit', { view: 'audit', jobId: null }],
-    ['#/other', { view: 'distribute', jobId: null }],
-  ])('%s', (hash, route) => {
-    expect(parseHash(hash)).toEqual(route);
+    ['', route('distribute', null)],
+    ['#/', route('distribute', null)],
+    ['#/status', route('status', null)],
+    [`#/status/${ID}`, route('status', ID)],
+    ['#/status/nonsense', route('status', null)],
+    ['#/status/uploads', route('status', null, true)],
+    ['#/audit', route('status', null)], // an old link: the Audit trail is part of Status now
+    ['#/other', route('distribute', null)],
+  ])('%s', (hash, expected) => {
+    expect(parseHash(hash)).toEqual(expected);
   });
 
   it('round-trips', () => {
-    for (const r of [{ view: 'status', jobId: ID }, { view: 'audit', jobId: null }, { view: 'distribute', jobId: null }] as const) {
+    for (const r of [route('status', ID), route('status', null), route('status', null, true), route('distribute', null)]) {
       expect(parseHash(hashFor(r))).toEqual(r);
     }
   });

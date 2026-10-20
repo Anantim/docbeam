@@ -1,4 +1,4 @@
-// Words, tones and times for the Status and Audit screens. The colours themselves live in StatusChip (D-M3-12).
+// Words, tones and times for the Status view and its history. The colours themselves live in StatusChip (D-M3-12).
 import type { Tone } from '../components/StatusChip.js';
 import type { AuditEvent, JobStatus, TaskKind, TaskRow } from './api.js';
 
@@ -47,38 +47,6 @@ export const formatTime = (iso: string): string => {
   const d = new Date(iso);
   return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 };
-
-/** "Today", "Yesterday" or "12 Oct 2026", for the day headings of the Audit trail. */
-export function dayHeading(iso: string, now = new Date()): string {
-  const d = new Date(iso);
-  const startOf = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((startOf(now) - startOf(d)) / 86_400_000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-export function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-export interface AuditKind {
-  id: string;
-  label: string;
-  actions: string[];
-}
-
-/** The Event filter of the Audit trail. "Deliveries" is two actions. */
-export const AUDIT_KINDS: AuditKind[] = [
-  { id: 'all', label: 'All', actions: [] },
-  { id: 'sent', label: 'Sent', actions: ['job.submitted'] },
-  { id: 'delivery', label: 'Deliveries', actions: ['task.completed', 'task.failed'] },
-  { id: 'retry', label: 'Retries', actions: ['job.retried'] },
-  { id: 'cancel', label: 'Cancels', actions: ['job.cancelled'] },
-  { id: 'download', label: 'Downloads', actions: ['download.issued'] },
-  { id: 'files', label: 'Uploads', actions: ['file.refused'] },
-];
 
 export interface AuditLine {
   title: string;

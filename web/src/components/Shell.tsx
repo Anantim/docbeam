@@ -7,7 +7,6 @@ import { Logo } from './Logo.js';
 const TABS: Array<[View, string]> = [
   ['distribute', 'Distribute'],
   ['status', 'Status'],
-  ['audit', 'Audit trail'],
 ];
 
 interface Props {
