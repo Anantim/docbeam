@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { CARDIO_IRB, jobIdOf, ON_DEV, ONC_ETHICS, PRIYA, RAJ, readCounts, SAM, send, signIn, tick } from './helpers.js';
+import { CARDIO_IRB, jobIdOf, ON_DEV, ONC_ETHICS, openHistory, PRIYA, RAJ, readCounts, SAM, send, signIn, tick } from './helpers.js';
 
 // M4 browser checks on dev (npm run test:e2e:dev). People and files: Priya (Cardio, Oncology) sends; Raj (Cardio);
 // Sam (neither). download.spec.ts runs on dev too (previews and download of the three file types).
@@ -78,7 +78,7 @@ test('Sam, in neither team, gets not found for the distribution and 404 for its 
   expect(denied.status()).toBe(404);
 });
 
-test('Priya previews and downloads; her Audit tab shows every link event, Raj\'s only his own', async ({ page, browser, request }) => {
+test('Priya previews and downloads; her History shows every link event, Raj\'s only his own', async ({ page, browser, request }) => {
   await signIn(page, PRIYA);
   await page.goto(`/#/status/${jobBoth}`);
   await rowOf(page, BOTH).first().getByRole('button', { name: `Preview ${BOTH}` }).click();
@@ -88,7 +88,7 @@ test('Priya previews and downloads; her Audit tab shows every link event, Raj\'s
   await rowOf(page, BOTH).first().getByRole('button', { name: `Download ${BOTH}` }).click();
   expect((await saved).suggestedFilename()).toBe(BOTH);
 
-  await page.getByRole('tab', { name: /^Audit/ }).click();
+  await openHistory(page);
   await expect(page.getByText('Preview link issued')).toHaveCount(2); // Raj's and hers
   await expect(page.getByText('Download link issued')).toHaveCount(1);
   await page.screenshot({ path: evidence('priya-audit-tab-all-link-events') });
@@ -104,7 +104,7 @@ test('Priya previews and downloads; her Audit tab shows every link event, Raj\'s
   const rajPage = await (await browser.newContext()).newPage();
   await signIn(rajPage, RAJ);
   await rajPage.goto(`/#/status/${jobBoth}`);
-  await rajPage.getByRole('tab', { name: /^Audit/ }).click();
+  await openHistory(rajPage);
   await expect(rajPage.getByText('Preview link issued')).toHaveCount(1);
   await expect(rajPage.getByText('Download link issued')).toHaveCount(0);
   await rajPage.screenshot({ path: evidence('raj-audit-tab-only-his-own') });

@@ -1,0 +1,12 @@
+[03:10:49] Changes AWS (approved with --yes): pauses the Delivery trigger for the run and switches it on again at the end
+[03:11:00] 100 jobs, 775 files, up to 20 destinations each
+[03:32:38] WINDOW from=2026-10-20T03:32:38.483Z (quiet: Delivery paused)
+[03:34:11] WINDOW to=2026-10-20T03:34:11.789Z
+PASS  every job accepted with files x 20 tasks: 100 of 100
+[03:34:33] Waiting 180 s for the gateway access log, then reading it server side
+PASS  server-side POST /jobs, requests counted: 100
+PASS  server-side POST /jobs p99 under 500 ms (normal operation): p50 35 ms, p99 175 ms, max 231 ms (API Gateway responseLatency)
+[03:37:39] client side (includes the internet): p50 308 ms, p99 1695 ms; the 5 jobs of 100 x 20: 1726, 1695, 585, 1165, 648 ms
+PASS  DLQs empty afterwards (job, task, upload events): 0, 0, 0
+
+PASS submit-load (4/4 lines)

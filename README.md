@@ -4,7 +4,7 @@
 
 DocBeam is a batch document distribution app for clinical trial teams. It is a portfolio project: designed first (`docs/design/`), then built in six milestones, and shown running on AWS (Sydney) from Terraform. Prod is written but never deployed.
 
-> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (3 min 5 s, recording of the live dev site made in OBS, cropped to the page; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). The dev site it shows is kept up for a day or two of review and is then torn down.
+> **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm) (recorded by a script, `scripts/demo/record.ts`, against the live dev site on 2026-10-20: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
 
 ## The problem
 
@@ -12,10 +12,10 @@ Research teams keep trial documents in a fixed hierarchy: Team, Binder, Folder, 
 
 DocBeam turns it into one action:
 
-1. Pick the files once. They are checked and scanned for malware in the background.
-2. Tick the destination folders (only the teams you belong to are shown).
-3. Send. The server confirms the job at once and delivers every file-to-folder pair on its own, in the background.
-4. Watch the counts and rows change live. A failure shows its reason. The sender can retry or cancel.
+1. Add the files once. They are checked and scanned for malware in the background; each shows Uploading, Checking, Ready or Refused.
+2. Tick the destination folders (only the teams you belong to are shown; only folders can be ticked, binders are headings). A tick goes to the selected files, or to all files, including files added later while it stays ticked.
+3. Send. One line says what goes where ("3 files to 5 folders: 15 deliveries"), a question asks once, and the server confirms the distribution at once and delivers every file-to-folder pair on its own, in the background.
+4. Watch the distribution in a side panel: the numbers and rows change live, a failure shows its reason, and the sender can retry the failed ones or cancel. Its History records who did what and when.
 5. Anyone in a destination team can preview or download what was delivered. Nobody else can tell the file exists.
 
 ## Architecture
@@ -82,7 +82,7 @@ docker compose run --rm seed           # demo teams, binders, folders and users;
 npm run dev -w @docbeam/web            # http://localhost:5173
 ```
 
-Sign in as `priya.shah@example.com` (Cardio and Oncology), `raj.mehta@example.com` (Cardio) or `sam.ito@example.com` (Neuro). The password is `SEED_USER_PASSWORD` in your `.env`.
+Sign in as `priya.shah@example.com` (Cardio and Oncology), `raj.mehta@example.com` (Cardio), `sam.ito@example.com` (Neuro) or `paging.user@example.com` (one folder with 60 subfolders, to see paging). The password is `SEED_USER_PASSWORD` in your `.env`.
 
 | What | Address |
 |---|---|
@@ -95,12 +95,12 @@ Locally the `workers` container polls the LocalStack queues and runs the same ha
 
 ## Tests
 
-| Layer | Command | Result at the end of M5 |
+| Layer | Command | Result at the end of F1 (2026-10-20) |
 |---|---|---|
-| Unit and web (vitest) | `npm test` | 76 files, 577 tests |
-| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 169 tests |
-| Browser (Playwright, local) | `npm run test:e2e` | 49 tests |
-| Browser on dev (Playwright) | `npm run test:e2e:dev` | see M5 below |
+| Unit and web (vitest) | `npm test` | 79 files, 623 tests |
+| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 180 tests |
+| Browser (Playwright, local) | `npm run test:e2e` | 50 tests (10 more run only on dev) |
+| Browser on dev (Playwright) | `npm run test:e2e:dev` | 11 tests passed on 2026-10-20 (see F1 below) |
 | Checks on deployed dev | `scripts/m5-all.sh` | see M5 below |
 | Repository safe to publish | `scripts/check-public.sh` | gitleaks clean over every commit |
 
@@ -127,6 +127,21 @@ M5 runs the success metrics of the [blueprint](docs/design/02-blueprint.md) agai
 | Dropped job message: sweeper starts fan-out within 3 minutes | Yes: 113 s after the sweeper was changed to re-send after 1 minute instead of 2 (D-M5-15, worst case about 2 minutes 10 seconds); the first run was 179 s, too close |
 | Browser: slow connection, multipart resume, WebSocket reconnect, PNG and JPG preview | see M5-RESULTS |
 | Delivery failure rate (system failures over all tasks) | 0 of 12,872 after the fixes; 853 of 24,398 (3.5%) in the one run before the pool fix |
+
+## F1: the reviewer's feedback round
+
+After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [docs/testing/F1-RESULTS.md](docs/testing/F1-RESULTS.md), decisions D-F1-1 to D-F1-12 in [docs/DECISIONS.md](docs/DECISIONS.md), a plain-English tour in [docs/walkthrough/F1.md](docs/walkthrough/F1.md)):
+
+- **A design system.** The stylesheet starts with tokens (a neutral palette, one accent, status colours for status only, five text sizes, a 4 px scale, one radius, one shadow); one status chip; one icon style; one font. Screens work from 1024 px up.
+- **Distribute is two columns.** Files on the left (a click selects, Shift and Ctrl select more), Destinations on the right, one summary line and one Send button at the bottom, and one question before it goes ("Send 3 files to 5 folders?"). **Only folders are destinations; binders are headings.** A folder ticked for all files stays ticked for files added later.
+- **Status and audit are one view.** One list of distributions (Mine, My teams, All I can see, and a status filter), and a side panel for the one you open: deliveries with Retry failed and Cancel distribution, then its History. The address keeps the panel open.
+- **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree and the list load 20 rows and more on scroll.
+- **Measured on dev (2026-10-20):** a 2,000-delivery submit p99 175 ms in normal operation and 452 ms under peak delivery load (server side); the first level of the tree for a user in 50 teams p99 848 ms from a laptop over the internet (27 ms at the gateway); ticking one of 40 folders draws one row (was 40).
+- **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm), 4 minutes 23 seconds, recorded by `scripts/demo/record.ts` on dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after-e3/](docs/testing/f1-evidence/after-e3/).
+
+![The Distribute screen](docs/testing/f1-evidence/after-e3/05-distribute-filled-1280.png)
+
+![The Status view with a distribution open](docs/testing/f1-evidence/after-e3/08-status-panel-1280.png)
 
 ## Deploy to AWS
 

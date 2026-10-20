@@ -111,7 +111,7 @@ test('multipart resume: the network drops mid-upload and the same upload carries
     await page.screenshot({ path: evidence('multipart-before-drop') });
 
     await network(page, { offline: true, limit: SLOW_UPLOAD });
-    await expect(rowOf(page, name).getByText('Interrupted')).toBeVisible({ timeout: 180_000 });
+    await expect(rowOf(page, name).getByText('Interrupted', { exact: true })).toBeVisible({ timeout: 180_000 });
     await page.screenshot({ path: evidence('multipart-interrupted') });
     await page.waitForTimeout(20_000);
     await network(page, { limit: SLOW_UPLOAD });

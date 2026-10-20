@@ -1,0 +1,9 @@
+PASS  the load user is in 50 teams (read in pages of 20): 50
+[03:41:51] client side: GET /teams (first page of 20) p50 765 ms, p99 848 ms; teams + first binders p99 1568 ms; all 3 pages in a row max (10 runs, so p99 is the max) 2314 ms (10 runs)
+PASS  first level (the first page of teams) usable under 1 s at p99, measured from this machine over the internet, 100 runs: p50 765 ms, p99 848 ms, max 1015 ms
+FAIL  all 50 teams, three pages in a row, under 1 s at p99: p99 2314 ms, max 2314 ms
+[03:41:51] second level (teams, then the first team's binders, two calls in a row): p99 1568 ms from this machine
+PASS  server side GET /teams p99 under 1 s: n 127, p50 9 ms, p99 27 ms, max 63 ms
+PASS  server side GET /teams/{teamId}/binders p99 under 1 s: n 100, p50 10 ms, p99 19 ms, max 47 ms
+
+FAIL browse (4/5 lines)
