@@ -240,8 +240,9 @@ const wordsPerLine = (el: BrowserElement & { firstChild: BrowserText }): number[
 
 test('the sign-in heading and subtext wrap in balance: no line ends with a single word', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'One upload. Every binder that needs it.' })).toBeVisible();
-  await expect(page.getByText('Pick your files, tick the folders, and follow every delivery.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'One upload, every binder that needs it.' })).toBeVisible();
+  await expect(page.getByText('Clinical trial document distribution for study teams')).toBeVisible();
+  await expect(page).toHaveTitle(/Clinical trial document distribution for study teams/);
   for (const width of [375, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     for (const selector of ['.auth-brand h1', '.auth-brand p']) {

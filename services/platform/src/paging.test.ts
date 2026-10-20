@@ -35,6 +35,12 @@ describe('limit', () => {
     expect(readPageQuery(undefined)).toEqual({ limit: 20, after: null });
   });
 
+  it('takes the default a route asks for, and still caps an explicit limit at 100', () => {
+    expect(readPageQuery({}, 50)).toEqual({ limit: 50, after: null });
+    expect(readPageQuery({ limit: '5' }, 50).limit).toBe(5);
+    expect(() => readPageQuery({ limit: '101' }, 50)).toThrow(expect.objectContaining({ statusCode: 400 }));
+  });
+
   it('accepts 1 to 100', () => {
     expect(readPageQuery({ limit: '1' }).limit).toBe(1);
     expect(readPageQuery({ limit: '100' }).limit).toBe(100);

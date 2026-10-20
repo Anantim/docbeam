@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, openHistory, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
+import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, jobIdOf, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
 
 // Found on dev in the person's browser checks (D-M3-17): an old sign-in error that stayed after signing in again,
 // and the counts of a distribution that was cancelled part way.
@@ -10,7 +10,7 @@ declare function getComputedStyle(el: unknown): { color: string; backgroundColor
 
 const unauthorised = { status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }) };
 
-test('signing in again from the dialog clears every sign-in error and reads the list and the distribution again', async ({ page }) => {
+test('while the sign-in is over the page behind the dialog shows no error, and after signing in again the waiting requests are sent', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   const first = distRow(page).first();
@@ -19,43 +19,28 @@ test('signing in again from the dialog clears every sign-in error and reads the 
 
   // The server stops accepting the token and the refresh, as after 12 hours.
   await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
-  await page.route('**/api/audit**', (route) => route.fulfill(unauthorised));
   await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
   await page.getByRole('button', { name: 'My teams' }).click();
   const dialog = page.getByRole('dialog', { name: 'Sign in again' });
   await expect(dialog).toBeVisible();
-  // The list shows the old error, and so does a distribution opened while the sign-in was over.
-  await expect(page.getByRole('alert').filter({ hasText: 'Your sign-in has ended.' })).toHaveCount(1);
   await page.evaluate((id) => {
     (globalThis as unknown as { location: { hash: string } }).location.hash = `#/status/${id}`;
   }, jobId);
-  await expect(page.getByRole('alert').filter({ hasText: 'Your sign-in has ended.' })).toHaveCount(2);
+  // Nothing behind the dialog says the sign-in has ended or that something could not be loaded: the requests wait (D-F1-14).
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByText(/could not be loaded/i)).toHaveCount(0);
 
-  // Sign in again. Nothing says the sign-in has ended any more, and the distribution and the list are back.
+  // Sign in again. The requests that waited are sent again: the distribution and the list are back.
   await page.unroute('**/api/jobs**');
-  await page.unroute('**/api/audit**');
   await page.unroute('**/api/auth/refresh');
   await dialog.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
   await dialog.getByRole('button', { name: 'Sign in again' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByText('Your sign-in has ended.')).toHaveCount(0);
   await expect(chip(page)).toBeVisible();
   await expect(page.locator('.ttable .tscroll .trow').first()).toBeVisible();
   await expect(page.getByLabel('Loading distributions')).toHaveCount(0);
-
-  // The Upload events panel recovers the same way.
-  await page.route('**/api/audit**', (route) => route.fulfill(unauthorised));
-  await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
-  await page.getByRole('button', { name: 'Upload events' }).click();
-  await expect(page.getByRole('dialog', { name: 'Sign in again' })).toBeVisible();
-  await expect(page.getByRole('alert').filter({ hasText: 'Your sign-in has ended.' })).toHaveCount(1);
-  await page.unroute('**/api/audit**');
-  await page.unroute('**/api/auth/refresh');
-  await page.getByRole('dialog').getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
-  await page.getByRole('dialog').getByRole('button', { name: 'Sign in again' }).click();
-  await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByRole('complementary', { name: 'Upload events' })).toBeVisible();
 });
 
 /** The coloured parts of a progress bar, as colour to width in percent. */
@@ -71,7 +56,7 @@ const RED = rgb('#F04438');
 const BLUE = rgb('#2B59C3');
 const GREY = rgb('#98A2B3');
 
-test('a distribution cancelled part way: filter numbers, the bar, chips, rows and history agree, and red means failed only', async ({ page }) => {
+test('a distribution cancelled part way: filter numbers, the bar, chips and rows agree, and red means failed only', async ({ page }) => {
   await signIn(page, PRIYA);
   await withWorkersStopped(async ({ hold, start }) => {
     const { jobId } = await sendFiles(page, 4, [CARDIO_IRB, CARDIO_PROTOCOL], hold); // 8 deliveries
@@ -125,13 +110,6 @@ test('a distribution cancelled part way: filter numbers, the bar, chips, rows an
     for (const text of await rowChips.allTextContents()) expect(text).toBe('Cancelled');
     await expect(rowChips.first()).toHaveAttribute('title', /Nothing was delivered/);
 
-    // The history says cancelled, never failed, for those five.
-    await openHistory(page);
-    const audit = page.locator('.audit-tab');
-    await expect(audit).toContainText('Distribution cancelled');
-    await expect(audit.getByText('Delivery cancelled', { exact: true })).toHaveCount(5);
-    await expect(audit.getByText('Delivery failed', { exact: true })).toHaveCount(0);
-
     // A reload and the workers starting change nothing.
     await page.reload();
     await expect(counts(page)).toBeVisible();
@@ -140,4 +118,64 @@ test('a distribution cancelled part way: filter numbers, the bar, chips, rows an
     await page.waitForTimeout(5_000);
     expect(await readCounts(page)).toEqual([3, 0, 0, 0, 5]);
   });
+});
+
+test('the badge on the Status tab counts what is running and goes when the distribution finishes (D-F1-15)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  const badge = page.locator('.tab-badge');
+  const shown = async (): Promise<number> => ((await badge.count()) === 0 ? 0 : Number(/\d+/.exec((await badge.first().textContent()) ?? '0')?.[0] ?? 0));
+  await expect.poll(shown).toBe(0); // nothing is running for Priya when this starts
+  await withWorkersStopped(async ({ hold, start }) => {
+    await sendFiles(page, 1, [CARDIO_IRB], hold);
+    await expect.poll(shown).toBe(1);
+    start();
+    await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+    await expect.poll(shown, { timeout: 15_000 }).toBe(0); // well before the 30 s refresh of the list
+  });
+});
+
+test('a distribution of 6 deliveries shows all 6 in the panel on a laptop screen (D-F1-15)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, PRIYA);
+  const { jobId } = await sendFiles(page, 3, [CARDIO_IRB, CARDIO_PROTOCOL]); // 3 files x 2 folders
+  await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
+  expect(jobIdOf(page)).toBe(jobId);
+  await expect(page.getByRole('button', { name: /^All, 6 deliveries/ })).toBeVisible();
+  const rows = page.locator('.ttable .tscroll .trow');
+  await expect(rows).toHaveCount(6);
+  const box = (await page.getByRole('region', { name: /Delivery rows/ }).boundingBox())!;
+  for (let i = 0; i < 6; i += 1) {
+    const r = (await rows.nth(i).boundingBox())!;
+    expect(r.y + r.height, `row ${i + 1} ends inside the box`).toBeLessThanOrEqual(box.y + box.height + 1);
+  }
+});
+
+test('the sign-in dialog covers the whole viewport on a long page scrolled down, and the page behind does not scroll (D-F1-14)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Status' }).click();
+  await expect(distRow(page).first()).toBeVisible();
+  await page.evaluate(`window.scrollTo(0, document.documentElement.scrollHeight)`);
+  await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
+  await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
+  await page.getByRole('button', { name: 'My teams' }).dispatchEvent('click'); // no scrolling into view
+  const dialog = page.getByRole('dialog', { name: 'Sign in again' });
+  await expect(dialog).toBeVisible();
+  const viewport = page.viewportSize()!;
+  const overlay = (await page.locator('.overlay').boundingBox())!;
+  expect(overlay).toMatchObject({ x: 0, y: 0, width: viewport.width, height: viewport.height });
+  const scrollBefore = await page.evaluate(`window.scrollY`);
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(`window.scrollY`)).toBe(scrollBefore);
+  // The dialog is inside the viewport, and the label sits apart from the text above it and close to its field.
+  const d = (await dialog.boundingBox())!;
+  expect(d.y).toBeGreaterThanOrEqual(0);
+  expect(d.y + d.height).toBeLessThanOrEqual(viewport.height);
+  const gap = async (a: string, b: string): Promise<number> => {
+    const top = (await dialog.locator(a).boundingBox())!;
+    const next = (await dialog.locator(b).boundingBox())!;
+    return next.y - (top.y + top.height);
+  };
+  expect(await gap('.dialog-body', 'label')).toBeGreaterThan(await gap('label', 'input'));
 });

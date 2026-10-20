@@ -1,16 +1,12 @@
-import { useCallback, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
 import type { Counts, JobScope, JobStatus } from '../tracking/api.js';
 import { jobChip } from '../tracking/format.js';
-import { extractJobId } from '../tracking/route.js';
 import { usePagedJobs } from '../tracking/usePagedJobs.js';
-import { useAudit } from '../tracking/useAudit.js';
-import { AuditList } from './AuditList.js';
-import { CloseIcon } from './Icons.js';
 import { DistributionList } from './DistributionList.js';
 import { DistributionPanel } from './DistributionPanel.js';
-import { PanelFrame } from './PanelFrame.js';
+import { OpenById } from './OpenById.js';
 
 type Jobs = ReturnType<typeof usePagedJobs>;
 
@@ -20,13 +16,12 @@ interface Props {
   /** The signed-in person's id. */
   meId: string;
   jobId: string | null;
-  /** The panel shows the upload events instead of a distribution. */
-  uploads?: boolean;
   /** Opens a distribution in the panel, or closes the panel with null. */
   onOpen: (jobId: string | null) => void;
-  onOpenUploads: () => void;
   /** My distributions, loaded by the app (it also feeds the badge on the Status tab). */
   mine: Jobs;
+  /** Told the live counts of the open distribution, so the badge on the tab follows them. */
+  onLive?: (jobId: string, counts: Counts) => void;
   notify: (text: string, kind?: 'ok' | 'error') => void;
   live?: LiveClient;
   /** Counts the sign-ins made from the 12-hour dialog. When it changes, the lists and the open distribution read again. */
@@ -34,75 +29,50 @@ interface Props {
 }
 
 /**
- * Status and audit in one view (D-F1-7): the distributions, newest first, and a side panel on the same page for
- * the one that is open: its deliveries with Retry and Cancel, then its history of events. The address keeps the
- * open distribution.
+ * Status: the distributions, newest first (D-F1-7, D-F1-15). When one is open its panel takes about 60 % of the width
+ * and the list narrows to a compact column (id, status, when). Esc or Close brings the full list back. The address
+ * keeps the open distribution. The web app shows job history only: no audit trail (D-F1-13).
  */
-export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads, mine, notify, live = liveClient, signedInAgain = 0 }: Props) {
+export function StatusPage({ meId, jobId, onOpen, mine, onLive, notify, live = liveClient, signedInAgain = 0 }: Props) {
   const [scope, setScope] = useState<JobScope>('mine');
   const [status, setStatus] = useState<JobStatus | ''>('');
-  const [typed, setTyped] = useState('');
-  const [typedError, setTypedError] = useState('');
   const [liveCounts, setLiveCounts] = useState<{ jobId: string; counts: Counts } | null>(null);
-  const followCounts = useCallback((id: string, counts: Counts) => setLiveCounts({ jobId: id, counts }), []);
   // The app already loads my own list (it feeds the badge on the tab): use it while nothing is filtered.
   const unfiltered = scope === 'mine' && status === '';
   const other = usePagedJobs(scope, !unfiltered, undefined, signedInAgain, status === '' ? undefined : status);
   const list = unfiltered ? mine : other;
 
-  // Any new attempt to open something starts with a clean note.
+  const onLiveRef = useRef(onLive);
+  onLiveRef.current = onLive;
+  const followCounts = useCallback((id: string, counts: Counts) => {
+    setLiveCounts({ jobId: id, counts });
+    onLiveRef.current?.(id, counts);
+  }, []);
+
+  // When the open distribution finishes, its row and the badge on the tab are read again at once, not at the next
+  // refresh 30 seconds later (D-F1-15).
+  const finished = liveCounts !== null && liveCounts.counts.pending + liveCounts.counts.in_progress === 0;
+  const refreshRef = useRef({ mine: mine.refresh, other: other.refresh, unfiltered });
+  refreshRef.current = { mine: mine.refresh, other: other.refresh, unfiltered };
+  useEffect(() => {
+    if (!finished) return;
+    void refreshRef.current.mine();
+    if (!refreshRef.current.unfiltered) void refreshRef.current.other();
+  }, [finished, liveCounts?.jobId]);
+
   // Stable, so the rows of the list (memoised) are not drawn again whenever this page is.
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
   const open = useCallback((id: string): void => {
-    setTypedError('');
     setLiveCounts(null); // counts followed from an earlier look at a distribution are not this one's
     onOpenRef.current(id);
   }, []);
-
-  const openTyped = (event: FormEvent): void => {
-    event.preventDefault();
-    setTypedError('');
-    if (typed.trim() === '') return;
-    const id = extractJobId(typed);
-    if (!id) {
-      setTypedError('Paste the full distribution id or a link to it. The short 8-character id is not enough.');
-      return;
-    }
-    setTyped('');
-    open(id);
-  };
-
-  const empty = typed.trim() === '';
-  const panel = jobId !== null || uploads;
 
   return (
     <div className="page">
       <div className="page-head">
         <h1>Distributions</h1>
-        <div className="toolbar">
-          <form className="openid" onSubmit={openTyped}>
-            <label className="sr" htmlFor="job-id">
-              Open by ID
-            </label>
-            <input
-              id="job-id"
-              className="field mono"
-              value={typed}
-              placeholder="Paste a distribution id or link"
-              onChange={(e) => {
-                setTyped(e.target.value);
-                setTypedError('');
-              }}
-            />
-            <button className="btn2" type="submit" disabled={empty} title={empty ? 'Paste a distribution id or link first' : undefined}>
-              Open
-            </button>
-          </form>
-          <button className="btn2" type="button" onClick={onOpenUploads}>
-            Upload events
-          </button>
-        </div>
+        <OpenById onOpen={open} />
       </div>
       <div className="filters">
         <div className="seg-group" role="group" aria-label="Whose distributions">
@@ -130,13 +100,8 @@ export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads
           ))}
         </select>
       </div>
-      {typedError && (
-        <div role="alert" className="alert">
-          {typedError}
-        </div>
-      )}
 
-      <div className={`status-layout ${panel ? 'open' : ''}`}>
+      <div className={`status-layout ${jobId ? 'open' : ''}`}>
         <DistributionList
           meId={meId}
           scope={scope}
@@ -152,7 +117,7 @@ export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads
           onOpen={open}
           live={jobId ? liveCounts : null}
         />
-        {jobId ? (
+        {jobId && (
           <DistributionPanel
             key={jobId}
             jobId={jobId}
@@ -170,28 +135,8 @@ export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads
               if (!unfiltered) void other.refresh();
             }}
           />
-        ) : uploads ? (
-          <UploadEvents onClose={() => onOpen(null)} signedInAgain={signedInAgain} />
-        ) : null}
+        )}
       </div>
     </div>
-  );
-}
-
-/** Events that belong to no distribution: a file refused by the malware scan. Only its owner sees them. */
-function UploadEvents({ onClose, signedInAgain }: { onClose: () => void; signedInAgain: number }) {
-  const history = useAudit({ actions: ['file.refused'], reloadKey: signedInAgain });
-  return (
-    <PanelFrame label="Upload events" onClose={onClose}>
-      <div className="panel-head">
-        <h2>Upload events</h2>
-        <button className="icon" type="button" aria-label="Close" title="Close" onClick={onClose}>
-          <CloseIcon />
-        </button>
-      </div>
-      <div className="panel-body">
-        <AuditList {...history} onLoadMore={() => void history.loadMore()} empty="No upload events." />
-      </div>
-    </PanelFrame>
   );
 }

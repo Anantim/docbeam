@@ -119,8 +119,19 @@ describe('usePagedJobs', () => {
     expect(result.current.jobs).toHaveLength(1);
   });
 
-  it('counts the running ones for the badge', () => {
+  it('counts only the pending and in-progress ones for the badge, and none when all are done', () => {
     expect(runningCount(null)).toBe(0);
     expect(runningCount([job('a', 'pending'), job('b', 'in_progress'), job('c', 'completed'), job('d', 'cancelled')])).toBe(2);
+    expect(runningCount([job('a', 'completed'), job('b', 'completed_with_errors'), job('c', 'cancelled')])).toBe(0);
+  });
+
+  it('the badge follows the open distribution\'s live counts: it drops when that one finishes, before the list is read again', () => {
+    const jobs = [job('a', 'in_progress', 2), job('b', 'pending')];
+    expect(runningCount(jobs)).toBe(2);
+    // The list still says "in progress", but the live counts say every delivery of "a" is done.
+    expect(runningCount(jobs, { jobId: 'a', counts: { pending: 0, in_progress: 0, completed: 10, failed: 0, cancelled: 0 } })).toBe(1);
+    // Live counts of a distribution that is not in the list change nothing; a still-running one stays counted.
+    expect(runningCount(jobs, { jobId: 'zzz', counts: { pending: 0, in_progress: 0, completed: 10, failed: 0, cancelled: 0 } })).toBe(2);
+    expect(runningCount(jobs, { jobId: 'a', counts: { pending: 3, in_progress: 1, completed: 6, failed: 0, cancelled: 0 } })).toBe(2);
   });
 });

@@ -28,18 +28,18 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
     <>
       <div className="overlay" />
       <form ref={box} className="dialog" role="dialog" aria-modal="true" aria-label="Sign in again" onSubmit={(e) => void submit(e)}>
-        <h2>Your sign-in has ended</h2>
-        <p>Enter your password to carry on. Nothing on this page is lost.</p>
+        <div className="dialog-body">
+          <h2>Your sign-in has ended</h2>
+          <p>Enter your password to carry on. Nothing on this page is lost.</p>
+        </div>
         {error && (
           <div role="alert" className="alert">
             {error}
             <PauseNote />
           </div>
         )}
-        <div>
-          <label htmlFor="again">
-            Password for {email}
-          </label>
+        <div className="dialog-field">
+          <label htmlFor="again">Password for {email}</label>
           <input
             id="again"
             className="field"

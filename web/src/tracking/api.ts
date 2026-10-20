@@ -58,24 +58,6 @@ export interface TaskPage {
   tasks: TaskRow[];
 }
 
-export interface AuditEvent {
-  id: number;
-  occurredAt: string;
-  action: string;
-  actorId: string | null;
-  jobId: string | null;
-  taskId: string | null;
-  teamId: string | null;
-  detail: Record<string, unknown>;
-}
-
-export interface AuditPage {
-  page: number;
-  limit: number;
-  hasMore: boolean;
-  events: AuditEvent[];
-}
-
 export interface FileLink {
   url: string;
   expiresAt: string;
@@ -99,12 +81,4 @@ export const trackingApi = {
     apiFetch(`/files/${fileId}/downloads`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) }),
   cancel: (jobId: string): Promise<{ cancelled: number }> => post(`/jobs/${jobId}/cancel`),
   retry: (jobId: string): Promise<{ retried: number }> => post(`/jobs/${jobId}/retry`),
-  audit: (query: { jobId?: string; actions?: string[]; page?: number; limit?: number }): Promise<AuditPage> => {
-    const params = new URLSearchParams();
-    if (query.jobId) params.set('jobId', query.jobId);
-    if (query.actions?.length) params.set('action', query.actions.join(','));
-    params.set('page', String(query.page ?? 1));
-    params.set('limit', String(query.limit ?? 50));
-    return apiFetch(`/audit?${params.toString()}`);
-  },
 };

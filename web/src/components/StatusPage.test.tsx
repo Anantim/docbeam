@@ -8,7 +8,9 @@ import type { JobDetail, JobSummary } from '../tracking/api.js';
 import type { usePagedJobs } from '../tracking/usePagedJobs.js';
 import { StatusPage } from './StatusPage.js';
 
-const api = vi.hoisted(() => ({ job: vi.fn(), jobs: vi.fn(), tasks: vi.fn(), cancel: vi.fn(), retry: vi.fn(), audit: vi.fn() }));
+type StatusProps = Parameters<typeof StatusPage>[0];
+
+const api = vi.hoisted(() => ({ job: vi.fn(), jobs: vi.fn(), tasks: vi.fn(), cancel: vi.fn(), retry: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   trackingApi: api,
@@ -74,15 +76,14 @@ const mine = (jobs: JobSummary[] | null = [], over: Partial<ReturnType<typeof us
 });
 const notify = vi.fn();
 
-function renderPage(over: { jobId?: string | null; uploads?: boolean; onOpen?: (id: string | null) => void; onOpenUploads?: () => void; live?: LiveClient; mine?: ReturnType<typeof mine> } = {}) {
+function renderPage(over: { jobId?: string | null; onOpen?: (id: string | null) => void; onLive?: StatusProps['onLive']; live?: LiveClient; mine?: ReturnType<typeof mine> } = {}) {
   const f = fakeLive();
   const utils = render(
     <StatusPage
       meId="u"
       jobId={'jobId' in over ? (over.jobId ?? null) : JOB}
-      uploads={over.uploads ?? false}
       onOpen={over.onOpen ?? vi.fn()}
-      onOpenUploads={over.onOpenUploads ?? vi.fn()}
+      onLive={over.onLive}
       mine={over.mine ?? mine()}
       notify={notify}
       live={over.live ?? f.live}
@@ -95,7 +96,6 @@ beforeEach(() => {
   api.job.mockResolvedValue(detail());
   api.jobs.mockResolvedValue([]);
   api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 0, tasks: [] });
-  api.audit.mockResolvedValue({ page: 1, limit: 50, hasMore: false, events: [] });
 });
 afterEach(() => {
   cleanup();
@@ -157,22 +157,14 @@ describe('opening a distribution: subscribe first, fetch after', () => {
     await screen.findByText('Distribution not found');
   });
 
-  it('shows deliveries first, then the history of the same distribution, in one panel', async () => {
-    api.audit.mockResolvedValue({
-      page: 1,
-      limit: 50,
-      hasMore: false,
-      events: [{ id: 1, occurredAt: '2026-10-16T10:00:00Z', action: 'job.submitted', actorId: 'u1', jobId: JOB, taskId: null, teamId: null, detail: { actorName: 'Priya Shah', fileCount: 5, destinationCount: 2, taskCount: 10 } }],
-    });
+  it('shows the summary and the deliveries in the panel, and no audit history anywhere (D-F1-13)', async () => {
     const page = renderPage();
     await opened(page);
     const panel = screen.getByRole('complementary', { name: 'Distribution 3f1c2a9e' });
     expect(within(panel).getByRole('region', { name: 'Deliveries' })).toBeTruthy();
-    // The history is closed until it is opened, and is not read before.
-    expect(api.audit).not.toHaveBeenCalled();
-    await userEvent.setup().click(within(panel).getByText('History'));
-    await within(panel).findByText('Distribution sent');
-    expect(api.audit).toHaveBeenCalledWith(expect.objectContaining({ jobId: JOB }));
+    expect(within(panel).queryByText('History')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upload events' })).toBeNull();
+    expect(Object.keys(api)).not.toContain('audit'); // the web app has no audit client
   });
 
   it('closes with the Close button and with Escape', async () => {
@@ -184,6 +176,16 @@ describe('opening a distribution: subscribe first, fetch after', () => {
     expect(onOpen).toHaveBeenCalledWith(null);
     onOpen.mockClear();
     screen.getByRole('button', { name: 'Close' }).focus();
+    await user.keyboard('{Escape}');
+    expect(onOpen).toHaveBeenCalledWith(null);
+  });
+
+  it('closes with Escape when the focus is still on the list, where the click left it', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    const page = renderPage({ onOpen, mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
+    await opened(page);
+    screen.getByRole('button', { name: `Open distribution ${JOB.slice(0, 8)}` }).focus();
     await user.keyboard('{Escape}');
     expect(onOpen).toHaveBeenCalledWith(null);
   });
@@ -380,52 +382,74 @@ const summary = (jobId: string, name = 'Priya Shah', over: Partial<JobSummary> =
 });
 
 describe('the list and Open by ID', () => {
+  const openCard = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'Open by ID' }));
+    return screen.getByLabelText('Distribution ID or link');
+  };
+
+  it('Open by ID is a small icon button: no box on the page until it is pressed, then one field in a card', async () => {
+    const user = userEvent.setup();
+    renderPage({ jobId: null });
+    expect(screen.queryByLabelText('Distribution ID or link')).toBeNull();
+    expect(screen.queryByPlaceholderText(/Paste a distribution id/)).toBeNull();
+    const button = screen.getByRole('button', { name: 'Open by ID' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    const field = await openCard(user);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(field);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByLabelText('Distribution ID or link')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
   it('opens a distribution from a pasted link and rejects the short id', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     renderPage({ jobId: null, onOpen });
-    await user.type(screen.getByLabelText('Open by ID'), '3f1c2a9e');
+    const field = await openCard(user);
+    await user.type(field, '3f1c2a9e');
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
     expect(onOpen).not.toHaveBeenCalled();
 
-    await user.clear(screen.getByLabelText('Open by ID'));
-    await user.type(screen.getByLabelText('Open by ID'), `https://x.cloudfront.net/#/status/${JOB.toUpperCase()}`);
+    await user.clear(field);
+    await user.type(field, `https://x.cloudfront.net/#/status/${JOB.toUpperCase()}`);
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(onOpen).toHaveBeenCalledWith(JOB);
+    expect(screen.queryByLabelText('Distribution ID or link')).toBeNull(); // the card closes
   });
 
-  it('keeps Open off while the box is empty or only spaces, and clears the note when typing or a new Open starts', async () => {
+  it('keeps Open off while the field is empty or only spaces, and clears the note when typing starts again', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     renderPage({ jobId: null, onOpen });
+    const field = await openCard(user);
     const open = screen.getByRole('button', { name: 'Open' }) as HTMLButtonElement;
     expect(open.disabled).toBe(true);
     expect(open.title).toBe('Paste a distribution id or link first');
-    await user.type(screen.getByLabelText('Open by ID'), '   ');
+    await user.type(field, '   ');
     expect(open.disabled).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
 
-    await user.clear(screen.getByLabelText('Open by ID'));
-    await user.type(screen.getByLabelText('Open by ID'), '3f1c2a9e');
+    await user.clear(field);
+    await user.type(field, '3f1c2a9e');
     await user.click(open);
     expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
-    await user.type(screen.getByLabelText('Open by ID'), 'x');
+    await user.type(field, 'x');
     expect(screen.queryByRole('alert')).toBeNull();
 
-    await user.clear(screen.getByLabelText('Open by ID'));
-    await user.type(screen.getByLabelText('Open by ID'), JOB);
-    await user.click(open);
-    expect(screen.queryByRole('alert')).toBeNull();
+    await user.clear(field);
+    await user.type(field, `${JOB}{Enter}`);
     expect(onOpen).toHaveBeenCalledWith(JOB);
   });
 
-  it('lists my distributions as a table: id, sent, sender, files, destinations, status', async () => {
+  it('lists my distributions as a table: id, status, sent, and (when there is room) sender, files, folders', async () => {
     renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 7, destinationCount: 4 })]) });
     const table = screen.getByRole('table', { name: 'Distributions' });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Sent', 'Sender', 'Files', 'Folders', 'Status']);
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Sender', 'Files', 'Folders']);
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbb', '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5)), 'You', '7', '4', 'Completed']);
+    const sent = '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5));
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbb', 'Completed', sent, 'You', '7', '4']);
   });
 
   it('lists the team ones, with the sender\'s name, when My teams is picked, and a click opens the panel', async () => {
@@ -490,7 +514,7 @@ describe('the list and Open by ID', () => {
       fire();
       expect(m.loadMore).toHaveBeenCalledTimes(1);
       const loading = mine(m.jobs, { hasMore: true, loadingMore: true });
-      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} onOpenUploads={vi.fn()} mine={loading} notify={notify} />);
+      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} mine={loading} notify={notify} />);
       expect(screen.getByText('Loading more…')).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();
@@ -498,24 +522,17 @@ describe('the list and Open by ID', () => {
   });
 });
 
-describe('upload events', () => {
-  it('opens a panel of the events that belong to no distribution', async () => {
-    api.audit.mockResolvedValue({
-      page: 1,
-      limit: 50,
-      hasMore: false,
-      events: [{ id: 9, occurredAt: '2026-10-16T10:00:00Z', action: 'file.refused', actorId: 'u1', jobId: null, taskId: null, teamId: null, detail: { actorName: 'Priya Shah', fileName: 'eicar.pdf', reason: 'malware found by the scan' } }],
-    });
-    const onOpenUploads = vi.fn();
-    const user = userEvent.setup();
-    const { unmount } = renderPage({ jobId: null, onOpenUploads });
-    await user.click(screen.getByRole('button', { name: 'Upload events' }));
-    expect(onOpenUploads).toHaveBeenCalled();
-    unmount();
+describe('the badge on the Status tab follows the open distribution (D-F1-15)', () => {
+  it('tells the app the live counts, and reads my list again the moment the distribution finishes', async () => {
+    const onLive = vi.fn();
+    const m = mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]);
+    const page = renderPage({ mine: m, onLive });
+    await opened(page);
+    expect(onLive).toHaveBeenCalledWith(JOB, counts({ completed: 4, in_progress: 1, pending: 5 })); // the detail it shows
+    expect(m.refresh).not.toHaveBeenCalled(); // still running: the next read is the usual one
 
-    renderPage({ jobId: null, uploads: true });
-    const panel = await screen.findByRole('complementary', { name: 'Upload events' });
-    await within(panel).findByText('File refused');
-    expect(api.audit).toHaveBeenCalledWith(expect.objectContaining({ actions: ['file.refused'] }));
+    await page.push({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T10:05:10.000Z', counts: counts({ completed: 10 }) });
+    expect(onLive).toHaveBeenLastCalledWith(JOB, counts({ completed: 10 }));
+    await waitFor(() => expect(m.refresh).toHaveBeenCalledTimes(1)); // finished: read at once, once
   });
 });

@@ -1,39 +1,53 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { PRIYA, signIn } from './helpers.js';
+import { newAccount, PRIYA, signIn } from './helpers.js';
 
-// The Open-by-ID box and the empty state of the Status page (found on dev, M3 browser check 13).
+// "Open by ID": a small icon button on the Status page that opens a card with one field (D-F1-15), and the
+// empty state of the Status page (found on dev, M3 browser check 13).
 
 const NOTE = 'Paste the full distribution id or a link to it. The short 8-character id is not enough.';
-const PASSWORD = 'correct-horse-battery-staple';
 
-const openButton = (page: Page) => page.getByRole('button', { name: 'Open', exact: true });
-const box = (page: Page) => page.getByLabel('Open by ID');
+const trigger = (page: Page) => page.getByRole('button', { name: 'Open by ID' });
+const card = (page: Page) => page.getByRole('form', { name: 'Open a distribution by ID' });
+const box = (page: Page) => card(page).getByLabel('Distribution ID or link');
+const openButton = (page: Page) => card(page).getByRole('button', { name: 'Open', exact: true });
 const notFound = (page: Page) => page.getByRole('heading', { name: 'Distribution not found' });
 /** The list's own empty state (nothing sent yet, or nothing sent to my teams). */
 const emptyState = (page: Page) => page.locator('.card.state');
 
-/** A new account in no team: it has no distributions, and no one to share any with. */
-async function register(page: Page): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Create an account' }).click();
-  await page.getByLabel('Full name').fill('E2E Newcomer');
-  await page.getByLabel('Work email').fill(`e2e.${randomUUID().slice(0, 8)}@example.com`);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+async function openCard(page: Page): Promise<void> {
+  await trigger(page).click();
+  await expect(box(page)).toBeFocused();
 }
 
-test('Open is off while the box is empty or only spaces, and says why', async ({ page }) => {
+test('there is no wide paste box: a small icon button opens a one-field card, and Esc closes it', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
+  await expect(page.getByText('Paste a distribution id or link')).toHaveCount(0);
+  await expect(card(page)).toHaveCount(0);
+  const size = (await trigger(page).boundingBox())!;
+  expect(size.width).toBeLessThan(60);
+  await openCard(page);
+  await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(card(page)).toHaveCount(0);
+  await expect(trigger(page)).toBeFocused();
+  // A click outside closes it too.
+  await openCard(page);
+  await page.getByRole('heading', { name: 'Distributions' }).click();
+  await expect(card(page)).toHaveCount(0);
+});
+
+test('Open is off while the field is empty or only spaces, and says why', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Status' }).click();
+  await openCard(page);
   await expect(openButton(page)).toBeDisabled();
-  await expect(openButton(page)).toHaveAttribute('disabled', '');
   await expect(openButton(page)).toHaveCSS('cursor', 'not-allowed');
   await expect(openButton(page)).toHaveAttribute('title', 'Paste a distribution id or link first');
   await box(page).fill('   ');
   await expect(openButton(page)).toBeDisabled();
-  // Enter in an empty box does nothing either: no note, nothing opened.
+  // Enter in an empty field does nothing either: no note, nothing opened.
   await box(page).press('Enter');
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page).toHaveURL(/#\/status$/);
@@ -44,6 +58,7 @@ test('Open is off while the box is empty or only spaces, and says why', async ({
 test('a short id shows the note; typing clears it; a new Open starts without it', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
+  await openCard(page);
   await expect(page.getByRole('alert')).toHaveCount(0); // nothing shown before anyone tries
   await box(page).fill('3f1c2a9e');
   await openButton(page).click();
@@ -57,6 +72,7 @@ test('a short id shows the note; typing clears it; a new Open starts without it'
   await box(page).fill(randomUUID());
   await openButton(page).click();
   await expect(notFound(page)).toBeVisible();
+  await expect(card(page)).toHaveCount(0); // it closed on opening
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -64,21 +80,23 @@ test('a full unknown id and a full link show only the not-found panel', async ({
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   const unknown = randomUUID();
+  await openCard(page);
   await box(page).fill(unknown);
   await openButton(page).click();
   await expect(page).toHaveURL(new RegExp(`#/status/${unknown}$`));
   await expect(notFound(page)).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   const another = randomUUID();
+  await openCard(page);
   await box(page).fill(`http://localhost:5173/#/status/${another.toUpperCase()}`);
-  await openButton(page).click();
+  await box(page).press('Enter');
   await expect(page).toHaveURL(new RegExp(`#/status/${another}$`));
   await expect(notFound(page)).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('a person with no distributions sees the empty state on first load, not "not found"', async ({ page }) => {
-  await register(page);
+  await newAccount(page);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(emptyState(page)).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
@@ -97,23 +115,18 @@ test('signing out leaves the open distribution, so the next person does not land
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await expect(page).not.toHaveURL(/#\/status\//);
   // Someone else signs in in the same tab and opens Status: an empty state, not Priya's distribution.
-  await page.getByRole('button', { name: 'Create an account' }).click();
-  await page.getByLabel('Full name').fill('E2E Next');
-  await page.getByLabel('Work email').fill(`e2e.${randomUUID().slice(0, 8)}@example.com`);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await newAccount(page, 'E2E Next');
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(emptyState(page)).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
 });
 
-test('the Open-by-ID box is in the same place on every filter, with or without distributions', async ({ page }) => {
+test('the Open by ID button is in the same place on every filter, with or without distributions', async ({ page }) => {
   const placed = async (): Promise<{ x: number; y: number }> => {
-    await expect(box(page)).toBeVisible();
-    await expect(box(page)).toBeInViewport(); // not pushed below a long list
-    const field = (await box(page).boundingBox())!;
-    return { x: Math.round(field.x), y: Math.round(field.y) };
+    await expect(trigger(page)).toBeVisible();
+    await expect(trigger(page)).toBeInViewport(); // not pushed below a long list
+    const at = (await trigger(page).boundingBox())!;
+    return { x: Math.round(at.x), y: Math.round(at.y) };
   };
 
   // Priya has many distributions on Mine.
@@ -127,12 +140,7 @@ test('the Open-by-ID box is in the same place on every filter, with or without d
   await page.getByRole('button', { name: 'Sign out' }).click();
 
   // A person with none: the list is empty on both tabs.
-  await page.getByRole('button', { name: 'Create an account' }).click();
-  await page.getByLabel('Full name').fill('E2E Empty');
-  await page.getByLabel('Work email').fill(`e2e.${randomUUID().slice(0, 8)}@example.com`);
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await newAccount(page, 'E2E Empty');
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(page.locator('.dist-table tbody tr')).toHaveCount(0);
   expect(await placed()).toEqual(mine);

@@ -64,7 +64,7 @@ It has two entry points. `index.ts` exports everything, for Node. `browser.ts` e
 | `checksum.ts` | SHA-256 travels as hex in DocBeam and as base64 in S3; this converts between them and spots S3's combined multipart checksum. |
 | `file-types.ts` | The allow-list (PDF, PNG, JPEG, DOCX, XLSX) and the first bytes each must start with, so a renamed `.exe` is refused. |
 | `errors.ts` | The one error shape `{ error: { code, message } }`, the `ApiError` routes throw, the Fastify error handler, and `acceptEmptyBodies` (the M5 fix that lets a POST with no body through, D-M5-5). |
-| `jwt.ts` | The Fastify plugin every service registers: checks the RS256 token against the Auth Service's public keys, and gives routes `requireAuth({ use: 'user' })` or `({ use: 'service', scope })`. |
+| `jwt.ts` (shared: `packages/shared/src/jwt.ts`, `createRemoteKeys`) | The Fastify plugin every service registers: checks the RS256 token against the Auth Service's public keys (kept 10 minutes; a failed fetch keeps the old keys, and with none the answer is 503, not 401, D-F1-14), and gives routes `requireAuth({ use: 'user' })` or `({ use: 'service', scope })`. |
 | `service-token.ts` | Gets and caches a 15-minute service token for internal callers, renewing it before it expires so no request waits on Auth (ADR-013). |
 | `db.ts` | Connection-pool sizes for services and Lambdas, kept under the database's connection limit, plus the query timeout and keep-alive added after the failover drill (D-M5-13). |
 | `db-url.ts` | Builds the database URL on AWS from host, name, user and password, always with `sslmode=verify-full` and the RDS certificate bundle; refuses to build one without it (D-M5-4). |
@@ -197,17 +197,17 @@ Locally there is no Lambda and no API Gateway, so this package stands in for bot
 
 ## 8. web/: the React app
 
-A single-page app with two tabs: Distribute, and Status (one list of distributions with a side panel that holds the deliveries and the history, D-F1-7, D-F1-9). Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: small components and one stylesheet that starts with the design tokens (D-F1-5).
+A single-page app with two tabs: Distribute, and Status (one list of distributions with a side panel that holds the deliveries; no audit view, D-F1-7, D-F1-9, D-F1-13). Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: small components and one stylesheet that starts with the design tokens (D-F1-5).
 
 **Entry and build:** `index.html` (the page shell), `src/main.tsx` (mounts React), `src/App.tsx` (keeps the current screen and distribution in the URL hash, so a reload or shared link opens the same place), `src/styles.css` (the design tokens, then all styling), `public/favicon.svg`, `vite.config.ts` (the dev server proxies `/api/*` to the right service, the same single-site shape CloudFront gives on AWS), `package.json`, `tsconfig.json`.
 
 | Folder | Files | Why it exists |
 | --- | --- | --- |
-| `auth/` | `session.ts`, `token.ts`, `errors.ts` | Sign-in state. The access token lives in sessionStorage, the refresh token only in its HttpOnly cookie. `apiFetch` refreshes once on a 401; one tab at a time refreshes (Web Locks) and tells the others. |
+| `auth/` | `session.ts`, `token.ts`, `errors.ts` (tests: `session.test.ts`, `session.clock.test.ts`, which moves a fake clock past 15 minutes and 12 hours) | Sign-in state. The access token lives in sessionStorage, the refresh token only in its HttpOnly cookie. `apiFetch` refreshes once on a 401; one tab at a time refreshes (Web Locks) and tells the others. Only a refused refresh opens the sign-in dialog; a request that hits it waits and is sent again after sign-in; an unreachable server is a retryable error, not a sign-out (D-F1-14). There is no `register` call: the web app has no sign-up (D-F1-17). |
 | `upload/` | `manager.ts`, `api.ts`, `api-types.ts`, `transport.ts`, `browser-transport.ts`, `hashing.ts`, `hash.worker.ts`, `worker-hash.ts`, `instance.ts` | The upload queue (the largest file, about 500 lines): hashes each file in a Web Worker so a 1 GB file doesn't freeze the tab, asks for links in waves of 20, uploads with progress (XMLHttpRequest, because fetch has no upload progress), resumes multipart uploads from the parts already stored. The transport is an interface, so the integration test runs the same queue in Node. |
 | `destinations/` | `tree.ts`, `selection.ts` | The destination tree: loading one page of a level when it is opened (20 rows, the next page on scroll, D-F1-6), ticking folders (binders and teams are headings, D-F1-3), the 20-destination cap. |
 | `distribute/` | `files.ts`, `mapping.ts`, `rows.ts`, `submit.ts` | Picking files (type and size rules up front), mapping each file to folders (a folder ticked for all files stays ticked for files added later, D-F1-5), how a click, Ctrl-click and Shift-click select rows, and submitting with one Idempotency-Key kept across retries, so a double click can't send twice. |
-| `tracking/` | `api.ts`, `apply.ts`, `format.ts`, `links.ts`, `route.ts`, `useJob.ts`, `usePagedJobs.ts`, `useAudit.ts`, `useFileLink.ts`, `virtual.ts` | The Status view's data: the list of distributions (20 at a time, with scope and status filters), one distribution, its history. `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
+| `tracking/` | `api.ts`, `apply.ts`, `format.ts`, `links.ts`, `route.ts`, `useJob.ts`, `usePagedJobs.ts`, `useFileLink.ts`, `virtual.ts` | The Status view's data: the list of distributions (20 at a time, with scope and status filters, and the count for the Status tab badge) and one distribution. There is no audit client: the web app shows job history only (D-F1-13). `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
 | `live/` | `socket.ts`, `instance.ts` | The WebSocket client: reconnects, resubscribes, and re-reads the tasks after a gap so nothing is missed. |
 | `preview/` | `render.ts`, `office.ts` | Turns DOCX and XLSX into read-only HTML shown in a sandboxed iframe. The two libraries load only when needed. |
 | `testing/` | `icon-buttons.ts` | A test helper: every icon-only button must have a label and tooltip. |
@@ -215,10 +215,10 @@ A single-page app with two tabs: Distribute, and Status (one list of distributio
 
 **components/** (each `.tsx` is one piece of the screen):
 
-- Shell and sign-in: `Shell`, `Logo`, `AuthCard`, `PauseNote`, `SessionDialog` (the 12-hour re-sign-in over the page), `Toasts`, `ConfirmDialog`, `Popover`, `useLeaveWarning`.
-- Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list), `PanelFrame`, `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
+- Shell and sign-in: `Shell`, `Logo`, `AuthCard` (sign-in only, with the tagline and the line about the study administrator), `PauseNote`, `SessionDialog` (the 12-hour re-sign-in over the page), `Toasts`, `ConfirmDialog`, `Popover`, `useLeaveWarning`.
+- Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list), `PanelFrame` (Esc closes it from anywhere on the page), `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
 - Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `DestinationChips`, `SendBar`, `SendDialog` (the question before Send), `TypeBadge`, `FileActions`, `Preview`.
-- Status: `StatusPage` (filters, list and panel), `DistributionList`, `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries, history), `TaskTable`, `AuditList`.
+- Status: `StatusPage` (filters, list and panel; the list narrows beside the open panel), `OpenById` (the icon button and its one-field card), `DistributionList`, `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries), `TaskTable`.
 
 The `*.test.ts(x)` files beside them are the unit tests, run with jsdom; `Destinations.perf.test.tsx` and `DistributionList.perf.test.tsx` count renders (ticking one of 40 folders draws one row, a refresh with nothing changed draws none).
 
@@ -339,7 +339,7 @@ Each layer catches what the one below can't. Unit tests sit beside the code they
 **tests/e2e** (Playwright):
 
 - `m1.spec.ts`, `m2.spec.ts`, `track.spec.ts`, `download.spec.ts`: one end-to-end story per milestone: an account, an upload and send, live counts that survive a reload, preview and download.
-- `browse-paging.spec.ts`: a folder of 60 children loads 20 at a time as the list is scrolled. `status-dev.spec.ts`: sending with the question first, then the list, a filter, the panel, History and Esc (runs locally and on dev). `screens.spec.ts`: takes the screenshots of every screen at 1440, 1280 and 1024 px (only when `SHOT_DIR` is set).
+- `browse-paging.spec.ts`: a folder of 60 children loads 20 at a time as the list is scrolled. `status-dev.spec.ts`: sending with the question first, then the list, a filter, the panel and Esc (runs locally and on dev). `screens.spec.ts`: takes the screenshots of every screen and dialog at 1440, 1280 and 1024 px (only when `SHOT_DIR` is set). `openid.spec.ts` and `status-fixes.spec.ts`: the Open by ID card, the sign-in dialog (no errors behind it, full-viewport backdrop), the Status badge and the six-delivery panel. `helpers.ts` has `newAccount`, which makes a throw-away account through the Auth Service because the page has no sign-up.
 - `ui.spec.ts`, `tooltips.spec.ts`, `popover.spec.ts`, `openid.spec.ts`, `status-fixes.spec.ts`: the interface rules: disabled buttons say why, icon buttons have labels, the "+N" popover behaves, and fixes found during testing stay fixed.
 - `download-dev.spec.ts`, `m5-browser-dev.spec.ts`: run only against dev: cross-team downloads, a slow connection, multipart resume after going offline, WebSocket reconnect, PNG and JPG preview.
 - `global-setup.ts`, `helpers.ts`: start-up and shared steps.

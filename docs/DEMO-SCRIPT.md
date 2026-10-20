@@ -1,6 +1,6 @@
 # Demo script: a 3 to 5 minute screen recording on dev
 
-What the video shows, in order: sign in, add files, the virus test file refused, tick folders (to all files, and to some only), the question before Send, a send, the Status panel with its deliveries and History, Raj seeing only the Cardio deliveries and Sam getting "not found", a 2,000-delivery send, the platform stopped and the backlog draining, the list with its filters, a preview. Target length 3 to 5 minutes.
+What the video shows, in order: sign in, add files, the virus test file refused, tick folders (to all files, and to some only), the question before Send, a send, the Status panel with its deliveries, Raj seeing only the Cardio deliveries and Sam getting "not found", a 2,000-delivery send, the platform stopped and the backlog draining, the list with its filters, a preview. Target length 3 to 5 minutes.
 
 **The video is recorded by a script.** `scripts/demo/record.ts` plays this plan in Playwright at 1280x720 with a visible cursor and a caption for each step, then writes `docs/demo/docbeam-demo.webm` (VP9, under 25 MB) and one frame per step to `docs/testing/f1-evidence/demo-frames/`, so every step can be looked at. It is a webm, not an mp4: the only video encoder on the laptop is the one Playwright brings (VP9), and nothing was installed. The earlier OBS recording (`docbeam-demo.mp4`, 2026-10-18) showed the old screens and was replaced. An older automated recorder is in git history (commit `9b2141e`).
 
@@ -45,7 +45,7 @@ Make the files and set the three variables shown at the top (`scripts/demo-files
 | 4 | Select all, tick folders | Select the files, or leave none selected for all of them, then tick folders. I only see my own teams. One summary line: the files, the folders and the deliveries. |
 | 5 | One file selected | With some files selected, a tick goes to those files only. The folders of a file are one click away (the "3 folders" button). |
 | 6 | Send | Sending asks first. Delivered files can not be recalled, and Cancel is the default. |
-| 7 | Status panel | Each delivery is tracked; the numbers move on their own, pushed over a WebSocket. Every delivery has a status; Preview and Download are on completed rows. History: who sent what, to where, and when. |
+| 7 | Status panel | Each delivery is tracked; the numbers move on their own, pushed over a WebSocket. Every delivery has a status; Preview and Download are on completed rows. The list narrows beside the panel. |
 | 8 | Raj, then Sam | Raj is in Cardio only and sees only the Cardio deliveries. Sam is in Neuro only and gets "not found", the same answer as for one that does not exist. |
 | 9 | Dev only: Load User | A big one: 100 files to 20 folders, 2,000 deliveries, in one action (`scripts/demo-send.sh`); counts live, only the rows in view drawn. |
 | 10 | Dev only: the outage | The Document Platform is stopped (`scripts/demo-outage.sh stop`): nothing is lost, deliveries retry. It starts again and the backlog drains by itself to 2,000 delivered, once each. |

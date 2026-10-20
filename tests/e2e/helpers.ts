@@ -170,11 +170,21 @@ export async function readCounts(page: Page): Promise<number[]> {
   return order.filter((name) => by.has(name)).map((name) => by.get(name) as number);
 }
 
-/** Opens the History section of the panel (it is closed until asked for) and returns it. */
-export async function openHistory(page: Page) {
-  const history = page.locator('details.history');
-  if ((await history.getAttribute('open')) === null) await history.locator('summary').click();
-  return history;
+/**
+ * A new account in no team, made through the Auth Service (the web app has no register page, D-F1-17), then signed in.
+ * It has no distributions and no one to share any with.
+ */
+export async function newAccount(page: Page, name = 'E2E Newcomer'): Promise<string> {
+  const email = `e2e.${randomUUID().slice(0, 8)}@example.com`;
+  const password = 'correct-horse-battery-staple';
+  const made = await page.request.post('/api/auth/register', { data: { email, password, name } });
+  expect(made.status()).toBe(201);
+  await page.goto('/');
+  await page.getByLabel('Work email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  return email;
 }
 
 /** A distribution's row in the list. */

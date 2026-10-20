@@ -8,7 +8,7 @@ DocBeam lets a coordinator send up to 100 files to up to 20 team folders in one 
 
 ## The accounts
 
-All are fictional (`@example.com`). Each person sees only the teams they belong to. Creating new accounts is switched off on dev, so use these (the "Create an account" link will not work).
+All are fictional (`@example.com`). Each person sees only the teams they belong to. The web app has no sign-up: the study administrator sets accounts up, so use these.
 
 | Sign in as | Teams | What they can see |
 |---|---|---|
@@ -32,8 +32,8 @@ Use a normal window for Priya and a private (incognito) window for the other use
 5. **Choose folders and send (1 min).** Tick two or three folders, for example Cardio / CARDIO-301 Regulatory / IRB approvals and Oncology / ONC-118 Regulatory / Ethics committee. With nothing selected a tick goes to all files; click one file row (Shift or Ctrl to select several) and a tick goes to those files only. The bar at the bottom reads, for example, "3 files to 2 folders: 6 deliveries". Click **Send**, read the question (Cancel is the default), and click **Send** again.
 6. **Watch it live (1 min).** The Status page opens on your distribution in a side panel. The numbers on the filter row (Completed, Failed, In progress, Pending) move as documents arrive; each delivery row shows its folder and status.
 7. **Preview and download (1 min).** On a completed row click the eye to **preview** the file in the page, and the arrow to **download** it. Both use a link that works for 2 minutes for that one file; a banner counts it down.
-8. **History (1 min).** In the panel open **History**: "Distribution sent" with who, what, where and when, and the preview and download links you issued. Press **Esc** to close the panel. The list has **Mine**, **My teams** and **All I can see**, and a **Status** menu. **Upload events** (top right) lists files the malware scan refused.
-9. **Other people's views (1 min).** In the private window sign in as **Raj**, open **Status**, switch to **My teams** and open the distribution: only the Cardio deliveries are there, nothing for Oncology. Sign out and sign in as **Sam**: paste the distribution ID into the Open box on the Status page and you get **Distribution not found**, the same answer as for one that does not exist.
+8. **The list and the panel (1 min).** With a distribution open, the list narrows to a column (ID, status, sent at) beside the panel. Press **Esc** to close the panel and the full list is back. The list has **Mine**, **My teams** and **All I can see**, and a **Status** menu. The page shows the history of your distributions only; a file the malware scan refused shows only in the Distribute file list.
+9. **Other people's views (1 min).** In the private window sign in as **Raj**, open **Status**, switch to **My teams** and open the distribution: only the Cardio deliveries are there, nothing for Oncology. Sign out and sign in as **Sam**: click the **Open by ID** button (the magnifier on the Status page), paste the distribution ID and press Enter, and you get **Distribution not found**, the same answer as for one that does not exist.
 
 ## Known limits
 

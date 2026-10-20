@@ -167,6 +167,24 @@ export function whenSignedIn(): Promise<void> {
   });
 }
 
+/**
+ * Waits behind the sign-in dialog. True when the person signed in again, false when they signed out instead. A request
+ * that waits here neither fails nor shows an error behind the dialog: it is sent again after the sign-in (D-F1-14).
+ */
+function afterDialog(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const stop = sessionStore.subscribe(() => {
+      if (state.status === 'signedIn') {
+        stop();
+        resolve(true);
+      } else if (state.status === 'signedOut') {
+        stop();
+        resolve(false);
+      }
+    });
+  });
+}
+
 export async function login(email: string, password: string): Promise<void> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
@@ -180,17 +198,6 @@ export async function login(email: string, password: string): Promise<void> {
   apply(body.accessToken, true);
 }
 
-export async function register(name: string, email: string, password: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/auth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, email, password }),
-  });
-  if (res.status === 429) throw new AuthError('Too many attempts. Wait a moment and try again.');
-  if (!res.ok) throw new AuthError(await readError(res, 'The account could not be created.'));
-  await login(email, password);
-}
-
 export async function logout(): Promise<void> {
   try {
     await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
@@ -202,8 +209,11 @@ export async function logout(): Promise<void> {
 export { ApiFailure };
 
 /**
- * Calls the API with the access token. A 401 triggers one refresh and one retry; if that fails the
- * sign-in dialog opens and the page stays as it is (Step 1.6).
+ * Calls the API with the access token. A 401 triggers one refresh and one retry. Only when the refresh itself is
+ * refused (the 12 hours are up, or the sign-in was ended) does the sign-in dialog open: the page stays as it is, the
+ * request waits, and it is sent again after the person signs in (Step 1.6, D-F1-14). A refresh that could not reach the
+ * server, or a service that refuses a token the Auth Service has just issued, is an ordinary error and never ends the
+ * sign-in.
  */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const send = (): Promise<Response> => {
@@ -214,14 +224,22 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       headers: { ...init.headers, authorization: `Bearer ${token}` },
     });
   };
+  // Behind the dialog nothing is sent: it would only fail and show an error under the dialog.
+  if (state.status === 'ended' && !(await afterDialog())) throw new ApiFailure(401, 'Your sign-in has ended.');
   let res = await send();
   if (res.status === 401) {
     const refreshed = await refreshNow();
-    if (refreshed === 'ok') res = await send();
-    if (res.status === 401) {
-      if (state.status === 'signedIn') end();
-      throw new ApiFailure(401, 'Your sign-in has ended.');
+    if (refreshed === 'rejected') {
+      // The dialog is open (or another tab already signed in again).
+      const back = state.status === 'ended' ? await afterDialog() : state.status === 'signedIn';
+      if (!back) throw new ApiFailure(401, 'Your sign-in has ended.');
+      res = await send();
+    } else if (refreshed === 'ok') {
+      res = await send();
+    } else {
+      throw new ApiFailure(503, 'The server could not be reached. Try again in a moment.');
     }
+    if (res.status === 401) throw new ApiFailure(401, 'The server could not check your sign-in. Try again in a moment.');
   }
   if (!res.ok) {
     const body = await readBody(res);

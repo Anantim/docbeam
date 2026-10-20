@@ -73,7 +73,7 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 /* The sticky top bar and send bar never cover a focused control. */
-html { scroll-padding-top: calc(var(--topbar) + var(--s-4)); scroll-padding-bottom: var(--s-16); }
+html { scroll-padding-top: calc(var(--topbar) + var(--s-4)); scroll-padding-bottom: var(--s-16); scrollbar-gutter: stable; }
 body { margin: 0; background: var(--bg); }
 #root { display: flex; flex-direction: column; font-family: var(--font); color: var(--text); background: var(--bg); font-size: var(--fs-3); line-height: 1.5; }
 h1, h2, h3, p { margin: 0; }
@@ -133,21 +133,18 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .skeleton { height: 14px; border-radius: var(--radius); background: linear-gradient(90deg, var(--surface-2), var(--line), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-/* sign in and register */
+/* sign in */
 .auth { flex: 1; display: flex; flex-wrap: wrap; }
 .auth-brand { flex: 1 1 420px; background: var(--text); color: var(--on-accent); padding: var(--s-12); display: flex; flex-direction: column; justify-content: space-between; gap: var(--s-8); }
 .auth-brand .name { display: flex; align-items: center; gap: var(--s-3); font-size: var(--fs-4); font-weight: 600; }
 .auth-brand h1 { font-size: var(--fs-5); margin-bottom: var(--s-3); text-wrap: balance; }
 .auth-brand p { font-size: var(--fs-4); color: var(--line-strong); max-width: 440px; text-wrap: balance; }
-.auth-brand .foot { font-size: var(--fs-2); color: var(--text-off); }
 .auth-form-wrap { flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: var(--s-12) var(--s-6); background: var(--surface); }
 .auth-form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: var(--s-5); }
-.auth-form h2 { font-size: var(--fs-5); margin-bottom: var(--s-1); }
-.auth-form label { display: block; font-weight: 600; margin-bottom: var(--s-1); }
+.auth-form h2 { font-size: var(--fs-5); }
+.auth-form label { display: block; font-weight: 600; }
 .auth-form .btn { min-height: 44px; }
-.auth-form .sub, .auth-foot { color: var(--text-3); }
-.auth-form .hint { font-size: var(--fs-1); color: var(--text-3); margin-top: var(--s-1); }
-.auth-foot { display: flex; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; font-size: var(--fs-2); }
+.auth-foot { color: var(--text-3); font-size: var(--fs-2); text-align: center; }
 .pause-note { margin-top: var(--s-2); font-size: var(--fs-1); font-weight: 400; }
 
 /* shell: the top bar lines up with the page grid */
@@ -167,15 +164,18 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 /* the page grid: every screen sits in it */
 .page { flex: 1; width: 100%; max-width: var(--page); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-6); padding: var(--s-6); }
 .page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3) var(--s-6); }
-.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s-6); align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s-6); align-items: stretch; }
 @media (max-width: 960px) { .workspace { grid-template-columns: minmax(0, 1fr); } }
 .view { display: contents; }
 .view[hidden] { display: none; }
 
 /* distribute: files */
-.files { position: relative; min-width: 0; overflow: hidden; }
+/* The two columns are as tall as each other, at least 28rem: with a few files (or none) there is no large empty area
+   under one of them, and the empty Files card is a drop area that fills its card (D-F1-15). */
+.files { position: relative; min-width: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 28rem; }
 .files.over { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-tint); }
-.drop-state { padding: var(--s-16) var(--s-6); }
+.drop-state { flex: 1; margin: var(--s-4); padding: var(--s-8) var(--s-6); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+.files .table-scroll { flex: 1; }
 .table-scroll { overflow-x: auto; }
 .not-added { margin: var(--s-3) var(--s-4); font-size: var(--fs-2); font-weight: 400; }
 .not-added-head, .not-added-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-2); }
@@ -221,7 +221,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .ck[aria-checked='true'] .box, .ck[aria-checked='mixed'] .box { background: var(--accent); border-color: var(--accent); }
 
 /* distribute: destinations */
-.dest { min-width: 0; position: sticky; top: calc(var(--topbar) + var(--s-6)); }
+.dest { min-width: 0; min-height: 28rem; display: flex; flex-direction: column; }
 .scope { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) var(--s-4); background: var(--bg); border-bottom: 1px solid var(--line); font-size: var(--fs-2); color: var(--text-2); }
 .scope.scoped { background: var(--accent-tint); }
 .filter { padding: var(--s-3) var(--s-4) var(--s-1); }
@@ -229,7 +229,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .filter.search > svg { position: absolute; left: calc(var(--s-4) + var(--s-3)); top: calc(var(--s-3) + 11px); color: var(--text-3); pointer-events: none; }
 .filter.search .field { padding-left: var(--s-8); }
 .tree-skeleton { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-3) var(--s-2); }
-.tree { padding: var(--s-1) var(--s-3) var(--s-3); display: flex; flex-direction: column; max-height: 60vh; overflow-y: auto; }
+.tree { padding: var(--s-1) var(--s-3) var(--s-3); display: flex; flex-direction: column; flex: 1; max-height: 60vh; overflow-y: auto; }
 .row { padding-left: calc(var(--s-1) + var(--level, 0) * var(--s-6)); display: flex; align-items: center; gap: var(--s-2); min-height: var(--control); border-radius: var(--radius); }
 .row.on { background: var(--accent-tint); }
 .exp { width: 24px; height: 24px; border: 0; background: none; color: var(--text-3); border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; flex: none; }
@@ -266,14 +266,19 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .popover li { font-size: var(--fs-2); padding: var(--s-0) 0; overflow-wrap: anywhere; }
 
 /* dialog, toasts, preview */
-.overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 80; }
-.dialog { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 440px; background: var(--surface); border-radius: var(--radius); padding: var(--s-6); box-shadow: var(--shadow); z-index: 81; display: flex; flex-direction: column; gap: var(--s-3); }
+/* One rhythm for every dialog (D-F1-14): the backdrop covers the viewport whatever the page height or scroll position,
+   the page behind does not scroll, and the blocks inside (title, text, field, buttons) are --s-4 apart; a label sits
+   --s-2 above its field. Toasts use the same padding and gaps. */
+.overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; background: var(--scrim); z-index: 80; }
+.dialog { position: fixed; top: var(--s-16); left: 50%; transform: translateX(-50%); width: calc(100% - var(--s-8)); max-width: 440px; max-height: calc(100dvh - var(--s-16) - var(--s-6)); overflow-y: auto; background: var(--surface); border-radius: var(--radius); padding: var(--s-6); box-shadow: var(--shadow); z-index: 81; display: flex; flex-direction: column; gap: var(--s-4); }
 .dialog h2 { font-size: var(--fs-4); }
 .dialog p, .dialog-body p { color: var(--text-3); }
-.dialog label { display: block; font-size: var(--fs-2); font-weight: 600; margin-bottom: var(--s-1); }
+.dialog-body { display: flex; flex-direction: column; gap: var(--s-2); }
+.dialog-field { display: flex; flex-direction: column; gap: var(--s-2); }
+.dialog label { display: block; font-size: var(--fs-2); font-weight: 600; }
 .dialog .actions { display: flex; justify-content: flex-end; gap: var(--s-3); }
-.toasts { position: fixed; right: var(--s-6); bottom: calc(var(--s-16) + var(--s-4)); display: flex; flex-direction: column; gap: var(--s-2); z-index: 90; }
-.toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-2); max-width: 360px; box-shadow: var(--shadow); }
+.toasts { position: fixed; right: var(--s-6); bottom: calc(var(--s-16) + var(--s-4)); display: flex; flex-direction: column; gap: var(--s-3); z-index: 90; }
+.toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-3); max-width: 360px; box-shadow: var(--shadow); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--success-dot); flex: none; }
 .toast.error i { background: var(--warning-dot); }
 .preview-overlay { z-index: 90; }
@@ -288,17 +293,19 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .pv-message { align-self: center; color: var(--text-3); padding: var(--s-6); text-align: center; }
 .preview-note { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-6); border-top: 1px solid var(--line); font-size: var(--fs-1); color: var(--text-3); background: var(--bg); }
 
-/* status and audit: one view. The list of distributions, and a side panel on the same page for the open one (D-F1-7). */
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+/* status: the list of distributions, and a side panel on the same page for the open one (D-F1-7, D-F1-15). */
 .seg-group { display: flex; gap: var(--s-0); background: var(--surface-2); border-radius: var(--radius); padding: var(--s-0); }
 .seg { min-height: var(--control-sm); padding: 0 var(--s-4); border: 0; border-radius: var(--radius); background: none; font-weight: 500; color: var(--text-3); }
 .seg.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line-strong); }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
 .status-pick { width: auto; min-width: 180px; }
-.openid { display: flex; gap: var(--s-2); }
-.openid .field { width: 280px; min-height: var(--control); }
+.openid { position: relative; }
+.openid-card { position: absolute; right: 0; top: calc(100% + var(--s-2)); z-index: 40; width: 320px; padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); box-shadow: var(--shadow); }
+.openid-card label { font-size: var(--fs-2); font-weight: 600; }
+.openid-note { color: var(--error); font-size: var(--fs-2); }
+.openid-actions { display: flex; justify-content: flex-end; }
 .status-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); align-items: start; }
-.status-layout.open { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.status-layout.open { grid-template-columns: minmax(26rem, 2fr) minmax(0, 3fr); } /* the compact list never gets narrower than its three columns need */
 @media (max-width: 1023px) { .status-layout.open { grid-template-columns: minmax(0, 1fr); } }
 .dist { container-type: inline-size; overflow: hidden; }
 .dist-table { width: 100%; border-collapse: collapse; }
@@ -315,6 +322,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .dist-error { margin: var(--s-3) var(--s-4); }
 /* With the panel open the list is narrow: the file and destination counts go, the panel shows the folders. */
 @container (max-width: 640px) { .dist-more { display: none; } }
+@container (max-width: 460px) { .dist-table th, .dist-table td { padding-inline: var(--s-3); } }
 .panel { container-type: inline-size; position: sticky; top: calc(var(--topbar) + var(--s-6)); max-height: calc(100vh - var(--topbar) - var(--s-12)); overflow-y: auto; min-width: 0; }
 .panel-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
 .panel-title { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; }
@@ -326,8 +334,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .panel-section { display: flex; flex-direction: column; gap: var(--s-2); border-top: 1px solid var(--line); padding-top: var(--s-4); }
 .panel-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .panel-section h3 { font-size: var(--fs-3); font-weight: 600; margin: 0; }
-.history > summary { display: flex; align-items: center; gap: var(--s-2); cursor: pointer; list-style: none; min-height: var(--control); }
-.history > summary::-webkit-details-marker { display: none; }
+.tnote { font-size: var(--fs-1); color: var(--text-3); }
 .jdest { align-items: center; gap: var(--s-2); }
 .jbar { display: flex; height: 6px; border-radius: var(--radius); overflow: hidden; background: var(--line); }
 .jbar > div { transition: width 0.15s ease; background: var(--tone-dot); }
@@ -352,16 +359,6 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .tdetail .code { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--error); }
 .tdetail .reason { color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tbuttons { display: flex; gap: var(--s-1); }
-.arow { display: flex; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
-.arow:last-child { border-bottom: 0; }
-.atime { width: 64px; flex: none; color: var(--text-3); padding-top: var(--s-0); }
-.atile { width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: var(--fs-1); font-weight: 600; background: var(--tone-bg); color: var(--tone); }
-.atitle { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: baseline; }
-.atitle-text { font-weight: 600; color: var(--tone, inherit); }
-.atitle .by { font-size: var(--fs-1); color: var(--text-3); }
-.adetail { color: var(--text-2); margin-top: var(--s-0); overflow-wrap: anywhere; font-size: var(--fs-2); }
-.audit-tab { display: flex; flex-direction: column; }
-.load-more { display: flex; justify-content: center; padding: var(--s-3) 0; }
 .logo-bg { fill: var(--accent); }
 .logo-mark { stroke: var(--on-accent); }
 /* A narrow panel drops the Attempts column: its number is also in the chip's title. */

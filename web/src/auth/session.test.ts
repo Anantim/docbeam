@@ -47,18 +47,83 @@ describe('session', () => {
     expect(calls.filter((c) => c.endsWith('/teams'))).toHaveLength(2);
   });
 
-  it('opens the sign-in dialog state when the refresh is refused, and keeps the email', async () => {
+  it('opens the sign-in dialog state when the refresh is refused, keeps the email, waits, and sends the request again after the sign-in', async () => {
+    let signedInAgain = false;
+    const next = token(inSeconds(900), 'priya.shah@example.com');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/auth/login')) {
+          signedInAgain = true;
+          return json({ accessToken: next });
+        }
+        if (url.endsWith('/auth/refresh')) return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }, 401);
+        const bearer = (init?.headers as Record<string, string>).authorization;
+        return signedInAgain && bearer === `Bearer ${next}` ? json([{ id: 't1', name: 'Cardio' }]) : json({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }, 401);
+      }),
+    );
+    const s = await fresh();
+    await s.login('priya.shah@example.com', 'a long enough password');
+    signedInAgain = false;
+    const pending = s.apiFetch<{ name: string }[]>('/teams');
+    let settled = false;
+    void pending.then(() => (settled = true), () => (settled = true));
+    await vi.waitFor(() => expect(s.sessionStore.getSnapshot()).toEqual({ status: 'ended', email: 'priya.shah@example.com' }));
+    // Behind the dialog nothing fails and nothing is sent: the request waits.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(settled).toBe(false);
+    const behind = s.apiFetch('/jobs');
+    await s.login('priya.shah@example.com', 'a long enough password');
+    expect((await pending)[0]?.name).toBe('Cardio');
+    await expect(behind).resolves.toEqual([{ id: 't1', name: 'Cardio' }]);
+  });
+
+  it('a request waiting behind the dialog fails only when the person signs out instead', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
         if (url.endsWith('/auth/login')) return json({ accessToken: token(inSeconds(900)) });
+        if (url.endsWith('/auth/logout')) return new Response(null, { status: 204 });
+        return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }, 401);
+      }),
+    );
+    const s = await fresh();
+    await s.login('priya.shah@example.com', 'a long enough password');
+    const pending = s.apiFetch('/teams');
+    await vi.waitFor(() => expect(s.sessionStore.getSnapshot().status).toBe('ended'));
+    await s.logout();
+    await expect(pending).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('a refresh that cannot reach the server is an ordinary error: the sign-in does not end', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.endsWith('/auth/login')) return json({ accessToken: token(inSeconds(900)) });
+        if (url.endsWith('/auth/refresh')) return json({}, 503);
+        return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }, 401);
+      }),
+    );
+    const s = await fresh();
+    await s.login('priya.shah@example.com', 'a long enough password');
+    await expect(s.apiFetch('/teams')).rejects.toMatchObject({ status: 503 });
+    expect(s.sessionStore.getSnapshot().status).toBe('signedIn');
+  });
+
+  it('a service that refuses a token the Auth Service has just issued is an ordinary error: the sign-in does not end', async () => {
+    const fresher = token(inSeconds(901));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.endsWith('/auth/login')) return json({ accessToken: token(inSeconds(900)) });
+        if (url.endsWith('/auth/refresh')) return json({ accessToken: fresher });
         return json({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }, 401);
       }),
     );
     const s = await fresh();
     await s.login('priya.shah@example.com', 'a long enough password');
     await expect(s.apiFetch('/teams')).rejects.toMatchObject({ status: 401 });
-    expect(s.sessionStore.getSnapshot()).toEqual({ status: 'ended', email: 'priya.shah@example.com' });
+    expect(s.sessionStore.getSnapshot().status).toBe('signedIn');
   });
 
   it('a new tab with no token tries one quiet refresh before showing sign-in', async () => {

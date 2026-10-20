@@ -36,8 +36,10 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, tone
     <>
       <div className="overlay" onClick={onCancel} />
       <div ref={box} className="dialog" role="dialog" aria-modal="true" aria-label={title}>
-        <h2>{title}</h2>
-        <div className="dialog-body">{children}</div>
+        <div className="dialog-body">
+          <h2>{title}</h2>
+          {children}
+        </div>
         <div className="actions">
           <button ref={keep} className="btn2" type="button" onClick={onCancel}>
             {cancelLabel}

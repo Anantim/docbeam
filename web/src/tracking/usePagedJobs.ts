@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
-import { trackingApi, type JobScope, type JobStatus, type JobSummary } from './api.js';
+import { trackingApi, type Counts, type JobScope, type JobStatus, type JobSummary } from './api.js';
+import { statusFromCounts } from './apply.js';
 
 export const LIST_REFRESH_MS = 30_000;
 export const LIST_PAGE = 20;
@@ -103,7 +104,13 @@ export function usePagedJobs(scope: JobScope, enabled = true, intervalMs = LIST_
   return { ...state, refresh, loadMore };
 }
 
-/** How many of my distributions are still running, for the badge on the Status tab. */
-export function runningCount(jobs: JobSummary[] | null): number {
-  return (jobs ?? []).filter((j) => j.status === 'pending' || j.status === 'in_progress').length;
+/**
+ * How many of my distributions are pending or in progress, for the badge on the Status tab. The distribution that is
+ * open follows its live counts, so the badge drops the moment it finishes and does not wait for the next refresh.
+ */
+export function runningCount(jobs: JobSummary[] | null, live: { jobId: string; counts: Counts } | null = null): number {
+  return (jobs ?? []).filter((j) => {
+    const status = live && live.jobId === j.jobId ? statusFromCounts(live.counts, j.status === 'cancelled') : j.status;
+    return status === 'pending' || status === 'in_progress';
+  }).length;
 }
