@@ -7,7 +7,7 @@ import {
   PutObjectTaggingCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
-import type { Logger, UploadedObject } from '@docbeam/shared';
+import { detectFileType, type ByteSource, type Logger, type UploadedObject } from '@docbeam/shared';
 import type pg from 'pg';
 import type { Scanner } from './scanner.js';
 
@@ -27,6 +27,8 @@ export interface FileRow {
   s3Key: string;
   s3Checksum: string | null;
   scanStatus: string;
+  /** What the browser said the file is (from its name): the file's contents must agree (D-F1-44). */
+  contentType: string;
 }
 
 export type RowCheck = { kind: 'ok' } | { kind: 'wait' } | { kind: 'mismatch'; detail: string };
@@ -70,7 +72,8 @@ export async function processUpload(deps: Deps, object: UploadedObject): Promise
   const { db, s3, log } = deps;
   const { rows } = await db.query<FileRow>(
     `SELECT id, owner_user_id AS "ownerUserId", original_name AS "originalName", size_bytes::float8 AS "sizeBytes",
-            checksum_sha256 AS "checksumSha256", s3_key AS "s3Key", s3_checksum AS "s3Checksum", scan_status AS "scanStatus"
+            checksum_sha256 AS "checksumSha256", s3_key AS "s3Key", s3_checksum AS "s3Checksum", scan_status AS "scanStatus",
+            content_type AS "contentType"
        FROM files WHERE id = $1`,
     [object.fileId],
   );
@@ -124,6 +127,20 @@ export async function processUpload(deps: Deps, object: UploadedObject): Promise
     return 'done';
   }
 
+  // What the file really is, from its first bytes and, for a DOCX or an XLSX, the file list at the end of the ZIP (two or three
+  // small range reads, not the whole file again). It must be what the file was declared to be; it is stored with the file and the
+  // deliveries table, the preview and the download use it (D-F1-44).
+  // A failed read (S3 throttling, a network error) is not an answer: it throws, and the event is tried again. Only what the bytes
+  // show can refuse a file.
+  const detected = await detectFileType(objectSource(s3, object, measure.bytes));
+  if (detected !== row.contentType) {
+    await refuse(deps, row, object, 'failed', {
+      reason: 'CONTENT_TYPE',
+      detail: detected === null ? `The contents are not a ${row.contentType} file.` : `The contents are ${detected}, but the file was sent as ${row.contentType}.`,
+    });
+    return 'done';
+  }
+
   // Tag first, then the database: a row that says clean always has a tagged object behind it.
   await s3.send(
     new PutObjectTaggingCommand({
@@ -133,12 +150,24 @@ export async function processUpload(deps: Deps, object: UploadedObject): Promise
     }),
   );
   const done = await db.query(
-    `UPDATE files SET uploaded_at = now(), scan_status = 'clean'
+    `UPDATE files SET uploaded_at = now(), scan_status = 'clean', detected_type = $2
       WHERE id = $1 AND scan_status = 'pending' AND uploaded_at IS NULL`,
-    [row.id],
+    [row.id, detected],
   );
   log.info('file confirmed clean', { fileId: row.id, changed: done.rowCount });
   return 'done';
+}
+
+/** The stored object as a `ByteSource`: each read is a ranged GET. */
+function objectSource(s3: S3Client, object: UploadedObject, size: number): ByteSource {
+  return {
+    size,
+    async read(start, end) {
+      if (end <= start) return new Uint8Array(0); // a range with an end before its start would be ignored, and S3 would send the whole object
+      const out = await s3.send(new GetObjectCommand({ Bucket: object.bucket, Key: object.key, Range: `bytes=${start}-${end - 1}` }));
+      return (out.Body as { transformToByteArray(): Promise<Uint8Array> }).transformToByteArray();
+    },
+  };
 }
 
 async function removeObject(deps: Deps, object: UploadedObject): Promise<void> {
@@ -154,7 +183,7 @@ async function refuse(
   row: FileRow,
   object: UploadedObject,
   status: 'infected' | 'failed',
-  detail: { reason: 'MALWARE' | 'MISMATCH'; signature?: string; detail?: string },
+  detail: { reason: 'MALWARE' | 'MISMATCH' | 'CONTENT_TYPE'; signature?: string; detail?: string },
 ): Promise<void> {
   const client = await deps.db.connect();
   try {

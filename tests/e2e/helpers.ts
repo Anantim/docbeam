@@ -124,6 +124,19 @@ export function makePdf(title: string, pages = 3): Buffer {
   return Buffer.from(out, 'latin1');
 }
 
+/**
+ * A real DOCX that holds the EICAR antivirus test string as one more entry of its ZIP. The page reads a file's first bytes and
+ * only adds a real one (D-F1-44), so the bare string named .pdf is not added any more; inside a DOCX the scanner still finds
+ * it and refuses the file.
+ */
+export async function eicarDocx(): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<Types/>');
+  zip.file('word/document.xml', `<w:document>${Math.random()}</w:document>`);
+  zip.file('eicar.com', 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*');
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
 /** A new, real, three-page PDF each time. */
 export const pdf = (name: string): { name: string; mimeType: string; buffer: Buffer } => ({
   name,
@@ -267,6 +280,45 @@ export async function sql<T = Record<string, unknown>>(text: string, values: unk
   } finally {
     await client.end();
   }
+}
+
+/**
+ * A finished distribution by the signed-in person, with `files` files each delivered to every folder in `folders`, made
+ * directly in the database: a long list to try the "+N" popovers and the filters on, without uploading and scanning
+ * dozens of files. Every delivery is completed, so no worker has anything to do with it. `removeSeeded` deletes it.
+ */
+export async function seedJob(page: Page, files: string[], folders: string[], typeOf: (name: string) => string = () => 'application/pdf'): Promise<string> {
+  const token = (await page.evaluate("sessionStorage.getItem('docbeam.accessToken')")) as string;
+  const userId = (JSON.parse(Buffer.from(token.split('.')[1] as string, 'base64url').toString('utf8')) as { sub: string }).sub;
+  const jobId = randomUUID();
+  const now = new Date();
+  await sql(
+    `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
+     VALUES ($1, $2, 'Priya Shah', $3, $4, now(), now(), now(), $5)`,
+    [jobId, userId, files.length * folders.length, randomUUID(), now],
+  );
+  for (const [i, name] of files.entries()) {
+    const fileId = randomUUID();
+    await sql(
+      `INSERT INTO files (id, owner_user_id, job_id, original_name, size_bytes, content_type, detected_type, checksum_sha256, s3_key, uploaded_at, scan_status, created_at)
+       VALUES ($1, $2, $3, $4, 10, $7, $7, repeat('a', 64), $5, now(), 'clean', $6)`,
+      [fileId, userId, jobId, name, `staging/${userId}/${fileId}`, new Date(now.getTime() + i), typeOf(name)],
+    );
+    for (const path of folders) {
+      await sql(
+        `INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, destination_path, status) VALUES ($1, $2, $3, $4, $5, $6, 'completed')`,
+        [randomUUID(), jobId, fileId, randomUUID(), randomUUID(), path],
+      );
+    }
+  }
+  return jobId;
+}
+
+/** Deletes a distribution made by `seedJob`, with its files and deliveries. */
+export async function removeSeeded(jobId: string): Promise<void> {
+  await sql('DELETE FROM tasks WHERE job_id = $1', [jobId]);
+  await sql('DELETE FROM files WHERE job_id = $1', [jobId]);
+  await sql('DELETE FROM jobs WHERE id = $1', [jobId]);
 }
 
 /** Removes a job's staged files from the Object Store, so its deliveries fail with FILE_NOT_UPLOADED. */

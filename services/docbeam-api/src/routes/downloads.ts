@@ -65,7 +65,7 @@ export function registerDownloadRoutes(app: FastifyInstance, db: Db, { store, pl
       original_name: string; content_type: string; size_bytes: number; s3_key: string; scan_status: string;
       uploaded_at: Date | null; job_id: string; sender: string;
     }>(sql`
-      SELECT f.original_name, f.content_type, f.size_bytes, f.s3_key, f.scan_status, f.uploaded_at, f.job_id, j.submitted_by_user_id AS sender
+      SELECT f.original_name, COALESCE(f.detected_type, f.content_type) AS content_type, f.size_bytes, f.s3_key, f.scan_status, f.uploaded_at, f.job_id, j.submitted_by_user_id AS sender
         FROM files f JOIN jobs j ON j.id = f.job_id
        WHERE f.id = ${fileId}`);
     const row = found.rows[0];

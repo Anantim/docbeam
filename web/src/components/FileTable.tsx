@@ -3,9 +3,9 @@ import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
 import { isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
-import { FolderList } from './DestinationChips.js';
 import { PreviewButton } from './FileActions.js';
 import { CheckIcon, CloseIcon, MinusIcon, RetryIcon } from './Icons.js';
+import { NoMatches } from './ListFilter.js';
 import { Popover } from './Popover.js';
 import { StatusChip, type Tone } from './StatusChip.js';
 import { TypeBadge } from './TypeBadge.js';
@@ -51,7 +51,12 @@ export function statusView(f: PageFile): StatusView {
 const percent = (f: PageFile): number => Math.round(f.progress * 100);
 
 interface Props {
+  /** Every file: the header box, "Select all" and the selection are about all of them, whatever is listed. */
   files: readonly PageFile[];
+  /** The files that are listed (the filter box narrows this); all of them when it is empty. */
+  listed?: readonly PageFile[];
+  /** "Clear filter" under "No matches": empties the box and puts the focus back in it. */
+  onClearFilter?: () => void;
   mapping: Mapping;
   selected: ReadonlySet<string>;
   /** A click on a row, with the keys held, selects it (Shift for a range, Ctrl or Cmd to add). */
@@ -67,7 +72,7 @@ interface Props {
  * it goes to. A click selects a row; the Destinations tree then ticks folders for the selected files (D-F1-8).
  * It is a grid so a screen reader announces which rows are selected; Enter or Space on a row selects it too.
  */
-export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPreview, onRetry, onRemove }: Props) {
+export function FileTable({ files, listed = files, onClearFilter, mapping, selected, onPick, onToggleAll, onPreview, onRetry, onRemove }: Props) {
   const usable = files.filter(isUsable);
   const allOn = usable.length > 0 && usable.every((f) => selected.has(f.id));
   const someOn = !allOn && usable.some((f) => selected.has(f.id));
@@ -115,7 +120,8 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
           </div>
         </div>
 
-        {files.map((f) => {
+        {listed.length === 0 && files.length > 0 && onClearFilter && <NoMatches onClear={onClearFilter} />}
+        {listed.map((f) => {
           const view = statusView(f);
           const keys = isUsable(f) ? (mapping.files[f.id] ?? []) : [];
           const paths = keys.map((k) => mapping.destinations[k]?.path ?? '');
@@ -191,10 +197,8 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
                     label={paths.length === 1 ? '1 folder' : `${paths.length} folders`}
                     ariaLabel={`Show the ${paths.length === 1 ? 'folder' : `${paths.length} folders`} of ${f.name}`}
                     panelLabel={`Folders of ${f.name}`}
-                    className="link folder-count"
-                  >
-                    <FolderList paths={paths} />
-                  </Popover>
+                    items={paths}
+                  />
                 )}
               </div>
               <div className="actions" role="gridcell">

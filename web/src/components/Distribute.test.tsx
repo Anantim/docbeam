@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileStatus, PageFile, UploadManager } from '../upload/manager.js';
@@ -149,7 +151,9 @@ describe('Distribute', () => {
 
     await user.click((screen.getByText('a.pdf').closest('[role="row"]')) as HTMLElement);
     const dest = within(screen.getByRole('region', { name: 'Destinations' }));
-    expect(dest.getByText('for 1 selected file')).toBeTruthy(); // singular
+    expect(screen.getByText('a.pdf').closest('[role="row"]')?.getAttribute('aria-selected')).toBe('true'); // the highlighted row shows the scope (D-F1-45)
+    expect(screen.getByRole('region', { name: 'Destinations' }).querySelector('.card-hint')).toBeNull(); // nothing beside the title, ever
+    expect(dest.queryByText(/selected file/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Use all files' })).toBeNull(); // the strip is gone (D-F1-20)
     await tickTop(user, '1 selected file');
     expect((await screen.findByRole('checkbox', { name: `Send 1 selected file to ${FOLDER}` })).getAttribute('aria-checked')).toBe('true');
@@ -254,9 +258,9 @@ describe('Distribute', () => {
     // Selection behaves as before: a click on the box selects the row, the header box selects all.
     await user.click(rowBoxes[0] as HTMLElement);
     expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' })[0]?.getAttribute('aria-checked')).toBe('true');
-    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('for 1 selected file')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).queryByText(/selected files?/)).toBeNull(); // no label (D-F1-45)
     await user.click(header);
-    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('for 2 selected files')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).queryByText(/selected files?/)).toBeNull();
     expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' }).every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true);
   });
 
@@ -265,7 +269,7 @@ describe('Distribute', () => {
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified'), pageFile('c.pdf', 'verified')]);
     screenWith(manager);
     const row = (n: string) => screen.getByText(n).closest('[role="row"]') as HTMLElement;
-    const counts = () => [...document.querySelectorAll('.folder-files')].map((e) => e.textContent);
+    const counts = () => [...document.querySelectorAll('.tree .count-link')].map((e) => e.textContent);
     await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/); // opens the tree
     expect(counts()).toEqual([]); // nothing ticked: no counts
 
@@ -288,7 +292,7 @@ describe('Distribute', () => {
     await user.click(row('a.pdf'));
 
     // The popover lists the files of the second folder, in a scrolling list like the one of a file's folders.
-    const second = [...document.querySelectorAll<HTMLElement>('.folder-files')][1] as HTMLElement;
+    const second = [...document.querySelectorAll<HTMLElement>('.tree .count-link')][1] as HTMLElement;
     await user.click(second);
     const panel = await screen.findByRole('dialog', { name: /Files for Cardio \/ CARDIO-301 Regulatory \/ Protocol amendments/ });
     expect([...panel.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['a.pdf', 'b.pdf']);
@@ -404,10 +408,26 @@ describe('Distribute', () => {
     const manager = new FakeManager([]);
     screenWith(manager);
     const input = screen.getByLabelText('Choose files');
-    fireEvent.change(input, { target: { files: [new File(['x'], 'ok.pdf'), new File(['x'], 'setup.exe')] } });
-    expect(manager.add).toHaveBeenCalledTimes(1);
+    fireEvent.change(input, { target: { files: [new File(['%PDF-1.7\n%%EOF\n'], 'ok.pdf'), new File(['x'], 'setup.exe')] } });
     expect(await screen.findByText(/setup\.exe/)).toBeTruthy();
+    expect(manager.add).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/This type is not allowed/)).toBeTruthy();
+  });
+
+  it('puts a file whose contents are not what its name says in the "not added" box, with the reason (D-F1-44)', async () => {
+    const manager = new FakeManager([]);
+    screenWith(manager);
+    const input = screen.getByLabelText('Choose files');
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    fireEvent.change(input, { target: { files: [new File(['%PDF-1.7\n%%EOF\n'], 'report.docx'), new File([png], 'photo.pdf'), new File(['MZ-program'], 'setup.pdf')] } });
+    const box = await screen.findByRole('alert');
+    await waitFor(() => expect(within(box).getByText('3 files not added')).toBeTruthy());
+    expect([...box.querySelectorAll('.not-added-reason')].map((e) => e.textContent)).toEqual([
+      'The contents are a PDF, but the name says .docx.',
+      'The contents are a PNG, but the name says .pdf.',
+      "This isn't a real PDF file.",
+    ]);
+    expect(manager.add).not.toHaveBeenCalled();
   });
 
   it('shows the refused files in one calm box: "1 file not added" (singular), "2 files not added", one Close for the box, none per line (D-F1-35)', async () => {
@@ -430,5 +450,94 @@ describe('Distribute', () => {
     expect(await screen.findByText('1 file not added')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.queryByText(/files? not added/)).toBeNull();
+  });
+});
+
+describe('the Filter… box over the file list (D-F1-41)', () => {
+  const many = (n: number): PageFile[] => Array.from({ length: n }, (_, i) => pageFile(`${i % 2 === 0 ? 'Consent' : 'Labs'}-${String(i + 1).padStart(2, '0')}.pdf`, 'verified'));
+  const dataRows = () => document.querySelectorAll('.frow[data-id]');
+
+  it('is shown for more than 15 files and not for 15 or fewer', () => {
+    screenWith(new FakeManager(many(15)));
+    expect(screen.queryByRole('textbox', { name: 'Filter files by name' })).toBeNull();
+    cleanup();
+    screenWith(new FakeManager(many(16)));
+    expect(screen.getByRole('textbox', { name: 'Filter files by name' }).getAttribute('placeholder')).toBe('Filter…');
+  });
+
+  it('matches anywhere in the name in any case, says "Showing N of M" and "No matches", and Esc empties it', async () => {
+    const user = userEvent.setup();
+    screenWith(new FakeManager(many(20)));
+    const box = screen.getByRole('textbox', { name: 'Filter files by name' }) as HTMLInputElement;
+    await user.type(box, 'labs-1');
+    expect(dataRows()).toHaveLength(5); // Labs-02 .. Labs-20 even numbers starting with 1: 10, 12, 14, 16, 18
+    expect(screen.getByText('Showing 5 of 20')).toBeTruthy();
+    await user.clear(box);
+    await user.type(box, 'zzz');
+    expect(screen.getByText('No matches')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(box.value).toBe('');
+    expect(dataRows()).toHaveLength(20);
+    expect(screen.queryByText(/^Showing /)).toBeNull();
+  });
+
+  it('"No matches" is one centred line across the table with a "Clear filter" link that empties the box and returns the focus to it (D-F1-45)', async () => {
+    const user = userEvent.setup();
+    screenWith(new FakeManager(many(20)));
+    const box = screen.getByRole('textbox', { name: 'Filter files by name' }) as HTMLInputElement;
+    await user.type(box, 'zzz');
+    const none = document.querySelector('.no-matches') as HTMLElement;
+    expect(none.getAttribute('role')).toBe('status'); // the one shared component
+    expect(none.textContent).toBe('No matchesClear filter');
+    expect(none.closest('.ftable')).not.toBeNull(); // inside the table, spanning every column (grid-column: 1 / -1 in the stylesheet)
+    await user.click(within(none).getByRole('button', { name: 'Clear filter' }));
+    expect(box.value).toBe('');
+    expect(document.activeElement).toBe(box);
+    expect(dataRows()).toHaveLength(20);
+  });
+
+  it('the Files filter box is the same component as "Search folders": magnifier, one field style, and a height from the control tokens', () => {
+    screenWith(new FakeManager(many(20)));
+    const filter = screen.getByRole('textbox', { name: 'Filter files by name' });
+    const search = screen.getByRole('searchbox', { name: 'Filter destinations' });
+    for (const box of [filter, search]) {
+      expect(box.className).toBe('field');
+      expect(box.parentElement?.classList.contains('searchfield')).toBe(true);
+      expect(box.parentElement?.querySelector('svg')).not.toBeNull(); // the magnifier
+    }
+    expect(filter.parentElement?.classList.contains('sm')).toBe(true); // beside "Add files", a small button
+    expect(search.parentElement?.classList.contains('md')).toBe(true);
+    const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+    expect(css).toMatch(/\.searchfield\.sm \.field \{ min-height: var\(--control-sm\)/); // the same token as .btnsm
+    expect(css).toMatch(/\.btnsm \{ min-height: var\(--control-sm\)/);
+    expect(css).toMatch(/\.field \{ width: 100%; min-height: var\(--control\)/); // and the same token as .btn, .btn2
+  });
+
+  it('Select all and Send still act on all the files, not only the listed ones', async () => {
+    const user = userEvent.setup();
+    const submit = screenWith(new FakeManager(many(20)));
+    await user.type(screen.getByRole('textbox', { name: 'Filter files by name' }), 'consent-0'); // 5 of 20 listed
+    expect(dataRows()).toHaveLength(5);
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' }));
+    expect(screen.getByRole('checkbox', { name: 'Select all to choose their folders' }).getAttribute('aria-checked')).toBe('true'); // all 20 are selected
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' })); // none again
+    await user.click(await folderTick(user, `Send all 20 files to ${FOLDER}`)); // the folder takes all 20, not the 5 listed
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(screen.getByRole('dialog', { name: 'Send 20 files to 1 folder?' })).toBeTruthy();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    const body = (submit.mock.calls[0] as unknown[])[0] as { files: unknown[] };
+    expect(body.files).toHaveLength(20);
+  });
+
+  it('keeps the box while the filter has text even if the list shrinks to 15 or fewer, and clears it with Clear', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager(many(16));
+    screenWith(manager);
+    await user.type(screen.getByRole('textbox', { name: 'Filter files by name' }), 'labs');
+    act(() => manager.set(many(16).slice(0, 15)));
+    expect(screen.getByRole('textbox', { name: 'Filter files by name' })).toBeTruthy(); // the filter is still set, so it stays visible
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByRole('textbox', { name: 'Filter files by name' })).toBeNull();
   });
 });

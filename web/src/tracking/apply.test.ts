@@ -24,6 +24,7 @@ const row: TaskRow = {
   taskId: 't1',
   fileId: 'f1',
   fileName: 'a.pdf',
+  fileType: 'application/pdf',
   destinationPath: 'Cardio / Reg',
   teamId: 'team',
   status: 'pending',

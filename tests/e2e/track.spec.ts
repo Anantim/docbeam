@@ -250,7 +250,7 @@ test('the list shows everything I can see with their counts, and no Mine / My te
   await page.getByRole('button', { name: 'Status' }).click();
   const cards = page.locator('.dist-table tbody tr');
   await expect(cards.first()).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'Folders' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Destinations' })).toBeVisible();
   for (const gone of ['Mine', 'My teams', 'All I can see']) await expect(page.getByRole('button', { name: gone })).toHaveCount(0);
   await expect(page.getByRole('combobox')).toHaveCount(0); // and no status dropdown
   await expect(page.locator('.dist-sender').first()).toHaveText(/\S/); // the sender is on every row
@@ -316,7 +316,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
     const jobId = jobIdOf(page);
 
     await page.getByRole('complementary').getByRole('button', { name: 'Copy link' }).click();
-    await expect(page.getByText('Link copied.')).toBeVisible();
+    await expect(page.getByRole('complementary').getByText('Copied', { exact: true })).toBeVisible();
     expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
 
     // Back on Distribute the file is still there: it was hidden, not closed.

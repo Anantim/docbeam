@@ -17,6 +17,9 @@ export interface JobSummary {
   /** Files and folders the caller may see in the distribution (all of them for the sender). */
   fileCount: number;
   destinationCount: number;
+  /** The files in the order they were added, and the folders as full paths, for the list (D-F1-40). */
+  fileNames: string[];
+  destinations: string[];
   counts: Counts;
   status: JobStatus;
 }
@@ -37,7 +40,7 @@ export interface TeamChoice {
   name: string;
 }
 
-export interface JobDetail extends Omit<JobSummary, 'fileCount' | 'destinationCount'> {
+export interface JobDetail extends Omit<JobSummary, 'fileCount' | 'destinationCount' | 'fileNames' | 'destinations'> {
   isSender: boolean;
   /** The server's clock when these counts were read. Pushes older than this are ignored. */
   asOf: string;
@@ -64,6 +67,8 @@ export interface TaskRow {
   updatedAt: string;
   /** The staged file is past its 33 days, so a download would fail (M4). */
   fileExpired: boolean;
+  /** The content type the file's own bytes showed, for the type tag (D-F1-44). */
+  fileType: string;
 }
 
 export interface TaskPage {

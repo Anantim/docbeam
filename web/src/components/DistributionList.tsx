@@ -2,10 +2,12 @@ import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobSummary } from '../tracking/api.js';
+import { describeDestination } from '../distribute/mapping.js';
 import { formatWhen, jobChip, shortId } from '../tracking/format.js';
 import { CopyLinkButton, type Notify } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
 import { MoreRow } from './MoreRow.js';
+import { Popover } from './Popover.js';
 import { StatusChip } from './StatusChip.js';
 
 interface Props {
@@ -42,6 +44,8 @@ interface RowProps {
   notify: Notify;
 }
 
+const sameNames = (a: readonly string[], b: readonly string[]): boolean => a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
+
 /** Two rows are the same when what they show is the same, so a refresh that changes nothing redraws no row. */
 const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.selected === b.selected &&
@@ -54,8 +58,8 @@ const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.job.status === b.job.status &&
   a.job.createdAt === b.job.createdAt &&
   a.job.taskCount === b.job.taskCount &&
-  a.job.fileCount === b.job.fileCount &&
-  a.job.destinationCount === b.job.destinationCount &&
+  sameNames(a.job.fileNames, b.job.fileNames) &&
+  sameNames(a.job.destinations, b.job.destinations) &&
   a.job.submittedBy.userId === b.job.submittedBy.userId &&
   a.job.submittedBy.name === b.job.submittedBy.name &&
   (Object.keys(a.job.counts) as Array<keyof Counts>).every((k) => a.job.counts[k] === b.job.counts[k]);
@@ -95,9 +99,34 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
         {(status === 'pending' || status === 'in_progress') && <JobBar counts={counts ?? job.counts} total={job.taskCount} thin />}
       </td>
       <td>{formatWhen(job.createdAt)}</td>
-      <td className="num-col dist-more">{job.fileCount}</td>
-      <td className="num-col dist-more">{job.destinationCount}</td>
-      <td className="dist-more dist-spacer" aria-hidden="true" />
+      {/* Files and Destinations: the first name or two on one line with an ellipsis, then "+N" for the rest. They share the
+          spare width; the split view hides them (D-F1-40). */}
+      <td className="dist-more dist-fill">
+        <div className="cell-line" title={job.fileNames.join('\n')}>
+          <span className="cell-text">{job.fileNames[0] ?? ''}</span>
+          {job.fileNames.length > 1 && (
+            <Popover
+              label={`+${job.fileNames.length - 1}`}
+              ariaLabel={`Show ${job.fileNames.length - 1} more ${job.fileNames.length === 2 ? 'file' : 'files'} of ${shortId(job.jobId)}`}
+              panelLabel={`More files of ${shortId(job.jobId)}`}
+              items={job.fileNames.slice(1)}
+            />
+          )}
+        </div>
+      </td>
+      <td className="dist-more dist-fill">
+        <div className="cell-line" title={job.destinations.join('\n')}>
+          <span className="cell-text">{job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}</span>
+          {job.destinations.length > 2 && (
+            <Popover
+              label={`+${job.destinations.length - 2}`}
+              ariaLabel={`Show ${job.destinations.length - 2} more ${job.destinations.length === 3 ? 'folder' : 'folders'} of ${shortId(job.jobId)}`}
+              panelLabel={`More folders of ${shortId(job.jobId)}`}
+              items={job.destinations.slice(2)}
+            />
+          )}
+        </div>
+      </td>
     </tr>
   );
 }, sameRow);
@@ -116,14 +145,13 @@ function ListHead() {
         <th scope="col" className="dist-fit dist-fit-sent">
           Sent
         </th>
-        <th scope="col" className="num-col dist-more">
+        {/* The spare width is shared by these two, so a long name is cut with an ellipsis and not by the edge (D-F1-40). */}
+        <th scope="col" className="dist-more dist-fill">
           Files
         </th>
-        <th scope="col" className="num-col dist-more">
-          Folders
+        <th scope="col" className="dist-more dist-fill">
+          Destinations
         </th>
-        {/* Spare width goes here, at the end of the row, and not between Sender and Files (D-F1-28). */}
-        <th className="dist-more dist-spacer" aria-hidden="true" />
       </tr>
     </thead>
   );
@@ -154,13 +182,12 @@ export function DistributionList({ meId, filtered = false, onClearFilters, jobs,
                 <td>
                   <span className="sk sk-date" />
                 </td>
-                <td className="num-col dist-more">
-                  <span className="sk sk-num" />
+                <td className="dist-more dist-fill">
+                  <span className="sk sk-name" />
                 </td>
-                <td className="num-col dist-more">
-                  <span className="sk sk-num" />
+                <td className="dist-more dist-fill">
+                  <span className="sk sk-name" />
                 </td>
-                <td className="dist-more dist-spacer" aria-hidden="true" />
               </tr>
             ))}
           </tbody>

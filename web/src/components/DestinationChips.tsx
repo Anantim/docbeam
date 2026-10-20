@@ -8,25 +8,10 @@ interface Props {
   visible?: number;
 }
 
-/** Folders with their full paths, in a scrolling list: the body of a popover (D-F1-33). */
-export function FolderList({ paths }: { paths: readonly string[] }) {
-  return (
-    <div className="popover-list" tabIndex={0}>
-      <ul>
-        {paths.map((path) => (
-          <li key={path} title={path}>
-            {path}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /**
  * The destinations of a file or a distribution. The first few are chips: the folder's name, and its full path as the
- * tooltip and the accessible name. The rest are behind a "+N" button that opens a small popover listing just those with
- * their paths (D-M3-2, D-F1-33).
+ * tooltip and the accessible name. The rest are behind a "+N" count link that opens a popover listing just those with
+ * their paths (D-M3-2, D-F1-33, D-F1-42).
  */
 export function DestinationChips({ paths, visible = 2 }: Props) {
   const shown = paths.slice(0, visible);
@@ -43,10 +28,8 @@ export function DestinationChips({ paths, visible = 2 }: Props) {
           label={`+${hidden.length}`}
           ariaLabel={`Show ${hidden.length} more ${hidden.length === 1 ? 'folder' : 'folders'}`}
           panelLabel={`${hidden.length} more ${hidden.length === 1 ? 'folder' : 'folders'}`}
-          className="chip more"
-        >
-          <FolderList paths={hidden} />
-        </Popover>
+          items={hidden}
+        />
       )}
     </>
   );

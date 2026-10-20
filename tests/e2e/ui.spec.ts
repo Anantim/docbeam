@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
 import {
   addPdfs,
@@ -6,6 +7,8 @@ import {
   CARDIO_PROTOCOL,
   chip,
   columnReport,
+  docx,
+  makePdf,
   PRIYA,
   RAJ,
   readCounts,
@@ -117,16 +120,21 @@ test('a file state on Distribute and a delivery state on Status are the same chi
 
 test('file type badges show the type as text, in one neutral style: colour is kept for status (D-F1-5)', async ({ page }) => {
   await signIn(page, PRIYA);
-  const bytes = Buffer.from('x');
+  // Real contents of each type: the page reads the bytes and adds only a file that is what its name says (D-F1-44).
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+  const xlsx = new JSZip();
+  xlsx.file('[Content_Types].xml', '<Types/>');
+  xlsx.file('xl/workbook.xml', '<workbook/>');
   const files = [
-    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF' },
-    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX' },
-    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX' },
-    { name: 'd.png', mimeType: 'image/png', type: 'PNG' },
-    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG' },
+    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF', bytes: makePdf('badge') },
+    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX', bytes: await docx('badge') },
+    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX', bytes: await xlsx.generateAsync({ type: 'nodebuffer' }) },
+    { name: 'd.png', mimeType: 'image/png', type: 'PNG', bytes: png },
+    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG', bytes: jpg },
   ];
   const unique = files.map((f) => ({ ...f, name: `${randomUUID().slice(0, 6)}-${f.name}` }));
-  await page.getByLabel('Choose files').setInputFiles(unique.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: bytes })));
+  await page.getByLabel('Choose files').setInputFiles(unique.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: f.bytes })));
   for (const f of unique) await expect(page.locator('.frow', { hasText: f.name }).locator('.typetile')).toHaveText(f.type);
   const colours = await page.locator('.frow .typetile').evaluateAll((els: BrowserElement[]) => els.map((e) => getComputedStyle(e).color + getComputedStyle(e).backgroundColor));
   expect(new Set(colours).size).toBe(1);

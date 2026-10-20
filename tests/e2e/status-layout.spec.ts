@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CARDIO_IRB, chip, distRow, pickFilter, PRIYA, RAJ, sendFiles, signIn } from './helpers.js';
+import { CARDIO_IRB, chip, distRow, pickFilter, PRIYA, RAJ, removeSeeded, rgb, sendFiles, seedJob, signIn } from './helpers.js';
 
 // The last round of Status polish (D-F1-18): table alignment, one toast corner, Showing N, the copy icon, the dialog backdrop.
 
@@ -7,19 +7,11 @@ test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
 const unauthorised = { status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'Sign in again.' } }) };
 
-test('the list: Files and Folders are right-aligned with their headers, Status and Sent sit close', async ({ page }) => {
+test('the list: Status and Sent sit close, and the columns take what they need', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(distRow(page).first()).toBeVisible();
-  for (const name of ['Files', 'Folders']) {
-    await expect(page.getByRole('columnheader', { name })).toHaveCSS('text-align', 'right');
-    const index = (await page.getByRole('columnheader').allTextContents()).findIndex((t) => t.trim() === name);
-    const head = (await page.getByRole('columnheader').nth(index).boundingBox())!;
-    const cell = (await distRow(page).first().locator('td').nth(index).boundingBox())!;
-    expect(Math.abs(head.x + head.width - (cell.x + cell.width))).toBeLessThan(2); // right edges line up
-    await expect(distRow(page).first().locator('td').nth(index)).toHaveCSS('text-align', 'right');
-  }
   const heads = await page.getByRole('columnheader').all();
   const status = (await heads[1]!.boundingBox())!;
   const sent = (await heads[2]!.boundingBox())!;
@@ -27,33 +19,47 @@ test('the list: Files and Folders are right-aligned with their headers, Status a
   expect(status.width).toBeLessThan(220);
 });
 
-test('the full-width list sizes its columns to content: ID, Status, Sent, Files, Folders; Files and Folders are narrow and the spare width is at the end of the row (D-F1-28, D-F1-33)', async ({ page }) => {
+test('the full-width list: ID, Status, Sent fit their content; Files and Destinations share the spare width, one line each with an ellipsis, every row the same height; the split view hides them (D-F1-40)', async ({ page }) => {
   await signIn(page, PRIYA);
-  await page.getByRole('button', { name: 'Status' }).click();
-  await expect(distRow(page).first()).toBeVisible();
-  for (const width of [1440, 1280, 1024]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.waitForTimeout(250);
-    const edges = async (name: string): Promise<{ left: number; right: number }> => {
-      const index = (await page.getByRole('columnheader').allTextContents()).findIndex((t) => t.trim() === name);
-      const box = (await page.locator('.dist-table thead th').nth(index).boundingBox())!;
-      return { left: box.x, right: box.x + box.width };
-    };
-    expect(await page.getByRole('columnheader').allTextContents()).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // no Sender column
-    const sent = await edges('Sent');
-    const files = await edges('Files');
-    const folders = await edges('Folders');
-    expect(Math.abs(files.left - sent.right), `Files starts where Sent ends at ${width} px`).toBeLessThan(2);
-    expect(Math.abs(folders.left - files.right), `Folders starts where Files ends at ${width} px`).toBeLessThan(2);
-    expect(files.right - files.left, `Files is narrow at ${width} px`).toBeLessThan(110);
-    expect(folders.right - folders.left, `Folders is narrow at ${width} px`).toBeLessThan(110);
-    // The spare width is the empty last column.
-    const spacer = (await page.locator('.dist-table thead th.dist-spacer').boundingBox())!;
-    expect(Math.abs(spacer.x - folders.right)).toBeLessThan(2);
-    expect(spacer.width).toBeGreaterThan(40);
-    // Files and Folders are right-aligned: the numbers end at the column's right edge (less its padding).
-    const number = (await distRow(page).first().locator('td').nth(3).boundingBox())!;
-    expect(Math.abs(number.x + number.width - files.right)).toBeLessThan(2);
+  const longFile = 'A very long file name that cannot possibly fit in the column however wide the window is, version 12 final.pdf';
+  const longFolder = 'Cardio / CARDIO-301 Regulatory / A binder with a name that is also far too long / A folder that is long too';
+  const jobId = await seedJob(page, [longFile, 'second.pdf', 'third.pdf'], [longFolder, `${longFolder} two`, `${longFolder} three`, `${longFolder} four`]);
+  try {
+    await page.getByRole('button', { name: 'Status' }).click();
+    const row = page.locator('tr', { has: page.locator(`[data-job-id="${jobId}"]`) });
+    await expect(row).toBeVisible();
+    for (const width of [1440, 1280, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForTimeout(250);
+      expect(await page.getByRole('columnheader').allTextContents()).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']); // no Sender column
+      const edges = async (name: string): Promise<{ left: number; right: number }> => {
+        const index = (await page.getByRole('columnheader').allTextContents()).findIndex((t) => t.trim() === name);
+        const box = (await page.locator('.dist-table thead th').nth(index).boundingBox())!;
+        return { left: box.x, right: box.x + box.width };
+      };
+      const sent = await edges('Sent');
+      const files = await edges('Files');
+      const dest = await edges('Destinations');
+      expect(Math.abs(files.left - sent.right), `Files starts where Sent ends at ${width} px`).toBeLessThan(2);
+      expect(Math.abs(dest.left - files.right), `Destinations starts where Files ends at ${width} px`).toBeLessThan(2);
+      expect(Math.abs(files.right - files.left - (dest.right - dest.left)), `Files and Destinations share the width at ${width} px`).toBeLessThan(12); // about equal: a table gives the spare width by weight
+      // One line, cut by an ellipsis: the text is wider than its box, and the "+N" stays whole.
+      const text = row.locator('.cell-text').first();
+      expect(await text.evaluate((el: unknown) => (el as { scrollWidth: number; clientWidth: number }).scrollWidth > (el as { clientWidth: number }).clientWidth), `the file name is cut at ${width} px`).toBe(true);
+      await expect(text).toHaveCSS('text-overflow', 'ellipsis');
+      await expect(row.getByRole('button', { name: /^Show 2 more files/ })).toHaveText('+2');
+      await expect(row.getByRole('button', { name: /^Show 2 more folders/ })).toHaveText('+2');
+      // Every row is as tall as the others.
+      const heights = await page.locator('.dist-table tbody tr').evaluateAll((rows: unknown[]) => (rows as Array<{ getBoundingClientRect(): { height: number } }>).slice(0, 12).map((r) => Math.round(r.getBoundingClientRect().height)));
+      expect(new Set(heights).size, `rows have one height at ${width} px: ${heights.join(',')}`).toBe(1);
+    }
+    // With the panel open the list is narrow and Files and Destinations are hidden.
+    await row.locator('.dist-id').click();
+    await expect(page.getByRole('complementary')).toBeVisible();
+    await expect(page.locator('.dist-table thead th', { hasText: 'Destinations' })).toBeHidden();
+    await expect(page.locator('.dist-table thead th', { hasText: /^Files$/ })).toBeHidden();
+  } finally {
+    await removeSeeded(jobId);
   }
 });
 
@@ -109,7 +115,7 @@ test('Showing N sits beside Show more; Show more adds a page; scrolling to the e
   expect(await shown()).toBe(await distRow(page).count());
 });
 
-test('the copy icon: shown on row hover and focus, always in the panel; it copies the link, toasts bottom-right, and does not open or close the panel', async ({ page }) => {
+test('the copy icon: shown on row hover and focus, always in the panel; it copies the link, shows a green tick and "Copied" for 2 seconds with no toast, and does not open or close the panel', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
@@ -131,18 +137,17 @@ test('the copy icon: shown on row hover and focus, always in the panel; it copie
   // A click copies and does not open the panel.
   await row.hover();
   await icon.click();
-  await expect(page.getByText('Link copied.')).toBeVisible();
+  // No toast for a good copy (D-F1-43): the icon becomes a green tick with "Copied" for 2 seconds, then goes back.
+  await expect(row.getByText('Copied', { exact: true })).toBeVisible();
+  await expect(icon).toHaveClass(/copied/);
+  await expect(icon).toHaveCSS('color', rgb('#067647'));
+  await expect(row.locator('.copy-wrap [role="status"]')).toHaveText('Link copied');
+  await expect(page.locator('.toast')).toHaveCount(0);
   expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
   await expect(page).toHaveURL(/#\/status$/);
   await expect(page.getByRole('complementary')).toHaveCount(0);
-
-  // The toast is at the bottom centre of the window, above everything, and takes no click (D-F1-33).
-  const toast = (await page.locator('.toast').boundingBox())!;
-  const view = page.viewportSize()!;
-  expect(Math.abs(toast.x + toast.width / 2 - view.width / 2)).toBeLessThan(40);
-  expect(toast.y + toast.height).toBeGreaterThan(view.height - 60);
-  expect(await page.evaluate(`getComputedStyle(document.querySelector('.toasts')).pointerEvents`)).toBe('none');
-  expect(Number(await page.evaluate(`getComputedStyle(document.querySelector('.toasts')).zIndex`))).toBeGreaterThan(81); // above dialogs too
+  await expect(row.getByText('Copied', { exact: true })).toHaveCount(0, { timeout: 4000 }); // 2 seconds
+  await expect(icon).not.toHaveClass(/copied/);
 
   // In the panel the icon is always there, there is no "Copy link" text button, and a click leaves the panel open.
   await row.locator('.dist-id').click();

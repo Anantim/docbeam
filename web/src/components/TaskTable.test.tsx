@@ -21,6 +21,7 @@ const row = (i: number, over: Partial<TaskRow> = {}): TaskRow => ({
   taskId: `t${i}`,
   fileId: `f${i}`,
   fileName: name(i),
+  fileType: 'application/pdf',
   destinationPath: 'Cardio / Regulatory',
   teamId: 'team',
   status: 'pending',
@@ -94,6 +95,102 @@ describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
     expect((screen.getByRole('region', { name: 'Delivery rows, scrolls' }) as HTMLElement).style.height).toBe('320px'); // 5 rows of 64 px
     expect(screen.queryByText(/scroll the list/)).toBeNull(); // no line says it any more: the fade and the shadow do (D-F1-30)
     expect(document.querySelector('.tbody-wrap')?.className).toContain('more-below');
+  });
+});
+
+describe('the Filter… box over the deliveries (D-F1-41)', () => {
+  const some = (n: number, dests: (i: number) => string = () => 'Cardio / Regulatory'): TaskPage => ({ page: 1, limit: 100, total: n, tasks: Array.from({ length: n }, (_, i) => row(i, { destinationPath: dests(i), status: 'completed' })) });
+  const table = (status: 'all' | 'completed' = 'all') => {
+    const { live } = fakeLive();
+    return render(<TaskTable jobId="job" status={status} reloadKey={0} live={live} {...files} viewportHeight={640} />);
+  };
+
+  it('is there for more than 15 deliveries, and not for 15 or fewer', async () => {
+    api.tasks.mockImplementation(async () => some(15));
+    const view = table();
+    await screen.findByText(name(0));
+    expect(screen.queryByRole('textbox')).toBeNull();
+    view.unmount();
+    api.tasks.mockImplementation(async () => some(16));
+    table();
+    await screen.findByText(name(0));
+    expect(screen.getByRole('textbox', { name: /Filter deliveries/ }).getAttribute('placeholder')).toBe('Filter…');
+  });
+
+  it('matches the file name or the folder path, in any case and anywhere in it, and lists only those rows', async () => {
+    api.tasks.mockImplementation(async () => some(30, (i) => (i % 10 === 0 ? 'Oncology / ONC-118 / Imaging' : 'Cardio / Regulatory')));
+    table();
+    await screen.findByText(name(0));
+    fireEvent.change(screen.getByRole('textbox', { name: /Filter deliveries/ }), { target: { value: 'FILE-0007' } });
+    expect(screen.getByText(name(7))).toBeTruthy();
+    expect(screen.queryByText(name(8))).toBeNull();
+    expect(screen.getByRole('table', { name: 'Deliveries, 30' })).toBeTruthy(); // the count in the name is the whole distribution
+    fireEvent.change(screen.getByRole('textbox', { name: /Filter deliveries/ }), { target: { value: 'imaging' } });
+    expect(screen.getAllByRole('row').length - 1).toBe(3); // 0, 10 and 20
+    fireEvent.change(screen.getByRole('textbox', { name: /Filter deliveries/ }), { target: { value: 'zzz' } });
+    expect(screen.getByText('No matches')).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: /Filter deliveries/ }), { target: { value: '' } });
+    expect(screen.queryByText('No matches')).toBeNull();
+    expect(screen.getByText(name(8))).toBeTruthy();
+  });
+
+  it('works together with the status filter: the text stays when the status changes, and only loaded rows of that status match', async () => {
+    api.tasks.mockImplementation(async (_j: string, page: number, status?: string) => (status === 'completed' ? some(20) : { ...some(40), page }));
+    const { live } = fakeLive();
+    const view = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
+    await screen.findByText(name(0));
+    fireEvent.change(screen.getByRole('textbox', { name: /Filter deliveries/ }), { target: { value: 'file-001' } });
+    expect(screen.getAllByRole('row').length - 1).toBe(10); // 0010 to 0019
+    view.rerender(<TaskTable jobId="job" status="completed" reloadKey={0} live={live} {...files} viewportHeight={640} />);
+    await waitFor(() => expect(api.tasks).toHaveBeenLastCalledWith('job', 1, 'completed'));
+    await screen.findByText(name(10));
+    expect((screen.getByRole('textbox', { name: /Filter deliveries/ }) as HTMLInputElement).value).toBe('file-001'); // kept
+    expect(screen.getAllByRole('row').length - 1).toBe(10);
+  });
+
+  it('"No matches" is one line with "Clear filter", which empties the box and returns the focus to it (D-F1-45)', async () => {
+    api.tasks.mockImplementation(async () => some(30));
+    table();
+    await screen.findByText(name(0));
+    const box = screen.getByRole('textbox', { name: /Filter deliveries/ }) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: 'zzz' } });
+    const none = document.querySelector('.no-matches') as HTMLElement;
+    expect(none.textContent).toBe('No matchesClear filter');
+    fireEvent.click(none.querySelector('button') as HTMLElement);
+    expect(box.value).toBe('');
+    expect(document.activeElement).toBe(box);
+  });
+
+  it('Esc empties the box first', async () => {
+    api.tasks.mockImplementation(async () => some(30));
+    table();
+    await screen.findByText(name(0));
+    const box = screen.getByRole('textbox', { name: /Filter deliveries/ }) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: 'file-0001' } });
+    fireEvent.keyDown(box, { key: 'Escape' });
+    expect(box.value).toBe('');
+  });
+});
+
+describe('the type tag in the deliveries table (D-F1-44)', () => {
+  it('shows a neutral tag with the type the server found in the file, not one worked out from the name', async () => {
+    api.tasks.mockImplementation(async () => ({
+      page: 1,
+      limit: 100,
+      total: 2,
+      tasks: [
+        // The name says .pdf, the bytes were a DOCX (a file stored before the name check existed would look like this).
+        row(0, { fileName: 'report.pdf', fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', status: 'completed' }),
+        row(1, { fileName: 'photo.png', fileType: 'image/png', status: 'completed' }),
+      ],
+    }));
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
+    await screen.findByText('report.pdf');
+    const tags = [...document.querySelectorAll('.tfile-line .typetile')];
+    expect(tags.map((t) => t.textContent)).toEqual(['DOCX', 'PNG']);
+    expect(tags.every((t) => !/\b(ok|bad|warn|busy)\b/.test(t.getAttribute('data-tone') ?? ''))).toBe(true); // neutral: no tone attribute
+    expect(tags.every((t) => t.className === 'typetile')).toBe(true); // the one grey tag, no colour class
   });
 });
 

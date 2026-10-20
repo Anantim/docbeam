@@ -1,11 +1,13 @@
-import { memo, useCallback, useEffect, useRef, useState, type FocusEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
+import { FILTER_AFTER, ListFilter, matchesFilter, NoMatches } from './ListFilter.js';
 import { StatusChip } from './StatusChip.js';
+import { TypeBadge } from './TypeBadge.js';
 import { plural, taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
@@ -43,6 +45,10 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
   const [scrollTop, setScrollTop] = useState(0);
   const [error, setError] = useState('');
   const [firstLoaded, setFirstLoaded] = useState(false);
+  // The "Filter…" box over the rows loaded so far: the file name or the folder path (D-F1-41). It stays when the status
+  // choice changes, so the two work together; a different distribution clears it.
+  const [query, setQuery] = useState('');
+  const box = useRef<HTMLInputElement>(null);
 
   const generation = useRef(0);
   const inflight = useRef(new Set<number>());
@@ -83,6 +89,8 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     void load(1, generation.current);
   }, [load]);
 
+  useEffect(() => setQuery(''), [jobId]);
+
   // A reload asks again for the pages already on screen, and leaves them in place until the answers come.
   const reloads = useRef(reloadKey);
   useEffect(() => {
@@ -115,13 +123,28 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     setScrollTop(box.scrollTop);
   };
 
-  // Scrolling to rows that are not loaded yet loads their pages.
-  const range = visibleRange({ scrollTop, viewport: viewportHeight, rowHeight: ROW_HEIGHT, total });
+  // With text in the filter box only the rows loaded so far that match are listed; without it, all rows, loaded as they scroll in.
+  const matching = useMemo(() => {
+    if (query.trim() === '') return null;
+    return [...pages.keys()]
+      .sort((a, b) => a - b)
+      .flatMap((p) => pages.get(p) ?? [])
+      .filter((t) => matchesFilter(t.fileName, query) || matchesFilter(t.destinationPath, query));
+  }, [pages, query]);
+  const shownTotal = matching ? matching.length : total;
   useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [query]);
+
+  // Scrolling to rows that are not loaded yet loads their pages.
+  const range = visibleRange({ scrollTop, viewport: viewportHeight, rowHeight: ROW_HEIGHT, total: shownTotal });
+  useEffect(() => {
+    if (matching) return; // a filtered list is made of rows that are already here
     for (const p of pagesFor(range, TASK_PAGE)) {
       if (!pagesRef.current.has(p)) void load(p, generation.current);
     }
-  }, [range.start, range.end, total, load]);
+  }, [range.start, range.end, total, load, matching === null]);
 
   // Live pushes. With every status shown, a row is changed in place. With a filter on, the row may leave the
   // list, so the visible pages are loaded again instead.
@@ -157,14 +180,20 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
 
   const rows: Array<{ index: number; task: TaskRow | undefined }> = [];
   for (let i = range.start; i < range.end; i++) {
-    rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
+    rows.push({ index: i, task: matching ? matching[i] : pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
   }
 
   // More rows below the box: a soft fade at its bottom edge says so.
-  const moreBelow = total * ROW_HEIGHT > scrollTop + viewportHeight + 2;
+  const moreBelow = shownTotal * ROW_HEIGHT > scrollTop + viewportHeight + 2;
+  const showFilter = firstLoaded && (total > FILTER_AFTER.deliveries || query !== '');
 
   return (
-    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={total + 1}>
+    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={shownTotal + 1}>
+      {showFilter && (
+        <div className="dfilter" role="none">
+          <ListFilter ref={box} value={query} onChange={setQuery} label="Filter deliveries by file name or folder" />
+        </div>
+      )}
       <div className="trow thead" role="row">
         <div role="columnheader">File and folder</div>
         <div role="columnheader">Status</div>
@@ -202,13 +231,21 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
         </div>
       )}
       {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
+      {!error && firstLoaded && total > 0 && matching?.length === 0 && (
+        <NoMatches
+          onClear={() => {
+            setQuery('');
+            box.current?.focus();
+          }}
+        />
+      )}
       <div className={`tbody-wrap fadewrap ${fill ? 'fill' : ''} ${moreBelow ? 'more-below' : ''}`}>
         <div
           ref={scroller}
           className={`tscroll ${fill ? 'fill' : ''}`}
           // With `fill` the height asked for is all the rows; the CSS (flex-shrink, and `min-height: 0` on every parent up to the
           // panel) shrinks it to the room that is left. A parent that loses its `min-height: 0` makes the box as tall as every row.
-          style={{ height: fill ? Math.max(ROW_HEIGHT, total * ROW_HEIGHT) :Math.min(viewportHeight, Math.max(ROW_HEIGHT, total * ROW_HEIGHT)) }}
+          style={{ height: fill ? Math.max(ROW_HEIGHT, shownTotal * ROW_HEIGHT) : Math.min(viewportHeight, Math.max(ROW_HEIGHT, shownTotal * ROW_HEIGHT)) }}
           onFocus={onFocusRow}
           onKeyDownCapture={() => (byKeyboard.current = true)}
           onPointerDownCapture={() => (byKeyboard.current = false)}
@@ -217,7 +254,7 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
           role="region"
           aria-label="Delivery rows, scrolls"
         >
-          <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
+          <div style={{ height: shownTotal * ROW_HEIGHT, position: 'relative' }}>
             {rows.map(({ index, task }) => (
               <div key={task?.taskId ?? `empty-${index}`} className="trow" role="row" aria-rowindex={index + 2} style={{ position: 'absolute', top: index * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}>
                 {task ? <TaskCells task={task} onPreview={onPreview} onDownload={onDownload} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
@@ -238,8 +275,12 @@ const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { tas
   return (
     <>
       <div role="cell" className="tfile-cell">
-        <div className="ellipsis tfile" title={task.fileName}>
-          {task.fileName}
+        <div className="tfile-line">
+          {/* The type found in the file's contents when it was uploaded, never one worked out from the name (D-F1-44). */}
+          <TypeBadge contentType={task.fileType} />
+          <span className="ellipsis tfile" title={task.fileName}>
+            {task.fileName}
+          </span>
         </div>
         <div className="ellipsis lead dest-text" title={task.destinationPath}>
           {task.destinationPath}

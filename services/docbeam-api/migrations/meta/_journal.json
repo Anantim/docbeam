@@ -22,6 +22,20 @@
       "when": 1792500824259,
       "tag": "0002_jobs_created_index",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792519768740,
+      "tag": "0003_jobs_created_id_desc",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792522118360,
+      "tag": "0004_files_detected_type",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,7 @@ export const jobs = pgTable(
   (t) => [
     index('idx_jobs_user').on(t.submittedByUserId, sql`${t.createdAt} DESC`),
     // The list of everything a person can see is newest first across senders: this walks it in order (D-F1-21).
-    index('idx_jobs_created').on(sql`${t.createdAt} DESC`, t.id),
+    index('idx_jobs_created').on(sql`${t.createdAt} DESC`, sql`${t.id} DESC`),
     uniqueIndex('uq_jobs_idem').on(t.submittedByUserId, t.idempotencyKey),
     index('idx_jobs_unstarted')
       .on(t.queuedAt)
@@ -56,6 +56,8 @@ export const files = pgTable(
     originalName: text('original_name').notNull(),
     sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
     contentType: text('content_type').notNull(),
+    /** What the file's own bytes say it is, found by the Upload Events Lambda after the upload (D-F1-44). NULL until then. */
+    detectedType: text('detected_type'),
     /** Declared when the upload link is requested. */
     checksumSha256: text('checksum_sha256').notNull(),
     /** staging/{owner_user_id}/{file_id} */

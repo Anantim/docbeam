@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, CARDIO_IRB, docx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, docx, eicarDocx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
 
 // M2, Upload and distribute, as a regression pack (flow 2): pick, upload, scan, map, review, send.
 // (The 101 MiB multipart upload, the platform stopped mid-run and the SIGTERM drain are covered by the
 // integration suite: tests/integration/web-upload.test.ts, delivery.test.ts and platform-drain.test.ts.)
-const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 const row = (page: Page, name: string) => page.locator('.frow', { hasText: name });
 
 test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ page }) => {
@@ -79,8 +78,8 @@ test('a file type that is not allowed is listed in one calm "not added" box with
 
 test('a malware test file is refused by the scan, can never be sent, and only its owner has the audit event (in the API; the page shows none)', async ({ page }) => {
   await signIn(page, PRIYA);
-  const name = `eicar-${randomUUID().slice(0, 6)}.pdf`;
-  await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/pdf', buffer: Buffer.from(EICAR) }]);
+  const name = `eicar-${randomUUID().slice(0, 6)}.docx`; // a real DOCX with the test string inside: the bare text named .pdf is not added (D-F1-44)
+  await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
   const eicar = row(page, name);
   await expect(eicar.locator('.status-chip')).toHaveText('Refused', { timeout: 90_000 });
   await expect(eicar).toContainText('Malware was found');
@@ -114,13 +113,14 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   expect(await refusals(RAJ)).toBe(0);
 });
 
-test('ticking a folder applies to the selected file only, until none is selected (the "for N selected files" words beside Destinations)', async ({ page }) => {
+test('ticking a folder applies to the selected file only, until none is selected (the highlighted row is the scope; no label beside Destinations, D-F1-45)', async ({ page }) => {
   await signIn(page, PRIYA);
   const dest = page.getByRole('region', { name: 'Destinations' });
   const [a, b] = await addPdfs(page, 2, 'scope');
   await expect(dest.locator('.card-hint')).toHaveCount(0); // none selected: nothing beside the title
   await row(page, a as string).locator('.fname').click(); // a click on a row selects it
-  await expect(dest.locator('.card-hint')).toHaveText('for 1 selected file');
+  await expect(dest.locator('.card-hint')).toHaveCount(0); // and still nothing: the highlighted row shows it
+  await expect(row(page, a as string)).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('button', { name: 'Use all files' })).toHaveCount(0); // the strip is gone
   await tick(page, CARDIO_IRB);
   await expect(row(page, a as string).locator('.chips')).toContainText('1 folder');
@@ -129,7 +129,8 @@ test('ticking a folder applies to the selected file only, until none is selected
 
   // The Files header checkbox selects all, and a second click selects none: a tick then goes to all files.
   await page.getByLabel('Select all to choose their folders').click();
-  await expect(dest.locator('.card-hint')).toHaveText('for 2 selected files');
+  await expect(dest.locator('.card-hint')).toHaveCount(0);
+  await expect(row(page, b as string)).toHaveAttribute('aria-selected', 'true');
   await page.getByLabel('Select all to choose their folders').click();
   await expect(dest.locator('.card-hint')).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear' }).click();

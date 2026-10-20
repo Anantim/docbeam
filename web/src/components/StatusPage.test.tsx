@@ -402,6 +402,8 @@ const summary = (jobId: string, name = 'Priya Shah', over: Partial<JobSummary> =
   taskCount: 3,
   fileCount: 3,
   destinationCount: 1,
+  fileNames: ['Consent form.pdf', 'Lab results.pdf', 'Visit notes.pdf'],
+  destinations: ['Cardio / CARDIO-301 Regulatory / IRB approvals'],
   counts: counts({ completed: 3 }),
   status: 'completed',
   ...over,
@@ -512,15 +514,41 @@ describe('the list and Open by ID', () => {
     expect(onOpen).toHaveBeenCalledWith(JOB);
   });
 
-  it('lists my distributions as a table: id, status, sent, and (when there is room) sender, files, folders', async () => {
-    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 7, destinationCount: 4 })]) });
+  it('lists my distributions as a table: id (sender below), status, sent, and (when there is room) the first file and the first two folders with "+N" (D-F1-40)', async () => {
+    const paths = ['Cardio / CARDIO-301 Regulatory / IRB approvals', 'Cardio / CARDIO-301 Regulatory / Protocol amendments', 'Oncology / ONC-118 / Imaging', 'Neuro / NEU-207 / Site approvals'];
+    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 3, destinationCount: 4, fileNames: ['Consent form.pdf', 'Lab results.pdf', 'Visit notes.pdf'], destinations: paths })]) });
     const table = screen.getByRole('table', { name: 'Distributions' });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // no Sender column (D-F1-33)
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']); // no Sender column (D-F1-33)
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
     const sent = '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5));
     // The sender is on every row, small and muted under the ID, in every state of the list.
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, '7', '4']);
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, 'Consent form.pdf+2', 'IRB approvals, Protocol amendments+2']);
     expect(row.querySelector('.dist-sender')?.textContent).toBe('You');
+    // Each is one line with an ellipsis (the text part is cut, the "+N" is not), and the count links list the rest.
+    expect(row.querySelectorAll('.cell-text')).toHaveLength(2);
+    const more = within(row).getAllByRole('button', { name: /^Show \d+ more/ });
+    expect(more.map((b) => b.textContent)).toEqual(['+2', '+2']);
+    expect(more.every((b) => b.classList.contains('count-link'))).toBe(true);
+  });
+
+  it('lists the other files and folders in the popover of the "+N", with full paths, and a click on it does not open the row', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const paths = ['Cardio / A / One', 'Cardio / A / Two', 'Oncology / B / Three', 'Neuro / C / Four'];
+    renderPage({ jobId: null, onOpen, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileNames: ['a.pdf', 'b.pdf', 'c.pdf'], destinations: paths })]) });
+    await user.click(screen.getByRole('button', { name: /^Show 2 more folders of/ }));
+    const panel = screen.getByRole('dialog', { name: /^More folders of/ });
+    expect([...panel.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['Oncology / B / Three', 'Neuro / C / Four']);
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /^Show 2 more files of/ }));
+    expect([...screen.getByRole('dialog', { name: /^More files of/ }).querySelectorAll('li')].map((li) => li.textContent)).toEqual(['b.pdf', 'c.pdf']);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('a distribution with one file and two folders shows no "+N"', () => {
+    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileNames: ['only.pdf'], destinations: ['Cardio / A / One', 'Cardio / A / Two'] })]) });
+    const row = within(screen.getByRole('table', { name: 'Distributions' })).getAllByRole('row')[1] as HTMLElement;
+    expect(within(row).queryByRole('button', { name: /^Show \d+ more/ })).toBeNull();
   });
 
   it('shows the sender\'s name on a row somebody else sent, and a click on the row opens it (everything I can see, D-F1-21)', async () => {
@@ -558,7 +586,7 @@ describe('the list and Open by ID', () => {
     const busy = screen.getByLabelText('Loading distributions');
     expect(busy.getAttribute('aria-busy')).toBe('true');
     // The real header row, and in each placeholder row grey bars shaped like the ID, the sender line, the chip and the date (D-F1-22).
-    expect(within(busy).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent).filter(Boolean)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // the last, empty column holds the spare width
+    expect(within(busy).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent).filter(Boolean)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']);
     const rows = busy.querySelectorAll('tbody tr');
     expect(rows.length).toBe(5);
     for (const cls of ['.sk-id', '.sk-sender', '.sk-chip', '.sk-date']) expect(rows[0]?.querySelector(cls)).not.toBeNull();
@@ -619,7 +647,28 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     expect(onOpen).not.toHaveBeenCalled(); // a click on it does not open or close the panel
     await user.click(icons[1] as HTMLElement); // the panel's
     expect(onOpen).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('Link copied.'));
+    // No toast for a good copy (D-F1-43): the icon becomes a green tick with "Copied" for 2 seconds, and a polite live
+    // region says "Link copied" for a screen reader; then it goes back.
+    expect(notify).not.toHaveBeenCalled();
+    const first = icons[0] as HTMLElement;
+    const wrap = first.closest('.copy-wrap') as HTMLElement;
+    expect(first.classList.contains('copied')).toBe(true);
+    expect(wrap.textContent).toContain('Copied');
+    const live = wrap.querySelector('[role="status"]') as HTMLElement;
+    expect(live.getAttribute('aria-live')).toBe('polite');
+    expect(live.textContent).toBe('Link copied');
+    await vi.waitFor(() => expect(first.classList.contains('copied')).toBe(false), { timeout: 3500 });
+    expect(wrap.textContent).not.toContain('Copied');
+    expect(live.textContent).toBe('');
+  });
+
+  it('says so in a toast only when the copy fails', async () => {
+    const user = userEvent.setup();
+    const page = renderPage({ onOpen: vi.fn(), mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
+    await opened(page);
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
+    await user.click(screen.getAllByRole('button', { name: 'Copy link' })[0] as HTMLElement);
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('The link could not be copied.', 'error'));
   });
 });
 

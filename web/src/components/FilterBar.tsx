@@ -2,6 +2,7 @@ import { jobChip } from '../tracking/format.js';
 import { isUnfiltered, SENT_LABEL, SENT_PRESETS, STATUSES, type Filters, type SentPreset } from '../tracking/filters.js';
 import type { JobStatus, Member, TeamChoice } from '../tracking/api.js';
 import { FilterMenu } from './FilterMenu.js';
+import { FILTER_AFTER } from './ListFilter.js';
 
 interface Props {
   filters: Filters;
@@ -40,6 +41,7 @@ export function FilterBar({ filters, onChange, meId, members, teams }: Props) {
         anyLabel="Anyone"
         choices={[{ value: 'me', label: 'Me' }, ...others.map((m) => ({ value: m.userId, label: m.name || 'Member' }))]}
         onChange={(v) => onChange({ ...filters, sender: v })}
+        filterAfter={FILTER_AFTER.people}
       />
       <FilterMenu
         label="Sent"

@@ -85,7 +85,7 @@ const pdf = (name: string, size: number): File => {
 describe('web upload queue against the Compose stack', () => {
   it('uploads a small file and a multipart file, verifies both, and sends them as one distribution', async () => {
     const manager = new UploadManager({ api, transport, hash: (file, multipart, onProgress) => hashFile(file, multipart, onProgress) });
-    const picked = acceptFiles(0, [pdf('protocol.pdf', 5 * 1024), pdf('investigator-brochure.pdf', 101 * 1024 ** 2)]);
+    const picked = await acceptFiles(0, [pdf('protocol.pdf', 5 * 1024), pdf('investigator-brochure.pdf', 101 * 1024 ** 2)]);
     expect(picked.rejected).toEqual([]);
     manager.add(picked.accepted);
 

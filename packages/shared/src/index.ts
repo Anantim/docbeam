@@ -2,6 +2,7 @@ export * from './batch.js';
 export * from './checksum.js';
 export * from './constants.js';
 export * from './db.js';
+export * from './detect-type.js';
 export * from './errors.js';
 export * from './file-types.js';
 export * from './jwt.js';

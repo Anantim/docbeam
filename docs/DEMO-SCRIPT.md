@@ -41,7 +41,7 @@ Make the files and set the three variables shown at the top (`scripts/demo-files
 |---|---|---|
 | 1 | Sign-in page | DocBeam sends clinical trial documents to many team folders at once, and tracks every delivery. Sign in as Anantim. |
 | 2 | Distribute, Files | Add the files once. Each is checked in the browser, uploaded, and scanned for malware. Each file shows its state: Uploading, Scanning, Ready. |
-| 3 | The refused file | The standard antivirus test file is refused. It is deleted and can never be sent. It is removed. |
+| 3 | The refused file | The standard antivirus test file (a real DOCX that holds the EICAR test string, made by `scripts/demo-files.sh`) is refused. It is deleted and can never be sent. It is removed. |
 | 4 | Select all, tick folders | Select the files, or leave none selected for all of them, then tick folders. I only see my own teams. The words beside Destinations say who a tick is for ("for 2 selected files" while files are ticked, nothing otherwise). When Send is off, the reason is text beside Clear. The full summary comes in the question before Send. |
 | 5 | One file selected | With some files selected, a tick goes to those files only. The folders of a file are one click away (the "3 folders" button). |
 | 6 | Send | Sending asks first. Delivered files can not be recalled, and Cancel is the default. |

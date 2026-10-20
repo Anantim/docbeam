@@ -18,6 +18,8 @@ const job = (jobId: string, status: JobSummary['status'], completed = 0): JobSum
   taskCount: 10,
   fileCount: 2,
   destinationCount: 1,
+  fileNames: ['a.pdf', 'b.pdf'],
+  destinations: ['Cardio / Regulatory / IRB approvals'],
   counts: { pending: 10 - completed, in_progress: 0, completed, failed: 0, cancelled: 0 },
   status,
 });
@@ -94,6 +96,22 @@ describe('usePagedJobs (cursor, D-F1-21)', () => {
     const ids = (result.current.jobs ?? []).map((j) => j.jobId);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.at(-1)).toBe('tail');
+  });
+
+  it('merges by id: a refresh in which a new row pushed one onto the next page shows every id once and none missing (D-F1-40)', async () => {
+    const rows = many(0, LIST_PAGE + 5);
+    api.jobs.mockResolvedValueOnce(page(rows.slice(0, LIST_PAGE), 'c1')).mockResolvedValueOnce(page(rows.slice(LIST_PAGE)));
+    const { result } = renderHook(() => usePagedJobs());
+    await act(async () => undefined);
+    await act(async () => result.current.loadMore());
+    // A new distribution lands on top: page 1 now ends one row later, so the last row of the old page 1 comes again at the top of page 2.
+    const fresh = job('fresh', 'pending');
+    const all = [fresh, ...rows];
+    api.jobs.mockResolvedValueOnce(page(all.slice(0, LIST_PAGE), 'd1')).mockResolvedValueOnce(page(all.slice(LIST_PAGE - 1, LIST_PAGE + 5)));
+    await act(async () => result.current.refresh());
+    const ids = (result.current.jobs ?? []).map((j) => j.jobId);
+    expect(new Set(ids).size).toBe(ids.length); // none twice
+    expect(ids).toEqual(['fresh', ...rows.slice(0, LIST_PAGE - 1).map((j) => j.jobId), ...rows.slice(LIST_PAGE - 1, LIST_PAGE + 4).map((j) => j.jobId)].filter((id, i, a) => a.indexOf(id) === i));
   });
 
   it('a refresh reads again every page that is shown, following the cursors from the top', async () => {

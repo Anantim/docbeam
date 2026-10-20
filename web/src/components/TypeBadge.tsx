@@ -4,8 +4,6 @@ import { typeLabel } from '../distribute/files.js';
 export function TypeBadge({ contentType, big = false }: { contentType: string; big?: boolean }) {
   const label = typeLabel(contentType);
   return (
-    <span className={`typetile ${big ? 'big' : ''}`}>
-      {label}
-    </span>
+    <span className={big ? 'typetile big' : 'typetile'}>{label}</span>
   );
 }
