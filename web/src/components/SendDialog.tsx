@@ -1,3 +1,4 @@
+import { plural } from '../text.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const n = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
+const n = plural;
 
 /** The question before a distribution goes out (D-F1-8). It lists no files and no folders: the page already shows them. */
 export function SendDialog({ files, folders, deliveries, teams, busy, onSend, onCancel }: Props) {

@@ -86,7 +86,8 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
   }, [onClose]);
 
   const box = useRef<HTMLDivElement>(null);
-  useFocusTrap(box);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useFocusTrap(box, closeButton);
   const sheets = view.kind === 'xlsx' ? view.sheets : [];
   const current = sheets[sheet];
 
@@ -111,7 +112,7 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
               ))}
             </select>
           )}
-          <button className="icon" type="button" autoFocus aria-label="Close preview" title="Close preview" onClick={onClose}>
+          <button ref={closeButton} className="icon" type="button" aria-label="Close preview" title="Close preview" onClick={onClose}>
             <CloseIcon />
           </button>
         </div>

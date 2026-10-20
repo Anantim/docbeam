@@ -89,7 +89,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
 
   it('in the Destinations tree (expand buttons and the folder ticks)', async () => {
     const user = userEvent.setup();
-    const { container } = render(<Destinations selected={[]} onToggle={noop} onTeams={noop} />);
+    const { container } = render(<Destinations stateOf={() => 'off'} onToggle={noop} onTeams={noop} />);
     await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
     await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
     await screen.findByText('IRB approvals');

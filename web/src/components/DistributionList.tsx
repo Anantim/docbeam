@@ -3,6 +3,7 @@ import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobScope, JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, shortId } from '../tracking/format.js';
+import { JobBar } from './JobBar.js';
 import { MoreRow } from './MoreRow.js';
 import { StatusChip } from './StatusChip.js';
 
@@ -63,6 +64,7 @@ const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps)
           type="button"
           className="link mono dist-id"
           title={job.jobId}
+          data-job-id={job.jobId}
           aria-current={selected ? 'true' : undefined}
           aria-label={`Open distribution ${shortId(job.jobId)}`}
           onClick={(e) => {
@@ -81,7 +83,7 @@ const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps)
       <td className="num-col dist-more">{job.destinationCount}</td>
       <td>
         <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
-        {(status === 'pending' || status === 'in_progress') && <ProgressBar counts={counts ?? job.counts} total={job.taskCount} />}
+        {(status === 'pending' || status === 'in_progress') && <JobBar counts={counts ?? job.counts} total={job.taskCount} thin />}
       </td>
     </tr>
   );
@@ -155,19 +157,6 @@ export function DistributionList({ meId, scope, filtered = false, jobs, error, h
         </tbody>
       </table>
       {hasMore && <MoreRow className="state small" busy={loadingMore} failed={moreFailed} onMore={onMore} />}
-    </div>
-  );
-}
-
-const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
-
-/** A thin bar under the chip of a distribution that is still running. */
-function ProgressBar({ counts, total }: { counts: Counts; total: number }) {
-  return (
-    <div className="jbar thin" aria-hidden="true">
-      <div data-tone="ok" style={{ width: `${pct(counts.completed, total)}%` }} />
-      <div data-tone="bad" style={{ width: `${pct(counts.failed, total)}%` }} />
-      <div data-tone="busy" style={{ width: `${pct(counts.in_progress, total)}%` }} />
     </div>
   );
 }

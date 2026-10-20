@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useRef, useState, type FormEvent } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
 import type { Counts, JobScope, JobStatus } from '../tracking/api.js';
@@ -51,11 +51,14 @@ export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads
   const list = unfiltered ? mine : other;
 
   // Any new attempt to open something starts with a clean note.
-  const open = (id: string): void => {
+  // Stable, so the rows of the list (memoised) are not drawn again whenever this page is.
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+  const open = useCallback((id: string): void => {
     setTypedError('');
     setLiveCounts(null); // counts followed from an earlier look at a distribution are not this one's
-    onOpen(id);
-  };
+    onOpenRef.current(id);
+  }, []);
 
   const openTyped = (event: FormEvent): void => {
     event.preventDefault();
@@ -158,7 +161,7 @@ export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads
             onClose={() => {
               onOpen(null);
               // Focus goes back to the row that opened the panel, not to the page.
-              requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="Open distribution ${jobId.slice(0, 8)}"]`)?.focus());
+              requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`)?.focus());
             }}
             onCounts={followCounts}
             signedInAgain={signedInAgain}

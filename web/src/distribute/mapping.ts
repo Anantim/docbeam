@@ -1,6 +1,7 @@
 import { validateBatch, type BatchResult } from '@docbeam/shared/browser';
 import type { Destination } from '../destinations/selection.js';
 import { destinationKey } from '../destinations/selection.js';
+import { plural } from '../text.js';
 import type { PageFile } from '../upload/manager.js';
 
 /** Which destinations each file goes to, keyed by the page's file id then by `destinationKey`. */
@@ -125,7 +126,6 @@ export interface Readiness {
   batch: BatchResult;
 }
 
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 /** The one place the batch is checked: at Send. The first problem found is the reason. */
 export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
@@ -173,7 +173,7 @@ export function buildJobRequest(mapping: Mapping, files: PageFile[]): JobBody | 
   return result.ok ? request : null;
 }
 
-/** The pieces of a destination path the Review card shows: team, then the name of the folder. */
+/** The pieces of a destination path the files table shows: team, then the name of the folder. */
 export function describeDestination(path: string): { team: string; name: string } {
   const parts = path.split(' / ');
   return { team: parts[0] ?? '', name: parts[parts.length - 1] ?? '' };

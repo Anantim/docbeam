@@ -1,5 +1,6 @@
 // Words, tones and times for the Status view and its history. The colours themselves live in StatusChip (D-M3-12).
 import type { Tone } from '../components/StatusChip.js';
+import { plural } from '../text.js';
 import type { AuditEvent, JobStatus, TaskKind, TaskRow } from './api.js';
 
 export interface Chip {
@@ -32,7 +33,7 @@ export const taskKindOf = (task: Pick<TaskRow, 'status' | 'failureCode'>): TaskK
 /** The first 8 characters of the id, which is how a distribution is named on screen (D-G16). */
 export const shortId = (jobId: string): string => jobId.slice(0, 8);
 
-export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+export { plural };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const two = (n: number): string => String(n).padStart(2, '0');

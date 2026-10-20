@@ -126,13 +126,16 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
               aria-selected={infected ? undefined : on}
               tabIndex={infected ? undefined : 0}
               key={f.id}
-              onKeyDown={onKeyDown}
+              onKeyDown={(e) => {
+                onKeyDown(e);
+                // Enter or Space selects the focused row; Space must not also scroll the page.
+                if (!infected && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onPick(f.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
+                }
+              }}
               onClick={(e) => {
                 if (infected || (e.target as HTMLElement).closest('button, a, input')) return;
-                onPick(f.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
-              }}
-              onKeyUp={(e) => {
-                if (infected || e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
                 onPick(f.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
               }}
             >

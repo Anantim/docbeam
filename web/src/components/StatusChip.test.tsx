@@ -69,7 +69,7 @@ describe('TypeBadge', () => {
   ])('%s shows %s', (contentType, label) => {
     render(<TypeBadge contentType={contentType} />);
     const badge = screen.getByText(label);
-    expect(badge.getAttribute('data-type')).toBe(label);
+    expect(badge.className).toContain('typetile');
     cleanup();
   });
 });

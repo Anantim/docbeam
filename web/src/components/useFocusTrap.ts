@@ -6,9 +6,10 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * Keeps Tab and Shift+Tab inside a dialog while it is open, and gives focus back to what had it before the dialog
  * opened (D-F1-9). Escape is handled by each dialog, which knows what "no" means for it.
  */
-export function useFocusTrap(box: RefObject<HTMLElement | null>): void {
+export function useFocusTrap(box: RefObject<HTMLElement | null>, initial?: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
+    initial?.current?.focus();
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Tab' || !box.current) return;
       const items = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
@@ -29,5 +30,5 @@ export function useFocusTrap(box: RefObject<HTMLElement | null>): void {
       document.removeEventListener('keydown', onKey);
       if (before && document.contains(before)) before.focus();
     };
-  }, [box]);
+  }, [box, initial]);
 }

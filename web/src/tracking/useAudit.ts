@@ -16,7 +16,7 @@ interface Query {
 export function useAudit({ jobId, actions, reloadKey = 0, enabled = true }: Query) {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState('');
   const page = useRef(1);
   const generation = useRef(0);

@@ -73,6 +73,8 @@ export function App() {
   // My distributions, refreshed every 30 seconds. Also the badge on the Status tab.
   const mine = usePagedJobs('mine', token !== null, undefined, signedInAgain);
 
+  const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId, uploads: false }), [go]);
+
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
     lastClaims.current = null;
@@ -82,7 +84,6 @@ export function App() {
   if (!claims) return <AuthCard />;
 
   const view: View = route.view;
-  const openJob = (jobId: string | null): void => go({ view: 'status', jobId, uploads: false });
 
   return (
     <>

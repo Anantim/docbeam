@@ -45,7 +45,7 @@ function Parent() {
       if (!next.delete(destinationKey(d))) next.add(destinationKey(d));
       return next;
     });
-  return <Destinations selected={[]} onToggle={toggle} onTeams={() => undefined} stateOf={(d) => (ticked.has(destinationKey(d)) ? 'on' : 'off')} />;
+  return <Destinations onToggle={toggle} onTeams={() => undefined} stateOf={(d) => (ticked.has(destinationKey(d)) ? 'on' : 'off')} />;
 }
 
 describe('the destination tree redraws only what changed', () => {

@@ -93,3 +93,9 @@ export const SearchIcon = (p: Props) => (
     <path d="m10 10 3.5 3.5" />
   </Svg>
 );
+
+export const LogoutIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M6.5 3h-3v10h3M9.5 5.5 12 8l-2.5 2.5M12 8H6.5" />
+  </Svg>
+);
