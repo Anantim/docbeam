@@ -10,8 +10,7 @@ import {
   destinationCounts,
   emptyMapping,
   readiness,
-  removeDestination,
-  removeFromDestination,
+  summarise,
   scopeOf,
   tickState,
   toggleDestination,
@@ -93,13 +92,13 @@ describe('folders ticked before any file (D-F1-4)', () => {
     expect(readiness(later, [...files, file('c')]).ready).toBe(true);
   });
 
-  it('stops applying a folder once it is unticked for all files, or crossed out in Review', () => {
+  it('stops applying a folder once it is unticked for all files', () => {
     const files = [file('a')];
     let m = applyHeld(toggleDestination(toggleDestination(emptyMapping, [], none, dest(1)), [], none, dest(2)), files);
     m = toggleDestination(m, files, none, dest(1));
     expect(m.held).toEqual([key(dest(2))]);
     expect(applyHeld(m, [...files, file('b')]).files.b).toEqual([key(dest(2))]);
-    m = removeDestination(m, key(dest(2)));
+    m = toggleDestination(m, files, none, dest(2));
     expect(m.held).toEqual([]);
   });
 
@@ -151,23 +150,21 @@ describe('limits are checked at Send, not at the tick', () => {
   });
 });
 
-describe('review', () => {
-  const files = [file('a'), file('b')];
-  const d1 = dest(1);
-  const d2 = dest(2);
+describe('summarise', () => {
+  const files = [file('a'), file('b'), file('c')];
 
-  it('drops a file from one folder, and reports when that was its last folder', () => {
-    let mapping = tick(emptyMapping, files, none, d1);
-    mapping = tick(mapping, files, new Set(['a']), d2);
-    const first = removeFromDestination(mapping, 'a', key(d1));
-    expect(first.dropped).toBe(false);
-    const second = removeFromDestination(first.mapping, 'a', key(d2));
-    expect(second.dropped).toBe(true);
+  it('counts files with a folder, the distinct folders and teams, and the deliveries', () => {
+    const d1 = dest(1);
+    const d2 = dest(2);
+    let m = tick(emptyMapping, files, new Set(['a', 'b']), d1);
+    m = tick(m, files, new Set(['a']), d2);
+    const s = summarise(m, files);
+    expect(s).toMatchObject({ files: 2, folders: 2, deliveries: 3 });
+    expect(s.teams).toBeGreaterThanOrEqual(1);
   });
 
-  it('removes a whole folder for every file', () => {
-    const mapping = removeDestination(tick(emptyMapping, files, none, d1), key(d1));
-    expect(destinationCounts(mapping, files).size).toBe(0);
+  it('is empty before anything is ticked', () => {
+    expect(summarise(emptyMapping, files)).toEqual({ files: 0, folders: 0, deliveries: 0, teams: 0 });
   });
 });
 

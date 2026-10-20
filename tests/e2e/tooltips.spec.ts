@@ -1,14 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, CARDIO_DELEGATION, CARDIO_IRB, CARDIO_PROTOCOL, ONC_ETHICS, PRIYA, signIn, tick } from './helpers.js';
+import { addPdfs, PRIYA, signIn } from './helpers.js';
 
-// The tooltip rules (D-M3-10) and the "+N" popover (D-M3-2) on the Distribute screen, in a real browser.
-const CARDIO_TRAINING = 'Cardio / CARDIO-301 Site files / Training records';
+// The tooltip rules (D-M3-10) on the Distribute screen, in a real browser. The popover of folders is in m2.spec.ts and popover.spec.ts.
 
 test('a button that is off says why, and a button with only an icon says what it does', async ({ page }) => {
   await signIn(page, PRIYA);
 
   // Nothing added yet.
-  const send = page.getByRole('button', { name: /^Send 0 deliver/ });
+  const send = page.getByRole('button', { name: 'Send', exact: true });
   await expect(send).toBeDisabled();
   await expect(send).toHaveAttribute('title', 'Add a file first');
   await expect(page.getByRole('button', { name: 'Clear' })).toHaveAttribute('title', 'Nothing to clear');
@@ -30,8 +29,8 @@ test('a button that is off says why, and a button with only an icon says what it
     await expect(button).toHaveAttribute('title', label);
   }
   // A file name that is cut short shows in full; the status explains itself.
-  await expect(page.getByRole('button', { name: name as string, exact: true })).toHaveAttribute('title', new RegExp(`^${name}\\.`));
-  await expect(page.locator('.frow .status-chip', { hasText: 'Verified' })).toHaveAttribute('title', 'Stored, intact and scanned clean.');
+  await expect(page.locator('.fname-text', { hasText: name as string })).toHaveAttribute('title', name as string);
+  await expect(page.locator('.frow .status-chip', { hasText: 'Ready' })).toHaveAttribute('title', 'Stored, intact and scanned clean.');
 
   // Every button on the page that shows only a symbol has an aria-label and a matching title.
   // (This script runs in the browser.)
@@ -46,68 +45,6 @@ test('a button that is off says why, and a button with only an icon says what it
     return bad;
   })()`);
   expect(broken).toEqual([]);
-
-  await page.getByRole('button', { name: 'Clear' }).click();
-});
-
-test('the +N chip opens a popover with only the hidden folders', async ({ page }) => {
-  await signIn(page, PRIYA);
-  const [name] = await addPdfs(page, 1, 'pop');
-  // The Documents table shows one folder chip and "+N" for the rest (D-M3-12).
-  const shown = [CARDIO_IRB];
-  const hidden = [CARDIO_PROTOCOL, CARDIO_DELEGATION, CARDIO_TRAINING, ONC_ETHICS];
-  for (const path of [...shown, ...hidden]) await tick(page, path);
-
-  const row = page.locator('.frow', { hasText: name as string });
-  const chips = row.locator('.chips .chip:not(.more)');
-  await expect(chips).toHaveCount(1);
-  // The visible chip's title is its own full path, and nothing repeats the whole list.
-  await expect(chips.nth(0)).toHaveAttribute('title', shown[0] as string);
-  await expect(row.locator('.chips')).not.toHaveAttribute('title', /.+/);
-
-  const more = row.getByRole('button', { name: 'Show 4 more folders' });
-  await expect(more).toHaveText('+4');
-  await expect(more).not.toHaveAttribute('title', /.+/);
-
-  // Hover opens it. It lists only the four hidden folders, grouped by team.
-  await more.hover();
-  const panel = page.getByRole('dialog', { name: '4 more folders' });
-  await expect(panel).toBeVisible();
-  await expect(panel.locator('.popover-team')).toHaveText([/Cardio/, /Oncology/]);
-  await expect(panel).toContainText('CARDIO-301 Regulatory / Protocol amendments');
-  await expect(panel).toContainText('CARDIO-301 Site files / Delegation logs');
-  await expect(panel).toContainText('CARDIO-301 Site files / Training records');
-  await expect(panel).toContainText('ONC-118 Regulatory / Ethics committee');
-  await expect(panel).not.toContainText('IRB approvals');
-
-  // Moving away closes a hover.
-  await page.getByRole('heading', { name: 'New distribution' }).hover();
-  await expect(panel).toHaveCount(0);
-
-  // A click keeps it open, even when the pointer leaves.
-  await more.click();
-  await page.getByRole('heading', { name: 'New distribution' }).hover();
-  await page.waitForTimeout(400);
-  await expect(panel).toBeVisible();
-  // Esc closes it and the focus goes back to the button.
-  await page.keyboard.press('Escape');
-  await expect(panel).toHaveCount(0);
-  await expect(more).toBeFocused();
-
-  // A click outside closes it.
-  await more.click();
-  await expect(panel).toBeVisible();
-  await page.getByRole('heading', { name: 'New distribution' }).click();
-  await expect(panel).toHaveCount(0);
-
-  // From the keyboard: Enter opens it; Tab goes into the list, a second Tab leaves and closes it.
-  await more.focus();
-  await page.keyboard.press('Enter');
-  await expect(panel).toBeVisible();
-  await page.keyboard.press('Tab');
-  await expect(panel).toBeVisible();
-  await page.keyboard.press('Tab');
-  await expect(panel).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Clear' }).click();
 });

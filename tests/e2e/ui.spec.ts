@@ -42,7 +42,7 @@ const PAUSE_NOTE = 'After 5 wrong passwords in a row, sign-in pauses for 15 minu
 test('a disabled button has the disabled attribute and the not-allowed cursor, and says why', async ({ page }) => {
   await signIn(page, PRIYA);
   for (const [name, title] of [
-    [/^Send 0 deliver/, 'Add a file first'],
+    ['Send', 'Add a file first'],
     ['Clear', 'Nothing to clear'],
   ] as const) {
     const button = page.getByRole('button', { name });
@@ -109,7 +109,7 @@ test('a file state on Distribute and a delivery state on Status are the same chi
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   const delivered = await look('.ttable .status-chip');
 
-  // Verified (a file) and Delivered (a delivery) both mean "done": one component, one colour.
+  // Ready (a file) and Delivered (a delivery) both mean "done": one component, one colour.
   expect(verified.classes).toBe(delivered.classes);
   expect(verified).toEqual(delivered);
   expect(verified.tone).toBe('ok');
@@ -166,7 +166,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
   await signIn(page, PRIYA);
   const longName = `quarterly-regulatory-binder-update-for-the-cardio-study-${'x'.repeat(30)}-${randomUUID().slice(0, 6)}.pdf`;
   await page.getByLabel('Choose files').setInputFiles([{ name: longName, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(1, { timeout: 90_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(1, { timeout: 90_000 });
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
 
@@ -180,6 +180,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
       // Every column but the file name is no wider than its content needs (a little room for gaps).
       for (const [i, c] of report.columns.entries()) {
         if (i === 1 && label === 'Documents') continue; // the name column takes the spare room
+        if (i === 2 && label === 'Documents') continue; // the state column has a minimum width for its chip and a reason line
         if (i === 1 && label === 'Deliveries') continue; // Destination takes the spare room (D-M3-17)
         if (c.header === '') continue; // the checkbox column
         expect(c.width, `${where}: "${c.header}" is wider than its content`).toBeLessThanOrEqual(c.need + 48);
@@ -197,7 +198,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
     }
   };
 
-  await check('.ftable .frow.thead', '.ftable .frow:not(.thead)', '.fname .link.plain', 'Documents');
+  await check('.ftable .frow.thead', '.ftable .frow:not(.thead)', '.fname .fname-text', 'Documents');
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await send(page);

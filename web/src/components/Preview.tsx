@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from './useFocusTrap.js';
 import { CloseIcon } from './Icons.js';
 import { TypeBadge } from './TypeBadge.js';
 import { docxSrcdoc, xlsxSheets } from '../preview/office.js';
@@ -84,13 +85,15 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const box = useRef<HTMLDivElement>(null);
+  useFocusTrap(box);
   const sheets = view.kind === 'xlsx' ? view.sheets : [];
   const current = sheets[sheet];
 
   return (
     <>
       <div className="overlay preview-overlay" onClick={onClose} />
-      <div className="preview" role="dialog" aria-modal="true" aria-label="File preview">
+      <div ref={box} className="preview" role="dialog" aria-modal="true" aria-label="File preview">
         <div className="preview-head">
           <TypeBadge contentType={contentType} big />
           <div className="grow">
@@ -108,7 +111,7 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
               ))}
             </select>
           )}
-          <button className="icon" type="button" aria-label="Close preview" title="Close preview" onClick={onClose}>
+          <button className="icon" type="button" autoFocus aria-label="Close preview" title="Close preview" onClick={onClose}>
             <CloseIcon />
           </button>
         </div>

@@ -10,7 +10,6 @@ vi.mock('../auth/session.js', () => ({ apiFetch: (path: string) => apiFetch(path
 
 const { Shell } = await import('./Shell.js');
 const { FileTable } = await import('./FileTable.js');
-const { Review } = await import('./Review.js');
 const { AddFiles } = await import('./AddFiles.js');
 const { Destinations } = await import('./Destinations.js');
 const { Preview } = await import('./Preview.js');
@@ -71,9 +70,8 @@ describe('every icon-only button has an aria-label and a title with the same tex
         files={files}
         mapping={mapping}
         selected={new Set(['ok'])}
-        onToggleSelected={noop}
+        onPick={noop}
         onToggleAll={noop}
-        onOnly={noop}
         onPreview={noop}
         onRetry={noop}
         onRemove={noop}
@@ -82,11 +80,6 @@ describe('every icon-only button has an aria-label and a title with the same tex
     expectClean(container, 10);
     // The Retry button says what it retries.
     expect(screen.getByRole('button', { name: 'Retry upload of bad.pdf' }).getAttribute('title')).toBe('Retry upload of bad.pdf');
-  });
-
-  it('in Review', () => {
-    const { container } = render(<Review files={[file('ok', 'verified')]} mapping={mapping} onPreview={noop} onRemoveFolder={noop} onRemoveFromFolder={noop} />);
-    expectClean(container, 3);
   });
 
   it('in the Not added list', () => {

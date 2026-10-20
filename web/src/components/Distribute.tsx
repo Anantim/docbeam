@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { destinationKey, type Destination } from '../destinations/selection.js';
+import { keepSelected, pickRow, type Pick } from '../distribute/rows.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
 import {
   applyHeld,
   buildJobRequest,
-  chosenKeys,
-  deliveryCount,
   emptyMapping,
   isUsable,
   readiness,
-  removeDestination,
   removeFile,
-  removeFromDestination,
   scopeOf,
+  summarise,
   tickState,
   toggleDestination,
   type Mapping,
@@ -25,8 +23,8 @@ import { AddFiles } from './AddFiles.js';
 import { Destinations } from './Destinations.js';
 import { FileTable } from './FileTable.js';
 import { Preview } from './Preview.js';
-import { Review } from './Review.js';
 import { SendBar } from './SendBar.js';
+import { SendDialog } from './SendDialog.js';
 import type { Toast } from './Toasts.js';
 import { useLeaveWarning } from './useLeaveWarning.js';
 
@@ -41,13 +39,15 @@ interface Props {
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-/** The Distribute screen of the mockup: add files, tick folders, review, send (Step 2.6, flow 2). */
+/** The Distribute screen (D-F1-8): files on the left, destinations on the right, one bar to send (flow 2). */
 export function Distribute({ onTeams, notify, onSent, manager = uploadManager, submission }: Props) {
   const files = useSyncExternalStore(manager.subscribe, manager.getSnapshot);
   const [mapping, setMapping] = useState<Mapping>(emptyMapping);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [pick, setPick] = useState<Pick>({ selected: new Set(), anchor: null });
+  const selected = pick.selected;
   const [rejected, setRejected] = useState<Rejected[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const submit = useMemo(() => submission ?? new Submission(submitJob), [submission]);
@@ -59,9 +59,10 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const scope = scopeOf([...files], selected);
   const scopeIds = new Set(scope);
   const selectedUsable = usable.filter((f) => selected.has(f.id));
-  const inUse = chosenKeys(mapping, [...files]).flatMap((k) => (mapping.destinations[k] ? [mapping.destinations[k]] : []));
-  const deliveries = deliveryCount(mapping, [...files]);
   const state = readiness(mapping, [...files]);
+  const summary = summarise(mapping, [...files]);
+  const summaryText =
+    summary.files === 0 ? '' : `${plural(summary.files, 'file', 'files')} to ${plural(summary.folders, 'folder', 'folders')}: ${plural(summary.deliveries, 'delivery', 'deliveries')}`;
 
   const scopeTitle =
     selectedUsable.length > 0
@@ -72,7 +73,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         ? `all ${usable.length} ${usable.length === 1 ? 'file' : 'files'}`
         : 'all files';
 
-  const pick = useCallback(
+  const pickFiles = useCallback(
     (picked: File[]) => {
       if (picked.length === 0) return;
       const { accepted, rejected: refused } = acceptFiles(manager.getSnapshot().length, picked);
@@ -85,9 +86,17 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     [manager],
   );
 
-  // Folders ticked before any file was added go to the files that arrive next (D-F1-4).
+  // Folders ticked for all files go to the files added while they stay ticked (D-F1-5).
   useEffect(() => {
     setMapping((m) => applyHeld(m, [...files]));
+  }, [files]);
+
+  // A file that left the page leaves the selection.
+  useEffect(() => {
+    setPick((p) => {
+      const kept = keepSelected(p.selected, files.map((f) => f.id));
+      return kept.size === p.selected.size ? p : { selected: kept, anchor: p.anchor };
+    });
   }, [files]);
 
   const onToggleDestination = useCallback(
@@ -101,29 +110,12 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const onRemoveFile = (id: string) => {
     manager.remove(id);
     setMapping((m) => removeFile(m, id));
-    setSelected((s) => {
-      const next = new Set(s);
-      next.delete(id);
-      return next;
-    });
-  };
-
-  const onRemoveFromFolder = (fileId: string, key: string) => {
-    const file = files.find((f) => f.id === fileId);
-    const folder = mapping.destinations[key];
-    const out = removeFromDestination(mapping, fileId, key);
-    setMapping(out.mapping);
-    const where = folder ? folder.path.split(' / ').at(-1) : 'that folder';
-    if (out.dropped && file) {
-      notify(`${file.name} had no other destination, so it was removed from this distribution.`);
-      onRemoveFile(fileId);
-    } else if (file) notify(`${file.name} will not go to ${where}.`);
   };
 
   const clearAll = () => {
     manager.clear();
     setMapping(emptyMapping);
-    setSelected(new Set());
+    setPick({ selected: new Set(), anchor: null });
     setRejected([]);
     setSendError(null);
   };
@@ -138,6 +130,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
       return found?.path ?? 'a destination';
     });
     setSending(false);
+    setAsking(false);
     if (out.ok) {
       notify(`Distribution ${out.jobId.slice(0, 8)} sent. ${plural(out.taskCount, 'delivery', 'deliveries')} queued.`);
       clearAll();
@@ -148,6 +141,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   };
 
   const previewing = previewId ? files.find((f) => f.id === previewId) : undefined;
+  const order = files.map((f) => f.id);
 
   return (
     <>
@@ -159,7 +153,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         <div className="workspace">
           <AddFiles
             empty={files.length === 0}
-            onPick={pick}
+            onPick={pickFiles}
             rejected={rejected}
             onDismiss={(name) => setRejected((r) => (name === undefined ? [] : r.filter((x) => x.name !== name)))}
           >
@@ -167,15 +161,8 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
               files={files}
               mapping={mapping}
               selected={selected}
-              onToggleSelected={(id) =>
-                setSelected((s) => {
-                  const next = new Set(s);
-                  if (!next.delete(id)) next.add(id);
-                  return next;
-                })
-              }
-              onToggleAll={() => setSelected(selectedUsable.length === usable.length ? new Set() : new Set(usable.map((f) => f.id)))}
-              onOnly={(id) => setSelected(new Set([id]))}
+              onPick={(id, mods) => setPick((p) => pickRow(p, order, id, mods))}
+              onToggleAll={() => setPick((p) => ({ selected: selectedUsable.length === usable.length ? new Set() : new Set(usable.map((f) => f.id)), anchor: p.anchor }))}
               onPreview={setPreviewId}
               onRetry={(id) => manager.retry(id)}
               onRemove={onRemoveFile}
@@ -183,34 +170,38 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
           </AddFiles>
 
           <Destinations
-            selected={inUse}
+            selected={[]}
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}
-            onUseAll={selectedUsable.length > 0 ? () => setSelected(new Set()) : undefined}
+            onUseAll={selectedUsable.length > 0 ? () => setPick({ selected: new Set(), anchor: null }) : undefined}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
           />
         </div>
-
-        <Review
-          files={files}
-          mapping={mapping}
-          onPreview={setPreviewId}
-          onRemoveFolder={(key) => setMapping((m) => removeDestination(m, key))}
-          onRemoveFromFolder={onRemoveFromFolder}
-        />
       </div>
 
       <SendBar
-        deliveries={deliveries}
+        summary={summaryText}
         ready={state.ready}
         reason={state.reason}
         sending={sending}
         error={sendError}
         canClear={files.length > 0 || mapping.held.length > 0}
         onClear={clearAll}
-        onSend={() => void send()}
+        onSend={() => setAsking(true)}
       />
+
+      {asking && (
+        <SendDialog
+          files={summary.files}
+          folders={summary.folders}
+          deliveries={summary.deliveries}
+          teams={summary.teams}
+          busy={sending}
+          onSend={() => void send()}
+          onCancel={() => setAsking(false)}
+        />
+      )}
 
       {previewing && (
         <Preview

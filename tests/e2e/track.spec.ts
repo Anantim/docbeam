@@ -313,7 +313,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
     // Back on Distribute the file is still there: it was hidden, not closed.
     await page.getByRole('button', { name: /^Distribute/ }).click();
     await expect(page.locator('.frow', { hasText: name as string })).toHaveCount(1);
-    await expect(page.locator('.frow', { hasText: name as string }).locator('.status-chip')).toHaveText('Verified');
+    await expect(page.locator('.frow', { hasText: name as string }).locator('.status-chip')).toHaveText('Ready');
     await page.getByRole('button', { name: 'Clear' }).click();
   } finally {
     await context.close();

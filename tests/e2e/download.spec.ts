@@ -60,7 +60,7 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
     { name: DOCX, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await docx('Protocol amendment text') },
     { name: XLSX, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: await xlsx('Mumbai site') },
   ]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(3, { timeout: 90_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(3, { timeout: 90_000 });
   await tick(page, CARDIO_IRB);
   jobId = await send(page);
   await expect.poll(() => readCounts(page), { timeout: 60_000 }).toEqual([3, 0, 0, 0]);

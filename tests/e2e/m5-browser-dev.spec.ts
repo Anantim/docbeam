@@ -73,7 +73,7 @@ test('slow connection: a file uploads over a slow link, is checked, sent and del
   await page.getByLabel('Choose files').setInputFiles([file]);
   await expect(rowOf(page, file.name).getByText(/^Uploading/)).toBeVisible({ timeout: 60_000 });
   await page.screenshot({ path: evidence('slow-connection-uploading') });
-  await expect(rowOf(page, file.name).getByText('Verified', { exact: true })).toBeVisible({ timeout: 280_000 });
+  await expect(rowOf(page, file.name).getByText('Ready', { exact: true })).toBeVisible({ timeout: 280_000 });
   const seconds = (Date.now() - started) / 1000;
   await page.screenshot({ path: evidence('slow-connection-verified') });
   expect(seconds, 'the throttle really slowed the upload').toBeGreaterThan(15);
@@ -104,28 +104,28 @@ test('multipart resume: the network drops mid-upload and the same upload carries
     await page.evaluate('window.__kept = 1'); // a reload would remove this marker: it proves it is the same session
     await page.getByLabel('Choose files').setInputFiles(path);
 
-    const progress = rowOf(page, name).getByText(/Uploading parts \d+\/\d+/);
+    const progress = rowOf(page, name).getByText(/Part \d+ of \d+/);
     await expect(progress).toBeVisible({ timeout: 120_000 });
-    await expect(rowOf(page, name).getByText(/Uploading parts [2-9]\/\d+/)).toBeVisible({ timeout: 120_000 });
-    const before = Number(/parts (\d+)\//.exec((await progress.textContent()) ?? '')?.[1]);
+    await expect(rowOf(page, name).getByText(/Part [2-9] of \d+/)).toBeVisible({ timeout: 120_000 });
+    const before = Number(/Part (\d+) of/.exec((await progress.textContent()) ?? '')?.[1]);
     await page.screenshot({ path: evidence('multipart-before-drop') });
 
     await network(page, { offline: true, limit: SLOW_UPLOAD });
-    await expect(rowOf(page, name).getByText('Upload interrupted')).toBeVisible({ timeout: 180_000 });
+    await expect(rowOf(page, name).getByText('Interrupted')).toBeVisible({ timeout: 180_000 });
     await page.screenshot({ path: evidence('multipart-interrupted') });
     await page.waitForTimeout(20_000);
     await network(page, { limit: SLOW_UPLOAD });
 
     await rowOf(page, name).getByRole('button', { name: `Retry upload of ${name}` }).click();
-    await expect(rowOf(page, name).getByText(/Uploading parts \d+\/\d+|Checking for malware|Verified/)).toBeVisible({ timeout: 60_000 });
+    await expect(rowOf(page, name).getByText(/Part \d+ of \d+|Checking|Ready/)).toBeVisible({ timeout: 60_000 });
     const resumed = await rowOf(page, name).textContent();
-    const after = Number(/parts (\d+)\//.exec(resumed ?? '')?.[1] ?? before);
+    const after = Number(/Part (\d+) of/.exec(resumed ?? '')?.[1] ?? before);
     console.log(`multipart resume: ${before} parts stored before the drop, ${after} shown right after Retry`);
     expect(after, 'Retry carried on from the stored parts instead of starting again').toBeGreaterThanOrEqual(Math.max(1, before - 1));
     await page.screenshot({ path: evidence('multipart-resumed') });
 
     await throttle(page, null);
-    await expect(rowOf(page, name).getByText('Verified', { exact: true })).toBeVisible({ timeout: 600_000 });
+    await expect(rowOf(page, name).getByText('Ready', { exact: true })).toBeVisible({ timeout: 600_000 });
     expect(await page.evaluate('window.__kept === 1'), 'same session: the page was not reloaded').toBe(true);
     await page.screenshot({ path: evidence('multipart-verified') });
 
@@ -167,7 +167,7 @@ test('PNG and JPG previews show the image in the page', async ({ page }) => {
     { name: `m5-${id}.jpg`, mimeType: 'image/jpeg', buffer: await make('image/jpeg') },
   ];
   await page.getByLabel('Choose files').setInputFiles(files);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(2, { timeout: 120_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(2, { timeout: 120_000 });
   await tick(page, CARDIO_IRB);
   await send(page);
   await expect.poll(() => readCounts(page), { timeout: 120_000 }).toEqual([2, 0, 0, 0]);

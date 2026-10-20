@@ -132,7 +132,7 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
   await signIn(page, PRIYA);
   const name = `keep-${randomUUID().slice(0, 6)}.pdf`;
   await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(1, { timeout: 90_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(1, { timeout: 90_000 });
 
   // The server no longer accepts the access token or the refresh cookie, as after 12 hours. The next call that
   // needs the API gets 401, one refresh is tried, it is refused, and the sign-in ends.

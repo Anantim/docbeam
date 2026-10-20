@@ -25,7 +25,7 @@ const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 async function sendOne(page: Page, name: string, folders: string[]): Promise<string> {
   await page.getByRole('button', { name: 'Distribute' }).click();
   await page.getByLabel('Choose files').setInputFiles([pdf(name)]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(1, { timeout: 120_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(1, { timeout: 120_000 });
   for (const f of folders) await tick(page, f);
   const job = await send(page);
   await expect.poll(() => readCounts(page), { timeout: 120_000 }).toEqual([folders.length, 0, 0, 0]);

@@ -182,13 +182,16 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .not-added-head, .not-added-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-2); }
 .not-added-row { padding: var(--s-0) 0; }
 /* The Documents table is one grid, so its columns size to their content: the name takes the spare room (D-M3-12). */
-.ftable { display: grid; grid-template-columns: 32px minmax(120px, 1fr) fit-content(190px) max-content max-content; column-gap: var(--s-3); min-width: 0; }
+.ftable { display: grid; grid-template-columns: 32px minmax(160px, 1fr) minmax(112px, 220px) max-content max-content; column-gap: var(--s-3); min-width: 0; }
 .ftable .chips { flex-wrap: nowrap; align-items: center; }
 .ftable .popover { align-items: center; }
 .ftable .chip { max-width: 130px; }
 .frow { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; min-height: 48px; padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--line); }
 .frow:last-child { border-bottom: 0; }
-.frow.sel { background: var(--accent-tint); }
+.frow[role='row'][data-id] { cursor: pointer; }
+.frow[role='row'][data-id]:hover { background: var(--bg); }
+.frow.sel, .frow.sel:hover { background: var(--accent-tint); }
+.box.on { background: var(--accent); border-color: var(--accent); }
 .frow.thead { background: var(--bg); min-height: 36px; font-size: var(--fs-1); font-weight: 600; color: var(--text-3); }
 .fstatus { min-width: 0; }
 .hcell { padding-right: var(--s-3); }
@@ -254,7 +257,12 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .sendbar { position: sticky; bottom: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--line); }
 .sendbar-inner { width: 100%; max-width: var(--page); margin: 0 auto; padding: var(--s-3) var(--s-6); display: flex; flex-direction: column; gap: var(--s-2); }
 .sendbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
-.send-reason { flex: 1; min-width: 0; font-size: var(--fs-2); color: var(--text-3); }
+.send-text { flex: 1; min-width: 0; }
+.send-summary { font-weight: 600; min-height: 1.5em; }
+.send-reason { font-size: var(--fs-2); color: var(--text-3); min-height: 1.5em; }
+.plain-action { padding: 0 var(--s-2); min-height: var(--control); color: var(--text-2); font-weight: 500; }
+.folder-count { font-size: var(--fs-2); }
+.fname-text { min-width: 0; }
 
 /* popover for the "+N" chip (D-M3-2) */
 .popover { display: inline-flex; }
