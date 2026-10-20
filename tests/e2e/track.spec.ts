@@ -314,7 +314,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
     await expect(page.locator('.status-chip.big')).toBeVisible();
     const jobId = jobIdOf(page);
 
-    await page.getByRole('button', { name: 'Copy link' }).click();
+    await page.getByRole('complementary').getByRole('button', { name: 'Copy link' }).click();
     await expect(page.getByText('Link copied.')).toBeVisible();
     expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
 

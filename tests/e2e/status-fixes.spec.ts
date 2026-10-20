@@ -124,13 +124,15 @@ test('the badge on the Status tab counts what is running and goes when the distr
   await signIn(page, PRIYA);
   const badge = page.locator('.tab-badge');
   const shown = async (): Promise<number> => ((await badge.count()) === 0 ? 0 : Number(/\d+/.exec((await badge.first().textContent()) ?? '0')?.[0] ?? 0));
-  await expect.poll(shown).toBe(0); // nothing is running for Priya when this starts
+  await page.getByRole('button', { name: 'Status' }).click();
+  await expect(distRow(page).first()).toBeVisible();
+  const before = await shown(); // other tests may have left distributions running for Priya
   await withWorkersStopped(async ({ hold, start }) => {
     await sendFiles(page, 1, [CARDIO_IRB], hold);
-    await expect.poll(shown).toBe(1);
+    await expect.poll(shown).toBe(before + 1);
     start();
     await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
-    await expect.poll(shown, { timeout: 15_000 }).toBe(0); // well before the 30 s refresh of the list
+    await expect.poll(shown, { timeout: 15_000 }).toBe(before); // well before the 30 s refresh of the list
   });
 });
 

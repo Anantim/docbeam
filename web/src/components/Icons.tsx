@@ -26,6 +26,13 @@ export const DownloadIcon = (p: Props) => (
   </Svg>
 );
 
+export const CopyIcon = (p: Props) => (
+  <Svg {...p}>
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5" />
+  </Svg>
+);
+
 export const CloseIcon = (p: Props) => (
   <Svg {...p}>
     <path d="m4 4 8 8M12 4l-8 8" />

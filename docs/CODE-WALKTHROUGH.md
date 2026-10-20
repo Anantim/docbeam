@@ -107,7 +107,7 @@ Tables: `users` (email, bcrypt hash, name, failed-login count, pause time), `ref
 | `routes/internal.ts` | `/.well-known/jwks.json` (the public key every service checks tokens against), the OpenID configuration, `POST /auth/token` (service tokens for internal callers), and `GET /internal/users` (the seed script looks up user ids). |
 | `tokens.ts` | Signs access and service tokens with RS256, 15 minutes each. |
 | `keys.ts` | Loads the RSA private key and publishes its public half with a stable key id. |
-| `sessions.ts` | Refresh-token rotation: each token works once; using one twice revokes the whole family, which ends a stolen session (ADR-015). Sign-ins last 12 hours. |
+| `sessions.ts` | Refresh-token rotation: each token works once; using one twice revokes the whole family, which ends a stolen session, except that a token swapped less than 30 seconds ago may come back once more (a lost answer) and gets a new pair in the same family (ADR-015, D-F1-19). Sign-ins last 12 hours. |
 | `passwords.ts` | bcrypt at cost 12, and the 12-to-72-byte length rule (bcrypt ignores bytes past 72). |
 | `login-attempts.ts` | Five wrong passwords in a row pause sign-in for 15 minutes. Pure functions, so they are unit tested. |
 | `service-clients.ts` | The four internal clients and their scopes: delivery-worker (ingest documents), docbeam-api and ws-handlers (read memberships), seed-script (read users). |
@@ -216,7 +216,7 @@ A single-page app with two tabs: Distribute, and Status (one list of distributio
 **components/** (each `.tsx` is one piece of the screen):
 
 - Shell and sign-in: `Shell`, `Logo`, `AuthCard` (sign-in only, with the tagline and the line about the study administrator), `PauseNote`, `SessionDialog` (the 12-hour re-sign-in over the page), `Toasts`, `ConfirmDialog`, `Popover`, `useLeaveWarning`.
-- Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list), `PanelFrame` (Esc closes it from anywhere on the page), `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
+- Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list; the tree loads the next page on scroll, the list of distributions only on the button and says "Showing N"), `CopyLinkButton` (the copy icon after a distribution ID), `PanelFrame` (Esc closes it from anywhere on the page), `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
 - Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `DestinationChips`, `SendBar`, `SendDialog` (the question before Send), `TypeBadge`, `FileActions`, `Preview`.
 - Status: `StatusPage` (filters, list and panel; the list narrows beside the open panel), `OpenById` (the icon button and its one-field card), `DistributionList`, `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries), `TaskTable`.
 
