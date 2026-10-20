@@ -3,7 +3,7 @@ import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobScope, JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, shortId } from '../tracking/format.js';
-import { CopyLinkButton } from './CopyLinkButton.js';
+import { CopyLinkButton, type Notify } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
 import { MoreRow } from './MoreRow.js';
 import { StatusChip } from './StatusChip.js';
@@ -31,9 +31,6 @@ interface Props {
 }
 
 const SKELETON_ROWS = 5;
-
-type Notify = (text: string, kind?: 'ok' | 'error') => void;
-
 interface RowProps {
   job: JobSummary;
   /** The live counts of the open distribution, or null: its row follows them. */

@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { Db } from './db.js';
 import { refreshTokens, users } from './schema.js';
 
@@ -81,7 +81,15 @@ export async function rotateSession(db: Db, token: string, now: Date): Promise<R
     // A token that comes back in its grace window keeps its first `usedAt`, so the window is 30 seconds from the swap and
     // does not move. Only the hash of a token is stored, so the token sent the first time cannot be sent again: the
     // caller gets a new one in the same family, with the same end time.
-    if (decision === 'rotate') await tx.update(refreshTokens).set({ usedAt: now }).where(eq(refreshTokens.id, row.id));
+    if (decision === 'rotate') {
+      await tx.update(refreshTokens).set({ usedAt: now }).where(eq(refreshTokens.id, row.id));
+      // A grace answer leaves two unused tokens in the family. The first one used wins; the other is revoked, so using
+      // it later is reuse and ends the sign-in (D-F1-19). With no grace answer there is no other unused token.
+      await tx
+        .update(refreshTokens)
+        .set({ revokedAt: now })
+        .where(and(eq(refreshTokens.familyId, row.familyId), isNull(refreshTokens.usedAt), isNull(refreshTokens.revokedAt), ne(refreshTokens.id, row.id)));
+    }
     const next = newToken();
     await tx
       .insert(refreshTokens)

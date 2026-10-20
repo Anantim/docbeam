@@ -140,15 +140,30 @@ describe('refresh and logout', () => {
     const replay = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie });
     expect(replay.status).toBe(200);
     expect(replay.body.accessToken).toBeTruthy();
-    // The pair from the replay works, and so does the one from the first answer.
-    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(replay) })).status).toBe(200);
-    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(first) })).status).toBe(200);
     const { rows } = await admin.query(
       `SELECT count(DISTINCT expires_at) AS ends, count(DISTINCT family_id) AS families, count(revoked_at) AS revoked
          FROM refresh_tokens WHERE user_id = $1`,
       [user.id],
     );
     expect(Number(rows[0].ends)).toBe(1);
+    expect(Number(rows[0].families)).toBe(1);
+    expect(Number(rows[0].revoked)).toBe(0);
+    // Two answers are out (the first, and the replay's). The first one used wins, and its work goes on.
+    const used = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(replay) });
+    expect(used.status).toBe(200);
+    // The other is now revoked: using it is reuse, and ends the whole sign-in, so a fork cannot live on unseen.
+    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(first) })).status).toBe(401);
+    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(used) })).status).toBe(401);
+  });
+
+  it('two refreshes with the same token at the same moment both get an answer: one swap, one grace, one family', async () => {
+    const user = await registerAndLogin();
+    const both = await Promise.all([
+      call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie }),
+      call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie }),
+    ]);
+    expect(both.map((r) => r.status)).toEqual([200, 200]);
+    const { rows } = await admin.query('SELECT count(DISTINCT family_id) AS families, count(revoked_at) AS revoked FROM refresh_tokens WHERE user_id = $1', [user.id]);
     expect(Number(rows[0].families)).toBe(1);
     expect(Number(rows[0].revoked)).toBe(0);
   });
