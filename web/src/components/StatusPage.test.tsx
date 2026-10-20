@@ -497,28 +497,56 @@ describe('the list and Open by ID', () => {
     expect(m.refresh).toHaveBeenCalled();
   });
 
-  it('loads the next page when the end of the list scrolls into view, and says so while it loads', async () => {
-    let fire: () => void = () => {};
+  it('loads the next page only when Show more is pressed (no infinite scroll), says "Showing N", and says so while it loads (D-F1-18)', async () => {
+    let watched = 0;
     class FakeObserver {
-      constructor(cb: (e: Array<{ isIntersecting: boolean }>) => void) {
-        fire = () => cb([{ isIntersecting: true }]);
+      constructor() {
+        watched += 1;
       }
       observe() {}
       disconnect() {}
     }
     vi.stubGlobal('IntersectionObserver', FakeObserver);
     try {
-      const m = mine([summary('bbbbbbbb-0000-4000-8000-000000000000')], { hasMore: true });
+      const user = userEvent.setup();
+      const m = mine([summary('bbbbbbbb-0000-4000-8000-000000000000'), summary('cccccccc-0000-4000-8000-000000000000')], { hasMore: true });
       const { rerender } = renderPage({ jobId: null, mine: m });
-      expect(screen.getByRole('button', { name: 'Show more' })).toBeTruthy();
-      fire();
+      expect(screen.getByText('Showing 2')).toBeTruthy();
+      expect(watched).toBe(0); // nothing watches the end of the list
+      expect(m.loadMore).not.toHaveBeenCalled();
+      await user.click(screen.getByRole('button', { name: 'Show more' }));
       expect(m.loadMore).toHaveBeenCalledTimes(1);
       const loading = mine(m.jobs, { hasMore: true, loadingMore: true });
       rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} mine={loading} notify={notify} />);
       expect(screen.getByText('Loading more…')).toBeTruthy();
+      const last = mine(m.jobs, { hasMore: false });
+      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} mine={last} notify={notify} />);
+      expect(screen.getByText('Showing 2')).toBeTruthy(); // the count stays at the end, with no button
+      expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('the copy icon after a distribution id (D-F1-18)', () => {
+  it('is in each row and in the panel header, has no "Copy link" text button, and copies the link without opening or closing anything', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    const m = mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]);
+    const page = renderPage({ onOpen, mine: m });
+    await opened(page);
+    const icons = screen.getAllByRole('button', { name: 'Copy link' });
+    expect(icons).toHaveLength(2); // the row and the panel header
+    for (const icon of icons) expect(icon.getAttribute('title')).toBe('Copy link');
+    expect(icons.every((i) => i.textContent === '')).toBe(true); // an icon, not a text button
+    onOpen.mockClear();
+    await user.click(icons[0] as HTMLElement); // the row's icon
+    expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/#/status/${JOB}`); // user-event's clipboard
+    expect(onOpen).not.toHaveBeenCalled(); // a click on it does not open or close the panel
+    await user.click(icons[1] as HTMLElement); // the panel's
+    expect(onOpen).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('Link copied.'));
   });
 });
 

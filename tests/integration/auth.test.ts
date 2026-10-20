@@ -133,10 +133,32 @@ describe('refresh and logout', () => {
     expect(second.status).toBe(200);
   });
 
-  it('a used token coming back cancels the whole sign-in, thief and owner alike', async () => {
+  it('a used token coming back within 30 seconds (a lost answer) carries the sign-in on: a new valid pair, same family and end (D-F1-19)', async () => {
+    const user = await registerAndLogin();
+    const first = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie });
+    expect(first.status).toBe(200);
+    const replay = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie });
+    expect(replay.status).toBe(200);
+    expect(replay.body.accessToken).toBeTruthy();
+    // The pair from the replay works, and so does the one from the first answer.
+    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(replay) })).status).toBe(200);
+    expect((await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: refreshCookie(first) })).status).toBe(200);
+    const { rows } = await admin.query(
+      `SELECT count(DISTINCT expires_at) AS ends, count(DISTINCT family_id) AS families, count(revoked_at) AS revoked
+         FROM refresh_tokens WHERE user_id = $1`,
+      [user.id],
+    );
+    expect(Number(rows[0].ends)).toBe(1);
+    expect(Number(rows[0].families)).toBe(1);
+    expect(Number(rows[0].revoked)).toBe(0);
+  });
+
+  it('a used token coming back after 30 seconds cancels the whole sign-in, thief and owner alike', async () => {
     const user = await registerAndLogin();
     const first = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie });
     const newest = refreshCookie(first);
+    // The swap happened 31 seconds ago.
+    await admin.query(`UPDATE refresh_tokens SET used_at = now() - interval '31 seconds' WHERE user_id = $1 AND used_at IS NOT NULL`, [user.id]);
     const replay = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: user.cookie });
     expect(replay.status).toBe(401);
     const afterReplay = await call(AUTH_URL, '/auth/refresh', { method: 'POST', cookie: newest });

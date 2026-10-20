@@ -10,8 +10,20 @@ describe('refresh rotation decisions', () => {
     expect(decideRotation({ usedAt: null, revokedAt: null, expiresAt: later }, now)).toBe('rotate');
   });
 
-  it('treats a used token coming back as reuse', () => {
+  it('treats a used token coming back after more than 30 seconds as reuse', () => {
     expect(decideRotation({ usedAt: earlier, revokedAt: null, expiresAt: later }, now)).toBe('reuse');
+    expect(decideRotation({ usedAt: new Date(now.getTime() - 31_000), revokedAt: null, expiresAt: later }, now)).toBe('reuse');
+  });
+
+  it('carries on (grace) for a used token that comes back within 30 seconds of its swap, a lost answer and not a thief', () => {
+    expect(decideRotation({ usedAt: new Date(now.getTime() - 1_000), revokedAt: null, expiresAt: later }, now)).toBe('grace');
+    expect(decideRotation({ usedAt: new Date(now.getTime() - 30_000), revokedAt: null, expiresAt: later }, now)).toBe('grace'); // the 30th second still counts
+  });
+
+  it('gives no grace to a revoked token, or once the 12 hours are over', () => {
+    const justNow = new Date(now.getTime() - 1_000);
+    expect(decideRotation({ usedAt: justNow, revokedAt: justNow, expiresAt: later }, now)).toBe('reuse');
+    expect(decideRotation({ usedAt: justNow, revokedAt: null, expiresAt: earlier }, now)).toBe('reuse');
   });
 
   it('treats a revoked token as reuse', () => {

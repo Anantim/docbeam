@@ -56,13 +56,16 @@ test.describe('screens', () => {
     await page.waitForURL(/#\/status\//);
     await page.waitForTimeout(4000);
     await shot('08-status-panel');
-    await page.getByRole('button', { name: 'Copy link' }).click();
+    await page.getByRole('complementary').getByRole('button', { name: 'Copy link' }).click();
     await page.waitForTimeout(300);
     await shot('09-toast');
 
     await page.getByRole('button', { name: 'Close' }).click();
     await page.waitForTimeout(500);
     await shot('10-status-list');
+    await page.locator('.dist-table tbody tr').nth(2).hover(); // the copy icon shows on the hovered row
+    await shot('15-copy-icon-on-row-hover', true);
+    await page.mouse.move(2, 2);
     await page.getByRole('button', { name: 'Open by ID' }).click();
     await page.waitForTimeout(300);
     await shot('11-open-by-id');

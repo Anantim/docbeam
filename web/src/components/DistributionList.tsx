@@ -3,6 +3,7 @@ import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobScope, JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, shortId } from '../tracking/format.js';
+import { CopyLinkButton } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
 import { MoreRow } from './MoreRow.js';
 import { StatusChip } from './StatusChip.js';
@@ -23,11 +24,15 @@ interface Props {
   onRetry: () => void;
   selectedId: string | null;
   onOpen: (jobId: string) => void;
+  /** Says "Link copied." and the like, in the toast corner. */
+  notify: Notify;
   /** The open distribution's live counts. Its row follows them, so it never disagrees with the panel beside it. */
   live?: { jobId: string; counts: Counts } | null;
 }
 
 const SKELETON_ROWS = 5;
+
+type Notify = (text: string, kind?: 'ok' | 'error') => void;
 
 interface RowProps {
   job: JobSummary;
@@ -36,6 +41,7 @@ interface RowProps {
   meId: string;
   selected: boolean;
   onOpen: (jobId: string) => void;
+  notify: Notify;
 }
 
 /** Two rows are the same when what they show is the same, so a refresh that changes nothing redraws no row. */
@@ -43,6 +49,7 @@ const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.selected === b.selected &&
   a.meId === b.meId &&
   a.onOpen === b.onOpen &&
+  a.notify === b.notify &&
   a.counts === b.counts &&
   a.job.jobId === b.job.jobId &&
   a.job.status === b.job.status &&
@@ -54,12 +61,13 @@ const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.job.submittedBy.name === b.job.submittedBy.name &&
   (Object.keys(a.job.counts) as Array<keyof Counts>).every((k) => a.job.counts[k] === b.job.counts[k]);
 
-const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps) {
+const Row = memo(function Row({ job, counts, meId, selected, onOpen, notify }: RowProps) {
   const status = counts ? statusFromCounts(counts, job.status === 'cancelled') : job.status;
   const chip = jobChip(status);
   return (
     <tr className={selected ? 'on' : ''} onClick={() => onOpen(job.jobId)}>
       <td>
+        <span className="dist-id-cell">
         <button
           type="button"
           className="link mono dist-id"
@@ -74,6 +82,8 @@ const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps)
         >
           {shortId(job.jobId)}
         </button>
+        <CopyLinkButton jobId={job.jobId} notify={notify} show="reveal" />
+        </span>
       </td>
       <td>
         <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
@@ -93,7 +103,7 @@ const Row = memo(function Row({ job, counts, meId, selected, onOpen }: RowProps)
  * The distributions, newest first, one row each: short id, when it was sent, who sent it, how many files and
  * destinations, and its status. A row opens the side panel. The list is paged on scroll (D-F1-7).
  */
-export function DistributionList({ meId, scope, filtered = false, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, live }: Props) {
+export function DistributionList({ meId, scope, filtered = false, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, notify, live }: Props) {
   if (jobs === null && error === '') {
     return (
       <div className="card" role="status" aria-busy="true" aria-label="Loading distributions">
@@ -137,9 +147,15 @@ export function DistributionList({ meId, scope, filtered = false, jobs, error, h
       <table className="dist-table" aria-label="Distributions">
         <thead>
           <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Status</th>
-            <th scope="col">Sent</th>
+            <th scope="col" className="dist-fit">
+              ID
+            </th>
+            <th scope="col" className="dist-fit">
+              Status
+            </th>
+            <th scope="col" className="dist-fit dist-fit-sent">
+              Sent
+            </th>
             <th scope="col" className="dist-more">
               Sender
             </th>
@@ -154,11 +170,17 @@ export function DistributionList({ meId, scope, filtered = false, jobs, error, h
         <tbody>
           {jobs.map((job) => {
             const following = live && live.jobId === job.jobId ? live.counts : null;
-            return <Row key={job.jobId} job={job} counts={following} meId={meId} selected={selectedId === job.jobId} onOpen={onOpen} />;
+            return <Row key={job.jobId} job={job} counts={following} meId={meId} selected={selectedId === job.jobId} onOpen={onOpen} notify={notify} />;
           })}
         </tbody>
       </table>
-      {hasMore && <MoreRow className="state small" busy={loadingMore} failed={moreFailed} onMore={onMore} />}
+      {hasMore ? (
+        <MoreRow className="state small list-foot" busy={loadingMore} failed={moreFailed} onMore={onMore} auto={false} shown={jobs.length} />
+      ) : (
+        <div className="state small list-foot">
+          <span className="shown">Showing {jobs.length}</span>
+        </div>
+      )}
     </div>
   );
 }

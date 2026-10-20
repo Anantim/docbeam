@@ -11,6 +11,7 @@ import { bannerText, isLive } from '../tracking/links.js';
 import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { CopyLinkButton } from './CopyLinkButton.js';
 import { DestinationChips } from './DestinationChips.js';
 import { CloseIcon } from './Icons.js';
 import { JobBar } from './JobBar.js';
@@ -152,12 +153,6 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     }
   }
 
-  const copyLink = (): void => {
-    void navigator.clipboard
-      ?.writeText(`${window.location.origin}/#/status/${jobId}`)
-      .then(() => notify('Link copied.'))
-      .catch(() => notify('The link could not be copied.', 'error'));
-  };
 
   return (
     <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
@@ -166,11 +161,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           <h2 className="mono" title={jobId}>
             {shortId(jobId)}
           </h2>
+          <CopyLinkButton jobId={jobId} notify={notify} show="always" />
           <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} big />
         </div>
-        <button className="link" type="button" onClick={copyLink}>
-          Copy link
-        </button>
         {close}
       </div>
 

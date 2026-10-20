@@ -27,7 +27,7 @@ const job = (n: number, completed = 0): JobSummary => ({
 });
 const many = (completed: number): JobSummary[] => Array.from({ length: 40 }, (_, i) => job(i, i === 3 ? completed : 10));
 
-const props = { meId: 'u', scope: 'mine' as const, error: '', hasMore: false, loadingMore: false, moreFailed: false, onMore: vi.fn(), onRetry: vi.fn(), selectedId: null, onOpen: vi.fn() };
+const props = { meId: 'u', scope: 'mine' as const, error: '', hasMore: false, loadingMore: false, moreFailed: false, onMore: vi.fn(), onRetry: vi.fn(), selectedId: null, onOpen: vi.fn(), notify: vi.fn() };
 
 describe('the list of distributions redraws only the rows that changed', () => {
   it('a refresh with new objects and the same content draws no row; one changed row draws one', () => {

@@ -63,6 +63,7 @@
   --radius: 6px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 8px 24px rgba(16, 24, 40, 0.12);
   --scrim: rgba(16, 24, 40, 0.5);
+  --scrim-solid: color-mix(in srgb, rgb(16, 24, 40) 50%, var(--bg)); /* the scrim over the page background, as one colour, for the strip a scrollbar leaves */
   --page: 1280px;
   --control: 36px;
   --control-sm: 28px;
@@ -269,6 +270,9 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 /* One rhythm for every dialog (D-F1-14): the backdrop covers the viewport whatever the page height or scroll position,
    the page behind does not scroll, and the blocks inside (title, text, field, buttons) are --s-4 apart; a label sits
    --s-2 above its field. Toasts use the same padding and gaps. */
+/* The page does not scroll under a dialog, so its scrollbar goes and the reserved strip shows the page's own background:
+   paint that strip with the same scrim, so no edge on the right stays undimmed (D-F1-18). */
+html:has(.overlay) { background-color: var(--scrim-solid); }
 .overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; background: var(--scrim); z-index: 80; }
 .dialog { position: fixed; top: var(--s-16); left: 50%; transform: translateX(-50%); width: calc(100% - var(--s-8)); max-width: 440px; max-height: calc(100dvh - var(--s-16) - var(--s-6)); overflow-y: auto; background: var(--surface); border-radius: var(--radius); padding: var(--s-6); box-shadow: var(--shadow); z-index: 81; display: flex; flex-direction: column; gap: var(--s-4); }
 .dialog h2 { font-size: var(--fs-4); }
@@ -277,7 +281,9 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .dialog-field { display: flex; flex-direction: column; gap: var(--s-2); }
 .dialog label { display: block; font-size: var(--fs-2); font-weight: 600; }
 .dialog .actions { display: flex; justify-content: flex-end; gap: var(--s-3); }
-.toasts { position: fixed; right: var(--s-6); bottom: calc(var(--s-16) + var(--s-4)); display: flex; flex-direction: column; gap: var(--s-3); z-index: 90; }
+/* Toasts have one place, the bottom-right corner, on every screen; on Distribute they sit just above the send bar so they never cover Send (D-F1-18). */
+.toasts { position: fixed; right: var(--s-6); bottom: var(--s-6); display: flex; flex-direction: column; gap: var(--s-3); z-index: 90; }
+body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(--s-4)); }
 .toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-3); max-width: 360px; box-shadow: var(--shadow); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--success-dot); flex: none; }
 .toast.error i { background: var(--warning-dot); }
@@ -315,8 +321,19 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .dist-table tbody tr:hover { background: var(--bg); }
 .dist-table tbody tr.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .dist-table tbody tr:last-child td { border-bottom: 0; }
-.num-col { text-align: right; font-variant-numeric: tabular-nums; }
+.num-col, .dist-table th.num-col { text-align: right; font-variant-numeric: tabular-nums; }
+/* ID, Status and Sent take only the room they need, so Status and Sent sit close; Sender takes the rest (D-F1-18).
+   With the panel open there is no Sender, and Sent takes the rest. */
+.dist-table .dist-fit { width: 1%; }
+@container (max-width: 640px) { .dist-table .dist-fit-sent { width: auto; } }
 .dist-id { font-weight: 600; white-space: nowrap; }
+.dist-id-cell { display: inline-flex; align-items: center; gap: var(--s-1); }
+/* The copy icon after an id: always there in the panel header; in the list it shows on row hover and on keyboard focus (and always where there is no hover). */
+.copy-link.reveal { opacity: 0; }
+.dist-table tr:hover .copy-link.reveal, .dist-table tr:focus-within .copy-link.reveal, .copy-link.reveal:focus-visible { opacity: 1; }
+@media (hover: none) { .copy-link.reveal { opacity: 1; } }
+.list-foot { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--s-4); }
+.list-foot .shown { color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dist-table td, .dist-table th { white-space: nowrap; }
 .dist-skeleton { padding: var(--s-4); border-bottom: 1px solid var(--line); }
 .dist-error { margin: var(--s-3) var(--s-4); }

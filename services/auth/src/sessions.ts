@@ -20,14 +20,23 @@ export interface StoredToken {
   expiresAt: Date;
 }
 
-export type Rotation = 'rotate' | 'reuse' | 'expired';
+/** A token that was just swapped may come back once more: the answer to the swap can be lost on the network (D-F1-19). */
+export const REUSE_GRACE_SECONDS = 30;
+
+export type Rotation = 'rotate' | 'grace' | 'reuse' | 'expired';
 
 /**
  * What to do with a refresh token that came back. A used or revoked token coming back means
- * two copies exist, so the whole sign-in ends. Checked before expiry so a reused token is always caught.
+ * two copies exist, so the whole sign-in ends, except for a used token that comes back within 30 seconds of its swap
+ * and before the 12 hours are over: that is a lost answer, not a thief, and gets the sign-in carried on ("grace").
+ * A revoked token is always reuse. Checked before expiry so a reused token is always caught.
  */
 export function decideRotation(row: StoredToken, now: Date): Rotation {
-  if (row.usedAt !== null || row.revokedAt !== null) return 'reuse';
+  if (row.revokedAt !== null) return 'reuse';
+  if (row.usedAt !== null) {
+    const withinGrace = now.getTime() - row.usedAt.getTime() <= REUSE_GRACE_SECONDS * 1000;
+    return withinGrace && row.expiresAt.getTime() > now.getTime() ? 'grace' : 'reuse';
+  }
   if (row.expiresAt.getTime() <= now.getTime()) return 'expired';
   return 'rotate';
 }
@@ -49,7 +58,7 @@ export type RefreshResult =
   | { ok: true; session: Session; user: { id: string; email: string; name: string } }
   | { ok: false };
 
-/** Swaps a valid token for the next one in the same family, with the same end time. */
+/** Swaps a valid token (or one swapped less than 30 seconds ago) for the next one in the same family, with the same end time. */
 export async function rotateSession(db: Db, token: string, now: Date): Promise<RefreshResult> {
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -69,7 +78,10 @@ export async function rotateSession(db: Db, token: string, now: Date): Promise<R
     const [user] = await tx.select().from(users).where(eq(users.id, row.userId));
     if (!user) return { ok: false };
 
-    await tx.update(refreshTokens).set({ usedAt: now }).where(eq(refreshTokens.id, row.id));
+    // A token that comes back in its grace window keeps its first `usedAt`, so the window is 30 seconds from the swap and
+    // does not move. Only the hash of a token is stored, so the token sent the first time cannot be sent again: the
+    // caller gets a new one in the same family, with the same end time.
+    if (decision === 'rotate') await tx.update(refreshTokens).set({ usedAt: now }).where(eq(refreshTokens.id, row.id));
     const next = newToken();
     await tx
       .insert(refreshTokens)

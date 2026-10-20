@@ -115,6 +115,7 @@ export function StatusPage({ meId, jobId, onOpen, mine, onLive, notify, live = l
           onRetry={() => void list.refresh()}
           selectedId={jobId}
           onOpen={open}
+          notify={notify}
           live={jobId ? liveCounts : null}
         />
         {jobId && (
