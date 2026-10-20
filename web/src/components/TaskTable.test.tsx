@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
 import type * as ApiModule from '../tracking/api.js';
 import type { TaskPage, TaskRow } from '../tracking/api.js';
-import { columnsFor, TaskTable } from './TaskTable.js';
+import { TaskTable } from './TaskTable.js';
 
 const api = vi.hoisted(() => ({ tasks: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
@@ -63,26 +63,6 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('columnsFor: columns size to their content (D-M3-12)', () => {
-  const r = (fileName: string, status: TaskRow['status'] = 'completed', fileExpired = false) => ({ fileName, status, fileExpired });
-
-  it('sizes the file column to the longest file name, and gives the destination the room that is left', () => {
-    const cols = columnsFor([r('a.pdf'), r('quarterly-update.pdf')]);
-    expect(cols).toBe('minmax(96px, 156px) minmax(96px, 1fr) 116px 104px 104px');
-  });
-
-  it('keeps the details column narrow until a failure reason or the expired note is loaded', () => {
-    expect(columnsFor([r('a.pdf', 'completed'), r('b.pdf', 'pending')])).toMatch(/ 104px$/);
-    expect(columnsFor([r('a.pdf'), r('b.pdf', 'failed')])).toMatch(/ 280px$/);
-    expect(columnsFor([r('a.pdf', 'completed', true)])).toMatch(/ 280px$/);
-  });
-
-  it('caps the file column at 280 px and gives it a floor', () => {
-    expect(columnsFor([r('x'.repeat(200))])).toMatch(/^minmax\(96px, 280px\) /);
-    expect(columnsFor([])).toMatch(/^minmax\(96px, 96px\) /);
-  });
-});
-
 describe('TaskTable', () => {
   it('draws only the rows in view out of 2,000', async () => {
     const { live } = fakeLive();
@@ -116,7 +96,7 @@ describe('TaskTable', () => {
     expect(screen.getByText(/the platform did not answer/)).toBeTruthy();
     // The code and the status chip each carry a one-line meaning (D-M3-10).
     expect(code.getAttribute('title')).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
-    expect(screen.getByText('Failed').closest('.status-chip')?.getAttribute('title')).toBe('This delivery ended with a failure. The reason is shown.');
+    expect(screen.getByText('Failed').closest('.status-chip')?.getAttribute('title')).toContain('This delivery ended with a failure. The reason is shown.');
     // Cut-short text shows in full.
     expect(screen.getByText(name(2)).getAttribute('title')).toBe(name(2));
     expect(api.tasks).toHaveBeenCalledTimes(1); // no fetch for a push
@@ -179,7 +159,7 @@ describe('TaskTable', () => {
     });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
-    await screen.findByText(/more than 33 days old/);
+    await screen.findByText('File expired');
 
     const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
     const preview = screen.getByRole('button', { name: `Preview ${name(1)}` }) as HTMLButtonElement;

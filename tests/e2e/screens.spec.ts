@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { test, type Page } from '@playwright/test';
+import { test } from '@playwright/test';
 import { addPdfs, CARDIO_IRB, CARDIO_PROTOCOL, PRIYA, send, signIn, tick } from './helpers.js';
 
 // Takes a screenshot of every screen at 1440 and 1280 px wide (F1). It does not assert anything and only runs
@@ -23,9 +23,6 @@ test.describe('screens', () => {
         await page.screenshot({ path: `${dir}/${name}-${s.w}.png`, fullPage: true });
       }
     };
-    const open = async (p: Page, tab: string): Promise<void> => {
-      await p.getByRole('button', { name: tab, exact: true }).click();
-    };
 
     await page.goto('/');
     await shot('01-sign-in');
@@ -39,10 +36,14 @@ test.describe('screens', () => {
 
     await send(page);
     await page.waitForTimeout(4000);
-    await shot('04-status');
+    await shot('04-status-panel');
 
-    await open(page, 'Audit trail');
-    await page.waitForTimeout(1500);
-    await shot('05-audit');
+    await page.getByRole('button', { name: 'Close' }).click();
+    await page.waitForTimeout(500);
+    await shot('05-status-list');
+
+    await page.getByRole('button', { name: 'Upload events' }).click();
+    await page.waitForTimeout(1000);
+    await shot('06-upload-events');
   });
 });

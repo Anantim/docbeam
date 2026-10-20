@@ -79,17 +79,17 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   await expect(row(page, name)).toHaveCount(0);
 
   // The refusal is in Priya's audit trail, and nobody else's.
-  await page.getByRole('button', { name: 'Audit trail' }).click();
-  await page.getByRole('group', { name: 'Event' }).getByRole('button', { name: 'Uploads' }).click();
-  await expect(page.locator('.arow', { hasText: 'File refused' }).first()).toContainText('malware found by the scan');
+  await page.getByRole('button', { name: 'Status' }).click();
+  await page.getByRole('button', { name: 'Upload events' }).click();
+  await expect(page.getByRole('complementary', { name: 'Upload events' }).locator('.arow', { hasText: 'File refused' }).first()).toContainText('malware found by the scan');
 
   const rajContext = await browser.newContext();
   const raj = await rajContext.newPage();
   try {
     await signIn(raj, RAJ);
-    await raj.getByRole('button', { name: 'Audit trail' }).click();
-    await raj.getByRole('group', { name: 'Event' }).getByRole('button', { name: 'Uploads' }).click();
-    await expect(raj.getByText('No events match these filters.')).toBeVisible();
+    await raj.getByRole('button', { name: 'Status' }).click();
+    await raj.getByRole('button', { name: 'Upload events' }).click();
+    await expect(raj.getByRole('complementary', { name: 'Upload events' }).getByText('No upload events.')).toBeVisible();
   } finally {
     await rajContext.close();
   }

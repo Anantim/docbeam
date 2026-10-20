@@ -3,6 +3,7 @@ import { apiFetch } from '../auth/session.js';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
+import { MoreRow } from './MoreRow.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
 
 interface Props {
@@ -38,47 +39,6 @@ async function loadPage(node: TreeNode, cursor: string | null): Promise<Page> {
   // Documents are not destinations, so the tree keeps only the folders. Folders come before documents, so a page that
   // holds a document means every folder is already loaded: the rest of the pages are documents and are never read.
   return { children: folderNodes(node, page.folders), nextCursor: page.documents.length > 0 ? null : page.nextCursor };
-}
-
-/**
- * The end of a list. It loads the next page when it scrolls into view (and has a button for browsers or people
- * that cannot scroll to it). While the page loads it says so; if the load fails it offers a retry.
- */
-function MoreRow({ busy, failed, level, onMore }: { busy: boolean; failed: boolean; level: number; onMore: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const request = useRef(onMore);
-  request.current = onMore;
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || busy || failed || typeof IntersectionObserver === 'undefined') return;
-    const scroller = el.closest('.tree');
-    const watcher = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) request.current();
-      },
-      { root: scroller, rootMargin: '0px 0px 120px 0px' },
-    );
-    watcher.observe(el);
-    return () => watcher.disconnect();
-  }, [busy, failed]);
-  return (
-    <div ref={ref} className="status-line nested" style={{ ['--level' as string]: level }} role="status">
-      {busy ? (
-        'Loading more…'
-      ) : failed ? (
-        <>
-          Could not load more.{' '}
-          <button className="link" type="button" onClick={onMore}>
-            Try again
-          </button>
-        </>
-      ) : (
-        <button className="link" type="button" onClick={onMore}>
-          Show more
-        </button>
-      )}
-    </div>
-  );
 }
 
 export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
@@ -234,7 +194,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
         )}
         {isOpen && children?.map((c) => row(c, level + 1))}
         {isOpen && children !== undefined && loaded.get(node.id)?.nextCursor != null && !keep && (
-          <MoreRow busy={busy.has(node.id)} failed={failed.has(node.id)} level={level + 1} onMore={() => void load(node, loaded.get(node.id)?.nextCursor ?? null)} />
+          <MoreRow className="status-line nested" style={{ ['--level' as string]: level + 1 }} busy={busy.has(node.id)} failed={failed.has(node.id)} onMore={() => void load(node, loaded.get(node.id)?.nextCursor ?? null)} />
         )}
       </div>
     );
@@ -279,7 +239,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
         )}
         {roots?.length === 0 && <div className="status-line">You are not in any team yet.</div>}
         {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
-        {roots !== null && rootsNext !== null && !keep && <MoreRow busy={busy.has(ROOT)} failed={failed.has(ROOT)} level={0} onMore={() => void loadTeams(rootsNext)} />}
+        {roots !== null && rootsNext !== null && !keep && <MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
       </div>
     </section>
   );

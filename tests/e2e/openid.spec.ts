@@ -10,7 +10,8 @@ const PASSWORD = 'correct-horse-battery-staple';
 const openButton = (page: Page) => page.getByRole('button', { name: 'Open', exact: true });
 const box = (page: Page) => page.getByLabel('Open by ID');
 const notFound = (page: Page) => page.getByRole('heading', { name: 'Distribution not found' });
-const emptyState = (page: Page) => page.getByText('Pick a distribution, or paste an id to open one.');
+/** The list's own empty state (nothing sent yet, or nothing sent to my teams). */
+const emptyState = (page: Page) => page.locator('.card.state');
 
 /** A new account in no team: it has no distributions, and no one to share any with. */
 async function register(page: Page): Promise<void> {
@@ -68,8 +69,6 @@ test('a full unknown id and a full link show only the not-found panel', async ({
   await expect(page).toHaveURL(new RegExp(`#/status/${unknown}$`));
   await expect(notFound(page)).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(emptyState(page)).toHaveCount(0);
-
   const another = randomUUID();
   await box(page).fill(`http://localhost:5173/#/status/${another.toUpperCase()}`);
   await openButton(page).click();
@@ -83,7 +82,7 @@ test('a person with no distributions sees the empty state on first load, not "no
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(emptyState(page)).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
-  await expect(page.getByText('You have not sent a distribution yet.')).toBeVisible();
+  await expect(page.getByText('You have not sent a distribution yet')).toBeVisible();
   await page.getByRole('button', { name: 'My teams' }).click();
   await expect(emptyState(page)).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
@@ -92,7 +91,7 @@ test('a person with no distributions sees the empty state on first load, not "no
 test('signing out leaves the open distribution, so the next person does not land on it', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
-  await page.locator('.jcard').first().click();
+  await page.locator('.dist-table tbody tr').first().click();
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
@@ -115,16 +114,15 @@ test('the Open-by-ID box is in the same place on Mine and My teams, with or with
     await expect(box(page)).toBeInViewport(); // not pushed below a long list
     const tabs = (await page.getByRole('group', { name: 'Whose distributions' }).boundingBox())!;
     const field = (await box(page).boundingBox())!;
-    expect(field.y, 'the box sits right under the Mine / My teams switch').toBeGreaterThanOrEqual(tabs.y + tabs.height);
-    expect(field.y).toBeLessThan(tabs.y + tabs.height + 24);
+    expect(Math.abs(field.y + field.height / 2 - (tabs.y + tabs.height / 2)), 'the box is in the toolbar, level with the Mine / My teams switch').toBeLessThan(24);
     return { x: Math.round(field.x), y: Math.round(field.y) };
   };
 
   // Priya has many distributions on Mine.
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
-  await expect(page.locator('.jcard').first()).toBeVisible();
-  expect(await page.locator('.jcard').count()).toBeGreaterThan(2);
+  await expect(page.locator('.dist-table tbody tr').first()).toBeVisible();
+  expect(await page.locator('.dist-table tbody tr').count()).toBeGreaterThan(2);
   const mine = await placed();
   await page.getByRole('button', { name: 'My teams' }).click();
   expect(await placed()).toEqual(mine);
@@ -138,7 +136,7 @@ test('the Open-by-ID box is in the same place on Mine and My teams, with or with
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.getByRole('button', { name: 'Status' }).click();
-  await expect(page.locator('.jcard')).toHaveCount(0);
+  await expect(page.locator('.dist-table tbody tr')).toHaveCount(0);
   expect(await placed()).toEqual(mine);
   await page.getByRole('button', { name: 'My teams' }).click();
   expect(await placed()).toEqual(mine);

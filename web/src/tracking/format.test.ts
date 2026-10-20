@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUDIT_KINDS, dayHeading, describeAudit, formatWhen, jobChip, plural, shortId, taskLook } from './format.js';
+import { describeAudit, formatWhen, jobChip, plural, shortId, taskLook } from './format.js';
 
 describe('labels', () => {
   it('names the five job statuses and four task states as the mockup does', () => {
@@ -23,22 +23,9 @@ describe('times', () => {
   it('formats a date and time', () => {
     expect(formatWhen(new Date(2026, 9, 16, 9, 5).toISOString())).toBe('16 Oct 09:05');
   });
-
-  it('headings say Today and Yesterday, then the date', () => {
-    const now = new Date(2026, 9, 16, 12, 0);
-    expect(dayHeading(new Date(2026, 9, 16, 0, 1).toISOString(), now)).toBe('Today');
-    expect(dayHeading(new Date(2026, 9, 15, 23, 59).toISOString(), now)).toBe('Yesterday');
-    expect(dayHeading(new Date(2026, 9, 1, 8, 0).toISOString(), now)).toBe('1 Oct 2026');
-  });
 });
 
 describe('audit events', () => {
-  it('has a filter for every audit action and Deliveries covers two', () => {
-    const covered = AUDIT_KINDS.flatMap((k) => k.actions).sort();
-    expect(covered).toEqual(['download.issued', 'file.refused', 'job.cancelled', 'job.retried', 'job.submitted', 'task.completed', 'task.failed']);
-    expect(AUDIT_KINDS.find((k) => k.id === 'delivery')?.actions).toEqual(['task.completed', 'task.failed']);
-  });
-
   it('describes a distribution that was sent', () => {
     const line = describeAudit({ action: 'job.submitted', actorId: 'u', detail: { actorName: 'Priya Shah', fileCount: 2, destinationCount: 3, taskCount: 6 } });
     expect(line).toMatchObject({ title: 'Distribution sent', who: 'Priya Shah', detail: '2 files to 3 destinations, 6 deliveries.' });

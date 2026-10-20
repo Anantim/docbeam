@@ -115,7 +115,7 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
   it('lists the sender\'s jobs under mine, newest first, and not under team', async () => {
     const mine = await get(priya, '/jobs');
     expect(mine.body[0].jobId).toBe(job.jobId);
-    expect(mine.body[0]).toMatchObject({ taskCount: 5, status: 'in_progress', submittedBy: { name: 'Priya Shah' } });
+    expect(mine.body[0]).toMatchObject({ taskCount: 5, status: 'in_progress', submittedBy: { name: 'Priya Shah' }, fileCount: 5, destinationCount: 2 });
     const team = await get(priya, '/jobs?scope=team');
     expect(team.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
   });
@@ -130,7 +130,7 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
 
     const list = await get(raj, '/jobs?scope=team');
     const entry = list.body.find((j: { jobId: string }) => j.jobId === job.jobId);
-    expect(entry).toMatchObject({ taskCount: 2, counts: { completed: 1, failed: 1 }, status: 'completed_with_errors' });
+    expect(entry).toMatchObject({ taskCount: 2, counts: { completed: 1, failed: 1 }, status: 'completed_with_errors', fileCount: 2, destinationCount: 1 }); // only what Raj may see
     const mine = await get(raj, '/jobs');
     expect(mine.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
 

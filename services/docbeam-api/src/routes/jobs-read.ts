@@ -48,6 +48,23 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     return out;
   }
 
+  /**
+   * The files and the folders a distribution reaches, for the list. Counted over the deliveries the caller may see,
+   * the same rows as the counts: the sender sees all of them, anyone else only the ones to their own teams.
+   */
+  async function reachFor(jobIds: string[], userId: string, teams: string[]): Promise<Map<string, { files: number; destinations: number }>> {
+    const out = new Map<string, { files: number; destinations: number }>();
+    if (jobIds.length === 0) return out;
+    const result = await db.execute<{ job_id: string; files: number; destinations: number }>(sql`
+      SELECT j.id AS job_id, count(DISTINCT t.file_id)::int AS files, count(DISTINCT t.destination_path)::int AS destinations
+        FROM jobs j JOIN tasks t ON t.job_id = j.id
+       WHERE j.id = ANY(${pgArray(jobIds, 'uuid')})
+         AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))
+       GROUP BY 1`);
+    for (const r of result.rows) out.set(r.job_id, { files: r.files, destinations: r.destinations });
+    return out;
+  }
+
   app.get('/jobs', user, async (request) => {
     const userId = caller(request);
     const query = request.query as { scope?: string; page?: string; limit?: string };
@@ -77,10 +94,13 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
       ).rows;
     }
 
-    const counts = await countsFor(rows.map((r) => r.id), userId, teams);
+    const ids = rows.map((r) => r.id);
+    const [counts, reach] = await Promise.all([countsFor(ids, userId, teams), reachFor(ids, userId, teams)]);
     return rows.map((r) => {
       const c = counts.get(r.id) ?? emptyCounts();
       return {
+        fileCount: reach.get(r.id)?.files ?? 0,
+        destinationCount: reach.get(r.id)?.destinations ?? 0,
         jobId: r.id,
         submittedBy: { userId: r.submitted_by_user_id, name: r.submitted_by_name },
         createdAt: new Date(r.created_at).toISOString(),

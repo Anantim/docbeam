@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { sessionStore } from './auth/session.js';
-import { AuditTrailPage } from './components/AuditTrailPage.js';
 import { AuthCard } from './components/AuthCard.js';
 import { Distribute } from './components/Distribute.js';
 import { SessionDialog } from './components/SessionDialog.js';
@@ -10,7 +9,7 @@ import { Toasts, type Toast } from './components/Toasts.js';
 import type { Claims } from './auth/token.js';
 import { liveClient } from './live/instance.js';
 import { hashFor, parseHash, type Route, type View } from './tracking/route.js';
-import { runningCount, usePolledJobs } from './tracking/usePolledJobs.js';
+import { runningCount, usePagedJobs } from './tracking/usePagedJobs.js';
 import { uploadManager } from './upload/instance.js';
 
 /** The page position lives in the URL hash, so a reload (or a shared link) opens the same screen and distribution. */
@@ -60,7 +59,7 @@ export function App() {
     if (session.status === 'signedIn') wasSignedIn.current = true;
     else if (session.status === 'signedOut' && wasSignedIn.current) {
       wasSignedIn.current = false;
-      window.location.hash = hashFor({ view: 'distribute', jobId: null });
+      window.location.hash = hashFor({ view: 'distribute', jobId: null, uploads: false });
     }
   }, [session.status]);
 
@@ -72,7 +71,7 @@ export function App() {
   }, [token]);
 
   // My distributions, refreshed every 30 seconds. Also the badge on the Status tab.
-  const mine = usePolledJobs('mine', token !== null, undefined, signedInAgain);
+  const mine = usePagedJobs('mine', token !== null, undefined, signedInAgain);
 
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
@@ -83,11 +82,11 @@ export function App() {
   if (!claims) return <AuthCard />;
 
   const view: View = route.view;
-  const openJob = (jobId: string | null): void => go({ view: 'status', jobId });
+  const openJob = (jobId: string | null): void => go({ view: 'status', jobId, uploads: false });
 
   return (
     <>
-      <Shell claims={claims} teams={teams} view={view} onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null })} running={runningCount(mine.jobs)}>
+      <Shell claims={claims} teams={teams} view={view} onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null, uploads: v === 'status' && route.uploads })} running={runningCount(mine.jobs)}>
         {/* Distribute stays mounted while another screen shows, so a prepared batch survives a look at Status. */}
         <div className="view" hidden={view !== 'distribute'}>
           <Distribute
@@ -99,8 +98,17 @@ export function App() {
             }}
           />
         </div>
-        {view === 'status' && <StatusPage jobId={route.jobId} onOpen={openJob} mine={mine} notify={notify} signedInAgain={signedInAgain} />}
-        {view === 'audit' && <AuditTrailPage onOpenJob={openJob} signedInAgain={signedInAgain} />}
+        {view === 'status' && (
+          <StatusPage
+            jobId={route.jobId}
+            uploads={route.uploads}
+            onOpen={openJob}
+            onOpenUploads={() => go({ view: 'status', jobId: null, uploads: true })}
+            mine={mine}
+            notify={notify}
+            signedInAgain={signedInAgain}
+          />
+        )}
       </Shell>
       {session.status === 'ended' && (
         <SessionDialog

@@ -155,13 +155,23 @@ export async function columnReport(page: Page, head: string, rows: string): Prom
   })(${JSON.stringify(head)}, ${JSON.stringify(rows)})`)) as ColumnReport;
 }
 
-export const counts = (page: Page) => page.getByLabel('Counts');
+/** The filter row of the open distribution's panel: one button per status, each with its number. */
+export const counts = (page: Page) => page.getByRole('group', { name: 'Filter deliveries by status' });
 
-/** The four numbers of the counts panel: Delivered, Failed, In progress, Waiting. */
+/**
+ * The numbers of the open distribution: Delivered, Failed, In progress, Waiting and, once something was cancelled,
+ * Cancelled. They are read from the filter buttons ("Delivered, 4 deliveries"), which carry the live counts.
+ */
 export async function readCounts(page: Page): Promise<number[]> {
-  const texts = await counts(page).locator('.n').allTextContents();
-  return texts.map(Number);
+  const labels = await counts(page).getByRole('button').evaluateAll((els: Array<{ getAttribute(name: string): string | null }>) => els.map((e) => e.getAttribute('aria-label') ?? ''));
+  const by = new Map(labels.map((l) => [l.split(',')[0], Number(/(\d+) deliver/.exec(l)?.[1])]));
+  const order = ['Delivered', 'Failed', 'In progress', 'Waiting', 'Cancelled'];
+  return order.filter((name) => by.has(name)).map((name) => by.get(name) as number);
 }
+
+/** A distribution's row in the list. */
+export const distRow = (page: Page, shortId?: string) =>
+  shortId ? page.locator('.dist-table tbody tr', { hasText: shortId }) : page.locator('.dist-table tbody tr');
 
 /** The status chip in the header of the open distribution. */
 export const chip = (page: Page) => page.locator('.status-chip.big');

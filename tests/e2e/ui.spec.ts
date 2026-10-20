@@ -162,7 +162,7 @@ test('after one wrong password the same fixed pause note appears; a right passwo
   await expect(page.getByTestId('pause-note')).toHaveCount(0);
 });
 
-test('the tables size to their content at 1280 and 1920 px, with long text cut short and shown in full', async ({ page }) => {
+test('the Documents table sizes to its content and the deliveries panel does not scroll sideways, at 1280 and 1920 px, with long text cut short and shown in full', async ({ page }) => {
   await signIn(page, PRIYA);
   const longName = `quarterly-regulatory-binder-update-for-the-cardio-study-${'x'.repeat(30)}-${randomUUID().slice(0, 6)}.pdf`;
   await page.getByLabel('Choose files').setInputFiles([{ name: longName, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
@@ -202,7 +202,15 @@ test('the tables size to their content at 1280 and 1920 px, with long text cut s
   await page.setViewportSize({ width: 1280, height: 900 });
   await send(page);
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
-  await check('.ttable .trow.thead', '.ttable .tscroll .trow', '.ttable .tfile', 'Deliveries');
+  // The deliveries sit in the side panel: no sideways scroll, and a long file name ends with an ellipsis (full text in its title).
+  for (const width of [1280, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.waitForTimeout(300);
+    const cell = page.locator('.ttable .tfile').first();
+    await expect(cell).toHaveCSS('text-overflow', 'ellipsis');
+    expect(await cell.getAttribute('title'), `Deliveries at ${width}`).toContain(longName);
+    expect(await page.locator('.panel').evaluate((el: BrowserElement) => el.scrollWidth <= el.clientWidth + 1), `the panel scrolls sideways at ${width}`).toBe(true);
+  }
 });
 
 // Words on each line of a text, from the position of every word. Runs in the browser.

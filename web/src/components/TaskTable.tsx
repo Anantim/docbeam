@@ -6,11 +6,10 @@ import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
 import { StatusChip } from './StatusChip.js';
-import { taskKindOf, taskLook } from '../tracking/format.js';
+import { plural, taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
 export const ROW_HEIGHT = 64;
-const MAX_ATTEMPTS = 5;
 
 interface Props {
   jobId: string;
@@ -123,27 +122,25 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     };
   }, [live, jobId, status, load]);
 
-  const columns = columnsFor([...pages.values()].flat());
   const rows: Array<{ index: number; task: TaskRow | undefined }> = [];
   for (let i = range.start; i < range.end; i++) {
     rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
   }
 
   return (
-    <div className="ttable" role="table" aria-label="Deliveries" aria-rowcount={total + 1} style={{ ['--cols' as string]: columns }}>
+    <div className="ttable" role="table" aria-label="Deliveries" aria-rowcount={total + 1}>
       <div className="trow thead" role="row">
-        <div role="columnheader">File</div>
-        <div role="columnheader">Destination</div>
+        <div role="columnheader">File and folder</div>
         <div role="columnheader">Status</div>
-        <div role="columnheader">Attempts</div>
-        <div role="columnheader">Details and actions</div>
+        <div role="columnheader">Details</div>
       </div>
       {error && (
-        <div role="alert" className="alert" style={{ margin: 12 }}>
+        <div role="alert" className="alert tmargin">
           {error}
         </div>
       )}
-      {!error && firstLoaded && total === 0 && <div className="empty-line">No deliveries with this status.</div>}
+      {!firstLoaded && !error && <div className="state small" role="status">Loading deliveries…</div>}
+      {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
       <div
         ref={scroller}
         className="tscroll"
@@ -167,25 +164,19 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
 function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
   const look = taskLook(kind);
-  const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
+  const attempts = task.attemptCount === 0 ? 'Not attempted yet' : `${plural(task.attemptCount, 'attempt', 'attempts')} so far`;
   return (
     <>
-      <div role="cell" className="ellipsis tfile" title={task.fileName}>
-        {task.fileName}
-      </div>
-      <div role="cell" className="ellipsis" title={task.destinationPath}>
-        <span className="dest-text">{task.destinationPath}</span>
+      <div role="cell" className="tfile-cell">
+        <div className="ellipsis tfile" title={task.fileName}>
+          {task.fileName}
+        </div>
+        <div className="ellipsis lead dest-text" title={task.destinationPath}>
+          {task.destinationPath}
+        </div>
       </div>
       <div role="cell">
-        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[kind]} />
-      </div>
-      <div role="cell" className="attempts" title={used === 0 ? 'Not attempted yet' : `${used} of the ${MAX_ATTEMPTS} allowed attempts`}>
-        <span aria-hidden="true" className="segs">
-          {Array.from({ length: MAX_ATTEMPTS }, (_, i) => (
-            <span key={i} className={i < used ? '' : 'off'} data-tone={look.tone} />
-          ))}
-        </span>
-        <span className="num">{used} of {MAX_ATTEMPTS}</span>
+        <StatusChip tone={look.tone} label={look.label} title={`${TASK_STATUS_MEANING[kind]} ${attempts}.`} />
       </div>
       <div role="cell" className="tdetail">
         {task.status === 'failed' && (
@@ -199,7 +190,9 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
           </>
         )}
         {task.status === 'completed' && (task.fileExpired ? (
-          <ExpiredNote />
+          <span className="muted" title="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.">
+            File expired
+          </span>
         ) : (
           <div className="tbuttons">
             <PreviewButton name={task.fileName} onClick={() => onPreview(task)} />
@@ -211,30 +204,4 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
       </div>
     </>
   );
-}
-
-function ExpiredNote() {
-  return (
-    <span className="muted">
-      The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.
-    </span>
-  );
-}
-
-const CHAR_PX = 7; // the average width of a character at 13 px, for sizing columns before they are drawn
-
-/**
- * The columns size to what is in them (D-M3-12, D-M3-17). The file column is as wide as the longest file name
- * loaded (at most 280 px; a longer name ends with an ellipsis and shows in full in its title). The destination
- * takes all the room that is left, never less than 96 px. The details column is narrow (104 px) while it holds
- * only the two icon buttons or a short status, and wide (280 px) once a failure reason or the expired-file note is
- * loaded. The status and attempts columns are fixed to their chips. Rows are drawn one by one, so the widths come
- * from the rows loaded so far, not from the rows in view.
- */
-export function columnsFor(rows: readonly Pick<TaskRow, 'fileName' | 'status' | 'fileExpired'>[]): string {
-  const longest = rows.reduce((n, r) => Math.max(n, r.fileName.length), 0);
-  const file = Math.min(280, Math.max(96, longest * CHAR_PX + 16));
-  const wordy = rows.some((r) => r.status === 'failed' || (r.status === 'completed' && r.fileExpired));
-  const details = wordy ? 280 : 104;
-  return `minmax(96px, ${file}px) minmax(96px, 1fr) 116px 104px ${details}px`;
 }
