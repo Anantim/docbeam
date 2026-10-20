@@ -80,7 +80,7 @@ describe('TaskTable', () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
-    fireEvent.scroll(screen.getByLabelText('Deliveries list, scrolls'), { target: { scrollTop: 1500 * 64 } });
+    fireEvent.scroll(screen.getByLabelText('Delivery rows, scrolls'), { target: { scrollTop: 1500 * 64 } });
     await screen.findByText(name(1500));
     expect(api.tasks).toHaveBeenCalledWith('job', 16, undefined);
     // Page 1 stays loaded. Page 15 holds the few rows drawn above the window; nothing else in between was fetched.

@@ -6,7 +6,7 @@ import { applyCounts, countsFromFetch, type CountsState } from './apply.js';
 
 export type JobState = { status: 'loading' } | { status: 'ready'; detail: JobDetail } | { status: 'notFound' } | { status: 'error'; message: string };
 
-/** After a push, the detail (the Retry and Cancel rules, the chip) is read again once pushes go quiet. */
+/** After a push, the detail (the Retry and Cancel rules, the chip) is read again within this time. */
 const DETAIL_REFRESH_MS = 1_500;
 
 /**
@@ -70,8 +70,11 @@ export function useJob(jobId: string, live: LiveClient) {
       setCounts((prev) => (prev ? applyCounts(prev, message) : prev));
       if (message.type === 'job_update') reloadAll();
       else {
-        clearTimeout(timer);
-        timer = setTimeout(() => void loadDetail(), DETAIL_REFRESH_MS);
+        // At most one read per pause: a run that never goes quiet still refreshes the detail every 1.5 seconds.
+        timer ??= setTimeout(() => {
+          timer = undefined;
+          void loadDetail();
+        }, DETAIL_REFRESH_MS);
       }
     });
     return () => {

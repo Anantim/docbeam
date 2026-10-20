@@ -1,18 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../auth/session.js';
-import { destinationKey, type Destination } from '../destinations/selection.js';
+import type { Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { MoreRow } from './MoreRow.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon, SearchIcon } from './Icons.js';
 
 interface Props {
-  /** The destinations in use (the ticks when `stateOf` is not given). */
-  selected: Destination[];
   onToggle: (destination: Destination) => void;
   onTeams: (names: string[]) => void;
-  /** Tick state for the files in scope. Without it a destination is on when it is in `selected`. */
-  stateOf?: (destination: Destination) => TickState;
+  /** Tick state of a folder for the files in scope. */
+  stateOf: (destination: Destination) => TickState;
   /** What a tick sends, for example "all 3 files" or "the 1 selected file". */
   scopeTitle?: string;
   /** Shows "Use all files" in the banner while some files are selected. */
@@ -117,7 +115,7 @@ function Skeleton({ rows = 3, label }: { rows?: number; label: string }) {
   );
 }
 
-export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
+export function Destinations({ onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [rootsNext, setRootsNext] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
@@ -187,7 +185,6 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
   }, [roots, onTeams]);
 
   const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
-  const chosen = useMemo(() => new Set(selected.map(destinationKey)), [selected]);
 
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
@@ -211,7 +208,7 @@ export function Destinations({ selected, onToggle, onTeams, stateOf, scopeTitle 
     const isOpen = keep ? keep.has(node.id) && (children?.length ?? 0) > 0 : open.has(node.id);
     const canExpand = children === undefined || children.length > 0;
     const destination = destinationFor(node);
-    const tick: TickState = !destination ? 'off' : stateOf ? stateOf(destination) : chosen.has(destinationKey(destination)) ? 'on' : 'off';
+    const tick: TickState = destination ? stateOf(destination) : 'off';
 
     return (
       <div key={node.id}>

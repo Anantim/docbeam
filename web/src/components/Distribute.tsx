@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { keepSelected, pickRow, type Pick } from '../distribute/rows.js';
+import { plural } from '../text.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
 import {
   applyHeld,
@@ -36,8 +37,6 @@ interface Props {
   manager?: UploadManager;
   submission?: Submission;
 }
-
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 /** The Distribute screen (D-F1-8): files on the left, destinations on the right, one bar to send (flow 2). */
 export function Distribute({ onTeams, notify, onSent, manager = uploadManager, submission }: Props) {
@@ -101,10 +100,10 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
 
   const onToggleDestination = useCallback(
     (destination: Destination) => {
-      setMapping(toggleDestination(mapping, [...files], selected, destination));
+      setMapping((m) => toggleDestination(m, [...files], selected, destination));
       setSendError(null);
     },
-    [files, mapping, selected],
+    [files, selected],
   );
 
   const onRemoveFile = (id: string) => {
@@ -170,7 +169,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
           </AddFiles>
 
           <Destinations
-            selected={[]}
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}

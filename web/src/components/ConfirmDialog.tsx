@@ -19,15 +19,18 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, tone
   const box = useRef<HTMLDivElement>(null);
   useFocusTrap(box);
 
+  // The parent may draw again at any time (live pushes): the handler is read from a ref, so nothing here runs again.
+  const cancel = useRef(onCancel);
+  cancel.current = onCancel;
   useEffect(() => {
     // The safe answer has the focus, so Enter by accident does not confirm.
     keep.current?.focus();
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onCancel();
+      if (event.key === 'Escape') cancel.current();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, []);
 
   return (
     <>

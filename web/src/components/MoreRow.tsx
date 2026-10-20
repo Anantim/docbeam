@@ -30,9 +30,9 @@ export function MoreRow({ busy, failed, onMore, className, style }: Props) {
     return () => watcher.disconnect();
   }, [busy, failed]);
   return (
-    <div ref={ref} className={className} style={style} role="status">
+    <div ref={ref} className={className} style={style}>
       {busy ? (
-        'Loading more…'
+        <span role="status">Loading more…</span>
       ) : failed ? (
         <>
           Could not load more.{' '}

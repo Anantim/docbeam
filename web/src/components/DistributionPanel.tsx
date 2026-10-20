@@ -15,6 +15,7 @@ import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { DestinationChips } from './DestinationChips.js';
 import { ChevronIcon, CloseIcon } from './Icons.js';
+import { JobBar } from './JobBar.js';
 import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
 import { StatusChip } from './StatusChip.js';
@@ -74,13 +75,13 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     if (lastStatus.current !== null && lastStatus.current !== liveStatus) setStatusChanges((n) => n + 1);
     lastStatus.current = liveStatus;
   }, [liveStatus]);
-  // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
   const { preview, download } = files;
   const onPreview = useCallback((t: TaskRow) => void preview(t.fileId, t.fileName), [preview]);
   const onDownload = useCallback((t: TaskRow) => void download(t.fileId, t.fileName), [download]);
   const announcement = state.status === 'ready' ? `${jobChip(liveStatus ?? state.detail.status).label}. ${(counts ?? state.detail.counts).completed} of ${state.detail.taskCount} completed.` : '';
   const announced = useThrottled(announcement, 5_000);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
   const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges, enabled: historyOpen });
 
   const close = (
@@ -134,7 +135,6 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const total = c.pending + c.in_progress + c.completed + c.failed + c.cancelled;
   const status = statusFromCounts(c, detail.cancelledAt !== null);
   const chip = jobChip(status);
-  const bar = (n: number): number => (total > 0 ? (n / total) * 100 : 0);
 
   // Cancel is for a distribution that is still running: hidden once it has finished or was cancelled (D-M3-10).
   const running = status === 'pending' || status === 'in_progress';
@@ -176,7 +176,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           <h2 className="mono" title={jobId}>
             {shortId(jobId)}
           </h2>
-          <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} big role="status" />
+          <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} big />
         </div>
         <button className="link" type="button" onClick={copyLink}>
           Copy link
@@ -195,12 +195,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
         <div className="chips jdest">
           <DestinationChips paths={detail.destinations} visible={3} />
         </div>
-        <div className="jbar" aria-hidden="true">
-          <div data-tone="ok" style={{ width: `${bar(c.completed)}%` }} />
-          <div data-tone="bad" style={{ width: `${bar(c.failed)}%` }} />
-          <div data-tone="busy" style={{ width: `${bar(c.in_progress)}%` }} />
-          <div data-tone="idle" style={{ width: `${bar(c.cancelled)}%` }} />
-        </div>
+        <JobBar counts={c} total={total} />
 
         {/* The sender always sees the buttons; one that is off says why in its title (D-M3-10). */}
         {detail.isSender && (showCancel || canRetry || c.failed > 0) && (

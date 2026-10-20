@@ -39,7 +39,7 @@ const openCardio = async (user: ReturnType<typeof userEvent.setup>) => {
 describe('Destinations tree', () => {
   it('starts with the teams only, and loads one level each time a row is opened', async () => {
     const user = userEvent.setup();
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await screen.findByText('Cardio');
     expect(screen.getByText('Oncology')).toBeTruthy();
     expect(screen.queryByText('CARDIO-301 Regulatory')).toBeNull();
@@ -59,14 +59,14 @@ describe('Destinations tree', () => {
 
   it('reports the team names for the header', async () => {
     const onTeams = vi.fn();
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={onTeams} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={onTeams} />);
     await waitFor(() => expect(onTeams).toHaveBeenCalledWith(['Cardio', 'Oncology']));
   });
 
   it('ticks a folder as a destination with its path', async () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
-    render(<Destinations selected={[]} onToggle={onToggle} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={onToggle} onTeams={() => {}} />);
     await openCardio(user);
     await user.click(await screen.findByRole('checkbox', { name: 'Send your files to Cardio / CARDIO-301 Regulatory / IRB approvals' }));
     expect(onToggle).toHaveBeenCalledWith({ binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' });
@@ -74,7 +74,7 @@ describe('Destinations tree', () => {
 
   it('has no tick on a binder, only on its folders', async () => {
     const user = userEvent.setup();
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await openCardio(user);
     await screen.findByRole('checkbox', { name: /IRB approvals/ });
     expect(screen.getAllByRole('checkbox')).toHaveLength(1);
@@ -83,7 +83,7 @@ describe('Destinations tree', () => {
 
   it('lets a folder be ticked with no file on the page (the tick is not disabled)', async () => {
     const user = userEvent.setup();
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await openCardio(user);
     expect((await screen.findByRole('checkbox', { name: /IRB approvals/ }) as HTMLButtonElement).disabled).toBe(false);
   });
@@ -92,7 +92,7 @@ describe('Destinations tree', () => {
     const user = userEvent.setup();
     render(
       <Destinations
-        selected={[{ binderId: 'b-reg', folderId: 'f-irb', path: 'x' }]}
+        stateOf={() => 'off'}
         onToggle={() => {}}
         onTeams={() => {}}
       />,
@@ -136,7 +136,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
       if (path === '/binders/b/contents?cursor=c2') return { folders: folders(41, 60), documents: [], nextCursor: null };
       throw new Error(`unexpected ${path}`);
     });
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
     expect(apiFetch).not.toHaveBeenCalledWith('/binders/b/contents');
     await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
@@ -170,7 +170,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
       }
       throw new Error(`unexpected ${path}`);
     });
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
     await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
     await screen.findByText('Batch 002');
@@ -191,7 +191,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
       if (path === '/binders/b/contents') return { folders: folders(1, 2), documents: [{ id: 'd1', name: 'x.pdf' }], nextCursor: 'docs-next' };
       throw new Error(`unexpected ${path}`);
     });
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={() => {}} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
     await user.click(await screen.findByRole('button', { name: 'Expand Paging Team' }));
     await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
     await screen.findByText('Batch 002');
@@ -206,7 +206,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
       throw new Error(`unexpected ${path}`);
     });
     const onTeams = vi.fn();
-    render(<Destinations selected={[]} onToggle={() => {}} onTeams={onTeams} />);
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={onTeams} />);
     await screen.findByText('Alpha');
     expect(screen.queryByText('Beta')).toBeNull();
     fire();

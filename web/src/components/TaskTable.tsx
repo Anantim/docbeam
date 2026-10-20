@@ -157,7 +157,8 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
         style={{ height: Math.min(viewportHeight, Math.max(ROW_HEIGHT, total * ROW_HEIGHT)) }}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         tabIndex={0}
-        aria-label="Deliveries list, scrolls"
+        role="region"
+        aria-label="Delivery rows, scrolls"
       >
         <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
           {rows.map(({ index, task }) => (
