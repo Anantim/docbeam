@@ -6,7 +6,8 @@
 // DEMO_PASSWORD    the seed password (default: SEED_USER_PASSWORD from .env, for the local stack)
 // DEMO_FILES       the folder made by scripts/demo-files.sh (default: ~/docbeam-demo-files)
 // DEMO_DEV=1       also run the big send (scripts/demo-send.sh) and the outage (scripts/demo-outage.sh): dev only
-// DEMO_OUT         where the video and the checked frames go (default: docs/demo and docs/testing/f1-evidence/demo-frames)
+// DEMO_OUT         where the video goes (default: docs/demo). The checked frames always go to docs/testing/f1-evidence/demo-frames
+//                  and replace the ones there.
 //
 // It writes docbeam-demo.webm (VP9, under 25 MB, 3 to 5 minutes on dev) and one frame per step as a PNG, so every step can
 // be looked at. The video is made from the browser's own screencast frames: stretches of waiting (a scan, a big upload, a
@@ -30,13 +31,15 @@ const PACE = Number(process.env.DEMO_PACE ?? '2');
 function envFile(name: string): string | undefined {
   try {
     const line = readFileSync(join(ROOT, '.env'), 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
-    return line?.slice(name.length + 1).trim();
+    return line?.slice(name.length + 1).trim().replace(/^(["'])(.*)\1$/, '$2');
   } catch {
     return undefined;
   }
 }
 const PASSWORD = process.env.DEMO_PASSWORD ?? envFile('SEED_USER_PASSWORD');
 if (!PASSWORD) throw new Error('Set DEMO_PASSWORD (the seed password) or SEED_USER_PASSWORD in .env.');
+const ffmpegDir = existsSync(join(homedir(), '.cache/ms-playwright')) ? readdirSync(join(homedir(), '.cache/ms-playwright')).find((d) => d.startsWith('ffmpeg')) : undefined;
+if (!ffmpegDir) throw new Error('Playwright\'s ffmpeg is not installed (run: npx playwright install ffmpeg).');
 if (!existsSync(FILES)) throw new Error(`Run scripts/demo-files.sh first: ${FILES} does not exist.`);
 
 const CARDIO_IRB = 'IRB approvals';
@@ -93,6 +96,8 @@ await context.addInitScript(`
 const started = Date.now();
 let frame = 0;
 
+// The scripts below block this process while they run, so the screencast frames of that stretch arrive late; each
+// stretch is played ×12 or faster, so the timeline error is not visible.
 /** Stretches of waiting (a scan, a big upload, a drain) that the video plays faster, so it runs 3 to 5 minutes. */
 const fast: Array<{ from: number; to: number; factor: number }> = [];
 async function skim<T>(factor: number, work: () => Promise<T>): Promise<T> {
@@ -276,8 +281,7 @@ try {
 // takes `factor` times that, and each output frame shows the last screencast frame that had arrived by then.
 const FPS = 15;
 const end = Date.now();
-const cache = join(homedir(), '.cache/ms-playwright');
-const ffmpeg = join(cache, readdirSync(cache).find((d) => d.startsWith('ffmpeg')) ?? '', 'ffmpeg-linux');
+const ffmpeg = join(homedir(), '.cache/ms-playwright', ffmpegDir, 'ffmpeg-linux');
 const final = join(OUT, 'docbeam-demo.webm');
 rmSync(final, { force: true });
 const encoder = spawn(

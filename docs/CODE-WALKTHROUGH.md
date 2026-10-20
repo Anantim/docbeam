@@ -361,7 +361,7 @@ The code says what happens; `docs/` says why, and proves it was checked. Code co
 | `DECISIONS.md` | Every change made during the build (the `D-` numbers). Where it differs from the design, it wins. |
 | `PLAN.md`, `STATUS.md` | The task list per milestone, and where things stand now, including dev's state. |
 | `RUNBOOK-first-bring-up.md` | Building an environment from nothing, in order; proven by M5. |
-| `DEMO-SCRIPT.md`, `demo/` | The demo's steps and the recorded video (`scripts/demo/record.ts` makes it). |
+| `DEMO-SCRIPT.md`, `demo/docbeam-demo.webm` | The demo's steps and the recorded video (`scripts/demo/record.ts` makes it). |
 | `TESTER-GUIDE.md` | What a tester signs in as and tries. No password in it. |
 | `agent/PROMPTS.md` | The prompt for each agent session, milestone by milestone. |
 | `testing/M0-TESTING.md` to `M5-TESTING.md` | What to check for each milestone, and how. |
