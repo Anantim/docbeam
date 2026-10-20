@@ -2,7 +2,7 @@
 
 How to build a DocBeam environment from nothing, in the one order that works. It is written for dev and prod alike. **Dev** is built from a laptop session as shown here. **Prod is not deployed in this project** (D-M5-1): its differences are in section 9, and it never runs from a laptop or an agent session (D-G3).
 
-This runbook was proved on 2026-10-17 by bringing dev up from nothing with it (`docs/testing/M5-RESULTS.md`, section 2): an empty state at 09:21 UTC, `terraform plan` showing `No changes.` and the site answering at 11:08 UTC. About 20 of those 107 minutes were the image pushes from a home connection, and about 35 minutes went on two failed attempts at the database bootstrap, because the RDS certificate bundle in the images could not be read by the non-root user (fixed in the Dockerfiles, D-M5-4). The order below did not have to change.
+This runbook was proved on 2026-10-17 by bringing dev up from nothing with it (`docs/testing/M5-RESULTS.md`, section 2): an empty state at 09:21 UTC, `terraform plan` showing `No changes.` and the site answering at 11:08 UTC. About 20 of those 107 minutes were the image pushes from a home connection, and about 35 minutes went on two failed attempts at the database bootstrap, because the RDS certificate bundle in the images could not be read by the non-root user (fixed in the Dockerfiles, D-M5-4). The order below did not have to change. It was used again on 2026-10-20 for the F1 round (ECR repositories, five images, a first apply of 246 resources, the database and signing key, the three services, the five Lambdas, a second apply of 18 added and 1 changed, the web app) and again needed no change in order; see section 11 for what was different when an agent ran it.
 
 ## 0. Before you start
 
@@ -144,3 +144,9 @@ aws s3 ls                                       # shows only docbeam-tfstate-<ac
 | `run-task.sh`: "No revision … registered by scripts/deploy-service.sh" | Deploy the service first (section 5) |
 | `destroy` fails with `bufio.Scanner: token too long` | Empty the data buckets first (section 8) |
 | "certificate verify failed" from a service | The bundle is missing from the image, or `DB_HOST` is not the database's own address. Run `scripts/update-rds-ca.sh` if AWS rotated the authority |
+| `docker push` says "no basic auth credentials" for the last image (Upload Events, the biggest) | The ECR login ran before a long build and expired or was replaced. Run `scripts/push-image.sh` for that one image again |
+| The deploy of a service takes about 10 minutes and the command times out | Normal on the first deploy (two tasks overlap while the new one starts). Wait for `aws ecs describe-services` to show `COMPLETED`; the script finishes by itself |
+
+## 11. When an agent session runs it (2026-10-20)
+
+A `terraform apply -auto-approve` typed straight after a change was refused by the session's permission check as a "blind apply". What was accepted: `terraform plan -out=<file>`, reading the plan (the counts and the names of what is created), and then `terraform apply <file>`. Do it that way for every apply in sections 1, 3 and 7: the plan files are the same as the plans the runbook already tells you to read.

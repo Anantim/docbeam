@@ -1,6 +1,6 @@
 # DocBeam Code Walkthrough
 
-Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 20 October 2026 (`main` at `227a619`).
+Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 20 October 2026 (`main` after the F1 round, PR #29, plus the F1 documents pull request).
 
 ## 0. The map
 
@@ -123,7 +123,8 @@ Tables: `teams`, `team_members`, `binders`, `folders` (nested through a parent i
 
 | File | Why it exists |
 | --- | --- |
-| `routes/browse.ts` | `GET /teams`, `/teams/:teamId/binders`, `/binders/:id/contents`, `/folders/:id/contents`: the destination tree. Only your own teams, and a bad id gets the same 404 as someone else's. |
+| `routes/browse.ts` | `GET /teams`, `/teams/:teamId/binders`, `/binders/:id/contents`, `/folders/:id/contents`: the destination tree, a page at a time (`limit`, opaque `cursor`, `nextCursor`, D-F1-6). Only your own teams, and a bad id gets the same 404 as someone else's, on every page.
+| `paging.ts`, `paging.test.ts` | The limit and cursor rules: the cursor is the position of the last row, so rows added while paging never repeat or skip one. |
 | `routes/internal.ts` | For services only: `POST /destinations/check` (one query confirms every binder and folder exists, sits in the right binder, and belongs to a team the user is in; returns each team and readable path) and `GET /users/:userId/teams`. This is why the browser never says which team a destination belongs to. |
 | `routes/documents.ts` | `POST /documents`, called by the Delivery Lambda. It checks the destination and membership before reading any bytes, checks the file's first bytes, streams it to S3 while recomputing SHA-256, refuses a mismatch, and stores at most one document per task (`ON CONFLICT (source_task_id) DO NOTHING`), so a repeated delivery never duplicates. |
 | `ingest-limiter.ts` | At most 6 files are stored at once; a request waiting over 30 s gets 503, so Delivery retries later instead of timing out (D-M2-22). |
@@ -133,7 +134,7 @@ Tables: `teams`, `team_members`, `binders`, `folders` (nested through a parent i
 | `sql.ts` | A helper that passes JS arrays to Postgres correctly. |
 | `seed/generate.mjs` | Writes the seed files with fixed UUIDv5 ids, so every run produces identical files and the seed is safe to re-run. |
 | `seed/demo.json` | The small demo world: Priya, Raj, Sam, Anantim and the Cardio, Oncology and Neuro teams. |
-| `seed/dev-load.json` | The load-test world: one user in 50 teams, used by the browse and 2,000-delivery checks. |
+| `seed/dev-load.json` | The load-test world: one user in 50 teams, used by the browse and 2,000-delivery checks, and a paging user whose folder holds 60 subfolders. |
 | `seed/dev-load-m5-removed.json` | The same world with that user removed from one team, for check 5.2 (removed member). |
 | `migrations/0000_platform_schema.sql` | Creates the five tables. |
 
@@ -196,30 +197,30 @@ Locally there is no Lambda and no API Gateway, so this package stands in for bot
 
 ## 8. web/: the React app
 
-A single-page app with three tabs: Distribute, Status and Audit. Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: 27 small components and one stylesheet.
+A single-page app with two tabs: Distribute, and Status (one list of distributions with a side panel that holds the deliveries and the history, D-F1-7, D-F1-9). Logic lives in plain TypeScript folders (tested without React); `components/` only draws it. No UI library: small components and one stylesheet that starts with the design tokens (D-F1-5).
 
-**Entry and build:** `index.html` (the page shell), `src/main.tsx` (mounts React), `src/App.tsx` (keeps the current screen and distribution in the URL hash, so a reload or shared link opens the same place), `src/styles.css` (all styling), `public/favicon.svg`, `vite.config.ts` (the dev server proxies `/api/*` to the right service, the same single-site shape CloudFront gives on AWS), `package.json`, `tsconfig.json`.
+**Entry and build:** `index.html` (the page shell), `src/main.tsx` (mounts React), `src/App.tsx` (keeps the current screen and distribution in the URL hash, so a reload or shared link opens the same place), `src/styles.css` (the design tokens, then all styling), `public/favicon.svg`, `vite.config.ts` (the dev server proxies `/api/*` to the right service, the same single-site shape CloudFront gives on AWS), `package.json`, `tsconfig.json`.
 
 | Folder | Files | Why it exists |
 | --- | --- | --- |
 | `auth/` | `session.ts`, `token.ts`, `errors.ts` | Sign-in state. The access token lives in sessionStorage, the refresh token only in its HttpOnly cookie. `apiFetch` refreshes once on a 401; one tab at a time refreshes (Web Locks) and tells the others. |
 | `upload/` | `manager.ts`, `api.ts`, `api-types.ts`, `transport.ts`, `browser-transport.ts`, `hashing.ts`, `hash.worker.ts`, `worker-hash.ts`, `instance.ts` | The upload queue (the largest file, about 500 lines): hashes each file in a Web Worker so a 1 GB file doesn't freeze the tab, asks for links in waves of 20, uploads with progress (XMLHttpRequest, because fetch has no upload progress), resumes multipart uploads from the parts already stored. The transport is an interface, so the integration test runs the same queue in Node. |
-| `destinations/` | `tree.ts`, `selection.ts`, `colour.ts` | The destination tree: loading teams lazily, ticking folders (binders and teams are headings, D-F1-3), the 20-destination cap, a stable colour per team. |
-| `distribute/` | `files.ts`, `mapping.ts`, `submit.ts` | Picking files (type and size rules up front), mapping each file to destinations, and submitting with one Idempotency-Key kept across retries, so a double click can't send twice. |
-| `tracking/` | `api.ts`, `apply.ts`, `format.ts`, `links.ts`, `route.ts`, `useJob.ts`, `usePolledJobs.ts`, `useAudit.ts`, `useFileLink.ts`, `virtual.ts` | The Status and Audit screens' data. `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
+| `destinations/` | `tree.ts`, `selection.ts` | The destination tree: loading one page of a level when it is opened (20 rows, the next page on scroll, D-F1-6), ticking folders (binders and teams are headings, D-F1-3), the 20-destination cap. |
+| `distribute/` | `files.ts`, `mapping.ts`, `rows.ts`, `submit.ts` | Picking files (type and size rules up front), mapping each file to folders (a folder ticked for all files stays ticked for files added later, D-F1-5), how a click, Ctrl-click and Shift-click select rows, and submitting with one Idempotency-Key kept across retries, so a double click can't send twice. |
+| `tracking/` | `api.ts`, `apply.ts`, `format.ts`, `links.ts`, `route.ts`, `useJob.ts`, `usePagedJobs.ts`, `useAudit.ts`, `useFileLink.ts`, `virtual.ts` | The Status view's data: the list of distributions (20 at a time, with scope and status filters), one distribution, its history. `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
 | `live/` | `socket.ts`, `instance.ts` | The WebSocket client: reconnects, resubscribes, and re-reads the tasks after a gap so nothing is missed. |
 | `preview/` | `render.ts`, `office.ts` | Turns DOCX and XLSX into read-only HTML shown in a sandboxed iframe. The two libraries load only when needed. |
 | `testing/` | `icon-buttons.ts` | A test helper: every icon-only button must have a label and tooltip. |
-| `src/` root | `explain.ts`, `fileTypes.ts` | One plain-English line per status and failure code, and the colour of each file-type badge, kept in one place. |
+| `src/` root | `explain.ts`, `text.ts` | One plain-English line per status and failure code, kept in one place, and the one `plural` helper. |
 
 **components/** (each `.tsx` is one piece of the screen):
 
 - Shell and sign-in: `Shell`, `Logo`, `AuthCard`, `PauseNote`, `SessionDialog` (the 12-hour re-sign-in over the page), `Toasts`, `ConfirmDialog`, `Popover`, `useLeaveWarning`.
-- Distribute: `Distribute` (the screen), `Steps`, `AddFiles`, `FileTable`, `Destinations`, `DestinationChips`, `Review`, `SendBar`, `TypeBadge`, `FileActions`, `Preview`.
-- Status: `StatusPage`, `JobList`, `JobDetailView`, `TaskTable`, `StatusChip`.
-- Audit: `AuditTrailPage`, `AuditList`.
+- Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list), `PanelFrame`, `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
+- Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `DestinationChips`, `SendBar`, `SendDialog` (the question before Send), `TypeBadge`, `FileActions`, `Preview`.
+- Status: `StatusPage` (filters, list and panel), `DistributionList`, `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries, history), `TaskTable`, `AuditList`.
 
-The `*.test.ts(x)` files beside them are the unit tests (31 files), run with jsdom.
+The `*.test.ts(x)` files beside them are the unit tests, run with jsdom; `Destinations.perf.test.tsx` and `DistributionList.perf.test.tsx` count renders (ticking one of 40 folders draws one row, a refresh with nothing changed draws none).
 
 ## 9. Running it locally: docker-compose and docker/
 
@@ -298,7 +299,7 @@ Terraform builds empty infrastructure; these scripts put code into it and keep i
 
 **M5 checks:** one script per check, each printing PASS or FAIL with its numbers: `m5-submit-load` (5.1), `m5-removed-member` (5.2), `m5-platform-outage` (5.3), `m5-file-checks` (5.4), `m5-browse-timing` (5.5), `m5-multipart-1gb` (5.6), `m5-team-viewer` (5.7), `m5-failover` (5.8), `m5-eicar` (5.9), `m5-cancel` (5.10), `m5-auth` (5.11), `m5-security` (5.12), `m5-sweeper` (5.13). `m5-all.sh` runs them in order and keeps the output. The diagnosis tools from the 5.1 investigation are `m5-submit-report`, `m5-server-metrics`, `m5-pg-sample`, `m5-schema-timing` and `m5-failure-rate`. They are thin wrappers around `scripts/m5/`: `checks.ts` (every check), `lib.ts` (sign in, upload, submit, poll, without ever printing a secret), `pg-sampler.js` and `schema-timing.ts`. Any script that changes AWS says what it will do and needs `--yes`.
 
-**Demo:** `demo-files.sh` makes the demo's files (12 PDFs, a PNG and the EICAR test file), `demo-send.sh` sends 2,000 deliveries as the load user, `demo-outage.sh` stops and starts the platform for the outage scene.
+**Demo:** `demo-files.sh` makes the demo's files (12 PDFs, a PNG and the EICAR test file), `demo-send.sh` sends 2,000 deliveries as the load user, `demo-outage.sh` stops and starts the platform for the outage scene, and `demo/record.ts` is the Playwright recorder that plays the whole script (1280x720, a visible cursor, a caption per step) and writes the video and one frame per step.
 
 **Workflows:**
 
@@ -338,6 +339,7 @@ Each layer catches what the one below can't. Unit tests sit beside the code they
 **tests/e2e** (Playwright):
 
 - `m1.spec.ts`, `m2.spec.ts`, `track.spec.ts`, `download.spec.ts`: one end-to-end story per milestone: an account, an upload and send, live counts that survive a reload, preview and download.
+- `browse-paging.spec.ts`: a folder of 60 children loads 20 at a time as the list is scrolled. `status-dev.spec.ts`: sending with the question first, then the list, a filter, the panel, History and Esc (runs locally and on dev). `screens.spec.ts`: takes the screenshots of every screen at 1440, 1280 and 1024 px (only when `SHOT_DIR` is set).
 - `ui.spec.ts`, `tooltips.spec.ts`, `popover.spec.ts`, `openid.spec.ts`, `status-fixes.spec.ts`: the interface rules: disabled buttons say why, icon buttons have labels, the "+N" popover behaves, and fixes found during testing stay fixed.
 - `download-dev.spec.ts`, `m5-browser-dev.spec.ts`: run only against dev: cross-team downloads, a slow connection, multipart resume after going offline, WebSocket reconnect, PNG and JPG preview.
 - `global-setup.ts`, `helpers.ts`: start-up and shared steps.
@@ -359,13 +361,14 @@ The code says what happens; `docs/` says why, and proves it was checked. Code co
 | `DECISIONS.md` | Every change made during the build (the `D-` numbers). Where it differs from the design, it wins. |
 | `PLAN.md`, `STATUS.md` | The task list per milestone, and where things stand now, including dev's state. |
 | `RUNBOOK-first-bring-up.md` | Building an environment from nothing, in order; proven by M5. |
-| `DEMO-SCRIPT.md`, `demo/docbeam-demo.mp4` | The demo's steps and the recorded video. |
+| `DEMO-SCRIPT.md`, `demo/` | The demo's steps and the recorded video (`scripts/demo/record.ts` makes it). |
 | `TESTER-GUIDE.md` | What a tester signs in as and tries. No password in it. |
 | `agent/PROMPTS.md` | The prompt for each agent session, milestone by milestone. |
 | `testing/M0-TESTING.md` to `M5-TESTING.md` | What to check for each milestone, and how. |
 | `testing/M0-RESULTS.md` to `M5-RESULTS.md` | What was found, with the YES/NO table. |
-| `testing/m4-evidence/`, `m5-evidence/` | Screenshots, the Playwright report and each check's raw output. |
-| `walkthrough/M0.md` to `M5.md` | Plain-language notes per milestone, for interviews. |
+| `testing/F1-RESULTS.md` | The F1 round (the reviewer's feedback): what was done per part, with YES/NO per point. |
+| `testing/m4-evidence/`, `m5-evidence/`, `f1-evidence/` | Screenshots (F1: before and after, at 1440, 1280 and 1024 px, the demo frames and the dev numbers), the Playwright report and each check's raw output. |
+| `walkthrough/M0.md` to `M5.md`, `F1.md` | Plain-language notes per milestone and for the F1 round, for interviews. |
 
 Ids starting `D-G` (such as D-G5, the `/api` prefix) are decisions from the gap review done before the build; they open `DECISIONS.md`.
 

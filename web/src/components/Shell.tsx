@@ -46,7 +46,9 @@ export function Shell({ claims, teams, view, onView, running = 0, children }: Pr
           <span className="avatar">{initials(claims.name)}</span>
           <div>
             <div className="nm">{claims.name}</div>
-            <div className="tm">{teams.join(', ')}</div>
+            <div className="tm ellipsis" title={teams.join(', ')}>
+              {teams.length > 3 ? `${teams.slice(0, 3).join(', ')} and ${teams.length - 3} more` : teams.join(', ')}
+            </div>
           </div>
           <button className="icon" type="button" aria-label="Sign out" title="Sign out" onClick={() => void logout()}>
             <LogoutIcon />
