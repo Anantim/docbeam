@@ -48,6 +48,22 @@ export function chosenKeys(mapping: Mapping, files: PageFile[]): string[] {
   return [...new Set([...destinationCounts(mapping, files).keys(), ...mapping.held])];
 }
 
+export interface Summary {
+  files: number;
+  folders: number;
+  deliveries: number;
+  /** The distinct teams of those folders. */
+  teams: number;
+}
+
+/** What the batch is, in numbers, for the bar and the question before Send. Only files that have a folder count. */
+export function summarise(mapping: Mapping, files: PageFile[]): Summary {
+  const counts = destinationCounts(mapping, files);
+  const teams = new Set([...counts.keys()].map((k) => describeDestination(mapping.destinations[k]?.path ?? '').team));
+  const mapped = files.filter(isUsable).filter((f) => (mapping.files[f.id]?.length ?? 0) > 0).length;
+  return { files: mapped, folders: counts.size, deliveries: deliveryCount(mapping, files), teams: teams.size };
+}
+
 export function deliveryCount(mapping: Mapping, files: PageFile[]): number {
   return files.filter(isUsable).reduce((sum, f) => sum + (mapping.files[f.id]?.length ?? 0), 0);
 }
@@ -93,25 +109,6 @@ export function applyHeld(mapping: Mapping, files: PageFile[]): Mapping {
   const next: Mapping = { destinations: mapping.destinations, files: { ...mapping.files }, held: mapping.held };
   for (const f of fresh) next.files[f.id] = [...mapping.held];
   return next;
-}
-
-/** The cross on a folder in Review: no file goes there any more. */
-export function removeDestination(mapping: Mapping, key: string): Mapping {
-  const files: Mapping['files'] = {};
-  for (const [id, keys] of Object.entries(mapping.files)) files[id] = keys.filter((k) => k !== key);
-  return { ...mapping, files, held: mapping.held.filter((k) => k !== key) };
-}
-
-export interface RemovedFromFolder {
-  mapping: Mapping;
-  /** True when that was the file's last folder, so it leaves the distribution. */
-  dropped: boolean;
-}
-
-/** The cross on a file inside a folder in Review. */
-export function removeFromDestination(mapping: Mapping, fileId: string, key: string): RemovedFromFolder {
-  const left = (mapping.files[fileId] ?? []).filter((k) => k !== key);
-  return { mapping: { ...mapping, files: { ...mapping.files, [fileId]: left } }, dropped: left.length === 0 };
 }
 
 export function removeFile(mapping: Mapping, fileId: string): Mapping {

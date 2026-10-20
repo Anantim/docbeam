@@ -11,17 +11,17 @@ const row = (page: Page, name: string) => page.locator('.frow', { hasText: name 
 
 test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ page }) => {
   await signIn(page, PRIYA);
-  const send0 = page.getByRole('button', { name: /^Send 0 deliver/ });
+  const send0 = page.getByRole('button', { name: 'Send', exact: true });
   await expect(send0).toBeDisabled();
 
   const [name] = await addPdfs(page, 1, 'm2');
-  await expect(row(page, name as string).locator('.status-chip')).toHaveText('Verified');
-  // Verified, but nowhere to send it yet: Send says what is missing.
+  await expect(row(page, name as string).locator('.status-chip')).toHaveText('Ready');
+  // Ready, but nowhere to send it yet: Send says what is missing.
   await expect(send0).toHaveAttribute('title', '1 file has no destination yet. Tick a folder');
   await expect(page.locator('.send-reason')).toHaveText('1 file has no destination yet. Tick a folder');
 
   await tick(page, CARDIO_IRB);
-  const sendBtn = page.getByRole('button', { name: 'Send 1 delivery' });
+  const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
   await expect(sendBtn).toBeEnabled();
   await expect(page.locator('.send-reason')).toHaveText(''); // nothing is missing
 
@@ -38,15 +38,15 @@ test('folders can be ticked before any file is added, and every file added while
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
   await expect(page.locator('.send-reason')).toHaveText('Add a file first');
-  await expect(page.getByRole('button', { name: /^Send 0 deliver/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 
   await addPdfs(page, 2, 'order');
-  await expect(page.getByRole('button', { name: 'Send 4 deliveries' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
   await expect(page.locator('.send-reason')).toHaveText('');
   // The folders stay ticked while the selection stands: a file added later goes to them too (D-F1-5).
   await page.getByLabel('Choose files').setInputFiles([pdf('later.pdf')]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(3, { timeout: 90_000 });
-  await expect(page.getByRole('button', { name: 'Send 6 deliveries' })).toBeEnabled();
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(3, { timeout: 90_000 });
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
   await expect(page.locator('.send-reason')).toHaveText('');
   await page.getByRole('button', { name: 'Clear' }).click();
 });
@@ -67,12 +67,13 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   const name = `eicar-${randomUUID().slice(0, 6)}.pdf`;
   await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/pdf', buffer: Buffer.from(EICAR) }]);
   const eicar = row(page, name);
-  await expect(eicar.locator('.status-chip')).toHaveText('Refused: malware found', { timeout: 90_000 });
+  await expect(eicar.locator('.status-chip')).toHaveText('Refused', { timeout: 90_000 });
+  await expect(eicar).toContainText('Malware was found');
   await expect(eicar.locator('.status-chip')).toHaveAttribute('data-tone', 'bad');
   await expect(eicar.locator('.struck')).toBeVisible(); // its name is struck through
   await expect(eicar.getByRole('checkbox')).toHaveCount(0); // it cannot be selected
   await expect(eicar).toContainText('Will not be sent');
-  const sendBtn = page.getByRole('button', { name: /^Send \d+ deliver/ });
+  const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
   await expect(sendBtn).toBeDisabled();
   await expect(sendBtn).toHaveAttribute('title', 'Remove the file refused for malware first'); // it is the only file
   await page.getByRole('button', { name: `Remove ${name}` }).click();
@@ -98,11 +99,11 @@ test('a malware test file is refused by the scan, can never be sent, and only it
 test('ticking a folder applies to the selected file only, until "Use all files"', async ({ page }) => {
   await signIn(page, PRIYA);
   const [a, b] = await addPdfs(page, 2, 'scope');
-  await row(page, a as string).locator('.link.plain').click(); // "Click to map only this file"
+  await row(page, a as string).locator('.fname').click(); // a click on a row selects it
   await expect(page.locator('.scope.scoped')).toContainText('1 selected file');
   await tick(page, CARDIO_IRB);
-  await expect(row(page, a as string).locator('.chips')).toContainText('IRB approvals');
-  await expect(row(page, b as string)).toContainText('No destination yet');
+  await expect(row(page, a as string).locator('.chips')).toContainText('1 folder');
+  await expect(row(page, b as string)).toContainText('None yet');
 
   await page.getByRole('button', { name: 'Use all files' }).click();
   await expect(page.locator('.scope')).toContainText('all 2 files');
@@ -110,39 +111,44 @@ test('ticking a folder applies to the selected file only, until "Use all files"'
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
 });
 
-test('Review lists every folder with its files; a file can be removed from a folder, and previewed', async ({ page }) => {
+test('a file shows how many folders it goes to, with the list on demand; Preview opens its own copy; Send asks first', async ({ page }) => {
   await signIn(page, PRIYA);
-  const [a, b] = await addPdfs(page, 2, 'review');
+  const [a] = await addPdfs(page, 2, 'review');
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
-  const review = page.locator('section[aria-label="Review"]');
-  await expect(review.locator('.review-item')).toHaveCount(2);
-  // A folder opens to show its files (details on demand).
-  await expect(review.locator('.review-item').first()).not.toHaveAttribute('open', '');
-  await review.locator('.review-item > summary').first().click();
-  await expect(review.locator('.review-item').first().locator('.review-file')).toHaveCount(2);
-  await review.locator('.review-item').evaluateAll((items) => items.forEach((i) => ((i as unknown as { open: boolean }).open = true)));
-
-  // Remove both files from Protocol amendments: the folder drops out of the review.
-  await page.getByRole('button', { name: `Remove ${a} from Protocol amendments` }).click();
-  await expect(page.getByText(`${a} will not go to Protocol amendments.`)).toBeVisible();
-  await page.getByRole('button', { name: `Remove ${b} from Protocol amendments` }).click();
-  await expect(review.locator('.review-item')).toHaveCount(1);
+  await expect(page.locator('.send-summary')).toHaveText('2 files to 2 folders: 4 deliveries');
+  await expect(row(page, a as string).locator('.chips')).toContainText('2 folders');
+  // The folders are on demand, in a popover, not on the page.
+  await row(page, a as string).getByRole('button', { name: /^Show the 2 folders of/ }).click();
+  const list = page.getByRole('dialog', { name: `Folders of ${a}` });
+  await expect(list).toContainText('IRB approvals');
+  await expect(list).toContainText('Protocol amendments');
+  await page.keyboard.press('Escape');
 
   // Preview shows the file from the browser's own copy.
-  await page.getByRole('button', { name: `Preview ${a} in IRB approvals` }).click();
+  await page.getByRole('button', { name: `Preview ${a}`, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'File preview' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Shown from the copy in your browser. Nothing has been sent yet.');
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
+
+  // Send asks first; Cancel is the default, and Esc sends nothing.
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  const ask = page.getByRole('dialog', { name: 'Send 2 files to 2 folders?' });
+  await expect(ask).toContainText('4 deliveries to 1 team.');
+  await expect(ask).toContainText("Delivered files can't be recalled.");
+  await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(ask).toHaveCount(0);
+  await expect(page.locator('.frow[data-id]')).toHaveCount(2); // nothing was sent
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 
 test('a distribution can have at most 20 destinations', async ({ page }) => {
   await signIn(page, 'load.user@example.com'); // in 50 teams (the load seed)
   await page.getByLabel('Choose files').setInputFiles([{ name: `limit-${randomUUID().slice(0, 6)}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(1, { timeout: 90_000 }); // the reason names the first problem
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(1, { timeout: 90_000 }); // the reason names the first problem
   const team = (n: number) => `Load Team ${String(n).padStart(2, '0')}`;
   // Only folders can be ticked: open the team, then the binder inside it, then tick the folder.
   const tickFolder = async (n: number, binder: string, folder: string): Promise<void> => {
@@ -164,7 +170,7 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
   await tickFolder(11, 'Regulatory', 'RA');
   await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).toBeChecked();
   await expect(page.locator('.send-reason')).toHaveText('A distribution can have at most 20 destinations.');
-  await expect(page.getByRole('button', { name: /^Send \d+ deliver/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 
   await tickFolder(11, 'Regulatory', 'RA'); // untick it: valid again
   await expect(page.locator('.send-reason')).not.toHaveText('A distribution can have at most 20 destinations.');

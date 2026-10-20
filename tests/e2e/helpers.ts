@@ -77,11 +77,11 @@ export const pdf = (name: string): { name: string; mimeType: string; buffer: Buf
   buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`),
 });
 
-/** Adds `count` new PDFs and waits until every one is Verified (uploaded and scanned clean). */
+/** Adds `count` new PDFs and waits until every one is Ready (uploaded and scanned clean). */
 export async function addPdfs(page: Page, count: number, prefix = 'e2e'): Promise<string[]> {
   const files = Array.from({ length: count }, (_, i) => pdf(`${prefix}-${randomUUID().slice(0, 6)}-${i + 1}.pdf`));
   await page.getByLabel('Choose files').setInputFiles(files);
-  await expect(page.getByText('Verified', { exact: true })).toHaveCount(count, { timeout: 90_000 });
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(count, { timeout: 90_000 });
   return files.map((f) => f.name);
 }
 
@@ -104,7 +104,8 @@ export async function tick(page: Page, path: string): Promise<void> {
 
 /** Sends the distribution and waits for the Status page to open it. Returns the full job id. */
 export async function send(page: Page): Promise<string> {
-  await page.getByRole('button', { name: /^Send \d+ deliver/ }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click(); // the question before it goes
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   return jobIdOf(page);
 }

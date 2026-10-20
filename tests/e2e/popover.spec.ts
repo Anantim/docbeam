@@ -17,8 +17,8 @@ const centre = async (locator: Locator): Promise<{ x: number; y: number }> => {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
 
-async function exercise(page: Page, more: Locator, where: string): Promise<void> {
-  const panel = page.getByRole('dialog', { name: /more folders$/ });
+async function exercise(page: Page, more: Locator, where: string, panelName: RegExp = /more folders$/): Promise<void> {
+  const panel = page.getByRole('dialog', { name: panelName });
   const list = panel.locator('.popover-list');
   await expect(more).toBeVisible();
   await more.scrollIntoViewIfNeeded();
@@ -79,9 +79,9 @@ test('the +N popover stays open for the chip and the panel, scrolls inside, is p
   const [name] = await addPdfs(page, 1, 'popscroll');
   for (const path of FOLDERS) await tick(page, path);
 
-  // Distribute: the Documents table shows one chip and "+7".
+  // Distribute: the Files table shows "8 folders" for the file, and the button opens the list.
   const row = page.locator('.frow', { hasText: name as string });
-  await exercise(page, row.getByRole('button', { name: /^Show \d+ more folders$/ }), 'Distribute');
+  await exercise(page, row.getByRole('button', { name: /^Show the \d+ folders of/ }), 'Distribute', /^Folders of/);
 
   // Status: the "Sent to" header shows three chips and the rest.
   await send(page);

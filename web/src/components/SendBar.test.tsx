@@ -5,12 +5,12 @@ import { SendBar } from './SendBar.js';
 
 afterEach(cleanup);
 const noop = (): void => undefined;
-const base = { deliveries: 4, error: null, onClear: noop, onSend: noop };
+const base = { summary: '2 files to 2 folders: 4 deliveries', error: null, onClear: noop, onSend: noop };
 
 describe('SendBar titles', () => {
   it('says why Send is off, and why Clear is off', () => {
     render(<SendBar {...base} ready={false} reason="Waiting for 2 files to be verified" sending={false} canClear={false} />);
-    const send = screen.getByRole('button', { name: 'Send 4 deliveries' }) as HTMLButtonElement;
+    const send = screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
     expect(send.title).toBe('Waiting for 2 files to be verified');
     const clear = screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement;
@@ -27,12 +27,17 @@ describe('SendBar titles', () => {
 
   it('has no title on a button that is on', () => {
     render(<SendBar {...base} ready reason={null} sending={false} canClear />);
-    expect(screen.getByRole('button', { name: 'Send 4 deliveries' }).getAttribute('title')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send' }).getAttribute('title')).toBeNull();
     expect(screen.getByRole('button', { name: 'Clear' }).getAttribute('title')).toBeNull();
+  });
+
+  it('shows the batch in one line above the reason', () => {
+    render(<SendBar {...base} ready={false} reason="Add a file first" sending={false} canClear={false} />);
+    expect(screen.getByText('2 files to 2 folders: 4 deliveries')).toBeTruthy();
   });
 
   it('has no title while sending: the label says it', () => {
     render(<SendBar {...base} ready reason={null} sending canClear />);
-    expect(screen.getByRole('button', { name: 'Sending...' }).getAttribute('title')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sending…' }).getAttribute('title')).toBeNull();
   });
 });
