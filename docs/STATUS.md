@@ -19,9 +19,13 @@ Decisions D-F1-13 to D-F1-17 (`docs/DECISIONS.md`); every point with YES or NO i
 
 - **Done:** no audit view in the web app (the backend and `GET /audit` stay); no sign-up in the web app (`POST /auth/register` stays, off at the gateway); the sign-in dialog fix (stale-tolerant key cache in the services, the page ends the session only on a refused refresh) and one spacing rhythm for every dialog; Status with the compact list beside a 60 % panel, Esc closing from anywhere, an Open by ID icon button, a badge that counts running distributions only; Distribute with a designed empty state; `GET /teams` 50 per page.
 - **Teardown is manual.** `.github/workflows/dev-teardown.yml` has `workflow_dispatch` only; the one-off schedule is gone (D-F1-16).
-- **Tests:** unit 80 files, 639 tests; integration `platform`, `auth`, `tracking` 62 tests; Playwright local, the changed files all pass (the earlier full run had four failures in new tests, fixed); lint and typecheck clean.
+- **Tests (final round, D-F1-20 to D-F1-38):** unit 82 files, 678 tests; integration 18 files, 198 tests; Playwright 76 passed, 10 skipped (dev only); lint and typecheck clean.
 - **Known issues:** (1) the cause of the sign-in dialog was found by reading the code and fixed with tests that move the clock; it was not seen in a real 17-minute run, the lost refresh answer case is closed by a 30-second grace period (D-F1-19, ADR-015 updated); (2) the restored one-call browse assertion in `m5-browse-timing` has not run on dev; (3) the demo video predates the change (it shows History and the old sign-in), so it needs a new recording when dev is up; (4) `status-dev`, `download-dev` and `m5-browser-dev` were edited but not run on dev.
 - **Working-rule slips:** listed in D-F1-14.
+
+### F1 final round (2026-10-20), Part 1 and the Distribute and Status changes
+
+Decisions D-F1-18 to D-F1-21; YES/NO in `docs/testing/F1-RESULTS.md` section 8. Part 1 is merged (PR #33). The Distribute and Status changes are in the pull request that follows it: the bar says why Send is off in text, Destinations says "for N selected files" (only while files are ticked, D-F1-24), Status has no switch and one filter row (Status, Sender, Sent, Team) kept in the address, `GET /jobs` has a cursor and the new filters, `GET /teams/members` lists the people in your teams. **New infrastructure code:** a gateway route `GET /teams/members` in `infra/envs/dev` and `infra/envs/prod` (prod not applied). **The platform seed must run again** on any database that existed before (the deploy step does it) so that members get their names. **Not yet done:** Part 2 (dev bring-up, dev specs, the 20-minute session check, the browse timing, the new demo video, teardown). There is no `dev-up` workflow: dev is brought up from the laptop with `docs/RUNBOOK-first-bring-up.md`.
 
 Earlier text of this file (before F1) follows.
 

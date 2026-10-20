@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCount, emptyCounts, fileExpired, pageOf, retryState, statusOf, totalOf } from './tracking.js';
+import { addCount, decodeJobCursor, emptyCounts, encodeJobCursor, fileExpired, pageOf, retryState, statusOf, totalOf } from './tracking.js';
 
 const now = new Date('2026-10-16T12:00:00Z');
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3_600_000);
@@ -67,6 +67,21 @@ describe('fileExpired', () => {
   it('turns true after 33 days', () => {
     expect(fileExpired(hoursAgo(33 * 24 - 1), now)).toBe(false);
     expect(fileExpired(hoursAgo(33 * 24 + 1), now)).toBe(true);
+  });
+});
+
+describe('job cursor (D-F1-21)', () => {
+  const at = { createdAt: '2026-10-20T10:00:00.123456Z', id: '3f1c2a9e-84d5-4b6a-9c11-0a5f6d7e8b90' };
+  it('round-trips, keeping the microseconds', () => {
+    expect(decodeJobCursor(encodeJobCursor(at))).toEqual(at);
+  });
+  it('is opaque text with no characters that need escaping in a URL', () => {
+    expect(encodeJobCursor(at)).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+  it('refuses anything this service did not make', () => {
+    for (const bad of ['', 'abc', Buffer.from('{"a":1}').toString('base64url'), Buffer.from('["x","y"]').toString('base64url'), Buffer.from(`["2026-10-20T10:00:00Z","nope"]`).toString('base64url'), Buffer.from('[1,2]').toString('base64url'), Buffer.from('["1","3f1c2a9e-84d5-4b6a-9c11-0a5f6d7e8b90"]').toString('base64url'), Buffer.from('["Oct 5","3f1c2a9e-84d5-4b6a-9c11-0a5f6d7e8b90"]').toString('base64url')]) {
+      expect(decodeJobCursor(bad)).toBeNull();
+    }
   });
 });
 

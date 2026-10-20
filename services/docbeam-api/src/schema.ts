@@ -37,6 +37,8 @@ export const jobs = pgTable(
   },
   (t) => [
     index('idx_jobs_user').on(t.submittedByUserId, sql`${t.createdAt} DESC`),
+    // The list of everything a person can see is newest first across senders: this walks it in order (D-F1-21).
+    index('idx_jobs_created').on(sql`${t.createdAt} DESC`, t.id),
     uniqueIndex('uq_jobs_idem').on(t.submittedByUserId, t.idempotencyKey),
     index('idx_jobs_unstarted')
       .on(t.queuedAt)

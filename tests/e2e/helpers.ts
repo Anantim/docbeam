@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { expect, type Page } from '@playwright/test';
+import JSZip from 'jszip';
 import pg from 'pg';
 import { env, s3 } from '../integration/helpers.js';
 
@@ -70,11 +71,64 @@ export async function signIn(page: Page, email: string): Promise<void> {
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }
 
-/** A new PDF each time, so a file is never a duplicate of an earlier test's. */
+/** A real DOCX (a zip with the three parts Word needs) holding one paragraph of `text`. */
+export async function docx(text: string): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file(
+    '[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+  );
+  zip.file(
+    '_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+  );
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`,
+  );
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+/**
+ * A real PDF of `pages` pages (a valid cross-reference table), each page with visible text: the file's name, "Page n of
+ * N", and a few lines, so a preview or a screenshot shows content and not a blank page (D-F1-23). The id inside makes
+ * every file different, so it is never a duplicate of an earlier test's.
+ */
+export function makePdf(title: string, pages = 3): Buffer {
+  const unique = randomUUID();
+  const objects: string[] = [];
+  const kids = Array.from({ length: pages }, (_, i) => `${4 + i * 2} 0 R`).join(' ');
+  objects.push('<</Type/Catalog/Pages 2 0 R>>');
+  objects.push(`<</Type/Pages/Kids[${kids}]/Count ${pages}>>`);
+  objects.push('<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>'); // object 3
+  for (let i = 0; i < pages; i += 1) {
+    const text = (s: string) => s.replace(/[\\()]/g, '');
+    const stream = [
+      'BT /F1 26 Tf 56 720 Td (' + text(title) + ') Tj ET',
+      'BT /F1 16 Tf 56 680 Td (Page ' + (i + 1) + ' of ' + pages + ') Tj ET',
+      'BT /F1 12 Tf 56 640 Td 16 TL (DocBeam test document.) Tj T* (Clinical trial regulatory paperwork, shown in the preview.) Tj T* (' + unique + ') Tj ET',
+      '0.17 0.35 0.76 rg 56 600 300 4 re f',
+    ].join('\n');
+    objects.push(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents ${5 + i * 2} 0 R/Resources<</Font<</F1 3 0 R>>>>>>`); // object 4, 6, ...
+    objects.push(`<</Length ${stream.length}>>\nstream\n${stream}\nendstream`); // object 5, 7, ...
+  }
+  let out = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n` + offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('');
+  out += `trailer\n<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+
+/** A new, real, three-page PDF each time. */
 export const pdf = (name: string): { name: string; mimeType: string; buffer: Buffer } => ({
   name,
   mimeType: 'application/pdf',
-  buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`),
+  buffer: makePdf(name.replace(/\.pdf$/, '')),
 });
 
 /** Adds `count` new PDFs and waits until every one is Ready (uploaded and scanned clean). */
@@ -164,6 +218,7 @@ export const counts = (page: Page) => page.getByRole('group', { name: 'Filter de
  * Cancelled. They are read from the filter buttons ("Completed, 4 deliveries"), which carry the live counts.
  */
 export async function readCounts(page: Page): Promise<number[]> {
+  await counts(page).waitFor({ timeout: 20_000 }); // the panel may still be loading
   const labels = await counts(page).getByRole('button').evaluateAll((els: Array<{ getAttribute(name: string): string | null }>) => els.map((e) => e.getAttribute('aria-label') ?? ''));
   const by = new Map(labels.map((l) => [l.split(',')[0], Number(/(\d+) deliver/.exec(l)?.[1])]));
   const order = ['Completed', 'Failed', 'In progress', 'Pending', 'Cancelled'];
@@ -185,6 +240,12 @@ export async function newAccount(page: Page, name = 'E2E Newcomer'): Promise<str
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   return email;
+}
+
+/** Sets one filter of the Status list from its menu (D-F1-21): `pickFilter(page, 'Sender', 'Me')`, `pickFilter(page, 'Sender', 'Anyone')` to clear it. */
+export async function pickFilter(page: Page, filter: 'Status' | 'Sender' | 'Sent' | 'Team', option: string): Promise<void> {
+  await page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: new RegExp(`^${filter}`) }).click();
+  await page.getByRole('menuitemradio', { name: option, exact: true }).click();
 }
 
 /** A distribution's row in the list. */

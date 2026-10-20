@@ -4,8 +4,6 @@ import { ConfirmDialog } from './ConfirmDialog.js';
 interface Props {
   files: number;
   folders: number;
-  deliveries: number;
-  teams: number;
   busy: boolean;
   onSend: () => void;
   onCancel: () => void;
@@ -13,8 +11,12 @@ interface Props {
 
 const n = plural;
 
-/** The question before a distribution goes out (D-F1-8). It lists no files and no folders: the page already shows them. */
-export function SendDialog({ files, folders, deliveries, teams, busy, onSend, onCancel }: Props) {
+/**
+ * The question before a distribution goes out (D-F1-8, D-F1-23): the title says how many files go to how many folders,
+ * one line says they cannot be recalled, then Cancel (where the focus starts) and Send. It lists no files and no
+ * folders (the page shows them) and no count of deliveries or teams.
+ */
+export function SendDialog({ files, folders, busy, onSend, onCancel }: Props) {
   return (
     <ConfirmDialog
       title={`Send ${n(files, 'file', 'files')} to ${n(folders, 'folder', 'folders')}?`}
@@ -25,9 +27,6 @@ export function SendDialog({ files, folders, deliveries, teams, busy, onSend, on
       onConfirm={onSend}
       onCancel={onCancel}
     >
-      <p>
-        {n(deliveries, 'delivery', 'deliveries')} to {n(teams, 'team', 'teams')}.
-      </p>
       <p>Delivered files can't be recalled.</p>
     </ConfirmDialog>
   );

@@ -3,7 +3,10 @@ import { apiFetch } from '../auth/session.js';
 import type { Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
+import { plural } from '../text.js';
+import { FolderList } from './DestinationChips.js';
 import { MoreRow } from './MoreRow.js';
+import { Popover } from './Popover.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon, SearchIcon } from './Icons.js';
 
 interface Props {
@@ -11,10 +14,12 @@ interface Props {
   onTeams: (names: string[]) => void;
   /** Tick state of a folder for the files in scope. */
   stateOf: (destination: Destination) => TickState;
-  /** What a tick sends, for example "all 3 files" or "the 1 selected file". */
+  /** The names of the files in scope that go to this folder, and how many files are in scope (D-F1-37). */
+  filesOf?: (destination: Destination) => { names: string[]; total: number };
+  /** What a tick sends, for example "all 3 files" or "the 1 selected file": the words of each folder's tick label. */
   scopeTitle?: string;
-  /** Shows "Use all files" in the banner while some files are selected. */
-  onUseAll?: () => void;
+  /** Quiet words beside the title: "for 2 selected files" while files are ticked, nothing when none are: a tick then goes to all files, the default (D-F1-24). */
+  hint?: string;
 }
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
@@ -46,6 +51,9 @@ interface LineProps {
   isOpen: boolean;
   canExpand: boolean;
   scopeTitle: string;
+  /** The names of the files that go to this (ticked) folder, one per line, and how many files are in scope. */
+  fileNames: string;
+  fileTotal: number;
   onExpand: (node: TreeNode) => void;
   onToggle: (destination: Destination) => void;
 }
@@ -54,9 +62,11 @@ interface LineProps {
  * One row of the tree. It is memoised on plain values, so ticking one folder draws that row again and not every
  * row of the tree (F1 follow-up: 40 folders were 40 redraws per tick, now 1).
  */
-const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, scopeTitle, onExpand, onToggle }: LineProps) {
+const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, scopeTitle, fileNames, fileTotal, onExpand, onToggle }: LineProps) {
   const destination = destinationFor(node);
   const on = tick !== 'off';
+  const names = fileNames === '' ? [] : fileNames.split('\n');
+  const count = names.length === fileTotal ? plural(names.length, 'file', 'files') : `${names.length} of ${fileTotal} files`;
   return (
     <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
       {canExpand ? (
@@ -98,6 +108,13 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
             <FolderIcon />
           </span>
           <span className="name">{node.name}</span>
+          {names.length > 0 && (
+            // A muted count beside a ticked folder; hover, focus or a click lists the files in a small popover, the same
+            // component and scrollbar as the "N folders" of a file row (D-F1-37).
+            <Popover label={count} ariaLabel={`Show the files that go to ${node.name}: ${count}`} panelLabel={`Files for ${destination?.path ?? node.name}`} className="link folder-files">
+              <FolderList paths={names} />
+            </Popover>
+          )}
         </>
       )}
     </div>
@@ -115,7 +132,7 @@ function Skeleton({ rows = 3, label }: { rows?: number; label: string }) {
   );
 }
 
-export function Destinations({ onToggle, onTeams, stateOf, scopeTitle = 'your files', onUseAll }: Props) {
+export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle = 'your files', hint }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [rootsNext, setRootsNext] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
@@ -209,10 +226,14 @@ export function Destinations({ onToggle, onTeams, stateOf, scopeTitle = 'your fi
     const canExpand = children === undefined || children.length > 0;
     const destination = destinationFor(node);
     const tick: TickState = destination ? stateOf(destination) : 'off';
+    // Only a ticked folder shows which files go there (primitives, so the memoised row is not drawn again for nothing).
+    const going = destination && tick !== 'off' ? filesOf?.(destination) : undefined;
+    const fileNames = going ? going.names.join('\n') : '';
+    const fileTotal = going?.total ?? 0;
 
     return (
       <div key={node.id}>
-        <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} onExpand={expand} onToggle={toggle} />
+        <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} fileNames={fileNames} fileTotal={fileTotal} onExpand={expand} onToggle={toggle} />
         {isOpen && busy.has(node.id) && children === undefined && (
           <div className="nested" style={{ ['--level' as string]: level }}>
             <Skeleton rows={2} label="Loading this level" />
@@ -258,16 +279,7 @@ export function Destinations({ onToggle, onTeams, stateOf, scopeTitle = 'your fi
     <section aria-label="Destinations" className="card dest">
       <div className="card-head">
         <h2>Destinations</h2>
-      </div>
-      <div className={`scope ${onUseAll ? 'scoped' : ''}`}>
-        <span>
-          Sends <strong>{scopeTitle}</strong>
-        </span>
-        {onUseAll && (
-          <button className="link" type="button" onClick={onUseAll}>
-            Use all files
-          </button>
-        )}
+        {hint && <span className="card-hint">{hint}</span>}
       </div>
       <div className="filter search">
         <SearchIcon size={14} />

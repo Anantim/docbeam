@@ -9,8 +9,13 @@ test('a button that is off says why, and a button with only an icon says what it
   // Nothing added yet.
   const send = page.getByRole('button', { name: 'Send', exact: true });
   await expect(send).toBeDisabled();
-  await expect(send).toHaveAttribute('title', 'Add a file first');
-  await expect(page.getByRole('button', { name: 'Clear' })).toHaveAttribute('title', 'Nothing to clear');
+  // No hover-only tooltip says why Send is off any more (D-F1-20): on the empty page there is no reason text either, the
+  // drop area says what to do.
+  await expect(send).toBeDisabled();
+  await expect(send).not.toHaveAttribute('title', /.+/);
+  await expect(page.locator('.send-reason')).toHaveText('');
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Clear' })).not.toHaveAttribute('title', /.+/);
   await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
   const tickBox = page.getByRole('checkbox', { name: /IRB approvals$/ });
@@ -19,7 +24,8 @@ test('a button that is off says why, and a button with only an icon says what it
   // A file is added and checked: Send is still off, and says what is missing.
   const [name] = await addPdfs(page, 1, 'tips');
   await expect(send).toBeDisabled();
-  await expect(send).toHaveAttribute('title', '1 file has no folder. Tick a folder');
+  await expect(page.locator('.send-reason')).toHaveText('Choose folders for 1 file');
+  await expect(send).not.toHaveAttribute('title', /.+/);
   await expect(tickBox).toBeEnabled();
   await expect(tickBox).not.toHaveAttribute('title', /.+/);
 

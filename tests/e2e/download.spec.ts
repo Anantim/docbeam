@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
-import JSZip from 'jszip';
-import { CARDIO_IRB, jobIdOf, ON_DEV, PRIYA, RAJ, readCounts, SAM, send, signIn, sql, startLive, startWorkers, tick } from './helpers.js';
+import { CARDIO_IRB, docx, jobIdOf, ON_DEV, PRIYA, RAJ, readCounts, SAM, send, signIn, sql, startLive, startWorkers, tick } from './helpers.js';
 
 // Flow 4, Download a file, in a real browser against the local stack (M4).
 //   Priya Shah sends a PDF, a DOCX and an XLSX to Cardio. Raj Mehta is in Cardio. Sam Ito is in neither team.
@@ -18,23 +17,6 @@ const id = randomUUID().slice(0, 6);
 const PDF = `consent-${id}.pdf`;
 const DOCX = `amendment-${id}.docx`;
 const XLSX = `sites-${id}.xlsx`;
-
-async function docx(text: string): Promise<Buffer> {
-  const zip = new JSZip();
-  zip.file(
-    '[Content_Types].xml',
-    '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-  );
-  zip.file(
-    '_rels/.rels',
-    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
-  );
-  zip.file(
-    'word/document.xml',
-    `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`,
-  );
-  return zip.generateAsync({ type: 'nodebuffer' });
-}
 
 async function xlsx(text: string): Promise<Buffer> {
   const book = new ExcelJS.Workbook();

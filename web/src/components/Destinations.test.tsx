@@ -210,7 +210,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
     await screen.findByText('Alpha');
     expect(screen.queryByText('Beta')).toBeNull();
     fire();
-    await screen.findByText('Beta');
+    await screen.findByText('Beta', undefined, { timeout: 5000 }); // generous: 80 test files start together
     await waitFor(() => expect(onTeams).toHaveBeenLastCalledWith(['Alpha', 'Beta']));
   });
 });

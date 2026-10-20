@@ -117,7 +117,7 @@ test('multipart resume: the network drops mid-upload and the same upload carries
     await network(page, { limit: SLOW_UPLOAD });
 
     await rowOf(page, name).getByRole('button', { name: `Retry upload of ${name}` }).click();
-    await expect(rowOf(page, name).getByText(/Part \d+ of \d+|Checking|Ready/)).toBeVisible({ timeout: 60_000 });
+    await expect(rowOf(page, name).getByText(/Part \d+ of \d+|Scanning|Ready/)).toBeVisible({ timeout: 60_000 });
     const resumed = await rowOf(page, name).textContent();
     const after = Number(/Part (\d+) of/.exec(resumed ?? '')?.[1] ?? before);
     console.log(`multipart resume: ${before} parts stored before the drop, ${after} shown right after Retry`);

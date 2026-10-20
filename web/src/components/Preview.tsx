@@ -35,9 +35,10 @@ interface Props {
   blob?: Blob;
   /** A 2-minute inline link to the stored file (M4). PDF and images open from it; DOCX and XLSX are fetched from it. */
   url?: string;
-  /** For example "PDF, 1.2 MB, not sent yet". */
+  /** Under the name: the size, for example "1.2 MB". */
   meta: string;
-  note: string;
+  /** A line under the file, for a file that was sent. Before Send there is none, and the header holds the name and the size only (D-F1-23, D-F1-27). */
+  note?: string;
   onClose: () => void;
 }
 
@@ -124,10 +125,12 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
           {view.kind === 'docx' && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={view.srcdoc} />}
           {view.kind === 'xlsx' && current && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={sheetHtml(current)} />}
         </div>
-        <div className="preview-note">
-          <LockIcon size={14} />
-          {note}
-        </div>
+        {note && (
+          <div className="preview-note">
+            <LockIcon size={14} />
+            {note}
+          </div>
+        )}
       </div>
     </>
   );

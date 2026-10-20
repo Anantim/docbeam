@@ -28,6 +28,7 @@ locals {
     "GET /.well-known/jwks.json"            = { service = "auth", public = true }
     "GET /.well-known/openid-configuration" = { service = "auth", public = true }
     "GET /teams"                            = { service = "platform", public = false }
+    "GET /teams/members"                    = { service = "platform", public = false }
     "GET /teams/{teamId}/binders"           = { service = "platform", public = false }
     "GET /binders/{binderId}/contents"      = { service = "platform", public = false }
     "GET /folders/{folderId}/contents"      = { service = "platform", public = false }
@@ -42,6 +43,7 @@ locals {
 
     # DocBeam API, M3 (Step 3.1): status, tasks, audit, retry and cancel.
     "GET /jobs"                 = { service = "docbeam-api", public = false }
+    "GET /jobs/running"         = { service = "docbeam-api", public = false }
     "GET /jobs/{jobId}"         = { service = "docbeam-api", public = false }
     "GET /jobs/{jobId}/tasks"   = { service = "docbeam-api", public = false }
     "GET /audit"                = { service = "docbeam-api", public = false }

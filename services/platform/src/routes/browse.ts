@@ -4,6 +4,9 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Db } from '../db.js';
 import { cutPage, readPageQuery, TEAMS_DEFAULT_LIMIT, type Position } from '../paging.js';
 
+/** At most this many people in the Sender menu; a person is in a handful of teams, a team is a study group. */
+const MEMBERS_LIMIT = 200;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function notFound(): ApiError {
@@ -76,6 +79,20 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
        LIMIT ${limit + 1}`);
     const { rows, nextCursor } = cutPage(result.rows, limit, () => 0);
     return { items: rows.map((r) => ({ id: r.id, name: r.name })), nextCursor };
+  });
+
+  // The people in the caller's teams, once each, by name: the choices of the Sender filter on the Status page (D-F1-21).
+  // Only people who share a team with the caller are listed; a person in no team of theirs is not revealed.
+  app.get('/teams/members', user, async (request) => {
+    const userId = callerId(request);
+    const result = await db.execute<{ user_id: string; name: string }>(sql`
+      SELECT other.user_id, max(other.user_name) AS name
+        FROM team_members mine JOIN team_members other ON other.team_id = mine.team_id
+       WHERE mine.user_id = ${userId}
+       GROUP BY other.user_id
+       ORDER BY max(other.user_name), other.user_id
+       LIMIT ${MEMBERS_LIMIT}`);
+    return { items: result.rows.map((r) => ({ userId: r.user_id, name: r.name })) };
   });
 
   app.get('/teams/:teamId/binders', user, async (request) => {

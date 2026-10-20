@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useThrottled } from './useThrottled.js';
+import { useWide } from './useWide.js';
 import { ApiFailure } from '../auth/session.js';
 import { formatSize } from '../distribute/files.js';
 import { JOB_STATUS_MEANING } from '../explain.js';
@@ -31,6 +32,8 @@ interface Props {
   onCounts?: (jobId: string, counts: Counts) => void;
   /** Changes after a sign-in from the 12-hour dialog: the distribution and its deliveries are read again. */
   signedInAgain?: number;
+  /** Move the focus to the heading when the panel opens (after a send). */
+  focusHeading?: boolean;
 }
 
 const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 'total' }> = [
@@ -43,8 +46,9 @@ const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 
 ];
 
 /**
- * How tall the deliveries table may grow before it scrolls inside the panel: 10 rows. A distribution of 6 deliveries
- * shows all 6; the 5-row box of 320 px that came before hid the sixth (D-F1-15).
+ * The height the deliveries box is taken to have until the page has laid it out: 10 rows. The box then takes the room
+ * the panel has left (the panel is at most as tall as the viewport under the top bar) and the rows scroll inside it,
+ * with a fade at the bottom edge (D-F1-26). A distribution of 6 shows all 6 where there is room (D-F1-15).
  */
 const TASKS_VIEWPORT = 640;
 
@@ -53,8 +57,21 @@ const TASKS_VIEWPORT = 640;
  * sender, and the deliveries with their statuses. The progress bar and the filter numbers are the only counts; the
  * numbers move live. There is no history of audit events: the web app shows job history only (D-F1-13).
  */
-export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0 }: Props) {
+export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0, focusHeading = false }: Props) {
   const { state, counts, reloadKey, reloadAll } = useJob(jobId, live);
+  // Under 1024 px the page scrolls and the panel is under the list: the deliveries box is a fixed height there.
+  const wide = useWide();
+  // After a send the panel opens by itself: the focus moves to its heading, once (D-F1-31).
+  const focused = useRef(false);
+  const headingRef = useCallback(
+    (el: HTMLHeadingElement | null) => {
+      // The heading is drawn again when the panel goes from loading to ready: the focus follows it, unless the person has moved it.
+      if (!el || !focusHeading || (focused.current && document.activeElement !== document.body)) return;
+      focused.current = true;
+      el.focus();
+    },
+    [focusHeading],
+  );
   const seenSignIn = useRef(signedInAgain);
   useEffect(() => {
     if (seenSignIn.current === signedInAgain) return;
@@ -85,11 +102,46 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
-          <h2 className="mono">{shortId(jobId)}</h2>
+          <h2 className="mono" tabIndex={-1} ref={headingRef}>
+            {shortId(jobId)}
+          </h2>
           {close}
         </div>
-        <div className="state small" role="status" aria-busy="true">
-          Loading the distribution…
+        {/* The shape of the panel: the sent-by line, the folders, the progress bar, and the deliveries under their real header (D-F1-22). */}
+        <div className="panel-body" role="status" aria-busy="true" aria-label="Loading the distribution">
+          <div className="lead">
+            <span className="sk sk-lead" />
+          </div>
+          <div className="chips jdest" aria-hidden="true">
+            <span className="sk sk-name" />
+            <span className="sk sk-name" />
+          </div>
+          <span className="sk sk-bar" />
+          <div className="ttable" aria-hidden="true">
+            <div className="trow thead">
+              <div>File and folder</div>
+              <div>Status</div>
+              <div className="tattempts">Attempts</div>
+              <div>Details</div>
+            </div>
+            {Array.from({ length: 4 }, (_, i) => (
+              <div className="trow" key={i} style={{ height: 64 }}>
+                <div>
+                  <span className="sk sk-file" />
+                  <span className="sk sk-path" />
+                </div>
+                <div>
+                  <span className="sk sk-chip" />
+                </div>
+                <div className="tattempts">
+                  <span className="sk sk-num" />
+                </div>
+                <div>
+                  <span className="sk sk-date" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </PanelFrame>
     );
@@ -111,7 +163,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
-          <h2 className="mono">{shortId(jobId)}</h2>
+          <h2 className="mono" tabIndex={-1} ref={headingRef}>
+            {shortId(jobId)}
+          </h2>
           {close}
         </div>
         <div role="alert" className="alert panel-alert">
@@ -158,7 +212,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
       <div className="panel-head">
         <div className="panel-title">
-          <h2 className="mono" title={jobId}>
+          <h2 className="mono" title={jobId} tabIndex={-1} ref={headingRef}>
             {shortId(jobId)}
           </h2>
           <CopyLinkButton jobId={jobId} notify={notify} show="always" />
@@ -172,7 +226,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           {announced}
         </div>
         <div className="lead">
-          {detail.isSender ? 'You' : detail.submittedBy.name}, {formatWhen(detail.createdAt)}
+          <span className="sentby">Sent by</span> <span className="sender-name">{detail.submittedBy.name}{detail.isSender ? ' (you)' : ''}</span> · {formatWhen(detail.createdAt)}
           {detail.isSender ? '' : '. Only the deliveries to your teams are shown.'}
         </div>
         <div className="chips jdest">
@@ -233,6 +287,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             reloadKey={reloadKey}
             live={live}
             viewportHeight={TASKS_VIEWPORT}
+            fill={wide}
             onPreview={onPreview}
             onDownload={onDownload}
           />

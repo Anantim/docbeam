@@ -38,6 +38,24 @@ describe('browse: only your own teams (flow 1, "Who can see what")', () => {
     expect(s.body.items.map((t: { name: string }) => t.name)).toEqual(['Neuro']);
   });
 
+  it('GET /teams/members lists the people who share a team with the caller, once each, by name (D-F1-21)', async () => {
+    const names = async (token: string) => ((await call(PLATFORM_URL, '/teams/members', { token })).body.items as Array<{ name: string }>).map((m) => m.name);
+    // Cardio: Priya, Raj, Anantim. Oncology: Priya and others. Neuro: Sam and Anantim.
+    expect(await names(raj.token)).toEqual(['Anantim Patil', 'Priya Shah', 'Raj Mehta']); // Raj is in Cardio only
+    const samSees = await names(sam.token); // Neuro: Sam and Anantim; not Priya or Raj
+    expect(samSees).toContain('Sam Ito');
+    expect(samSees).not.toContain('Priya Shah');
+    expect(samSees).not.toContain('Raj Mehta');
+    const priyaList = (await call(PLATFORM_URL, '/teams/members', { token: priya.token })).body.items as Array<{ userId: string; name: string }>;
+    expect(new Set(priyaList.map((m) => m.userId)).size).toBe(priyaList.length); // once each, though some share two teams
+    expect(priyaList.map((m) => m.name)).not.toContain('Sam Ito'); // a person in none of her teams is not revealed
+    expect(priyaList.every((m) => m.userId.length === 36)).toBe(true);
+    expect(priyaList.map((m) => m.name)).not.toContain('Sam Ito');
+    const nobody = await registerAndLogin();
+    expect((await call(PLATFORM_URL, '/teams/members', { token: nobody.token })).body).toEqual({ items: [] });
+    expect((await call(PLATFORM_URL, '/teams/members')).status).toBe(401);
+  });
+
   it('a user in no team gets an empty list', async () => {
     const nobody = await registerAndLogin();
     const res = await call(PLATFORM_URL, '/teams', { token: nobody.token });

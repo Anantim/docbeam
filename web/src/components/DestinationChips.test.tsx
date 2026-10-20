@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DestinationChips, groupByTeam } from './DestinationChips.js';
+import { DestinationChips } from './DestinationChips.js';
 
 afterEach(cleanup);
 
@@ -37,18 +37,23 @@ describe('DestinationChips', () => {
     expect(screen.getByRole('button', { name: 'Show 1 more folder' })).toBeTruthy();
   });
 
-  it('lists only the hidden folders, grouped by team, when the button is clicked', async () => {
+  it('lists only the hidden folders, each with its full path, when the button is clicked (D-F1-33)', async () => {
     const user = userEvent.setup();
     render(<DestinationChips paths={PATHS} />);
     await user.click(screen.getByRole('button', { name: 'Show 3 more folders' }));
     const panel = screen.getByRole('dialog', { name: '3 more folders' });
-    expect(panel.textContent).toContain('CARDIO-302 Safety / Reports');
-    expect(panel.textContent).toContain('ONC-100 / Imaging');
-    expect(panel.textContent).toContain('NEURO-9');
+    expect([...panel.querySelectorAll('li')].map((e) => e.textContent)).toEqual(PATHS.slice(2));
+    expect([...panel.querySelectorAll('li')].map((e) => e.getAttribute('title'))).toEqual(PATHS.slice(2)); // and as the tooltip
     // The two visible folders are not repeated.
     expect(panel.textContent).not.toContain('Protocol amendments');
     expect(panel.textContent).not.toContain('Consent forms');
-    expect([...panel.querySelectorAll('.popover-team')].map((e) => e.textContent)).toEqual(['Cardio', 'Oncology', 'Neuro']);
+  });
+
+  it('gives each chip its full path as the tooltip and the accessible name, with the folder name as its text', () => {
+    render(<DestinationChips paths={PATHS} />);
+    const chip = screen.getByRole('img', { name: PATHS[0] as string });
+    expect(chip.getAttribute('title')).toBe(PATHS[0]);
+    expect(chip.textContent).toBe(PATHS[0]?.split(' / ').at(-1));
   });
 
   it('opens on hover and closes when the pointer leaves unless a click kept it open', async () => {
@@ -147,12 +152,3 @@ describe('DestinationChips', () => {
   });
 });
 
-describe('groupByTeam', () => {
-  it('keeps the order in which teams first appear', () => {
-    expect(groupByTeam([PATHS[3] as string, PATHS[0] as string, PATHS[4] as string, PATHS[2] as string]).map((g) => [g.team, g.paths.length])).toEqual([
-      ['Oncology', 1],
-      ['Cardio', 2],
-      ['Neuro', 1],
-    ]);
-  });
-});

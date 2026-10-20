@@ -84,7 +84,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
 
   it('in the Not added list', () => {
     const { container } = render(<AddFiles empty={false} onPick={noop} rejected={[{ name: 'setup.exe', reason: 'This type is not allowed.' }]} onDismiss={noop} />);
-    expectClean(container, 2);
+    expectClean(container, 1); // one Close for the whole box (D-F1-35)
   });
 
   it('in the Destinations tree (expand buttons and the folder ticks)', async () => {

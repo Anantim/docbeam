@@ -8,6 +8,8 @@ interface Props {
   notify: Notify;
   /** `always` in the panel header; `reveal` in the list, where it shows on row hover and keyboard focus (D-F1-18). */
   show: 'always' | 'reveal';
+  /** In the Tab order (default). A list row that is not its list's Tab stop sets false. */
+  tabbable?: boolean;
 }
 
 /** The link that opens a distribution: this page's address with the full id. */
@@ -17,10 +19,11 @@ const distributionLink = (jobId: string): string => `${window.location.origin}/#
  * A small copy icon that sits after a distribution's id. It copies the link and says so in the toast; a click does not
  * reach the row under it, so it never opens or closes the panel.
  */
-export function CopyLinkButton({ jobId, notify, show }: Props) {
+export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) {
   return (
     <button
       type="button"
+      tabIndex={tabbable ? 0 : -1}
       className={`icon small copy-link ${show}`}
       aria-label="Copy link"
       title="Copy link"

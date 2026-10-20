@@ -18,7 +18,7 @@ const { Submission } = await import('../distribute/submit.js');
 const answers: Record<string, unknown> = {
   '/teams': { items: [{ id: 't-cardio', name: 'Cardio' }], nextCursor: null },
   '/teams/t-cardio/binders': { items: [{ id: 'b-reg', name: 'CARDIO-301 Regulatory' }], nextCursor: null },
-  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }], documents: [], nextCursor: null },
+  '/binders/b-reg/contents': { folders: [{ id: 'f-irb', name: 'IRB approvals' }, { id: 'f-protocol', name: 'Protocol amendments' }], documents: [], nextCursor: null },
 };
 
 const pageFile = (name: string, status: FileStatus): PageFile => ({
@@ -58,12 +58,14 @@ class FakeManager {
 }
 
 const notify = vi.fn();
+const onSent = vi.fn();
 
 function screenWith(manager: FakeManager, submit = vi.fn(async () => ({ jobId: '0123456789abcdef', taskCount: 2 }))) {
   render(
     <Distribute
       onTeams={() => {}}
       notify={notify}
+      onSent={onSent}
       manager={manager as unknown as UploadManager}
       submission={new Submission(submit, () => 'key-1')}
     />,
@@ -93,7 +95,11 @@ beforeEach(() => {
     return answers[path];
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  notify.mockClear();
+  onSent.mockClear();
+});
 
 describe('Distribute', () => {
   it('keeps Send off until every file is verified and mapped', async () => {
@@ -104,7 +110,8 @@ describe('Distribute', () => {
     await tickTop(user, 'all 2 files');
     const send = screen.getByRole('button', { name: 'Send' });
     expect((send as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('status').textContent).toBe('1 file is not ready yet');
+    expect(screen.getByRole('status').textContent).toBe('Wait for 1 file to finish scanning');
+    expect(send.getAttribute('aria-describedby')).toBe(screen.getByRole('status').id);
 
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false));
@@ -117,9 +124,11 @@ describe('Distribute', () => {
     const box = await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/);
     expect((box as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByText('Drop files here')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe(''); // the empty page says nothing: the drop area says what to do
+    expect(screen.getByRole('region', { name: 'Destinations' }).querySelector('.card-hint')).toBeNull(); // nothing ticked: no words beside the title (D-F1-24)
     await user.click(box);
-    expect(screen.getByRole('checkbox', { name: /IRB approvals/ }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('status').textContent).toBe('Add a file first');
+    expect(screen.getByRole('checkbox', { name: /IRB approvals/ }).getAttribute('aria-checked')).toBe('true'); // the tree is never off for want of files
+    expect(screen.getByRole('status').textContent).toBe('');
     expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(false); // it can undo the ticks
 
     manager.set([pageFile('a.pdf', 'verified')]);
@@ -139,14 +148,19 @@ describe('Distribute', () => {
     screenWith(manager);
 
     await user.click((screen.getByText('a.pdf').closest('[role="row"]')) as HTMLElement);
-    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('1 selected file')).toBeTruthy();
+    const dest = within(screen.getByRole('region', { name: 'Destinations' }));
+    expect(dest.getByText('for 1 selected file')).toBeTruthy(); // singular
+    expect(screen.queryByRole('button', { name: 'Use all files' })).toBeNull(); // the strip is gone (D-F1-20)
     await tickTop(user, '1 selected file');
     expect((await screen.findByRole('checkbox', { name: `Send 1 selected file to ${FOLDER}` })).getAttribute('aria-checked')).toBe('true');
 
-    await user.click(screen.getByRole('button', { name: 'Use all files' }));
+    // The Files header checkbox selects all, and then none, so a tick goes to all files again.
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' })); // 1 of 2 selected: selects all
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' })); // all selected: clears
+    expect(screen.getByRole('region', { name: 'Destinations' }).querySelector('.card-hint')).toBeNull(); // none selected again: nothing shown
     const box = await screen.findByRole('checkbox', { name: `Send all 2 files to ${FOLDER}` });
     expect(box.getAttribute('aria-checked')).toBe('mixed');
-    expect(screen.getByRole('status').textContent).toBe('1 file has no folder. Tick a folder');
+    expect(screen.getByRole('status').textContent).toBe('Choose folders for 1 file');
   });
 
   it('asks before sending, with Cancel as the default answer, and sends nothing on Cancel or Esc', async () => {
@@ -165,29 +179,156 @@ describe('Distribute', () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it('selects rows with a click, Ctrl-click and Shift-click, and Select all', async () => {
+  it('a click on a row or its tick box toggles that file without changing the others (no Ctrl); Shift selects a range; Space toggles the focused row; the header box selects all or none (D-F1-36)', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified'), pageFile('c.pdf', 'verified'), pageFile('d.pdf', 'verified')]);
+    screenWith(manager);
+    const row = (n: string) => screen.getByText(n).closest('[role="row"]') as HTMLElement;
+    const picked = () => ['a.pdf', 'b.pdf', 'c.pdf', 'd.pdf'].map((n) => row(n).getAttribute('aria-selected'));
+    await user.click(row('a.pdf'));
+    expect(picked()).toEqual(['true', 'false', 'false', 'false']);
+    await user.click(row('c.pdf')); // a stays: no Ctrl needed
+    expect(picked()).toEqual(['true', 'false', 'true', 'false']);
+    await user.click(within(row('d.pdf')).getByRole('checkbox', { name: 'Select to choose folders for this file' })); // the tick box too
+    expect(picked()).toEqual(['true', 'false', 'true', 'true']);
+    await user.click(row('c.pdf')); // a second click takes only that file off
+    expect(picked()).toEqual(['true', 'false', 'false', 'true']);
+    // Shift selects the range from the last file clicked (c, now off) to this one.
+    await user.keyboard('{Shift>}');
+    await user.click(row('a.pdf'));
+    await user.keyboard('{/Shift}');
+    expect(picked()).toEqual(['true', 'true', 'true', 'false']);
+    // Space toggles the focused row.
+    row('d.pdf').focus();
+    await user.keyboard(' ');
+    expect(picked()).toEqual(['true', 'true', 'true', 'true']);
+    await user.keyboard(' ');
+    expect(picked()).toEqual(['true', 'true', 'true', 'false']);
+    // The header box: all, then none.
+    const header = screen.getByRole('checkbox', { name: 'Select all to choose their folders' });
+    await user.click(header);
+    expect(picked()).toEqual(['true', 'true', 'true', 'true']);
+    await user.click(header);
+    expect(picked()).toEqual(['false', 'false', 'false', 'false']);
+  });
+
+  it('names the file states: Scanning (with "Scanning for malware" as tooltip and name), Failed for an upload storage refused or a scan that could not run (Retry kept), Refused for malware only (no Retry, the tick locked) (D-F1-38)', () => {
+    const manager = new FakeManager([
+      pageFile('scan.pdf', 'checking'),
+      pageFile('stored.pdf', 'refused'),
+      pageFile('noscan.pdf', 'unchecked'),
+      pageFile('virus.pdf', 'infected'),
+    ]);
+    screenWith(manager);
+    const chip = (n: string) => screen.getByText(n).closest('[role="row"]')!.querySelector('.status-chip') as HTMLElement;
+    expect(chip('scan.pdf').textContent).toBe('Scanning');
+    expect(chip('scan.pdf').getAttribute('title')).toBe('Scanning for malware');
+    expect(chip('scan.pdf').getAttribute('aria-label')).toBe('Scanning for malware');
+    expect(screen.queryByText('Checking')).toBeNull();
+    for (const [name, reason] of [['stored.pdf', 'Storage did not accept the upload. Retry it.'], ['noscan.pdf', 'The file could not be scanned. Retry it or remove it.']] as const) {
+      expect(chip(name).textContent).toBe('Failed');
+      expect(chip(name).getAttribute('title')).toBe(reason); // the same reason as the line under the chip
+      expect(chip(name).getAttribute('aria-label')).toBe(reason);
+      expect(screen.getByText(name).closest('[role="row"]')!.querySelector('.fmsg')?.textContent).toBe(reason);
+      expect(screen.getByRole('button', { name: `Retry upload of ${name}` })).toBeTruthy(); // Retry kept
+    }
+    expect(chip('virus.pdf').textContent).toBe('Refused');
+    expect(chip('virus.pdf').getAttribute('aria-label')).toBe('Malware was found. The file was deleted and cannot be sent.');
+    expect(screen.queryByRole('button', { name: 'Retry upload of virus.pdf' })).toBeNull(); // final: no Retry
+    expect(screen.getByRole('img', { name: /virus\.pdf was refused for malware and cannot be selected or sent/ })).toBeTruthy(); // the tick locked
+    expect(screen.getAllByText('Refused')).toHaveLength(1); // "Refused" is only for malware
+  });
+
+  it('names what the tick boxes are for: the row box "Select to choose folders for this file", the header box "Select all to choose their folders" (D-F1-23)', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    screenWith(manager);
+    const rowBoxes = screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' });
+    expect(rowBoxes).toHaveLength(2);
+    for (const box of rowBoxes) {
+      expect(box.getAttribute('title')).toBe('Select to choose folders for this file');
+      expect(box.getAttribute('aria-checked')).toBe('false');
+    }
+    const header = screen.getByRole('checkbox', { name: 'Select all to choose their folders' });
+    expect(header.getAttribute('title')).toBe('Select all to choose their folders');
+    // Selection behaves as before: a click on the box selects the row, the header box selects all.
+    await user.click(rowBoxes[0] as HTMLElement);
+    expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' })[0]?.getAttribute('aria-checked')).toBe('true');
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('for 1 selected file')).toBeTruthy();
+    await user.click(header);
+    expect(within(screen.getByRole('region', { name: 'Destinations' })).getByText('for 2 selected files')).toBeTruthy();
+    expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' }).every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true);
+  });
+
+  it('shows a muted count beside each ticked folder ("3 files", "2 of 3 files", "1 file"), none beside an unticked one, and a popover lists those files (D-F1-37)', async () => {
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified'), pageFile('c.pdf', 'verified')]);
     screenWith(manager);
     const row = (n: string) => screen.getByText(n).closest('[role="row"]') as HTMLElement;
+    const counts = () => [...document.querySelectorAll('.folder-files')].map((e) => e.textContent);
+    await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/); // opens the tree
+    expect(counts()).toEqual([]); // nothing ticked: no counts
+
+    // Nothing selected: a tick is for all three files.
+    await user.click(await folderTick(user, /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals/));
+    expect(counts()).toEqual(['3 files']);
+
+    // Select a and b only and tick the second folder: it is for those two, and says "2 files" while they are the scope.
     await user.click(row('a.pdf'));
-    expect(row('a.pdf').getAttribute('aria-selected')).toBe('true');
-    await user.keyboard('{Shift>}');
-    await user.click(row('c.pdf'));
-    await user.keyboard('{/Shift}');
-    expect(['a.pdf', 'b.pdf', 'c.pdf'].map((n) => row(n).getAttribute('aria-selected'))).toEqual(['true', 'true', 'true']);
     await user.click(row('b.pdf'));
-    expect(['a.pdf', 'b.pdf', 'c.pdf'].map((n) => row(n).getAttribute('aria-selected'))).toEqual(['false', 'true', 'false']);
-    await user.click(screen.getByRole('checkbox', { name: 'Select all files' }));
-    expect(['a.pdf', 'b.pdf', 'c.pdf'].map((n) => row(n).getAttribute('aria-selected'))).toEqual(['true', 'true', 'true']);
+    await user.click(await screen.findByRole('checkbox', { name: /to Cardio \/ CARDIO-301 Regulatory \/ Protocol amendments/ }));
+    expect(counts()).toEqual(['2 files', '2 files']); // the first folder: a and b of the 2 selected; the second: a and b
+    // Select none again: the scope is all three, and the second folder is only for 2 of them.
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' })); // selects the other file too
+    await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' })); // none
+    expect(counts()).toEqual(['3 files', '2 of 3 files']);
+    // One file selected: the count is over that file.
+    await user.click(row('a.pdf'));
+    expect(counts()).toEqual(['1 file', '1 file']);
+    await user.click(row('a.pdf'));
+
+    // The popover lists the files of the second folder, in a scrolling list like the one of a file's folders.
+    const second = [...document.querySelectorAll<HTMLElement>('.folder-files')][1] as HTMLElement;
+    await user.click(second);
+    const panel = await screen.findByRole('dialog', { name: /Files for Cardio \/ CARDIO-301 Regulatory \/ Protocol amendments/ });
+    expect([...panel.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['a.pdf', 'b.pdf']);
+    expect(panel.querySelector('.popover-list')).not.toBeNull();
+    // A tick on a folder that is only for some of the files makes it for all of them; the next tick takes it off, and its count goes.
+    await user.keyboard('{Escape}');
+    const protocol = () => screen.getByRole('checkbox', { name: /to Cardio \/ CARDIO-301 Regulatory \/ Protocol amendments/ });
+    await user.click(protocol());
+    expect(counts()).toEqual(['3 files', '3 files']);
+    await user.click(protocol());
+    expect(counts()).toEqual(['3 files']);
   });
 
-  it('shows the batch in one line: files to folders and the deliveries', async () => {
+  it('has no summary line in the bar; the batch is in the question that Send asks (D-F1-20)', async () => {
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     screenWith(manager);
     await tickTop(user, 'all 2 files');
-    expect(screen.getByText('2 files to 1 folder: 2 deliveries')).toBeTruthy();
+    expect(screen.queryByText('2 files to 1 folder: 2 deliveries')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(screen.getByRole('dialog', { name: 'Send 2 files to 1 folder?' })).toBeTruthy();
+  });
+
+  it('gives each reason in words beside the buttons: no folders, still checking, failed, refused; and none when Send is on', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    screenWith(manager);
+    const reason = (): string | undefined => document.querySelector('.send-reason')?.textContent;
+    expect(reason()).toBe('Choose folders for 2 files');
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'checking')]);
+    await waitFor(() => expect(reason()).toBe('Wait for 1 file to finish scanning'));
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'interrupted')]);
+    await waitFor(() => expect(reason()).toBe('Retry or remove 1 file that failed to upload'));
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'infected')]);
+    await waitFor(() => expect(reason()).toBe('Remove the 1 file refused for malware'));
+    manager.set([pageFile('a.pdf', 'verified')]);
+    await tickTop(user, 'all 1 file');
+    await waitFor(() => expect(reason()).toBe(''));
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(document.querySelector('[title]')?.closest('.sendbar')).toBeNull(); // no tooltip in the bar carries a reason
   });
 
   it('asks before the page is closed whenever it holds files that were not sent, and not when it is empty', async () => {
@@ -212,7 +353,7 @@ describe('Distribute', () => {
     await waitFor(() => expect(asks()).toBe(false));
   });
 
-  it('sends the batch, then clears the page and names the job by its first 8 characters', async () => {
+  it('sends the batch, then clears the page, says "Sent", and hands the new distribution on to open on Status (D-F1-31)', async () => {
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     const submit = screenWith(manager);
@@ -220,10 +361,12 @@ describe('Distribute', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send' }));
     const ask = screen.getByRole('dialog', { name: 'Send 2 files to 1 folder?' });
-    expect(ask.textContent).toContain('2 deliveries to 1 team.');
-    expect(ask.textContent).toContain("Delivered files can't be recalled.");
+    expect(ask.textContent).not.toContain('deliveries'); // no "N deliveries to T teams." line any more (D-F1-23)
+    expect([...ask.querySelectorAll('p')].map((p) => p.textContent)).toEqual(["Delivered files can't be recalled."]);
+    expect(document.activeElement?.textContent).toBe('Cancel'); // the focus starts on Cancel
     await user.click(within(ask).getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith('Distribution 01234567 sent. 2 deliveries queued.'));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Sent'));
+    expect(onSent).toHaveBeenCalledWith('0123456789abcdef'); // the app opens #/status/<id> with its panel
     expect(submit).toHaveBeenCalledWith(
       {
         files: [
@@ -252,6 +395,9 @@ describe('Distribute', () => {
     expect(await screen.findByText('The platform is not answering. Try again.')).toBeTruthy();
     expect(manager.clear).not.toHaveBeenCalled();
     expect(manager.files).toHaveLength(1);
+    expect(onSent).not.toHaveBeenCalled(); // it stays on Distribute with everything kept, and nothing says "Sent"
+    expect(notify).not.toHaveBeenCalledWith('Sent');
+    expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
   });
 
   it('turns picked files into the queue and lists the ones it refused', async () => {
@@ -262,5 +408,27 @@ describe('Distribute', () => {
     expect(manager.add).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(/setup\.exe/)).toBeTruthy();
     expect(screen.getByText(/This type is not allowed/)).toBeTruthy();
+  });
+
+  it('shows the refused files in one calm box: "1 file not added" (singular), "2 files not added", one Close for the box, none per line (D-F1-35)', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    const input = screen.getByLabelText('Choose files');
+    fireEvent.change(input, { target: { files: [new File(['x'], 'setup.exe')] } });
+    const box = await screen.findByRole('alert');
+    expect(within(box).getByText('1 file not added')).toBeTruthy();
+    expect(within(box).getAllByRole('button')).toHaveLength(1);
+    fireEvent.change(input, { target: { files: [new File(['x'], 'notes.txt')] } });
+    expect(await within(screen.getByRole('alert')).findByText('2 files not added')).toBeTruthy();
+    expect(box.querySelector('.not-added-name')?.textContent).toBe('setup.exe'); // the name in normal text
+    expect(box.querySelector('.not-added-reason')?.textContent).toContain('This type is not allowed'); // the reason apart
+    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText(/files? not added/)).toBeNull();
+    // Cleared with the page.
+    fireEvent.change(input, { target: { files: [new File(['x'], 'setup.exe')] } });
+    expect(await screen.findByText('1 file not added')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByText(/files? not added/)).toBeNull();
   });
 });

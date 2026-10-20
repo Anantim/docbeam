@@ -179,23 +179,24 @@ describe('readiness', () => {
     const partly = tick(emptyMapping, verified, new Set(['a']), d);
     const r = readiness(partly, verified);
     expect(r.ready).toBe(false);
-    expect(r.reason).toBe('1 file has no folder. Tick a folder');
+    expect(r.reason).toBe('Choose folders for 1 file');
   });
 
-  it('says why Send is off, in a few words (the button\'s title)', () => {
+  it('says why Send is off, in a few words (the text beside the buttons, D-F1-20)', () => {
     expect(readiness(emptyMapping, []).reason).toBe('Add a file first');
     const uploading = [file('a'), file('b', 'uploading'), file('c', 'checking')];
-    expect(readiness(tick(emptyMapping, uploading, none, d), uploading).reason).toBe('2 files are not ready yet');
+    expect(readiness(tick(emptyMapping, uploading, none, d), uploading).reason).toBe('Wait for 2 files to finish scanning');
     const one = [file('a', 'checking')];
-    expect(readiness(tick(emptyMapping, one, none, d), one).reason).toBe('1 file is not ready yet');
+    expect(readiness(tick(emptyMapping, one, none, d), one).reason).toBe('Wait for 1 file to finish scanning');
     // A file that will not verify on its own is not "waiting": it needs a retry or to go.
     const stuck = [file('a', 'interrupted'), file('b', 'checking'), file('c', 'unchecked')];
-    expect(readiness(tick(emptyMapping, stuck, none, d), stuck).reason).toBe('2 files failed to upload. Retry or remove them');
+    expect(readiness(tick(emptyMapping, stuck, none, d), stuck).reason).toBe('Retry or remove 2 files that failed to upload');
     const verified = [file('a'), file('b')];
     const partly = tick(emptyMapping, verified, new Set(['a']), d);
-    expect(readiness(partly, verified).reason).toBe('1 file has no folder. Tick a folder');
+    expect(readiness(partly, verified).reason).toBe('Choose folders for 1 file');
+    expect(readiness(emptyMapping, verified).reason).toBe('Choose folders for 2 files');
     const bad = [file('a'), file('x', 'infected')];
-    expect(readiness(tick(emptyMapping, bad, none, d), bad).reason).toBe('Remove the 1 file refused for malware first');
+    expect(readiness(tick(emptyMapping, bad, none, d), bad).reason).toBe('Remove the 1 file refused for malware');
   });
 
   it('has no reason when Send is on', () => {
@@ -209,7 +210,7 @@ describe('readiness', () => {
     const files = [file('a'), file('x', 'infected')];
     const r = readiness(tick(emptyMapping, files, none, d), files);
     expect(r.ready).toBe(false);
-    expect(r.reason).toBe('Remove the 1 file refused for malware first');
+    expect(r.reason).toBe('Remove the 1 file refused for malware');
   });
 
   it('is on when every file is verified and mapped', () => {

@@ -11,12 +11,14 @@ import { StatusChip, type Tone } from './StatusChip.js';
 import { TypeBadge } from './TypeBadge.js';
 
 interface StatusView {
-  /** The state of the upload, in one word: Uploading, Checking, Ready or Refused. */
+  /** The state of the upload, in one word: Uploading, Scanning, Ready, Failed, Interrupted or Refused (malware only). */
   text: string;
   tone: Tone;
   bar: boolean;
-  /** Why a file was refused or stopped, in one line. */
+  /** Why a file failed, was refused or stopped, in one line. */
   reason?: string;
+  /** The tooltip and screen-reader name of a state with no reason, for example "Scanning for malware". */
+  tip?: string;
   /** Where an upload is: a percent, or the part of a large file. */
   detail?: string;
 }
@@ -29,15 +31,17 @@ export function statusView(f: PageFile): StatusView {
     case 'uploading':
       return { text: 'Uploading', tone: 'busy', bar: true, detail: f.partCount > 0 ? `Part ${f.partsDone} of ${f.partCount}` : `${percent(f)}%` };
     case 'checking':
-      return { text: 'Checking', tone: 'warn', bar: false };
+      return { text: 'Scanning', tone: 'warn', bar: false, tip: 'Scanning for malware' };
     case 'verified':
       return { text: 'Ready', tone: 'ok', bar: false };
+    // "Failed" is a problem that can be tried again (Retry): storage did not accept the upload, or the scan could not run.
+    // "Refused" is only for malware: final, no Retry, the tick box locked (D-F1-38).
     case 'refused':
-      return { text: 'Refused', tone: 'bad', bar: false, reason: f.message ?? 'Storage did not accept the upload. Retry it.' };
+      return { text: 'Failed', tone: 'bad', bar: false, reason: f.message ?? 'Storage did not accept the upload. Retry it.' };
     case 'interrupted':
       return { text: 'Interrupted', tone: 'bad', bar: false, reason: f.message ?? 'The connection broke. Retry carries on where it stopped.' };
     case 'unchecked':
-      return { text: 'Refused', tone: 'bad', bar: false, reason: 'The file could not be scanned. Retry it or remove it.' };
+      return { text: 'Failed', tone: 'bad', bar: false, reason: 'The file could not be scanned. Retry it or remove it.' };
     case 'infected':
       return { text: 'Refused', tone: 'bad', bar: false, reason: 'Malware was found. The file was deleted and cannot be sent.' };
   }
@@ -90,8 +94,8 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
               type="button"
               role="checkbox"
               aria-checked={someOn ? 'mixed' : allOn}
-              aria-label="Select all files"
-              title="Select all files"
+              aria-label="Select all to choose their folders"
+              title="Select all to choose their folders"
               onClick={onToggleAll}
             >
               <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? <CheckIcon size={12} /> : someOn ? <MinusIcon size={12} /> : null}</span>
@@ -145,7 +149,15 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
                     <CloseIcon size={14} />
                   </span>
                 ) : (
-                  <span className={`box ${on ? 'on' : ''}`} aria-hidden="true">
+                  // The row itself selects on a click or Enter; this box says what the selection is for, and is a click target
+                  // like the rest of the row (D-F1-23).
+                  <span
+                    className={`box ${on ? 'on' : ''}`}
+                    role="checkbox"
+                    aria-checked={on}
+                    aria-label="Select to choose folders for this file"
+                    title="Select to choose folders for this file"
+                  >
                     {on ? <CheckIcon size={12} /> : null}
                   </span>
                 )}
@@ -165,7 +177,8 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
                     <div style={{ width: `${percent(f)}%` }} />
                   </div>
                 )}
-                <StatusChip tone={view.tone} label={view.text} title={UPLOAD_STATUS_MEANING[f.status]} />
+                {/* The tooltip and the screen-reader name of a state that has a reason are that reason (the line under the chip). */}
+                <StatusChip tone={view.tone} label={view.text} title={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
                 {(view.reason ?? view.detail) && <div className="fmsg">{view.reason ?? view.detail}</div>}
               </div>
               <div className="chips" role="gridcell">

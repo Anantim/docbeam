@@ -69,11 +69,23 @@
   --control-sm: 28px;
   --icon: 32px;
   --topbar: 56px;
+  --dist-head: 40px; /* the sticky header row of the Status list: Up and Down keep a focused row clear of it */
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 /* The sticky top bar and send bar never cover a focused control. */
+/* One scrollbar for every scrolling area of the app (D-F1-33): slim, token-coloured, no arrow buttons. The standard
+   properties are used where the browser has them; the -webkit- rules are for the browsers that do not. Nothing else in
+   this file styles a scrollbar. */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) var(--surface-2); }
+@supports not (scrollbar-color: auto) {
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  *::-webkit-scrollbar-track { background: var(--surface-2); }
+  *::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 2px solid var(--surface-2); }
+  *::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+}
 html { scroll-padding-top: calc(var(--topbar) + var(--s-4)); scroll-padding-bottom: var(--s-16); scrollbar-gutter: stable; }
 body { margin: 0; background: var(--bg); }
 #root { display: flex; flex-direction: column; font-family: var(--font); color: var(--text); background: var(--bg); font-size: var(--fs-3); line-height: 1.5; }
@@ -106,7 +118,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .btn:disabled, .btn2:disabled, .btn.danger:disabled { background: var(--surface-2); color: var(--text-off); border-color: var(--line); filter: none; }
 .icon:disabled { color: var(--text-off); background: none; }
 .link:disabled { color: var(--text-off); text-decoration: none; }
-.seg:disabled, .tab:disabled { color: var(--text-off); }
+.tab:disabled { color: var(--text-off); }
 .link { background: none; border: 0; padding: 0; color: var(--accent); }
 .link:hover { text-decoration: underline; }
 .link.strong { font-weight: 600; }
@@ -131,8 +143,23 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .state strong { color: var(--text); font-weight: 600; }
 .state.small { padding: var(--s-6) var(--s-4); }
 .state-icon { width: 40px; height: 40px; border-radius: var(--radius); background: var(--surface-2); color: var(--text-3); display: inline-flex; align-items: center; justify-content: center; }
-.skeleton { height: 14px; border-radius: var(--radius); background: linear-gradient(90deg, var(--surface-2), var(--line), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-@keyframes shimmer { to { background-position: -200% 0; } }
+.sentby { color: var(--text-3); }
+.sender-name { color: var(--text); font-weight: 400; }
+/* Loading: grey bars the shape of what will come, with a gentle pulse (none under prefers-reduced-motion, which turns every animation off). */
+.skeleton, .sk { display: block; height: 14px; border-radius: var(--radius); background: var(--line); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+.sk-id { width: 8ch; height: 14px; }
+.sk-sender { width: 6ch; height: 10px; margin-top: var(--s-1); }
+.sk-chip { width: 92px; height: 22px; border-radius: 999px; }
+.sk-date { width: 11ch; }
+.sk-name { width: 14ch; } /* (the folder chips of the panel's loading state) */
+.sk-num { width: 2ch; margin-left: auto; }
+.sk-file { width: 22ch; max-width: 70%; }
+.sk-path { width: 34ch; max-width: 90%; height: 10px; margin-top: var(--s-1); }
+.sk-lead { width: 24ch; max-width: 70%; }
+.sk-bar { width: 100%; height: 6px; }
+.sk-row td { height: 64px; }
+/* The sender bar under the ID only shows where the sender line does (the compact list). */
 
 /* sign in */
 .auth { flex: 1; display: flex; flex-wrap: wrap; }
@@ -178,9 +205,14 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .drop-state { flex: 1; margin: var(--s-4); padding: var(--s-8) var(--s-6); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
 .files .table-scroll { flex: 1; }
 .table-scroll { overflow-x: auto; }
-.not-added { margin: var(--s-3) var(--s-4); font-size: var(--fs-2); font-weight: 400; }
-.not-added-head, .not-added-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-2); }
-.not-added-row { padding: var(--s-0) 0; }
+/* The "files not added" box: light, an error-coloured edge and icon, the name in normal text, the reason muted. */
+.not-added { display: flex; align-items: flex-start; gap: var(--s-3); margin: var(--s-3) var(--s-4); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); background: var(--surface-2); border-left: 3px solid var(--error-dot); border-radius: var(--radius); font-size: var(--fs-2); }
+.not-added-icon { display: inline-flex; color: var(--error); margin-top: var(--s-0); }
+.not-added-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.not-added-body strong { font-weight: 600; color: var(--text); }
+.not-added-body ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.not-added-name { color: var(--text); overflow-wrap: anywhere; }
+.not-added-reason { color: var(--text-3); }
 /* The Documents table is one grid, so its columns size to their content: the name takes the spare room (D-M3-12). */
 .ftable { display: grid; grid-template-columns: 32px minmax(160px, 1fr) minmax(112px, 220px) max-content max-content; column-gap: var(--s-3); min-width: 0; }
 .ftable .chips { flex-wrap: nowrap; align-items: center; }
@@ -223,8 +255,6 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 
 /* distribute: destinations */
 .dest { min-width: 0; min-height: 28rem; display: flex; flex-direction: column; }
-.scope { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) var(--s-4); background: var(--bg); border-bottom: 1px solid var(--line); font-size: var(--fs-2); color: var(--text-2); }
-.scope.scoped { background: var(--accent-tint); }
 .filter { padding: var(--s-3) var(--s-4) var(--s-1); }
 .filter.search { position: relative; }
 .filter.search > svg { position: absolute; left: calc(var(--s-4) + var(--s-3)); top: calc(var(--s-3) + 11px); color: var(--text-3); pointer-events: none; }
@@ -247,12 +277,17 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 /* distribute: send bar */
 .sendbar { position: sticky; bottom: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--line); }
 .sendbar-inner { width: 100%; max-width: var(--page); margin: 0 auto; padding: var(--s-3) var(--s-6); display: flex; flex-direction: column; gap: var(--s-2); }
-.sendbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
-.send-text { flex: 1; min-width: 0; }
-.send-summary { font-weight: 600; min-height: 1.5em; }
-.send-reason { font-size: var(--fs-2); color: var(--text-3); min-height: 1.5em; }
+.sendbar-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2) var(--s-4); }
+/* The reason Send is off: small, muted, immediately left of Clear and centred with the buttons (D-F1-20). */
+.send-reason { font-size: var(--fs-2); color: var(--text-3); text-align: right; min-width: 0; }
+.send-reason:empty { display: none; }
+.dest .card-head { justify-content: flex-start; }
+.card-hint { font-size: var(--fs-2); color: var(--text-3); font-weight: 400; }
 .plain-action { padding: 0 var(--s-2); min-height: var(--control); color: var(--text-2); font-weight: 500; }
 .folder-count { font-size: var(--fs-2); }
+/* The muted count beside a ticked folder in the Destinations tree ("3 files", "2 of 3 files"): a button that opens the list of those files. */
+.link.folder-files { color: var(--text-3); font-size: var(--fs-1); font-weight: 400; margin-left: var(--s-2); white-space: nowrap; flex: none; }
+.link.folder-files:hover { color: var(--text); text-decoration: underline; }
 .fname-text { min-width: 0; }
 
 /* popover for the "+N" chip (D-M3-2) */
@@ -261,9 +296,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .popover-panel { position: fixed; z-index: 70; padding-top: var(--s-1); }
 .popover-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--s-2) 0; }
 .popover-list { max-height: 160px; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--s-3); }
-.popover-group + .popover-group { margin-top: var(--s-2); }
-.popover-team { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) 0 var(--s-1); font-size: var(--fs-1); font-weight: 600; color: var(--text-2); position: sticky; top: 0; background: var(--surface); }
-.popover ul { list-style: none; margin: 0; padding: 0 0 2px var(--s-3); }
+.popover ul { list-style: none; margin: 0; padding: var(--s-1) 0; }
 .popover li { font-size: var(--fs-2); padding: var(--s-0) 0; overflow-wrap: anywhere; }
 
 /* dialog, toasts, preview */
@@ -282,7 +315,9 @@ html:has(.overlay) { background-color: var(--scrim-solid); }
 .dialog label { display: block; font-size: var(--fs-2); font-weight: 600; }
 .dialog .actions { display: flex; justify-content: flex-end; gap: var(--s-3); }
 /* Toasts have one place, the bottom-right corner, on every screen; on Distribute they sit just above the send bar so they never cover Send (D-F1-18). */
-.toasts { position: fixed; right: var(--s-6); bottom: var(--s-6); display: flex; flex-direction: column; gap: var(--s-3); z-index: 90; }
+/* Toasts: the bottom centre of the window, above everything (D-F1-33). They never take a click or a tap, so a row's action
+   icons under one are still there to use for the whole time it shows. */
+.toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--s-6); display: flex; flex-direction: column; align-items: center; gap: var(--s-3); z-index: 90; pointer-events: none; }
 body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(--s-4)); }
 .toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-3); max-width: 360px; box-shadow: var(--shadow); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--success-dot); flex: none; }
@@ -300,20 +335,49 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .preview-note { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-6); border-top: 1px solid var(--line); font-size: var(--fs-1); color: var(--text-3); background: var(--bg); }
 
 /* status: the list of distributions, and a side panel on the same page for the open one (D-F1-7, D-F1-15). */
-.seg-group { display: flex; gap: var(--s-0); background: var(--surface-2); border-radius: var(--radius); padding: var(--s-0); }
-.seg { min-height: var(--control-sm); padding: 0 var(--s-4); border: 0; border-radius: var(--radius); background: none; font-weight: 500; color: var(--text-3); }
-.seg.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line-strong); }
-.filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
-.status-pick { width: auto; min-width: 180px; }
+/* The one row of filters above the list (D-F1-21): small buttons with short menus; a set filter is in the accent style. */
+.filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); } /* no margin of its own: the page's gap puts the same space above and below it (D-F1-33) */
+.fmenu-wrap { position: relative; }
+.fbtn { min-height: var(--control-sm); padding: 0 var(--s-3); display: inline-flex; align-items: center; gap: var(--s-2); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--text-2); font-size: var(--fs-2); font-weight: 500; }
+.fbtn:hover { background: var(--surface-2); }
+.fbtn.on { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-hover); }
+.fmenu { position: absolute; z-index: 40; top: calc(100% + var(--s-1)); left: 0; min-width: 200px; max-height: 320px; overflow-y: auto; padding: var(--s-1); display: flex; flex-direction: column; box-shadow: var(--shadow); }
+.fitem { display: flex; align-items: center; gap: var(--s-2); min-height: var(--control-sm); padding: 0 var(--s-3) 0 var(--s-1); border: 0; border-radius: var(--radius); background: none; color: var(--text); font-size: var(--fs-2); text-align: left; white-space: nowrap; }
+.fitem:hover, .fitem:focus-visible { background: var(--surface-2); }
+.fitem[aria-checked='true'] { font-weight: 600; }
+.fcheck { width: 16px; display: inline-flex; justify-content: center; color: var(--accent); }
 .openid { position: relative; }
 .openid-card { position: absolute; right: 0; top: calc(100% + var(--s-2)); z-index: 40; width: 320px; padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); box-shadow: var(--shadow); }
 .openid-card label { font-size: var(--fs-2); font-weight: 600; }
 .openid-note { color: var(--error); font-size: var(--fs-2); }
+.openid-matches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); }
+.openid-match { width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: var(--s-4); align-items: baseline; white-space: nowrap; min-height: var(--control); padding: 0 var(--s-3); border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; font-size: var(--fs-2); }
+.openid-matches li:last-child .openid-match { border-bottom: 0; }
+.openid-match:hover, .openid-match:focus-visible { background: var(--surface-2); }
 .openid-actions { display: flex; justify-content: flex-end; }
 .status-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); align-items: start; }
 .status-layout.open { grid-template-columns: minmax(26rem, 2fr) minmax(0, 3fr); } /* the compact list never gets narrower than its three columns need */
 @media (max-width: 1023px) { .status-layout.open { grid-template-columns: minmax(0, 1fr); } }
 .dist { container-type: inline-size; overflow: hidden; }
+/* Status from 1024 px up is a fixed screen (D-F1-29): the page does not scroll; the title and the filter row stay; the list
+   card fills the height that is left and its table scrolls inside it, under a sticky header row, with "Showing N · Show more"
+   at the end of that scroll area; the panel fills the same height beside it and scrolls on its own. Under 1024 px the page
+   scrolls as usual and the panel is under the list. */
+@media (min-width: 1024px) {
+  html:has(.page-fixed) { scrollbar-gutter: auto; }
+  html:has(.page-fixed), html:has(.page-fixed) body { overflow: hidden; }
+  .page-fixed { flex: 1 1 0; min-height: 0; }
+  .page-fixed .status-layout { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .page-fixed .dist { display: flex; flex-direction: column; min-height: 0; }
+  .dist-fade { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .dist-scroll { flex: 1 1 auto; min-height: 0; overflow-y: scroll; scroll-padding-top: var(--dist-head); }
+  .page-fixed .panel { position: static; max-height: none; height: 100%; }
+}
+/* The header row stays at the top of the scroll area. Its line is a shadow, because the border of a sticky cell in a table
+   with collapsed borders scrolls away with the rows. */
+.dist-table thead th { position: sticky; top: 0; z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
+/* Every row is the same height with the panel open or closed, so opening one does not move the list under the pointer. */
+.dist-table tbody td { height: 64px; }
 .dist-table { width: 100%; border-collapse: collapse; }
 .dist-table th { text-align: left; font-size: var(--fs-1); font-weight: 600; color: var(--text-3); background: var(--bg); padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--line); }
 .dist-table td { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 200px; }
@@ -322,12 +386,16 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .dist-table tbody tr.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .dist-table tbody tr:last-child td { border-bottom: 0; }
 .num-col, .dist-table th.num-col { text-align: right; font-variant-numeric: tabular-nums; }
-/* ID, Status and Sent take only the room they need, so Status and Sent sit close; Sender takes the rest (D-F1-18).
-   With the panel open there is no Sender, and Sent takes the rest. */
-.dist-table .dist-fit { width: 1%; }
+/* Every column takes only the room its content needs; Files and Folders are narrow and right-aligned right after Sender,
+   and the spare width is one empty column at the end of the row (D-F1-28). With the panel open Sender, Files and Folders
+   are gone and Sent takes the rest. */
+.dist-table .dist-fit, .dist-table .dist-more { width: 1%; }
+.dist-table .dist-spacer { width: auto; padding: 0; }
 @container (max-width: 640px) { .dist-table .dist-fit-sent { width: auto; } }
 .dist-id { font-weight: 600; white-space: nowrap; }
 .dist-id-cell { display: inline-flex; align-items: center; gap: var(--s-1); }
+/* The sender under the ID, in every state of the list; opening the panel hides only Files and Folders. */
+.dist-sender { display: block; font-size: var(--fs-1); color: var(--text-3); line-height: 1.2; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
 /* The copy icon after an id: always there in the panel header; in the list it shows on row hover and on keyboard focus (and always where there is no hover). */
 .copy-link.reveal { opacity: 0; }
 .dist-table tr:hover .copy-link.reveal, .dist-table tr:focus-within .copy-link.reveal, .copy-link.reveal:focus-visible { opacity: 1; }
@@ -335,23 +403,23 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .list-foot { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--s-4); }
 .list-foot .shown { color: var(--text-3); font-variant-numeric: tabular-nums; }
 .dist-table td, .dist-table th { white-space: nowrap; }
-.dist-skeleton { padding: var(--s-4); border-bottom: 1px solid var(--line); }
 .dist-error { margin: var(--s-3) var(--s-4); }
 /* With the panel open the list is narrow: the file and destination counts go, the panel shows the folders. */
 @container (max-width: 640px) { .dist-more { display: none; } }
 @container (max-width: 460px) { .dist-table th, .dist-table td { padding-inline: var(--s-3); } }
-.panel { container-type: inline-size; position: sticky; top: calc(var(--topbar) + var(--s-6)); max-height: calc(100vh - var(--topbar) - var(--s-12)); overflow-y: auto; min-width: 0; }
+/* The panel is a flex column: its header, then the body whose deliveries scroll inside it (D-F1-26). From 1024 px up it
+   fills the height of the fixed Status screen (above, D-F1-29); under that it is as tall as its content, under the list. */
+.panel { container-type: inline-size; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .panel-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
 .panel-title { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; }
 .panel-title h2, .panel-head > h2 { font-size: var(--fs-4); font-weight: 600; flex: 1; }
 .panel-title h2 { flex: none; }
-.panel-body { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-4); }
+.panel-body { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .panel-alert { margin: var(--s-4); }
 .panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); }
-.panel-section { display: flex; flex-direction: column; gap: var(--s-2); border-top: 1px solid var(--line); padding-top: var(--s-4); }
+.panel-section { display: flex; flex-direction: column; gap: var(--s-2); border-top: 1px solid var(--line); padding-top: var(--s-4); flex: 1 1 auto; min-height: 17rem; }
 .panel-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .panel-section h3 { font-size: var(--fs-3); font-weight: 600; margin: 0; }
-.tnote { font-size: var(--fs-1); color: var(--text-3); }
 .jdest { align-items: center; gap: var(--s-2); }
 .jbar { display: flex; height: 6px; border-radius: var(--radius); overflow: hidden; background: var(--line); }
 .jbar > div { transition: width 0.15s ease; background: var(--tone-dot); }
@@ -363,11 +431,22 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .tfilter:disabled { color: var(--text-off); }
 .tfilter.on { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .tfilter .num { font-weight: 600; font-variant-numeric: tabular-nums; }
-.ttable { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.ttable { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; position: relative; }
+/* In the panel the table takes the room that is left and its rows scroll inside; a soft fade at the bottom edge says there are more rows below. */
+.ttable.fill { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.tbody-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
+.tbody-wrap.fill { flex: 0 1 auto; }
+.tscroll.fill { flex: 0 1 auto; min-height: 192px; scroll-padding-bottom: 40px; }
+/* A scroll area with more rows below it: a soft fade and a thin shadow along its bottom edge, gone at the end. The
+   deliveries table and the Status list share this (D-F1-30, D-F1-33). */
+.fadewrap { position: relative; }
+.fadewrap.more-below::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; z-index: 3; pointer-events: none; box-shadow: 0 -2px 5px 1px rgba(16, 24, 40, 0.16); }
+.fadewrap.more-below::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px; z-index: 3; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--surface)); }
 .trow { display: grid; grid-template-columns: minmax(0, 1fr) 108px 56px minmax(96px, 168px); gap: var(--s-3); align-items: center; padding: 0 var(--s-3); border-bottom: 1px solid var(--line); }
 .trow.thead { padding-top: var(--s-2); padding-bottom: var(--s-2); background: var(--bg); font-size: var(--fs-1); font-weight: 600; color: var(--text-3); }
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: var(--surface); }
+.tskel .trow { height: 64px; background: var(--surface); }
 .tmargin { margin: var(--s-3); }
 .tfile-cell { min-width: 0; }
 .tfile { font-weight: 500; }

@@ -18,6 +18,8 @@ export const teamMembers = pgTable(
       .references(() => teams.id),
     /** Auth DB user id. No cross-database foreign key (ADR-009). */
     userId: uuid('user_id').notNull(),
+    /** The person's name from the seed file, so a member can be listed by name without asking Auth (D-F1-21). */
+    userName: text('user_name').notNull().default(''),
     addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.teamId, t.userId] }), index('idx_team_members_user').on(t.userId)],

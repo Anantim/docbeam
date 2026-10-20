@@ -40,12 +40,12 @@ Make the files and set the three variables shown at the top (`scripts/demo-files
 | Step | Screen | Caption (what the video says) |
 |---|---|---|
 | 1 | Sign-in page | DocBeam sends clinical trial documents to many team folders at once, and tracks every delivery. Sign in as Anantim. |
-| 2 | Distribute, Files | Add the files once. Each is checked in the browser, uploaded, and scanned for malware. Each file shows its state: Uploading, Checking, Ready. |
+| 2 | Distribute, Files | Add the files once. Each is checked in the browser, uploaded, and scanned for malware. Each file shows its state: Uploading, Scanning, Ready. |
 | 3 | The refused file | The standard antivirus test file is refused. It is deleted and can never be sent. It is removed. |
-| 4 | Select all, tick folders | Select the files, or leave none selected for all of them, then tick folders. I only see my own teams. One summary line: the files, the folders and the deliveries. |
+| 4 | Select all, tick folders | Select the files, or leave none selected for all of them, then tick folders. I only see my own teams. The words beside Destinations say who a tick is for ("for 2 selected files" while files are ticked, nothing otherwise). When Send is off, the reason is text beside Clear. The full summary comes in the question before Send. |
 | 5 | One file selected | With some files selected, a tick goes to those files only. The folders of a file are one click away (the "3 folders" button). |
 | 6 | Send | Sending asks first. Delivered files can not be recalled, and Cancel is the default. |
-| 7 | Status panel | Each delivery is tracked; the numbers move on their own, pushed over a WebSocket. Every delivery has a status; Preview and Download are on completed rows. The list narrows beside the panel. |
+| 7 | Status panel | Send opened this panel by itself, with the toast "Sent" (D-F1-31). Each delivery is tracked; the numbers move on their own, pushed over a WebSocket. Every delivery has a status; Preview and Download are on completed rows. The list narrows beside the panel. |
 | 8 | Raj, then Sam | Raj is in Cardio only and sees only the Cardio deliveries. Sam is in Neuro only and gets "not found", the same answer as for one that does not exist. |
 | 9 | Dev only: Load User | A big one: 100 files to 20 folders, 2,000 deliveries, in one action (`scripts/demo-send.sh`); counts live, only the rows in view drawn. |
 | 10 | Dev only: the outage | The Document Platform is stopped (`scripts/demo-outage.sh stop`): nothing is lost, deliveries retry. It starts again and the backlog drains by itself to 2,000 delivered, once each. |

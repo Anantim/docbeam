@@ -9,8 +9,10 @@ import { Toasts, type Toast } from './components/Toasts.js';
 import type { Claims } from './auth/token.js';
 import { liveClient } from './live/instance.js';
 import type { Counts } from './tracking/api.js';
+import { NO_FILTERS, type Filters } from './tracking/filters.js';
 import { hashFor, parseHash, type Route, type View } from './tracking/route.js';
-import { runningCount, usePagedJobs } from './tracking/usePagedJobs.js';
+import { usePagedJobs } from './tracking/usePagedJobs.js';
+import { useRunningCount } from './tracking/useRunningCount.js';
 import { uploadManager } from './upload/instance.js';
 
 /** The page position lives in the URL hash, so a reload (or a shared link) opens the same screen and distribution. */
@@ -36,6 +38,8 @@ export function App() {
   const [route, go] = useRoute();
   // Counts the sign-ins made from the 12-hour dialog. Every list and the open distribution read again when it changes.
   const [signedInAgain, setSignedInAgain] = useState(0);
+  // The distribution that was just sent: its panel takes the focus when it opens (and only for that one).
+  const [sentId, setSentId] = useState<string | null>(null);
   const next = useRef(1);
   // The last signed-in view stays on screen under the dialog, so nothing on the page is lost.
   const lastClaims = useRef<Claims | null>(null);
@@ -60,7 +64,7 @@ export function App() {
     if (session.status === 'signedIn') wasSignedIn.current = true;
     else if (session.status === 'signedOut' && wasSignedIn.current) {
       wasSignedIn.current = false;
-      window.location.hash = hashFor({ view: 'distribute', jobId: null });
+      window.location.hash = hashFor({ view: 'distribute', jobId: null, filters: NO_FILTERS });
     }
   }, [session.status]);
 
@@ -71,14 +75,34 @@ export function App() {
     liveClient.setToken(token);
   }, [token]);
 
-  // My distributions, refreshed every 30 seconds. Also the badge on the Status tab.
-  const mine = usePagedJobs('mine', token !== null, undefined, signedInAgain);
+  // Everything I can see, unfiltered, refreshed every 30 seconds while something runs. It is the list of the Status page
+  // while no filter is set, and the badge on the Status tab (pending and in progress), which no filter changes (D-F1-21).
+  const all = usePagedJobs(NO_FILTERS, token !== null, undefined, signedInAgain);
 
   // The open distribution's live counts: the badge on the Status tab follows them (D-F1-15).
   const [liveJob, setLiveJob] = useState<{ jobId: string; counts: Counts } | null>(null);
   const onLive = useCallback((jobId: string, counts: Counts) => setLiveJob({ jobId, counts }), []);
+  // The badge is the server's count over the whole list (D-F1-34). It is read again whenever the list is read, and the
+  // moment the open distribution finishes (its live counts), without waiting for the next poll.
+  const liveFinished = liveJob !== null && liveJob.counts.pending + liveJob.counts.in_progress === 0 ? liveJob.jobId : null;
+  const running = useRunningCount(token !== null, all.jobs, liveFinished, signedInAgain);
 
-  const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId }), [go]);
+  // Opening or closing a distribution keeps the filters; changing the filters keeps the open distribution.
+  const routeRef = useRef(route);
+  routeRef.current = route;
+  // The heading takes the focus only when the panel of the sent distribution opens: leaving it (another distribution, or
+  // another tab) ends that, so coming back to it later does not move the focus again.
+  const sentWasOpen = useRef(false);
+  useEffect(() => {
+    if (sentId !== null && route.view === 'status' && route.jobId === sentId) sentWasOpen.current = true;
+    else if (sentWasOpen.current) {
+      sentWasOpen.current = false;
+      setSentId(null);
+    }
+  }, [route.view, route.jobId, sentId]);
+
+  const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId, filters: routeRef.current.filters }), [go]);
+  const setFilters = useCallback((filters: Filters): void => go({ view: 'status', jobId: routeRef.current.jobId, filters }), [go]);
 
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
@@ -92,15 +116,22 @@ export function App() {
 
   return (
     <>
-      <Shell claims={claims} teams={teams} view={view} onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null })} running={runningCount(mine.jobs, liveJob)}>
+      <Shell
+        claims={claims}
+        teams={teams}
+        view={view}
+        onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null, filters: v === 'status' ? route.filters : NO_FILTERS })}
+        running={running}
+      >
         {/* Distribute stays mounted while another screen shows, so a prepared batch survives a look at Status. */}
         <div className="view" hidden={view !== 'distribute'}>
           <Distribute
             onTeams={setTeams}
             notify={notify}
             onSent={(jobId) => {
-              void mine.refresh();
-              openJob(jobId);
+              void all.refresh();
+              setSentId(jobId);
+              go({ view: 'status', jobId, filters: NO_FILTERS }); // a new distribution is shown in the full list, whatever was filtered before
             }}
           />
         </div>
@@ -108,11 +139,14 @@ export function App() {
           <StatusPage
             meId={claims.sub}
             jobId={route.jobId}
+            filters={route.filters}
+            onFilters={setFilters}
             onOpen={openJob}
-            mine={mine}
+            all={all}
             onLive={onLive}
             notify={notify}
             signedInAgain={signedInAgain}
+            focusJobId={sentId}
           />
         )}
       </Shell>

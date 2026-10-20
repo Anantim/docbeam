@@ -22,6 +22,7 @@ const job = (jobId: string, status: JobSummary['status'], completed = 0): JobSum
   status,
 });
 const many = (from: number, n: number): JobSummary[] => Array.from({ length: n }, (_, i) => job(`job-${from + i}`, 'completed', 10));
+const page = (items: JobSummary[], nextCursor: string | null = null) => ({ items, nextCursor });
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -32,15 +33,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('usePagedJobs', () => {
+describe('usePagedJobs (cursor, D-F1-21)', () => {
   it('loads the first page, then refreshes the counts every 30 seconds while something runs', async () => {
-    api.jobs.mockResolvedValueOnce([job('a', 'in_progress', 2)]).mockResolvedValueOnce([job('a', 'in_progress', 6)]);
-    const { result } = renderHook(() => usePagedJobs('mine'));
+    api.jobs.mockResolvedValueOnce(page([job('a', 'in_progress', 2)])).mockResolvedValueOnce(page([job('a', 'in_progress', 6)]));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     expect(api.jobs).toHaveBeenCalledTimes(1);
-    expect(api.jobs).toHaveBeenCalledWith('mine', 1, LIST_PAGE, undefined);
+    expect(api.jobs).toHaveBeenCalledWith({}, null, LIST_PAGE);
     expect(result.current.jobs?.[0]?.counts.completed).toBe(2);
-    expect(result.current.hasMore).toBe(false); // a short page is the last one
+    expect(result.current.hasMore).toBe(false); // no cursor: this was the last page
 
     await act(async () => {
       vi.advanceTimersByTime(29_999);
@@ -54,8 +55,8 @@ describe('usePagedJobs', () => {
   });
 
   it('stops asking once no listed job is pending or in progress', async () => {
-    api.jobs.mockResolvedValueOnce([job('a', 'in_progress', 2)]).mockResolvedValueOnce([job('a', 'completed', 10)]);
-    const { result } = renderHook(() => usePagedJobs('mine'));
+    api.jobs.mockResolvedValueOnce(page([job('a', 'in_progress', 2)])).mockResolvedValueOnce(page([job('a', 'completed', 10)]));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     await act(async () => {
       vi.advanceTimersByTime(30_000);
@@ -67,9 +68,9 @@ describe('usePagedJobs', () => {
     expect(api.jobs).toHaveBeenCalledTimes(2);
   });
 
-  it('adds the next page on loadMore, only while a full page says more may follow, and never twice at once', async () => {
-    api.jobs.mockResolvedValueOnce(many(0, LIST_PAGE)).mockResolvedValueOnce(many(LIST_PAGE, 5));
-    const { result } = renderHook(() => usePagedJobs('mine'));
+  it('adds the next page on loadMore by the cursor the server gave, only while there is one, and never twice at once', async () => {
+    api.jobs.mockResolvedValueOnce(page(many(0, LIST_PAGE), 'c1')).mockResolvedValueOnce(page(many(LIST_PAGE, 5)));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     expect(result.current.hasMore).toBe(true);
     await act(async () => {
@@ -77,17 +78,17 @@ describe('usePagedJobs', () => {
       void result.current.loadMore();
     });
     expect(api.jobs).toHaveBeenCalledTimes(2);
-    expect(api.jobs).toHaveBeenLastCalledWith('mine', 2, LIST_PAGE, undefined);
+    expect(api.jobs).toHaveBeenLastCalledWith({}, 'c1', LIST_PAGE);
     expect(result.current.jobs).toHaveLength(LIST_PAGE + 5);
     expect(result.current.hasMore).toBe(false);
     await act(async () => result.current.loadMore());
     expect(api.jobs).toHaveBeenCalledTimes(2); // the end: nothing more is asked
   });
 
-  it('does not show a row twice when a new distribution shifts the pages', async () => {
+  it('does not show a row twice if a refresh overlaps a page', async () => {
     const first = many(0, LIST_PAGE);
-    api.jobs.mockResolvedValueOnce(first).mockResolvedValueOnce([first[LIST_PAGE - 1] as JobSummary, job('tail', 'completed', 10)]);
-    const { result } = renderHook(() => usePagedJobs('mine'));
+    api.jobs.mockResolvedValueOnce(page(first, 'c1')).mockResolvedValueOnce(page([first[LIST_PAGE - 1] as JobSummary, job('tail', 'completed', 10)]));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     await act(async () => result.current.loadMore());
     const ids = (result.current.jobs ?? []).map((j) => j.jobId);
@@ -95,21 +96,21 @@ describe('usePagedJobs', () => {
     expect(ids.at(-1)).toBe('tail');
   });
 
-  it('a refresh reads again every page that is shown', async () => {
-    api.jobs.mockResolvedValueOnce(many(0, LIST_PAGE)).mockResolvedValueOnce(many(LIST_PAGE, 3));
-    const { result } = renderHook(() => usePagedJobs('mine'));
+  it('a refresh reads again every page that is shown, following the cursors from the top', async () => {
+    api.jobs.mockResolvedValueOnce(page(many(0, LIST_PAGE), 'c1')).mockResolvedValueOnce(page(many(LIST_PAGE, 3)));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     await act(async () => result.current.loadMore());
     api.jobs.mockClear();
-    api.jobs.mockResolvedValueOnce(many(0, LIST_PAGE)).mockResolvedValueOnce(many(LIST_PAGE, 3));
+    api.jobs.mockResolvedValueOnce(page(many(0, LIST_PAGE), 'c9')).mockResolvedValueOnce(page(many(LIST_PAGE, 3)));
     await act(async () => result.current.refresh());
-    expect(api.jobs.mock.calls).toEqual([['mine', 1, LIST_PAGE, undefined], ['mine', 2, LIST_PAGE, undefined]]);
+    expect(api.jobs.mock.calls).toEqual([[{}, null, LIST_PAGE], [{}, 'c9', LIST_PAGE]]);
     expect(result.current.jobs).toHaveLength(LIST_PAGE + 3);
   });
 
   it('keeps the rows and shows the error when a later page fails, and keeps polling after a failed first load', async () => {
-    api.jobs.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce([job('a', 'completed', 10)]);
-    const { result } = renderHook(() => usePagedJobs('mine'));
+    api.jobs.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(page([job('a', 'completed', 10)]));
+    const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
     expect(result.current.error).toBe('The list could not be loaded.');
     await act(async () => {
@@ -117,6 +118,20 @@ describe('usePagedJobs', () => {
     });
     expect(result.current.error).toBe('');
     expect(result.current.jobs).toHaveLength(1);
+  });
+
+  it('asks with the filters, starts again when a choice changes, and does not for an equal object', async () => {
+    api.jobs.mockResolvedValue(page([job('a', 'completed', 10)]));
+    const { rerender } = renderHook(({ f }) => usePagedJobs(f), { initialProps: { f: { sender: 'me' } as { sender?: string; status?: 'completed' } } });
+    await act(async () => undefined);
+    expect(api.jobs).toHaveBeenLastCalledWith({ sender: 'me' }, null, LIST_PAGE);
+    rerender({ f: { sender: 'me' } }); // a new object with the same choices
+    await act(async () => undefined);
+    expect(api.jobs).toHaveBeenCalledTimes(1);
+    rerender({ f: { sender: 'me', status: 'completed' } });
+    await act(async () => undefined);
+    expect(api.jobs).toHaveBeenCalledTimes(2);
+    expect(api.jobs).toHaveBeenLastCalledWith({ sender: 'me', status: 'completed' }, null, LIST_PAGE);
   });
 
   it('counts only the pending and in-progress ones for the badge, and none when all are done', () => {

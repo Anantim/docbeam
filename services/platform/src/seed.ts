@@ -64,6 +64,7 @@ export async function applySeed(db: Db, file: SeedFile, userIdsByEmail: Map<stri
     skippedEmails: [],
   };
   const skipped = new Set<string>();
+  const namesByEmail = new Map(file.users.map((u) => [u.email.toLowerCase(), u.name]));
 
   await db.transaction(async (tx) => {
     for (const team of file.teams) {
@@ -95,17 +96,22 @@ export async function applySeed(db: Db, file: SeedFile, userIdsByEmail: Map<stri
       }
 
       const wanted: string[] = [];
+      const names: string[] = [];
       for (const email of team.members) {
         const id = userIdsByEmail.get(email.toLowerCase());
-        if (id) wanted.push(id);
-        else skipped.add(email);
+        if (id) {
+          wanted.push(id);
+          names.push(namesByEmail.get(email.toLowerCase()) ?? '');
+        } else skipped.add(email);
       }
       if (wanted.length > 0) {
         const added = await tx.execute(sql`
-          INSERT INTO team_members (team_id, user_id)
-          SELECT ${team.id}::uuid, u FROM unnest(${pgArray(wanted, 'uuid')}) AS u
-          ON CONFLICT DO NOTHING RETURNING user_id`);
-        report.membersAdded += added.rowCount ?? 0;
+          INSERT INTO team_members (team_id, user_id, user_name)
+          SELECT ${team.id}::uuid, m.u, m.n FROM unnest(${pgArray(wanted, 'uuid')}, ${pgArray(names, 'text')}) AS m(u, n)
+          ON CONFLICT (team_id, user_id) DO UPDATE SET user_name = EXCLUDED.user_name
+            WHERE team_members.user_name IS DISTINCT FROM EXCLUDED.user_name
+          RETURNING user_id, (xmax = 0) AS inserted`);
+        report.membersAdded += added.rows.filter((r) => (r as { inserted: boolean }).inserted).length;
       }
       const removed = await tx.execute(sql`
         DELETE FROM team_members WHERE team_id = ${team.id} AND NOT (user_id = ANY(${pgArray(wanted, 'uuid')}))

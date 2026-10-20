@@ -123,7 +123,7 @@ Tables: `teams`, `team_members`, `binders`, `folders` (nested through a parent i
 
 | File | Why it exists |
 | --- | --- |
-| `routes/browse.ts` | `GET /teams`, `/teams/:teamId/binders`, `/binders/:id/contents`, `/folders/:id/contents`: the destination tree, a page at a time (`limit`, opaque `cursor`, `nextCursor`, D-F1-6). Only your own teams, and a bad id gets the same 404 as someone else's, on every page.
+| `routes/browse.ts` | `GET /teams`, `/teams/members` (the people in your teams, by name, for the Sender filter), `/teams/:teamId/binders`, `/binders/:id/contents`, `/folders/:id/contents`: the destination tree, a page at a time (`limit`, opaque `cursor`, `nextCursor`, D-F1-6). Only your own teams, and a bad id gets the same 404 as someone else's, on every page.
 | `paging.ts`, `paging.test.ts` | The limit and cursor rules: the cursor is the position of the last row, so rows added while paging never repeat or skip one. |
 | `routes/internal.ts` | For services only: `POST /destinations/check` (one query confirms every binder and folder exists, sits in the right binder, and belongs to a team the user is in; returns each team and readable path) and `GET /users/:userId/teams`. This is why the browser never says which team a destination belongs to. |
 | `routes/documents.ts` | `POST /documents`, called by the Delivery Lambda. It checks the destination and membership before reading any bytes, checks the file's first bytes, streams it to S3 while recomputing SHA-256, refuses a mismatch, and stores at most one document per task (`ON CONFLICT (source_task_id) DO NOTHING`), so a repeated delivery never duplicates. |
@@ -137,6 +137,7 @@ Tables: `teams`, `team_members`, `binders`, `folders` (nested through a parent i
 | `seed/dev-load.json` | The load-test world: one user in 50 teams, used by the browse and 2,000-delivery checks, and a paging user whose folder holds 60 subfolders. |
 | `seed/dev-load-m5-removed.json` | The same world with that user removed from one team, for check 5.2 (removed member). |
 | `migrations/0000_platform_schema.sql` | Creates the five tables. |
+| `migrations/0001_team_member_names.sql` | Adds `team_members.user_name`, so a member can be listed by name for the Sender filter (D-F1-21). |
 
 ## 6. services/docbeam-api: the product itself
 
@@ -149,9 +150,9 @@ Read the routes in the order a user meets them:
 | File | Why it exists |
 | --- | --- |
 | `routes/uploads.ts` | Step 1 of a send. `POST /uploads` creates the file rows and returns signed S3 links in waves of 20. Small files get a presigned POST that makes S3 itself check the declared SHA-256. Files over 100 MiB use the three multipart routes: start, re-sign parts, complete (which asks S3 what it holds rather than trusting the browser). |
-| `routes/files.ts` | `GET /files?ids=…`: the page polls this every 2 seconds while files show "Checking", until the scanner marks them clean or refused. |
+| `routes/files.ts` | `GET /files?ids=…`: the page polls this every 2 seconds while files show "Scanning", until the scanner marks them clean or refused. |
 | `routes/jobs.ts` | `POST /jobs`, the heart of the system. Requires an Idempotency-Key, runs `validateBatch`, checks the files and asks the platform about every destination at the same time, then in ONE transaction writes the job, claims the files, inserts all tasks and the audit event. After the commit it sends one Job Queue message; if that send fails, the Sweeper sends it later. |
-| `routes/jobs-read.ts` | `GET /jobs`, `/jobs/:id`, `/jobs/:id/tasks`. The sender sees every delivery; anyone else sees only deliveries to their own teams, with counts covering only those. |
+| `routes/jobs-read.ts` | `GET /jobs`, `/jobs/:id`, `/jobs/:id/tasks`. The sender sees every delivery; anyone else sees only deliveries to their own teams, with counts covering only those. `GET /jobs` takes `status`, `sender`, `sentSince`, `team`, `limit` and a `cursor`, and answers `{items, nextCursor}` (D-F1-21); the filters only narrow what the scope allows. |
 | `routes/jobs-actions.ts` | `POST /jobs/:id/cancel` and `/retry`. Sender only (others get 404 or 403 NOT\_SENDER). Retry reopens only system failures (RETRIES\_EXHAUSTED, FANOUT\_FAILED). |
 | `routes/downloads.ts` | `POST /files/:fileId/downloads`: a 2-minute signed GET link for download or preview, only for the sender or a member of a team the file reached. Anyone else gets the same 404 as a missing file; 410 after 33 days. |
 | `routes/audit.ts` | `GET /audit`: the full history, filtered by who may see what (sender sees all; others see their teams' events and job-wide events). |
@@ -166,6 +167,7 @@ Read the routes in the order a user meets them:
 | `failure-rate.ts`, `failure-rate-run.ts` | The delivery failure-rate metric, and the one-off task that prints it on dev. |
 | `migrations/0000_docbeam_schema.sql` | Creates the five tables. |
 | `migrations/0001_audit_grants.sql` | Takes UPDATE, DELETE and TRUNCATE on `audit_events` away from the app role, so the history really is append-only. |
+| `migrations/0002_jobs_created_index.sql` | The index `(created_at DESC, id)` on `jobs`, for the newest-first list across senders (D-F1-21). |
 
 ## 7. workers/: the background work
 
@@ -207,7 +209,7 @@ A single-page app with two tabs: Distribute, and Status (one list of distributio
 | `upload/` | `manager.ts`, `api.ts`, `api-types.ts`, `transport.ts`, `browser-transport.ts`, `hashing.ts`, `hash.worker.ts`, `worker-hash.ts`, `instance.ts` | The upload queue (the largest file, about 500 lines): hashes each file in a Web Worker so a 1 GB file doesn't freeze the tab, asks for links in waves of 20, uploads with progress (XMLHttpRequest, because fetch has no upload progress), resumes multipart uploads from the parts already stored. The transport is an interface, so the integration test runs the same queue in Node. |
 | `destinations/` | `tree.ts`, `selection.ts` | The destination tree: loading one page of a level when it is opened (20 rows, the next page on scroll, D-F1-6), ticking folders (binders and teams are headings, D-F1-3), the 20-destination cap. |
 | `distribute/` | `files.ts`, `mapping.ts`, `rows.ts`, `submit.ts` | Picking files (type and size rules up front), mapping each file to folders (a folder ticked for all files stays ticked for files added later, D-F1-5), how a click, Ctrl-click and Shift-click select rows, and submitting with one Idempotency-Key kept across retries, so a double click can't send twice. |
-| `tracking/` | `api.ts`, `apply.ts`, `format.ts`, `links.ts`, `route.ts`, `useJob.ts`, `usePagedJobs.ts`, `useFileLink.ts`, `virtual.ts` | The Status view's data: the list of distributions (20 at a time, with scope and status filters, and the count for the Status tab badge) and one distribution. There is no audit client: the web app shows job history only (D-F1-13). `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
+| `tracking/` | `api.ts`, `apply.ts`, `filters.ts`, `format.ts`, `links.ts`, `route.ts`, `useFilterChoices.ts`, `useJob.ts`, `usePagedJobs.ts`, `useFileLink.ts`, `virtual.ts` | The Status view's data: the list of everything the person can see (20 at a time, by the cursor the server gives, narrowed by Status, Sender, Sent and Team, and the count for the Status tab badge) and one distribution. `filters.ts` holds the filters, how they are written in the address and how they become the query of `GET /jobs`; `route.ts` keeps them in the hash (an old scope address opens the full list); `useFilterChoices.ts` reads the people and teams the menus offer. There is no audit client: the web app shows job history only (D-F1-13). `apply.ts` ignores a push older than what is shown (pushes can arrive out of order). `virtual.ts` draws only the visible rows of up to 2,000. `useFileLink.ts` gets preview and download links and runs the 2-minute countdown. |
 | `live/` | `socket.ts`, `instance.ts` | The WebSocket client: reconnects, resubscribes, and re-reads the tasks after a gap so nothing is missed. |
 | `preview/` | `render.ts`, `office.ts` | Turns DOCX and XLSX into read-only HTML shown in a sandboxed iframe. The two libraries load only when needed. |
 | `testing/` | `icon-buttons.ts` | A test helper: every icon-only button must have a label and tooltip. |
@@ -217,8 +219,8 @@ A single-page app with two tabs: Distribute, and Status (one list of distributio
 
 - Shell and sign-in: `Shell`, `Logo`, `AuthCard` (sign-in only, with the tagline and the line about the study administrator), `PauseNote`, `SessionDialog` (the 12-hour re-sign-in over the page), `Toasts`, `ConfirmDialog`, `Popover`, `useLeaveWarning`.
 - Shared pieces: `Icons` (the one icon set), `StatusChip` (the one status look), `MoreRow` (the "load more" row of every paged list; the tree loads the next page on scroll, the list of distributions only on the button and says "Showing N"), `CopyLinkButton` (the copy icon after a distribution ID), `PanelFrame` (Esc closes it from anywhere on the page), `JobBar` (progress bar), `useFocusTrap` (dialogs), `useThrottled` (screen reader announcements).
-- Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `DestinationChips`, `SendBar`, `SendDialog` (the question before Send), `TypeBadge`, `FileActions`, `Preview`.
-- Status: `StatusPage` (filters, list and panel; the list narrows beside the open panel), `OpenById` (the icon button and its one-field card), `DistributionList`, `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries), `TaskTable`.
+- Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `DestinationChips`, `SendBar`, `SendDialog` (the question before Send: the title, one line, Cancel and Send), `TypeBadge`, `FileActions`, `Preview`.
+- Status: `StatusPage` (filter row, list and panel; the list narrows beside the open panel), `FilterBar` and `FilterMenu` (the one row of filter buttons and their short menus), `OpenById` (the icon button and its one-field card; takes a link, a full id or the 8 characters of the list, D-F1-32), `DistributionList` (the list card with its own scroll area, a sticky header and one Tab stop, D-F1-29), `DistributionPanel` (status, Retry failed, Cancel distribution, deliveries; takes the focus after a send), `TaskTable` (the deliveries, with the fade and shadow), `useWide` (true from 1024 px, where Status is a fixed screen).
 
 The `*.test.ts(x)` files beside them are the unit tests, run with jsdom; `Destinations.perf.test.tsx` and `DistributionList.perf.test.tsx` count renders (ticking one of 40 folders draws one row, a refresh with nothing changed draws none).
 
@@ -339,8 +341,8 @@ Each layer catches what the one below can't. Unit tests sit beside the code they
 **tests/e2e** (Playwright):
 
 - `m1.spec.ts`, `m2.spec.ts`, `track.spec.ts`, `download.spec.ts`: one end-to-end story per milestone: an account, an upload and send, live counts that survive a reload, preview and download.
-- `browse-paging.spec.ts`: a folder of 60 children loads 20 at a time as the list is scrolled. `status-dev.spec.ts`: sending with the question first, then the list, a filter, the panel and Esc (runs locally and on dev). `screens.spec.ts`: takes the screenshots of every screen and dialog at 1440, 1280 and 1024 px (only when `SHOT_DIR` is set). `openid.spec.ts` and `status-fixes.spec.ts`: the Open by ID card, the sign-in dialog (no errors behind it, full-viewport backdrop), the Status badge and the six-delivery panel. `helpers.ts` has `newAccount`, which makes a throw-away account through the Auth Service because the page has no sign-up.
-- `ui.spec.ts`, `tooltips.spec.ts`, `popover.spec.ts`, `openid.spec.ts`, `status-fixes.spec.ts`: the interface rules: disabled buttons say why, icon buttons have labels, the "+N" popover behaves, and fixes found during testing stay fixed.
+- `browse-paging.spec.ts`: a folder of 60 children loads 20 at a time as the list is scrolled. `status-dev.spec.ts`: sending with the question first, then the list, a filter, the panel and Esc (runs locally and on dev). `screens.spec.ts`: takes the screenshots of every screen and dialog at 1440, 1280 and 1024 px (only when `SHOT_DIR` is set). `status-scroll.spec.ts` (the fixed Status screen and the keyboard), `after-send.spec.ts` (success, failure and Back after Send), `openid.spec.ts` and `status-fixes.spec.ts`: the Open by ID card, the sign-in dialog (no errors behind it, full-viewport backdrop), the Status badge and the six-delivery panel. `helpers.ts` has `newAccount`, which makes a throw-away account through the Auth Service because the page has no sign-up.
+- `ui.spec.ts`, `tooltips.spec.ts`, `popover.spec.ts`, `openid.spec.ts`, `status-fixes.spec.ts`: the interface rules: a disabled Send says why in text beside Clear (no tooltip), icon buttons have labels, the "+N" popover behaves, and fixes found during testing stay fixed.
 - `download-dev.spec.ts`, `m5-browser-dev.spec.ts`: run only against dev: cross-team downloads, a slow connection, multipart resume after going offline, WebSocket reconnect, PNG and JPG preview.
 - `global-setup.ts`, `helpers.ts`: start-up and shared steps.
 

@@ -8,6 +8,13 @@
       "when": 1791983380381,
       "tag": "0000_platform_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792500832567,
+      "tag": "0001_team_member_names",
+      "breakpoints": true
     }
   ]
 }

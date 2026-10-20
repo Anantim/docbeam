@@ -42,12 +42,24 @@ const show = (props: Partial<Parameters<typeof Preview>[0]> & { contentType: str
     <Preview
       sizeBytes={1000}
       blob={new Blob(['x'])}
-      meta="not sent yet"
+      meta="1 KB"
       note="Shown from the copy in your browser. Nothing has been sent yet."
       onClose={() => {}}
       {...props}
     />,
   );
+
+describe('Preview footer (D-F1-23)', () => {
+  it('has no footer line when there is no note, a header of the name and the size only, and shows a note when one is given', () => {
+    const { unmount } = show({ name: 'a.pdf', contentType: 'application/pdf', note: undefined });
+    expect(document.querySelector('.preview-note')).toBeNull();
+    expect(document.querySelector('.pv-name')?.textContent).toBe('a.pdf');
+    expect(document.querySelector('.pv-meta')?.textContent).toBe('1 KB'); // no ", not sent yet"
+    unmount();
+    show({ name: 'a.pdf', contentType: 'application/pdf', note: 'Opened with a 2-minute link.' });
+    expect(document.querySelector('.preview-note')?.textContent).toBe('Opened with a 2-minute link.');
+  });
+});
 
 describe('Preview', () => {
   it('shows a DOCX in an iframe with an empty sandbox, through srcdoc', async () => {

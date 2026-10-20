@@ -123,6 +123,99 @@ In the dev round (section 3) the first version of `m5-browse-timing` asserted th
 | README, CODE-WALKTHROUGH, TESTER-GUIDE, DEMO-SCRIPT, RUNBOOK and the F1 walkthrough updated | YES | this pull request |
 | The demo video shows the new screens | **NO**: `docs/demo/docbeam-demo.webm` was recorded before this change and still shows History and the old sign-in. `scripts/demo/record.ts` is updated; a new video needs dev up | STATUS |
 
+### 7.5 Corrections found later
+
+- The sentence in D-F1-18 that the jobs list pages by a keyset cursor was not true of `GET /jobs` at the time: it paged by page number and offset (with a de-duplication in the page). It is true since D-F1-21.
+- The "10 skipped" Playwright tests run only on dev.
+
 ### 7.4 Slips against the working rules
 
 Listed in D-F1-14 and here: one `cat >>` heredoc and an inline Python edit of an e2e spec, and one `sed -i` on an import line in `status-fixes.spec.ts`. All three are in git.
+
+## 8. The final round (2026-10-20): Part 1 (PR #33) and the Distribute and Status changes
+
+Decisions D-F1-18 to D-F1-21. Checked locally; dev is down (Part 2 of the round runs on it afterwards and is recorded in section 9 when it is done).
+
+### 8.1 Part 1 (PR #33, merged)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| 1. The backdrop covers the strip where the scrollbar was | YES | `styles.css` (`html:has(.overlay)`); `status-layout.spec.ts` reads the edge pixel |
+| 2. Files and Folders right-aligned with right-aligned headers; Status and Sent closer | YES | `status-layout.spec.ts` |
+| 3. Every toast in one corner, bottom-right | YES, with one rule: on Distribute the corner is lifted above the send bar, so a toast never covers Send | `status-layout.spec.ts`, D-F1-18 |
+| 4. "Showing N" beside Show more; cursor paging, no page numbers, no infinite scroll, the reason recorded | YES for the list. **The cursor part was not true of the server until section 8.2** (see 7.5) | `StatusPage.test.tsx`, `status-layout.spec.ts` |
+| 5. Copy icon after the ID instead of the "Copy link" button | YES | `StatusPage.test.tsx`, `status-layout.spec.ts` |
+| 6. Refresh-token grace period of 30 s; both cases tested; ADR-015 updated | YES, with one difference from the wording: a new pair in the same family is returned, not the same tokens, because only the hash is stored; the first token used revokes its sibling (found by the code review) | D-F1-19; `sessions.test.ts`, `auth.test.ts` |
+| 7. Screenshots at 1440, 1280 and 1024 px | YES | `after/` |
+
+### 8.2 Distribute and Status (this pull request)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| a. Bar: Clear and Send; no summary line; the reason as muted text left of Clear, `aria-describedby`, no tooltip; no reason text on the empty page; the full summary stays in the question | YES | `SendBar.tsx`; `SendBar.test.tsx`, `Distribute.test.tsx`, `m2.spec.ts`, `tooltips.spec.ts` |
+| b. The "Sends N files / Use all files" strip is gone; "for N selected files" beside the title while files are ticked and nothing otherwise (changed by D-F1-24); the tree never disabled; held folders stay | YES | `Destinations.tsx`; `Distribute.test.tsx`, `m2.spec.ts` |
+| c. Tests for the reason per state, none on the empty page, folders before files | YES | the files above |
+| d. The switch and the status dropdown removed; always `scope=all` | YES | `StatusPage.test.tsx`, `track.spec.ts` |
+| e. One filter row: Status, Sender, Sent, Team (only with more than one team); small buttons with short menus; the value on the button in the accent style; "Clear filters" only when set | YES | `FilterBar.tsx`, `FilterMenu.tsx`; `StatusPage.test.tsx`, `track.spec.ts` |
+| f. `GET /jobs`: `sender`, `sentSince`, `team` with `status` and the cursor; access unchanged; 400 for a bad value or a team that is not mine; index; integration tests | YES. The cursor itself is new in this round. The index is added by reading the query, **not timed on a big table** (dev run in Part 2) | `tests/integration/tracking.test.ts` (each filter, combinations, access, bad values, Show more across pages with a job arriving), `idx_jobs_created` |
+| g. Filters in the URL hash; old scope URLs open the unfiltered list | YES | `route.test.ts`, `filters.test.ts`, `track.spec.ts` |
+| h. Sender on every row; small muted text under the ID in the compact list | YES | `StatusPage.test.tsx`, `track.spec.ts` |
+| i. The Status tab badge counts pending and in-progress in `scope=all`, ignoring filters | YES. It counts the app's unfiltered first page (20 rows, newest first) | `status-layout.spec.ts`, `usePagedJobs.test.ts` |
+| j. Unit and Playwright specs that used the switch updated; the design docs' API section for `GET /jobs` | YES | `docs/design/05-technical-design.md` (`GET /jobs`, `GET /teams/members`) |
+| k. Screenshots at 1440, 1280 and 1024 px: Distribute (empty, folders before files, files ticked, files with no folders, ready to send) and Status (no filters, two filters set, panel open), reviewed with ui-ux-pro-max | YES. The review changed the filter chevrons from right to down | `after/` 03 to 07, 10, 12 to 15 |
+
+Tests: lint and typecheck clean; unit 81 files, 660 tests; integration `auth`, `platform`, `tracking`, `services` 78 tests.
+
+### 8.3 Status polish (D-F1-22)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| 1. Panel: "Sent by <full name> · <date and time>", " (you)" for the sender; muted label; compact list keeps the short line; panel test updated | YES | `StatusPage.test.tsx`; `after/10-`, `23-` |
+| 2. Loading: real header, bars shaped like the ID, sender line, chip and date (compact the same, narrower); gentle pulse, none with reduced motion; `aria-busy`; the panel's deliveries table and the other skeletons | YES, for the list, the panel, the deliveries and (through the shared `.skeleton` class) the tree. The reduced-motion rule is checked as a rule in the CSS, not by a browser with the setting on | `StatusPage.test.tsx`, `TaskTable.test.tsx`; `after/20-`, `21-` |
+| 3. The backdrop: no lighter strip at the right edge at any width | YES, and it was already right: measured at 1440, 1280 and 1024 px down the whole height; at most 2 rows differ (the hairline under the top bar) | `status-layout.spec.ts` |
+| 4. Screenshots at 1440, 1280, 1024 px: the panel (own and someone else's), the loading state, the loading state behind the sign-in dialog | YES | `after/10-`, `20-` to `23-` |
+
+### 8.5 Panel, preview header, list columns (D-F1-25 to D-F1-28)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| Panel: the text "Only the deliveries to your teams are shown." kept | YES | `StatusPage.test.tsx`, `status-layout.spec.ts` |
+| Panel sticky, at most the viewport minus the top bar; deliveries scroll inside with a soft fade at the bottom edge; keyboard focus into hidden rows scrolls them into view | YES. Checked by layout numbers in a browser and by unit tests, and by eye on the screenshots at 1280 px (the fade is at the panel's bottom, which is below the fold of a 800 px screenshot until the page scrolls) | `TaskTable.test.tsx`, `status-layout.spec.ts`; `after/23-`, `24-` |
+| Preview header on Distribute: name and size only | YES | `Preview.test.tsx`, `m2.spec.ts`; `after/08-`, `08b-`, `08c-` |
+| Tests, and screenshots of the panel (including a 12-delivery distribution viewed by a team member) and the preview at 1440, 1280, 1024 px | YES | `after/` |
+| Status list columns sized to content; Files and Folders right after Sender; spare width at the end; at 1440, 1280, 1024 px; list screenshots updated | YES | `status-layout.spec.ts`; `after/12-`, `15-` |
+| Found on the way: a team member's list did not show a distribution sent after they signed in (no switch to click any more) | fixed: opening Status reads the list (D-F1-25) | `StatusPage.test.tsx`, `track.spec.ts` |
+
+### 8.6 Status scrolling, deliveries hint, after Send, Open by ID (D-F1-29 to D-F1-32)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| Status from 1024 px: the page does not scroll, panel open or closed; title and filters fixed; list scrolls inside with a scrollbar and a sticky header; "Showing N · Show more" at the end of the list area; the panel fills the same height and scrolls on its own, deliveries keep fade and shadow | YES. The scrollbar is checked as CSS and by eye, not measured: the test browser hides scrollbars | `status-scroll.spec.ts`; `after/12b-`, `12c-` |
+| Opening or closing keeps the list position; the selected row is brought into view; no layout jump | YES (rows are 64 px in both states; position within one row) | `status-scroll.spec.ts` |
+| Under 1024 px: normal page scroll, no inner scroll areas | YES for the list and the page; the deliveries table is a fixed-height scroll box there (up to 2,000 rows) | `status-scroll.spec.ts` |
+| Keyboard: Up, Down, Home, End; the focused row in view; Tab goes filters, list, panel | YES (one Tab stop for the list) | `status-scroll.spec.ts` |
+| Deliveries: scroll line removed; fade kept; a thin shadow only while more rows are below; "Deliveries, N" | YES | `TaskTable.test.tsx`; `after/10-`, `23-` |
+| After Send: cleared, Status on the new distribution with filters cleared, "Sent", focus on the panel heading; failure stays with everything kept; Back returns to the empty Distribute | YES | `after-send.spec.ts`, `Distribute.test.tsx`, `StatusPage.test.tsx`; `after/10a-` |
+| Open by ID: the 8 characters (one match opens, several listed, none, bad input); placeholder "Distribution ID or link"; the server range lookup with at most 5 matches and 400 for a bad prefix; design doc updated | YES | `tracking.test.ts`, `StatusPage.test.tsx`, `openid.spec.ts`; `after/16b-` |
+
+### 8.4 Distribute polish (D-F1-23)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| 1. The preview footer removed; the preview of a multi-page PDF, a DOCX and an image checked before sending; test PDFs with visible text | YES for the footer, the DOCX and the image; the PDF is checked by its content (3 pages, text per page) and not by eye: the headless browser has no PDF viewer, so the PDF frame in a screenshot is empty | `m2.spec.ts`, `helpers.ts` (`makePdf`), `Preview.test.tsx`; `after/08b-`, `08c-` |
+| 2. The Send question: title, one line, Cancel and Send; no deliveries line; focus on Cancel | YES | `Distribute.test.tsx`, `m2.spec.ts`; `after/09-` |
+| 3. Tick boxes: the row box and the header box labels and tooltips; selection unchanged | YES | `Distribute.test.tsx` |
+| 4. Tests and screenshots (preview, confirmation) at 1440, 1280, 1024 px | YES | `after/08-`, `08b-`, `08c-`, `09-` |
+
+### 8.7 Consistency, badge, Distribute fixes, file wording (D-F1-33 to D-F1-38)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| One scrollbar style defined once; no Sender column (sender under the ID); chips with full path and a "+N" popover; list fade and shadow; toasts bottom-centre and click-through; equal spacing | YES (scrollbar checked as CSS and by eye: the test browser hides scrollbars) | `styles.css`, `DestinationChips.test.tsx`, `TaskTable.test.tsx`, `status-layout.spec.ts`; `after/10-`, `12b-`, `12c-` |
+| Badge equals the Pending + In progress filters (cause: only the first loaded page was counted) | YES | `tracking.test.ts` (`/jobs/running`), `useRunningCount.test.ts` |
+| "N files not added" box | YES | `Distribute.test.tsx`, `m2.spec.ts`; `after/05d-` |
+| A click toggles a file; Shift range; Space; header box | YES | `rows.test.ts`, `m2.spec.ts` |
+| Folder counts and popover in the tree | YES | `Destinations.test.tsx`; `after/07a-`, `07b-` |
+| Scanning, Failed, Refused wording; tooltips and aria-labels; Send reason; Retry only for Failed | YES | `mapping.test.ts`, `Distribute.test.tsx`; `after/05a-` to `05c-` |
+
+Full local run for this pull request: lint and typecheck clean; unit 82 files, 678 tests passed; integration 18 files, 198 tests passed; Playwright 76 passed, 10 skipped (dev only). 108 screenshots in `after/`.

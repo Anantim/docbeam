@@ -174,7 +174,7 @@ try {
   const extra = readdirSync(FILES).filter((f) => f.endsWith('.png')).map((f) => join(FILES, f));
   await page.getByLabel('Choose files').setInputFiles([...pdfs, ...extra]);
   await page.getByText('Ready', { exact: true }).first().waitFor({ timeout: 120_000 });
-  await say('Each file shows its state: Uploading, Checking, Ready.', 2500);
+  await say('Each file shows its state: Uploading, Scanning, Ready.', 2500);
   await skim(12, () => page.getByText('Ready', { exact: true }).nth(pdfs.length + extra.length - 1).waitFor({ timeout: 180_000 }));
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.pdf'));
   await skim(12, () => page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 }));
@@ -183,15 +183,15 @@ try {
 
   // 3. Folders: tick, then the summary.
   await say('Select the files, or leave none selected for all of them, then tick folders. I only see my own teams.', 2500);
-  await click(page.getByLabel('Select all files'));
+  await click(page.getByLabel('Select all to choose their folders'));
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB);
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_PROTOCOL);
   await tickFolder('Oncology', 'ONC-118 Regulatory', ONC_ETHICS);
-  await say('One summary line: the files, the folders and the deliveries.', 3000);
+  await say('The words beside Destinations say who a tick is for. The full summary comes in the question before Send.', 3500);
 
   // A tick can go to some files only: select one row, tick another folder, and the others show a dash.
   const lab = page.locator('.frow[data-id]', { hasText: 'Lab certification' });
-  await click(page.getByLabel('Select all files'));
+  await click(page.getByLabel('Select all to choose their folders'));
   await click(lab.locator('.fname'));
   await tickFolder('Oncology', 'ONC-118 Regulatory', 'Investigator CVs');
   await say('With some files selected, a tick goes to those files only. Here: one file to one more folder.', 3500);
@@ -199,7 +199,7 @@ try {
   await say('The folders of a file are one click away.', 2500);
   await page.keyboard.press('Escape');
   await tickFolder('Oncology', 'ONC-118 Regulatory', 'Investigator CVs'); // take it off again
-  await click(page.getByLabel('Select all files'));
+  await click(page.getByLabel('Select all to choose their folders'));
 
   // 4. Send, with a question first.
   await click(page.getByRole('button', { name: 'Send', exact: true }));
@@ -258,8 +258,11 @@ try {
   // 8. The list, the filters, a preview and a download.
   await click(page.getByRole('button', { name: 'Status' }));
   await page.locator('.dist-table tbody tr').first().waitFor();
-  await say('One list of distributions. Filter by whose they are and by status; scroll for more.', 3500);
-  await click(page.getByRole('button', { name: 'All I can see' }));
+  await say('One list of everything you can see. Filter by status, sender, date and team; Show more loads the next 20.', 4000);
+  await click(page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Status/ }));
+  await click(page.getByRole('menuitemradio', { name: 'Completed', exact: true }));
+  await say('A filter shows its value on its button and lives in the address.', 3000);
+  await click(page.getByRole('button', { name: 'Clear filters' }));
   await click(page.locator('.dist-table tbody tr').first());
   await page.locator('.status-chip.big').waitFor();
   await click(page.getByRole('button', { name: /^Preview / }).first());
