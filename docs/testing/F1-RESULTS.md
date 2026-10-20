@@ -218,4 +218,14 @@ Tests: lint and typecheck clean; unit 81 files, 660 tests; integration `auth`, `
 | Folder counts and popover in the tree | YES | `Destinations.test.tsx`; `after/07a-`, `07b-` |
 | Scanning, Failed, Refused wording; tooltips and aria-labels; Send reason; Retry only for Failed | YES | `mapping.test.ts`, `Distribute.test.tsx`; `after/05a-` to `05c-` |
 
-Full local run for this pull request: lint and typecheck clean; unit 82 files, 678 tests passed; integration 18 files, 198 tests passed; Playwright 76 passed, 10 skipped (dev only). 108 screenshots in `after/`.
+### 8.8 Distribute layout height and the badge of 63 (D-F1-39, a small pull request after #34)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| 1. From 1024 px the page does not scroll; the cards fill the height, level; the file list (header row fixed) and the tree (search box fixed) scroll inside their cards with the shared scrollbar and the bottom fade and shadow; the Send bar stays in view | YES | `distribute-layout.spec.ts` (1280 and 1024); `after/05e-`, `05f-` |
+| 2. Opening or closing folders never changes the page height; the opened level is scrolled into view; the "not added" box is at the top of the file scroll area | YES | `distribute-layout.spec.ts` (card height before and after, last opened folder in view, box is the first child of the scroll area) |
+| 3. Under 1024 px stacked: page scroll, no inner scroll areas | YES | `distribute-layout.spec.ts` (900 px: `overflow-y: visible`, no fade) |
+| 4. Tests and screenshots at 1440, 1280, 1024: few files with a deep tree; many files with a short tree | YES | `after/05e-*`, `05f-*` (6 files) |
+| Badge of 63: list what it counts; stuck or wrong? | The count was right. 63 distributions with an open delivery, all rows left by integration tests; no queue message for any of them | D-F1-39; `deleteJobs` in the five test files; the count is 0 after a re-run |
+
+Full local run for PR #34 (sections 8.2 to 8.7): lint and typecheck clean; unit 82 files, 678 tests passed; integration 18 files, 198 tests passed; Playwright 76 passed, 10 skipped (dev only). 108 screenshots in `after/`.

@@ -16,6 +16,19 @@ const aws = {
   endpoint: 'http://localhost:4566',
   credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
 };
+/**
+ * Removes jobs a test inserted by hand, with their tasks, files and audit rows. The tests share the stack's database,
+ * and a job left with a pending or in-progress delivery that no worker will ever touch shows in the Status badge for
+ * good. Needs a connection that may delete from `audit_events` (the owner or `postgres`).
+ */
+export async function deleteJobs(db: { query: (text: string, values?: unknown[]) => Promise<unknown> }, jobIds: string[]): Promise<void> {
+  if (jobIds.length === 0) return;
+  await db.query('DELETE FROM audit_events WHERE job_id = ANY($1::uuid[])', [jobIds]);
+  await db.query('DELETE FROM tasks WHERE job_id = ANY($1::uuid[])', [jobIds]);
+  await db.query('DELETE FROM files WHERE job_id = ANY($1::uuid[])', [jobIds]);
+  await db.query('DELETE FROM jobs WHERE id = ANY($1::uuid[])', [jobIds]);
+}
+
 export const sqs = new SQSClient(aws);
 export const s3 = new S3Client({ ...aws, forcePathStyle: true });
 

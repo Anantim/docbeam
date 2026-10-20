@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
 import { AlertIcon, CloseIcon, UploadIcon } from './Icons.js';
+import { useMoreBelow } from './useMoreBelow.js';
 
 const ACCEPT = ALLOWED_FILE_TYPES.flatMap((t) => t.extensions).join(',');
 
@@ -23,6 +24,7 @@ interface Props {
 export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
+  const { ref: scroll, more } = useMoreBelow<HTMLDivElement>();
 
   return (
     <section
@@ -49,6 +51,8 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props
           </button>
         )}
       </div>
+      <div className={`files-wrap fadewrap ${more ? 'more-below' : ''}`}>
+      <div className="files-scroll" ref={scroll}>
       {rejected.length > 0 && (
         // Calm: a light box with an error-coloured edge and icon, the file name in normal text and the reason muted. One
         // button closes the whole box; it stays until it is closed or the page is cleared (D-F1-35).
@@ -90,6 +94,8 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props
       ) : (
         children
       )}
+      </div>
+      </div>
       <input
         ref={input}
         className="sr"

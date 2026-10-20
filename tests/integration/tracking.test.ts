@@ -4,7 +4,7 @@ import { GetQueueUrlCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { finishTask } from '../../packages/shared/src/task-outcome.js';
-import { AUTH_URL, call, DOCBEAM_URL, env, eventually, PREFIX, serviceToken, sqs } from './helpers.js';
+import { AUTH_URL, call, deleteJobs, DOCBEAM_URL, env, eventually, PREFIX, serviceToken, sqs } from './helpers.js';
 
 // Step 3.1 on the Compose stack: job status, tasks, audit, cancel and retry, with team-scoped visibility.
 // Jobs are inserted straight into DocBeam DB, so each test controls the exact task states.
@@ -33,7 +33,9 @@ beforeAll(async () => {
   db = new pg.Pool({ connectionString: conn, max: 4 });
   for (const email of [priya, raj, sam]) await login(email);
 });
+const madeJobs: string[] = [];
 afterAll(async () => {
+  await deleteJobs(db, madeJobs);
   await db.end();
 });
 
@@ -50,6 +52,7 @@ async function insertJob(
   options: { fileAgeHours?: number; firstCompletedHoursAgo?: number; completed?: boolean; sender?: { email: string; name: string }; sentHoursAgo?: number; id?: string } = {},
 ): Promise<{ jobId: string; taskIds: string[]; fileIds: string[] }> {
   const jobId = options.id ?? randomUUID();
+  madeJobs.push(jobId);
   const done = options.firstCompletedHoursAgo !== undefined;
   const sender = options.sender ?? { email: priya, name: 'Priya Shah' };
   await db.query(

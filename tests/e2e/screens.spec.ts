@@ -272,4 +272,30 @@ test.describe('screens', () => {
     await page.waitForTimeout(300);
     await shot('24-panel-team-member-scrolled-to-the-end', true);
   });
+
+  // Distribute is a fixed screen from 1024 px up (D-F1-39): the cards fill the height; the lists scroll inside them.
+  test('distribute layout: few files with a deep tree, many files with a short tree', async ({ page }) => {
+    mkdirSync(dir as string, { recursive: true });
+    const shot = async (name: string): Promise<void> => {
+      for (const s of sizes) {
+        await page.setViewportSize({ width: s.w, height: s.h - 200 });
+        await page.waitForTimeout(300);
+        await page.screenshot({ path: `${dir}/${name}-${s.w}.png` });
+      }
+    };
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await signIn(page, PRIYA);
+    await addPdfs(page, 2, 'deep');
+    const expand = page.getByRole('button', { name: /^Expand / });
+    for (let i = 0; i < 20 && (await expand.count()) > 0; i += 1) {
+      await expand.first().click();
+      await page.waitForTimeout(150);
+    }
+    await page.evaluate("document.querySelector('.tree').scrollTop = 0");
+    await shot('05e-distribute-deep-tree-few-files');
+    await page.reload(); // the tree is short again
+    await page.getByRole('heading', { name: 'New distribution' }).waitFor();
+    await addPdfs(page, 14, 'many');
+    await shot('05f-distribute-many-files-tree');
+  });
 });

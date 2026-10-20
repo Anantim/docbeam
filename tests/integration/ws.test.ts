@@ -4,7 +4,7 @@ import { GetQueueUrlCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { AUTH_URL, call, DOCBEAM_URL, env, eventually, PREFIX, serviceToken, sqs } from './helpers.js';
+import { AUTH_URL, call, deleteJobs, DOCBEAM_URL, env, eventually, PREFIX, serviceToken, sqs } from './helpers.js';
 
 // Step 3.2 on the Compose stack: the WS Handlers behind ws-local, and the pushes that reach them.
 //   Priya Shah: Cardio + Oncology. Raj Mehta: Cardio. Sam Ito: Neuro only.
@@ -30,7 +30,9 @@ beforeAll(async () => {
     ids[email] = (await call(AUTH_URL, `/internal/users?email=${email}`, { token: lookup })).body.id;
   }
 });
+const madeJobs: string[] = [];
 afterAll(async () => {
+  await deleteJobs(db, madeJobs);
   await db.end();
 });
 
@@ -72,6 +74,7 @@ async function connect(token: string): Promise<Client> {
 
 async function insertJob(specs: Array<{ team: typeof cardio }>): Promise<{ jobId: string; taskIds: string[] }> {
   const jobId = randomUUID();
+  madeJobs.push(jobId);
   await db.query(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at) VALUES ($1, $2, 'Priya Shah', $3, $4, now())`,
     [jobId, ids[priya], specs.length, randomUUID()],
