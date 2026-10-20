@@ -1,6 +1,6 @@
 # DocBeam Code Walkthrough
 
-Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 20 October 2026 (`main` after the F1 round, PR #29, plus the F1 documents pull request).
+Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 20 October 2026 (`main` after the F1 follow-up, PR #31, and the cleanup pull request that followed: every tracked file was listed and checked against this document).
 
 ## 0. The map
 
@@ -367,7 +367,7 @@ The code says what happens; `docs/` says why, and proves it was checked. Code co
 | `testing/M0-TESTING.md` to `M5-TESTING.md` | What to check for each milestone, and how. |
 | `testing/M0-RESULTS.md` to `M5-RESULTS.md` | What was found, with the YES/NO table. |
 | `testing/F1-RESULTS.md` | The F1 round (the reviewer's feedback): what was done per part, with YES/NO per point. |
-| `testing/m4-evidence/`, `m5-evidence/`, `f1-evidence/` | Screenshots (F1: before and after, at 1440, 1280 and 1024 px, the demo frames and the dev numbers), the Playwright report and each check's raw output. |
+| `testing/m4-evidence/`, `m5-evidence/`, `f1-evidence/` | Screenshots (F1: `before/` at 1440 and 1280 px, `after/` at 1440, 1280 and 1024 px, and `dev/` with the raw dev numbers), the Playwright report and each check's raw output. |
 | `walkthrough/M0.md` to `M5.md`, `F1.md` | Plain-language notes per milestone and for the F1 round, for interviews. |
 
 Ids starting `D-G` (such as D-G5, the `/api` prefix) are decisions from the gap review done before the build; they open `DECISIONS.md`.

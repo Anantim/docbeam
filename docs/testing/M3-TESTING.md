@@ -47,10 +47,10 @@ Tests that cover the M3 rules:
 | Connect, subscribe, wait for the answer, then fetch; reconnect with a back-off; resubscribe and refetch **once**; a new token reconnects | `web/src/live/socket.test.ts`, `web/src/components/StatusPage.test.tsx` "opening a distribution…" |
 | A push older than the row or the counts is ignored | `web/src/tracking/apply.test.ts`, `TaskTable.test.tsx` "ignores a push that is older than the row", `StatusPage.test.tsx` "ignores a push older than what is shown" |
 | Virtualized table: 2,000 rows, only the window drawn, pages loaded on scroll, push patches in place, reload keeps rows | `web/src/tracking/virtual.test.ts`, `web/src/components/TaskTable.test.tsx` |
-| List refreshes every 30 seconds and waits while the tab is hidden | `web/src/tracking/usePolledJobs.test.ts` |
+| List refreshes every 30 seconds and waits while the tab is hidden | `web/src/tracking/usePagedJobs.test.ts` (was `usePolledJobs.test.ts`) |
 | Retry/Cancel buttons by role and state; confirmation before Cancel; retry banner; team viewer text; cancelled note; not-found card | `StatusPage.test.tsx` "Cancel and Retry" |
 | Open by ID takes a full id or a link, not the short id; Mine / My teams | `StatusPage.test.tsx` "the list and Open by ID", `web/src/tracking/route.test.ts` |
-| Audit trail filters (Deliveries is two actions), distribution filter, load more | `web/src/components/AuditTrailPage.test.tsx`, `format.test.ts` |
+| Audit trail filters (Deliveries is two actions), distribution filter, load more | (the audit page and its test were removed in D-F1-13; `format.test.ts` stays) |
 | "+N" popover lists only the hidden folders, closes on Esc, outside click, Tab away | `web/src/components/DestinationChips.test.tsx` |
 | Teardown script refuses prod and any bucket not `docbeam-dev-…-<account id>`, never the state bucket, deletes in batches of 1,000 | `tests/scripts/empty-dev-buckets.test.ts` |
 | The dev connection budget stays at 79 | `packages/shared/src/db.test.ts` |

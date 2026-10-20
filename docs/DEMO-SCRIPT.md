@@ -2,7 +2,7 @@
 
 What the video shows, in order: sign in, add files, the virus test file refused, tick folders (to all files, and to some only), the question before Send, a send, the Status panel with its deliveries, Raj seeing only the Cardio deliveries and Sam getting "not found", a 2,000-delivery send, the platform stopped and the backlog draining, the list with its filters, a preview. Target length 3 to 5 minutes.
 
-**The video is recorded by a script.** `scripts/demo/record.ts` plays this plan in Playwright at 1280x720 with a visible cursor and a caption for each step, then writes `docs/demo/docbeam-demo.webm` (VP9, under 25 MB) and one frame per step to `docs/testing/f1-evidence/demo-frames/`, so every step can be looked at. It is a webm, not an mp4: the only video encoder on the laptop is the one Playwright brings (VP9), and nothing was installed. The earlier OBS recording (`docbeam-demo.mp4`, 2026-10-18) showed the old screens and was replaced. An older automated recorder is in git history (commit `9b2141e`).
+**The video is recorded by a script.** `scripts/demo/record.ts` plays this plan in Playwright at 1280x720 with a visible cursor and a caption for each step, then writes `docs/demo/docbeam-demo.webm` (VP9, under 25 MB) and one frame per step to a `frames` folder next to the video (git-ignored), so every step can be looked at. It is a webm, not an mp4: the only video encoder on the laptop is the one Playwright brings (VP9), and nothing was installed. The earlier OBS recording (`docbeam-demo.mp4`, 2026-10-18) showed the old screens and was replaced. An older automated recorder is in git history (commit `9b2141e`).
 
 ```bash
 scripts/demo-files.sh                                   # the demo files, in ~/docbeam-demo-files

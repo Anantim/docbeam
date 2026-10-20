@@ -6,7 +6,7 @@
 // DEMO_PASSWORD    the seed password (default: SEED_USER_PASSWORD from .env, for the local stack)
 // DEMO_FILES       the folder made by scripts/demo-files.sh (default: ~/docbeam-demo-files)
 // DEMO_DEV=1       also run the big send (scripts/demo-send.sh) and the outage (scripts/demo-outage.sh): dev only
-// DEMO_OUT         where the video goes (default: docs/demo). The checked frames always go to docs/testing/f1-evidence/demo-frames
+// DEMO_OUT         where the video goes (default: docs/demo). The checked frames go to a frames folder inside it (git-ignored)
 //                  and replace the ones there.
 //
 // It writes docbeam-demo.webm (VP9, under 25 MB, 3 to 5 minutes on dev) and one frame per step as a PNG, so every step can
@@ -23,7 +23,7 @@ const ROOT = new URL('../..', import.meta.url).pathname;
 const URL_BASE = process.env.DEMO_URL ?? 'http://localhost:5173';
 const FILES = process.env.DEMO_FILES ?? join(homedir(), 'docbeam-demo-files');
 const OUT = process.env.DEMO_OUT ?? join(ROOT, 'docs/demo');
-const FRAMES = join(ROOT, 'docs/testing/f1-evidence/demo-frames');
+const FRAMES = join(OUT, 'frames'); // one picture per step, to look at; not kept in git (docs/demo/frames/ is ignored)
 const DEV = process.env.DEMO_DEV === '1';
 /** How long each caption stays, as a multiple of the base time: the video is for reading, not for speed. */
 const PACE = Number(process.env.DEMO_PACE ?? '2');
