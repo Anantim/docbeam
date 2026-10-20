@@ -78,6 +78,7 @@ function renderPage(over: { jobId?: string | null; uploads?: boolean; onOpen?: (
   const f = fakeLive();
   const utils = render(
     <StatusPage
+      meId="u"
       jobId={'jobId' in over ? (over.jobId ?? null) : JOB}
       uploads={over.uploads ?? false}
       onOpen={over.onOpen ?? vi.fn()}
@@ -166,8 +167,10 @@ describe('opening a distribution: subscribe first, fetch after', () => {
     const page = renderPage();
     await opened(page);
     const panel = screen.getByRole('complementary', { name: 'Distribution 3f1c2a9e' });
-    const sections = within(panel).getAllByRole('region').map((r) => r.getAttribute('aria-label'));
-    expect(sections).toEqual(['Deliveries', 'History']);
+    expect(within(panel).getByRole('region', { name: 'Deliveries' })).toBeTruthy();
+    // The history is closed until it is opened, and is not read before.
+    expect(api.audit).not.toHaveBeenCalled();
+    await userEvent.setup().click(within(panel).getByText('History'));
     await within(panel).findByText('Distribution sent');
     expect(api.audit).toHaveBeenCalledWith(expect.objectContaining({ jobId: JOB }));
   });
@@ -190,7 +193,7 @@ describe('live counts', () => {
   it('moves the filter numbers, the bar and the chip when a push arrives', async () => {
     const page = renderPage();
     await opened(page);
-    expect(filterCounts()).toEqual({ All: 10, Delivered: 4, Failed: 0, 'In progress': 1, Waiting: 5 });
+    expect(filterCounts()).toEqual({ All: 10, Completed: 4, Failed: 0, 'In progress': 1, Pending: 5 });
 
     await page.push({
       type: 'task_update',
@@ -200,7 +203,7 @@ describe('live counts', () => {
       updatedAt: '2026-10-16T10:05:10.000Z',
       counts: counts({ completed: 10 }),
     });
-    expect(filterCounts()).toEqual({ All: 10, Delivered: 10, Failed: 0, 'In progress': 0, Waiting: 0 });
+    expect(filterCounts()).toEqual({ All: 10, Completed: 10, Failed: 0, 'In progress': 0, Pending: 0 });
     expect(within(screen.getByRole('complementary')).getByRole('status').textContent).toBe('Completed');
   });
 
@@ -208,7 +211,7 @@ describe('live counts', () => {
     api.job.mockResolvedValue(detail({ counts: counts({ completed: 3, cancelled: 5 }), taskCount: 8, status: 'cancelled', cancelledAt: '2026-10-16T10:04:00Z', cancel: { open: false, waiting: 0 } }));
     const page = renderPage();
     await opened(page);
-    expect(filterCounts()).toMatchObject({ Delivered: 3, Failed: 0, Cancelled: 5 });
+    expect(filterCounts()).toMatchObject({ Completed: 3, Failed: 0, Cancelled: 5 });
     const segments = [...document.querySelectorAll('.jbar > div')] as HTMLElement[];
     expect(segments.find((s) => s.getAttribute('data-tone') === 'bad')?.style.width).toBe('0%'); // no red
     expect(segments.find((s) => s.getAttribute('data-tone') === 'idle')?.style.width).toBe('62.5%');
@@ -224,7 +227,7 @@ describe('live counts', () => {
     const page = renderPage();
     await opened(page);
     await page.push({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T10:04:00.000Z', counts: counts({ completed: 10 }) });
-    expect(filterCounts()).toMatchObject({ Delivered: 4, Waiting: 5 });
+    expect(filterCounts()).toMatchObject({ Completed: 4, Pending: 5 });
   });
 
   it('reads the detail again after pushes go quiet, so the buttons follow the state', async () => {
@@ -237,7 +240,7 @@ describe('live counts', () => {
       await act(async () => {
         vi.advanceTimersByTime(1_600);
       });
-      await screen.findByRole('button', { name: 'Retry failed deliveries' });
+      await screen.findByRole('button', { name: 'Retry failed' });
     } finally {
       vi.useRealTimers();
     }
@@ -281,7 +284,7 @@ describe('Cancel and Retry', () => {
     const user = userEvent.setup();
     const page = renderPage();
     await act(async () => page.release());
-    await user.click(await screen.findByRole('button', { name: 'Retry failed deliveries' }));
+    await user.click(await screen.findByRole('button', { name: 'Retry failed' }));
     // The distribution has finished, so there is no Cancel at all.
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith(JOB));
@@ -313,7 +316,7 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    const retry = (await screen.findByRole('button', { name: 'Retry failed deliveries' })) as HTMLButtonElement;
+    const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
     expect(retry.title).toBe('A cancelled distribution cannot be retried');
     const chip = within(screen.getByRole('complementary')).getByRole('status');
@@ -337,7 +340,7 @@ describe('Cancel and Retry', () => {
     await opened(page);
     expect(within(screen.getByRole('complementary')).getByRole('status').textContent).toBe('Completed');
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry failed' })).toBeNull();
   });
 
   it('says why Retry is off when the window has closed', async () => {
@@ -346,7 +349,7 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    const retry = (await screen.findByRole('button', { name: 'Retry failed deliveries' })) as HTMLButtonElement;
+    const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
     expect(retry.title).toContain('The retry window closed');
   });
@@ -366,7 +369,7 @@ describe('Cancel and Retry', () => {
 
 const summary = (jobId: string, name = 'Priya Shah', over: Partial<JobSummary> = {}): JobSummary => ({
   jobId,
-  submittedBy: { userId: 'u', name },
+  submittedBy: { userId: name === 'Priya Shah' ? 'u' : 'r', name },
   createdAt: '2026-10-16T10:00:00Z',
   taskCount: 3,
   fileCount: 3,
@@ -420,7 +423,7 @@ describe('the list and Open by ID', () => {
   it('lists my distributions as a table: id, sent, sender, files, destinations, status', async () => {
     renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 7, destinationCount: 4 })]) });
     const table = screen.getByRole('table', { name: 'Distributions' });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Sent', 'Sender', 'Files', 'Destinations', 'Status']);
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Sent', 'Sender', 'Files', 'Folders', 'Status']);
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
     expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbb', '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5)), 'You', '7', '4', 'Completed']);
   });
@@ -435,7 +438,7 @@ describe('the list and Open by ID', () => {
 
     await user.click(screen.getByRole('button', { name: 'My teams' }));
     await screen.findByText('aaaaaaaa');
-    expect(api.jobs).toHaveBeenCalledWith('team', 1, 20);
+    expect(api.jobs).toHaveBeenCalledWith('team', 1, 20, undefined);
     expect(screen.getByText('Raj Mehta')).toBeTruthy();
     await user.click(screen.getByText('Raj Mehta')); // the whole row is the target
     expect(onOpen).toHaveBeenCalledWith('aaaaaaaa-0000-4000-8000-000000000000');
@@ -487,7 +490,7 @@ describe('the list and Open by ID', () => {
       fire();
       expect(m.loadMore).toHaveBeenCalledTimes(1);
       const loading = mine(m.jobs, { hasMore: true, loadingMore: true });
-      rerender(<StatusPage jobId={null} onOpen={vi.fn()} onOpenUploads={vi.fn()} mine={loading} notify={notify} />);
+      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} onOpenUploads={vi.fn()} mine={loading} notify={notify} />);
       expect(screen.getByText('Loading more…')).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();

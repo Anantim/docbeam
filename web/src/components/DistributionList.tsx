@@ -1,12 +1,16 @@
 import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
-import type { Counts, JobSummary } from '../tracking/api.js';
+import type { Counts, JobScope, JobSummary } from '../tracking/api.js';
 import { formatWhen, jobChip, shortId } from '../tracking/format.js';
 import { MoreRow } from './MoreRow.js';
 import { StatusChip } from './StatusChip.js';
 
 interface Props {
-  scope: 'mine' | 'team';
+  /** The signed-in person, so their own distributions read "You" under any filter. */
+  meId: string;
+  /** What the list is filtered to, for the words of its empty state. */
+  scope: JobScope;
+  filtered?: boolean;
   jobs: JobSummary[] | null;
   error: string;
   hasMore: boolean;
@@ -27,7 +31,7 @@ const SKELETON_ROWS = 5;
  * The distributions, newest first, one row each: short id, when it was sent, who sent it, how many files and
  * destinations, and its status. A row opens the side panel. The list is paged on scroll (D-F1-7).
  */
-export function DistributionList({ scope, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, live }: Props) {
+export function DistributionList({ meId, scope, filtered = false, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, live }: Props) {
   if (jobs === null && error === '') {
     return (
       <div className="card" role="status" aria-busy="true" aria-label="Loading distributions">
@@ -53,8 +57,10 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, mor
   if (jobs.length === 0) {
     return (
       <div className="card state">
-        <strong>{scope === 'mine' ? 'You have not sent a distribution yet' : 'Nothing has been sent to your teams'}</strong>
-        {scope === 'mine' && <span>Distributions you send appear here.</span>}
+        <strong>
+          {filtered ? 'No distribution has this status' : scope === 'team' ? 'Nothing has been sent to your teams' : 'You have not sent a distribution yet'}
+        </strong>
+        {!filtered && scope !== 'team' && <span>Distributions you send appear here.</span>}
       </div>
     );
   }
@@ -76,7 +82,7 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, mor
               Files
             </th>
             <th scope="col" className="num-col dist-more">
-              Destinations
+              Folders
             </th>
             <th scope="col">Status</th>
           </tr>
@@ -106,12 +112,13 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, mor
                 </td>
                 <td>{formatWhen(job.createdAt)}</td>
                 <td className="ellipsis" title={job.submittedBy.name}>
-                  {scope === 'mine' ? 'You' : job.submittedBy.name}
+                  {job.submittedBy.userId === meId ? 'You' : job.submittedBy.name}
                 </td>
                 <td className="num-col dist-more">{job.fileCount}</td>
                 <td className="num-col dist-more">{job.destinationCount}</td>
                 <td>
                   <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} />
+                  {(status === 'pending' || status === 'in_progress') && <ProgressBar counts={following ?? job.counts} total={job.taskCount} />}
                 </td>
               </tr>
             );
@@ -119,6 +126,19 @@ export function DistributionList({ scope, jobs, error, hasMore, loadingMore, mor
         </tbody>
       </table>
       {hasMore && <MoreRow className="state small" busy={loadingMore} failed={moreFailed} onMore={onMore} />}
+    </div>
+  );
+}
+
+const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
+
+/** A thin bar under the chip of a distribution that is still running. */
+function ProgressBar({ counts, total }: { counts: Counts; total: number }) {
+  return (
+    <div className="jbar thin" aria-hidden="true">
+      <div data-tone="ok" style={{ width: `${pct(counts.completed, total)}%` }} />
+      <div data-tone="bad" style={{ width: `${pct(counts.failed, total)}%` }} />
+      <div data-tone="busy" style={{ width: `${pct(counts.in_progress, total)}%` }} />
     </div>
   );
 }

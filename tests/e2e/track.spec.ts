@@ -5,6 +5,8 @@ import {
   CARDIO_PROTOCOL,
   chip,
   deleteStagedFiles,
+  distRow,
+  openHistory,
   jobIdOf,
   ONC_ETHICS,
   PRIYA,
@@ -42,7 +44,7 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     await expect(page.getByRole('heading', { name: jobId.slice(0, 8) })).toBeVisible();
     await expect(chip(page)).toHaveText('Pending');
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
-    await expect(page.locator('.ttable .status-chip', { hasText: 'Waiting' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Pending' })).toHaveCount(4);
 
     // The Status tab shows a badge for the running distribution.
     await expect(page.locator('.tab-badge')).toBeVisible();
@@ -51,14 +53,14 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`));
     await expect(chip(page)).toHaveText('Pending');
     expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
-    await expect(page.locator('.ttable .status-chip', { hasText: 'Waiting' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Pending' })).toHaveCount(4);
 
     // Deliveries start. The page is not reloaded: the numbers move because pushes arrive.
     await noReload(page);
     start();
     await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
     expect(await readCounts(page)).toEqual([4, 0, 0, 0]);
-    await expect(page.locator('.ttable .status-chip', { hasText: 'Delivered' })).toHaveCount(4);
+    await expect(page.locator('.ttable .status-chip', { hasText: 'Completed' })).toHaveCount(4);
     expect(await stillThere(page)).toBe(true);
 
     // The chip explains itself.
@@ -90,7 +92,7 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
       await expect(raj.locator('.panel')).not.toContainText('Oncology');
       await expect(raj.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
-      await expect(raj.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
+      await expect(raj.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
       expect(await readCounts(raj)).toEqual([0, 0, 0, 2]);
       expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
 
@@ -112,7 +114,7 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await expect(sam.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` })).toHaveCount(0);
 
       // Raj's history of the distribution: Cardio deliveries, nothing about Oncology.
-      const audit = raj.locator('.panel').getByRole('region', { name: 'History' });
+      const audit = await openHistory(raj);
       await expect(audit).toContainText('Delivered');
       await expect(audit).toContainText('Distribution sent');
       await expect(audit.locator('.arow', { hasText: 'Distribution sent' }).first()).toContainText('Distribution sent.');
@@ -143,22 +145,23 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel distribution' }).click();
     await expect(page.getByText(/6 deliveries cancelled\./)).toBeVisible();
     await expect(chip(page)).toHaveText('Cancelled');
-    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Delivered, Failed, In progress, Waiting, Cancelled
+    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Completed, Failed, In progress, Pending, Cancelled
     await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
     await expect(page.locator('.ttable .code').first()).toHaveAttribute('title', /sender cancelled/);
 
     // A cancelled distribution has no Cancel button (D-M3-10). Nothing failed, so there is no Retry button either.
-    await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
 
     // The workers start: the queued messages stop at the claim and nothing is delivered.
     start();
     await page.waitForTimeout(6_000);
-    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Delivered, Failed, In progress, Waiting, Cancelled
+    expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Completed, Failed, In progress, Pending, Cancelled
     const rows = await sql<{ n: number }>("SELECT count(*)::int AS n FROM tasks WHERE job_id = $1 AND status = 'completed'", [jobId]);
     expect(rows[0]?.n).toBe(0);
 
     // The history has the cancel.
+    await openHistory(page);
     await expect(page.locator('.audit-tab')).toContainText('Distribution cancelled');
   });
 });
@@ -186,13 +189,13 @@ test('a failure shows its reason in the row, with what the code means', async ({
     // Filter by Failed, then All.
     await page.getByRole('button', { name: /^Failed, 2 deliveries/ }).click();
     await expect(page.locator('.ttable .status-chip')).toHaveCount(2);
-    await page.getByRole('button', { name: /^Delivered, 0 deliveries/ }).click();
+    await page.getByRole('button', { name: /^Completed, 0 deliveries/ }).click();
     await expect(page.getByText('No deliveries with this status.')).toBeVisible();
     await page.getByRole('button', { name: /^All, 2 deliveries/ }).click();
     await expect(page.locator('.ttable .status-chip')).toHaveCount(2);
 
     // A permanent failure cannot be retried, and Retry says so.
-    const retry = page.getByRole('button', { name: 'Retry failed deliveries' });
+    const retry = page.getByRole('button', { name: 'Retry failed' });
     await expect(retry).toBeDisabled();
     await expect(retry).toHaveAttribute('title', /No failed delivery can be retried/);
   });
@@ -211,19 +214,20 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   );
   await page.reload();
   await expect(chip(page)).toHaveText('Completed with errors');
-  await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Retry failed' })).toBeEnabled();
   const code = page.locator('.ttable .code');
   await expect(code).toHaveText('RETRIES_EXHAUSTED');
   await expect(code).toHaveAttribute('title', 'Tried 5 times over about 17 minutes; the platform did not accept it.');
 
   await noReload(page);
-  await page.getByRole('button', { name: 'Retry failed deliveries' }).click();
+  await page.getByRole('button', { name: 'Retry failed' }).click();
   await expect(page.getByText(/1 delivery queued again\./)).toBeVisible();
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
   expect(await stillThere(page)).toBe(true);
 
-  await expect(page.locator('.audit-tab')).toContainText('Retry requested');
+  await openHistory(page);
+    await expect(page.locator('.audit-tab')).toContainText('Retry requested');
   expect(jobIdOf(page)).toBe(jobId);
 });
 
@@ -257,7 +261,7 @@ test('the list shows my distributions with their counts', async ({ page }) => {
   await page.getByRole('button', { name: 'Status' }).click();
   const cards = page.locator('.dist-table tbody tr');
   await expect(cards.first()).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'Destinations' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Folders' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
   // A short id does not open anything; a full id or a link does.
   await page.getByLabel('Open by ID').fill('3f1c2a9e');
@@ -276,7 +280,8 @@ test('a distribution opens in a side panel on the same page: deliveries, then it
   await page.locator('.dist-table tbody tr').first().click();
   const panel = page.getByRole('complementary');
   await expect(panel.getByRole('region', { name: 'Deliveries' })).toBeVisible();
-  await expect(panel.getByRole('region', { name: 'History' }).locator('.arow').first()).toBeVisible();
+  await openHistory(page);
+  await expect(panel.locator('details.history .arow').first()).toBeVisible();
   await expect(page.locator('.dist-table')).toBeVisible(); // the list stays beside it
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
   await page.getByRole('button', { name: 'Close' }).click();
@@ -333,4 +338,22 @@ test('the list updates its counts by itself, every 30 seconds, with no live push
     await expect(card).toContainText('Completed', { timeout: 60_000 }); // the next refresh, at most 30 seconds later
     expect(await stillThere(page)).toBe(true);
   });
+});
+
+test('the filters: Mine, My teams and All I can see, and a status', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await page.getByRole('button', { name: 'Status' }).click();
+  await expect(distRow(page).first()).toBeVisible();
+  const all = page.getByRole('button', { name: 'All I can see' });
+  await all.click();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(distRow(page).first()).toBeVisible();
+  // A status narrows the list: every row has it, or the list says none has.
+  await page.getByLabel('Status').selectOption('cancelled');
+  const rows = distRow(page);
+  const none = page.getByText('No distribution has this status');
+  await expect(rows.first().or(none)).toBeVisible();
+  if ((await none.count()) === 0) for (const text of await rows.locator('.status-chip').allTextContents()) expect(text).toBe('Cancelled');
+  await page.getByLabel('Status').selectOption('');
+  await expect(distRow(page).first()).toBeVisible();
 });

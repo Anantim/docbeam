@@ -10,6 +10,7 @@ import { plural, taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
 export const ROW_HEIGHT = 64;
+const MAX_ATTEMPTS = 5;
 
 interface Props {
   jobId: string;
@@ -132,6 +133,7 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
       <div className="trow thead" role="row">
         <div role="columnheader">File and folder</div>
         <div role="columnheader">Status</div>
+        <div role="columnheader">Attempts</div>
         <div role="columnheader">Details</div>
       </div>
       {error && (
@@ -164,7 +166,7 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
 function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
   const look = taskLook(kind);
-  const attempts = task.attemptCount === 0 ? 'Not attempted yet' : `${plural(task.attemptCount, 'attempt', 'attempts')} so far`;
+  const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
   return (
     <>
       <div role="cell" className="tfile-cell">
@@ -176,7 +178,10 @@ function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Pro
         </div>
       </div>
       <div role="cell">
-        <StatusChip tone={look.tone} label={look.label} title={`${TASK_STATUS_MEANING[kind]} ${attempts}.`} />
+        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[kind]} />
+      </div>
+      <div role="cell" className="size" title={used === 0 ? 'Not attempted yet' : `${plural(used, 'attempt', 'attempts')} of the ${MAX_ATTEMPTS} allowed`}>
+        {used} of {MAX_ATTEMPTS}
       </div>
       <div role="cell" className="tdetail">
         {task.status === 'failed' && (

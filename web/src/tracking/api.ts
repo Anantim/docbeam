@@ -6,6 +6,8 @@ export type { Counts } from '../live/socket.js';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 /** What a delivery is shown as: a cancelled one is stored as failed with the code CANCELLED (D-M3-17). */
 export type TaskKind = TaskStatus | 'cancelled';
+/** Mine, sent to my teams by others, or both. */
+export type JobScope = 'mine' | 'team' | 'all';
 export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'completed_with_errors' | 'cancelled';
 
 export interface JobSummary {
@@ -87,7 +89,8 @@ export const TASK_PAGE = 100;
 const post = <T>(path: string): Promise<T> => apiFetch<T>(path, { method: 'POST' });
 
 export const trackingApi = {
-  jobs: (scope: 'mine' | 'team', page = 1, limit = 20): Promise<JobSummary[]> => apiFetch(`/jobs?scope=${scope}&page=${page}&limit=${limit}`),
+  jobs: (scope: JobScope, page = 1, limit = 20, status?: JobStatus): Promise<JobSummary[]> =>
+    apiFetch(`/jobs?scope=${scope}&page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`),
   job: (jobId: string): Promise<JobDetail> => apiFetch(`/jobs/${jobId}`),
   tasks: (jobId: string, page: number, status?: TaskKind): Promise<TaskPage> =>
     apiFetch(`/jobs/${jobId}/tasks?page=${page}&limit=${TASK_PAGE}${status ? `&status=${status}` : ''}`),

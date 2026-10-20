@@ -80,7 +80,7 @@ test('there is no Cancel on a completed distribution', async ({ page }) => {
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
   await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0); // nothing failed
+  await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0); // nothing failed
 });
 
 test('a file state on Distribute and a delivery state on Status are the same chip, in the same colour', async ({ page }) => {
@@ -109,7 +109,7 @@ test('a file state on Distribute and a delivery state on Status are the same chi
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   const delivered = await look('.ttable .status-chip');
 
-  // Ready (a file) and Delivered (a delivery) both mean "done": one component, one colour.
+  // Ready (a file) and Completed (a delivery) both mean "done": one component, one colour.
   expect(verified.classes).toBe(delivered.classes);
   expect(verified).toEqual(delivered);
   expect(verified.tone).toBe('ok');

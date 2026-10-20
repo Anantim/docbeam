@@ -5,8 +5,8 @@ describe('labels', () => {
   it('names the five job statuses and four task states as the mockup does', () => {
     expect(jobChip('completed_with_errors').label).toBe('Completed with errors');
     expect(jobChip('cancelled').label).toBe('Cancelled');
-    expect(taskLook('completed').label).toBe('Delivered');
-    expect(taskLook('pending').label).toBe('Waiting');
+    expect(taskLook('completed').label).toBe('Completed');
+    expect(taskLook('pending').label).toBe('Pending');
   });
 
   it('shows a distribution as its first 8 characters', () => {

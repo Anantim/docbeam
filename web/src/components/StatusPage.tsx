@@ -1,7 +1,8 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
-import type { Counts } from '../tracking/api.js';
+import type { Counts, JobScope, JobStatus } from '../tracking/api.js';
+import { jobChip } from '../tracking/format.js';
 import { extractJobId } from '../tracking/route.js';
 import { usePagedJobs } from '../tracking/usePagedJobs.js';
 import { useAudit } from '../tracking/useAudit.js';
@@ -13,7 +14,11 @@ import { PanelFrame } from './PanelFrame.js';
 
 type Jobs = ReturnType<typeof usePagedJobs>;
 
+const STATUS_OPTIONS: JobStatus[] = ['pending', 'in_progress', 'completed', 'completed_with_errors', 'cancelled'];
+
 interface Props {
+  /** The signed-in person's id. */
+  meId: string;
   jobId: string | null;
   /** The panel shows the upload events instead of a distribution. */
   uploads?: boolean;
@@ -33,14 +38,17 @@ interface Props {
  * the one that is open: its deliveries with Retry and Cancel, then its history of events. The address keeps the
  * open distribution.
  */
-export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine, notify, live = liveClient, signedInAgain = 0 }: Props) {
-  const [scope, setScope] = useState<'mine' | 'team'>('mine');
+export function StatusPage({ meId, jobId, uploads = false, onOpen, onOpenUploads, mine, notify, live = liveClient, signedInAgain = 0 }: Props) {
+  const [scope, setScope] = useState<JobScope>('mine');
+  const [status, setStatus] = useState<JobStatus | ''>('');
   const [typed, setTyped] = useState('');
   const [typedError, setTypedError] = useState('');
   const [liveCounts, setLiveCounts] = useState<{ jobId: string; counts: Counts } | null>(null);
   const followCounts = useCallback((id: string, counts: Counts) => setLiveCounts({ jobId: id, counts }), []);
-  const team = usePagedJobs('team', scope === 'team', undefined, signedInAgain);
-  const list = scope === 'mine' ? mine : team;
+  // The app already loads my own list (it feeds the badge on the tab): use it while nothing is filtered.
+  const unfiltered = scope === 'mine' && status === '';
+  const other = usePagedJobs(scope, !unfiltered, undefined, signedInAgain, status === '' ? undefined : status);
+  const list = unfiltered ? mine : other;
 
   // Any new attempt to open something starts with a clean note.
   const open = (id: string): void => {
@@ -70,18 +78,6 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
       <div className="page-head">
         <h1>Distributions</h1>
         <div className="toolbar">
-          <div className="seg-group" role="group" aria-label="Whose distributions">
-            {(
-              [
-                ['mine', 'Mine'],
-                ['team', 'My teams'],
-              ] as const
-            ).map(([id, label]) => (
-              <button key={id} type="button" className={`seg ${scope === id ? 'on' : ''}`} aria-pressed={scope === id} onClick={() => setScope(id)}>
-                {label}
-              </button>
-            ))}
-          </div>
           <form className="openid" onSubmit={openTyped}>
             <label className="sr" htmlFor="job-id">
               Open by ID
@@ -105,6 +101,32 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
           </button>
         </div>
       </div>
+      <div className="filters">
+        <div className="seg-group" role="group" aria-label="Whose distributions">
+          {(
+            [
+              ['mine', 'Mine'],
+              ['team', 'My teams'],
+              ['all', 'All I can see'],
+            ] as const
+          ).map(([id, label]) => (
+            <button key={id} type="button" className={`seg ${scope === id ? 'on' : ''}`} aria-pressed={scope === id} onClick={() => setScope(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="sr" htmlFor="status-filter">
+          Status
+        </label>
+        <select id="status-filter" className="field status-pick" value={status} onChange={(e) => setStatus(e.target.value as JobStatus | '')}>
+          <option value="">All statuses</option>
+          {STATUS_OPTIONS.map((id) => (
+            <option key={id} value={id}>
+              {jobChip(id).label}
+            </option>
+          ))}
+        </select>
+      </div>
       {typedError && (
         <div role="alert" className="alert">
           {typedError}
@@ -113,7 +135,9 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
 
       <div className={`status-layout ${panel ? 'open' : ''}`}>
         <DistributionList
+          meId={meId}
           scope={scope}
+          filtered={status !== ''}
           jobs={list.jobs}
           error={list.error}
           hasMore={list.hasMore}
@@ -140,7 +164,7 @@ export function StatusPage({ jobId, uploads = false, onOpen, onOpenUploads, mine
             signedInAgain={signedInAgain}
             onChanged={() => {
               void mine.refresh();
-              if (scope === 'team') void team.refresh();
+              if (!unfiltered) void other.refresh();
             }}
           />
         ) : uploads ? (

@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
+import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, openHistory, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
 
 // Found on dev in the person's browser checks (D-M3-17): an old sign-in error that stayed after signing in again,
 // and the counts of a distribution that was cancelled part way.
@@ -111,7 +111,7 @@ test('a distribution cancelled part way: filter numbers, the bar, chips, rows an
     await expect(page.getByRole('button', { name: 'All, 8 deliveries' })).toBeVisible();
     await page.getByRole('button', { name: 'All, 8 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(8);
-    await page.getByRole('button', { name: 'Delivered, 3 deliveries' }).click();
+    await page.getByRole('button', { name: 'Completed, 3 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(3);
     await expect(page.locator('.ttable .code')).toHaveCount(0);
     await page.getByRole('button', { name: 'Failed, 0 deliveries' }).click();
@@ -126,6 +126,7 @@ test('a distribution cancelled part way: filter numbers, the bar, chips, rows an
     await expect(rowChips.first()).toHaveAttribute('title', /Nothing was delivered/);
 
     // The history says cancelled, never failed, for those five.
+    await openHistory(page);
     const audit = page.locator('.audit-tab');
     await expect(audit).toContainText('Distribution cancelled');
     await expect(audit.getByText('Delivery cancelled', { exact: true })).toHaveCount(5);

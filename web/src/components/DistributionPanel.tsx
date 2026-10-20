@@ -13,7 +13,7 @@ import { useJob } from '../tracking/useJob.js';
 import { AuditList } from './AuditList.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { DestinationChips } from './DestinationChips.js';
-import { CloseIcon } from './Icons.js';
+import { ChevronIcon, CloseIcon } from './Icons.js';
 import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
 import { StatusChip } from './StatusChip.js';
@@ -34,10 +34,10 @@ interface Props {
 
 const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 'total' }> = [
   { id: 'all', label: 'All', key: 'total' },
-  { id: 'completed', label: 'Delivered', key: 'completed' },
+  { id: 'completed', label: 'Completed', key: 'completed' },
   { id: 'failed', label: 'Failed', key: 'failed' },
   { id: 'in_progress', label: 'In progress', key: 'in_progress' },
-  { id: 'pending', label: 'Waiting', key: 'pending' },
+  { id: 'pending', label: 'Pending', key: 'pending' },
   { id: 'cancelled', label: 'Cancelled', key: 'cancelled' },
 ];
 
@@ -74,7 +74,8 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     lastStatus.current = liveStatus;
   }, [liveStatus]);
   // All three only grow, so the sum changes whenever one does: a reload of the deliveries, a new link event, a new status.
-  const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges });
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const history = useAudit({ jobId, actions: [], reloadKey: reloadKey + files.issued + statusChanges, enabled: historyOpen });
 
   const close = (
     <button className="icon" type="button" aria-label="Close" title="Close" onClick={onClose}>
@@ -202,7 +203,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             )}
             {(canRetry || c.failed > 0) && (
               <button className="btn" type="button" disabled={!canRetry || busy} title={canRetry ? undefined : retryReason(detail)} onClick={() => void act('retry')}>
-                Retry failed deliveries
+                Retry failed
               </button>
             )}
           </div>
@@ -250,12 +251,13 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           />
         </section>
 
-        <section className="panel-section" aria-label="History">
-          <div className="panel-section-head">
+        <details className="panel-section history" aria-label="History" onToggle={(e) => setHistoryOpen(e.currentTarget.open)}>
+          <summary>
+            <ChevronIcon open={historyOpen} size={14} />
             <h3>History</h3>
-          </div>
-          <AuditList {...history} onLoadMore={() => void history.loadMore()} empty="No events recorded for this distribution yet." />
-        </section>
+          </summary>
+          {historyOpen && <AuditList {...history} onLoadMore={() => void history.loadMore()} empty="No events recorded for this distribution yet." />}
+        </details>
       </div>
 
       {files.viewing && (

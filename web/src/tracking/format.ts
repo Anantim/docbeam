@@ -17,10 +17,10 @@ const JOB_CHIPS: Record<JobStatus, Chip> = {
 export const jobChip = (status: JobStatus): Chip => JOB_CHIPS[status];
 
 const TASK_LOOKS: Record<TaskKind, Chip> = {
-  completed: { label: 'Delivered', tone: 'ok' },
+  completed: { label: 'Completed', tone: 'ok' },
   failed: { label: 'Failed', tone: 'bad' },
   in_progress: { label: 'In progress', tone: 'busy' },
-  pending: { label: 'Waiting', tone: 'idle' },
+  pending: { label: 'Pending', tone: 'idle' },
   cancelled: { label: 'Cancelled', tone: 'idle' },
 };
 export const taskLook = (kind: TaskKind): Chip => TASK_LOOKS[kind];
