@@ -100,6 +100,7 @@ export function App() {
         </div>
         {view === 'status' && (
           <StatusPage
+            meId={claims.sub}
             jobId={route.jobId}
             uploads={route.uploads}
             onOpen={openJob}

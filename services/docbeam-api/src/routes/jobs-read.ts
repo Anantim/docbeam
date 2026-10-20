@@ -1,6 +1,6 @@
 // GET /jobs, GET /jobs/:jobId and GET /jobs/:jobId/tasks (TDD Step 3.1). The sender sees every delivery;
 // anyone else sees only the deliveries to their own teams, with counts that cover only those.
-import { ApiError, LIMITS, TASK_STATUSES } from '@docbeam/shared';
+import { ApiError, JOB_STATUSES, LIMITS, TASK_STATUSES } from '@docbeam/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db.js';
@@ -67,29 +67,53 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
 
   app.get('/jobs', user, async (request) => {
     const userId = caller(request);
-    const query = request.query as { scope?: string; page?: string; limit?: string };
+    const query = request.query as { scope?: string; page?: string; limit?: string; status?: string };
     const scope = query.scope ?? 'mine';
-    if (scope !== 'mine' && scope !== 'team') throw new ApiError(400, 'VALIDATION_ERROR', 'scope must be mine or team.');
+    if (scope !== 'mine' && scope !== 'team' && scope !== 'all') throw new ApiError(400, 'VALIDATION_ERROR', 'scope must be mine, team or all.');
+    if (query.status !== undefined && !(JOB_STATUSES as readonly string[]).includes(query.status)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${JOB_STATUSES.join(', ')}.`);
+    }
     const { limit, offset } = pageOf(query, LIMITS.jobsPageDefault, LIMITS.jobsPageMax);
 
-    let teams: string[] = [];
-    let rows: Array<{ id: string; submitted_by_user_id: string; submitted_by_name: string; created_at: Date; cancelled_at: Date | null }>;
-    if (scope === 'mine') {
+    // `mine` is what I sent, `team` is what others sent to my teams, `all` is both (D-F1-9).
+    const teams = scope === 'mine' ? [] : await platform.userTeams(userId);
+    const sharedWithMe = sql`id IN (SELECT job_id FROM tasks WHERE team_id = ANY(${pgArray(teams, 'uuid')}))`;
+    let where = sql`submitted_by_user_id = ${userId}`;
+    if (scope === 'team') where = teams.length === 0 ? sql`false` : sql`submitted_by_user_id <> ${userId} AND ${sharedWithMe}`;
+    else if (scope === 'all' && teams.length > 0) where = sql`(submitted_by_user_id = ${userId} OR ${sharedWithMe})`;
+
+    type Row = { id: string; submitted_by_user_id: string; submitted_by_name: string; created_at: Date; cancelled_at: Date | null };
+    let rows: Row[];
+    if (query.status === undefined) {
       rows = (
-        await db.execute<(typeof rows)[number]>(sql`
+        await db.execute<Row>(sql`
           SELECT id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at FROM jobs
-           WHERE submitted_by_user_id = ${userId}
+           WHERE ${where}
            ORDER BY created_at DESC, id LIMIT ${limit} OFFSET ${offset}`)
       ).rows;
     } else {
-      teams = await platform.userTeams(userId);
-      if (teams.length === 0) return [];
-      // Jobs by others with at least one delivery to one of the caller's teams, found through idx_tasks_team.
+      // A status filter needs the counts first: the status is derived from the deliveries the caller may see, with the
+      // same rule as `jobStatus` (open = pending + in progress; a cancelled delivery counts as failed there).
       rows = (
-        await db.execute<(typeof rows)[number]>(sql`
-          SELECT id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at FROM jobs
-           WHERE submitted_by_user_id <> ${userId}
-             AND id IN (SELECT job_id FROM tasks WHERE team_id = ANY(${pgArray(teams, 'uuid')}))
+        await db.execute<Row>(sql`
+          SELECT id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at FROM (
+            SELECT j.id, j.submitted_by_user_id, j.submitted_by_name, j.created_at, j.cancelled_at,
+                   CASE
+                     WHEN c.pending + c.in_progress = 0 AND j.cancelled_at IS NOT NULL THEN 'cancelled'
+                     WHEN c.pending + c.in_progress = 0 AND c.failed > 0 THEN 'completed_with_errors'
+                     WHEN c.pending + c.in_progress = 0 THEN 'completed'
+                     WHEN c.pending = c.pending + c.in_progress + c.completed + c.failed THEN 'pending'
+                     ELSE 'in_progress'
+                   END AS status
+              FROM (SELECT * FROM jobs WHERE ${where}) j
+              CROSS JOIN LATERAL (
+                SELECT count(*) FILTER (WHERE t.status = 'pending')::int AS pending,
+                       count(*) FILTER (WHERE t.status = 'in_progress')::int AS in_progress,
+                       count(*) FILTER (WHERE t.status = 'completed')::int AS completed,
+                       count(*) FILTER (WHERE t.status = 'failed')::int AS failed
+                  FROM tasks t
+                 WHERE t.job_id = j.id AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))) c) x
+           WHERE status = ${query.status}
            ORDER BY created_at DESC, id LIMIT ${limit} OFFSET ${offset}`)
       ).rows;
     }

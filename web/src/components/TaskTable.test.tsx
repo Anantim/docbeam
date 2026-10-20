@@ -122,7 +122,7 @@ describe('TaskTable', () => {
     view.rerender(<TaskTable jobId="job" status="all" reloadKey={1} live={live} {...files} viewportHeight={320} />);
     expect(screen.getByText(name(0))).toBeTruthy(); // still there while the answer is awaited
     await act(async () => release(pageOf(1, (i) => (i === 0 ? { status: 'completed', attemptCount: 1 } : {}))));
-    await waitFor(() => expect(screen.getAllByText('Delivered').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText('Completed').length).toBeGreaterThan(0));
     expect(api.tasks).toHaveBeenCalledTimes(2);
   });
 

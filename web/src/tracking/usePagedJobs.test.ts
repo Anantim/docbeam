@@ -38,7 +38,7 @@ describe('usePagedJobs', () => {
     const { result } = renderHook(() => usePagedJobs('mine'));
     await act(async () => undefined);
     expect(api.jobs).toHaveBeenCalledTimes(1);
-    expect(api.jobs).toHaveBeenCalledWith('mine', 1, LIST_PAGE);
+    expect(api.jobs).toHaveBeenCalledWith('mine', 1, LIST_PAGE, undefined);
     expect(result.current.jobs?.[0]?.counts.completed).toBe(2);
     expect(result.current.hasMore).toBe(false); // a short page is the last one
 
@@ -77,7 +77,7 @@ describe('usePagedJobs', () => {
       void result.current.loadMore();
     });
     expect(api.jobs).toHaveBeenCalledTimes(2);
-    expect(api.jobs).toHaveBeenLastCalledWith('mine', 2, LIST_PAGE);
+    expect(api.jobs).toHaveBeenLastCalledWith('mine', 2, LIST_PAGE, undefined);
     expect(result.current.jobs).toHaveLength(LIST_PAGE + 5);
     expect(result.current.hasMore).toBe(false);
     await act(async () => result.current.loadMore());
@@ -103,7 +103,7 @@ describe('usePagedJobs', () => {
     api.jobs.mockClear();
     api.jobs.mockResolvedValueOnce(many(0, LIST_PAGE)).mockResolvedValueOnce(many(LIST_PAGE, 3));
     await act(async () => result.current.refresh());
-    expect(api.jobs.mock.calls).toEqual([['mine', 1, LIST_PAGE], ['mine', 2, LIST_PAGE]]);
+    expect(api.jobs.mock.calls).toEqual([['mine', 1, LIST_PAGE, undefined], ['mine', 2, LIST_PAGE, undefined]]);
     expect(result.current.jobs).toHaveLength(LIST_PAGE + 3);
   });
 

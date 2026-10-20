@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
-import { trackingApi, type JobSummary } from './api.js';
+import { trackingApi, type JobScope, type JobStatus, type JobSummary } from './api.js';
 
 export const LIST_REFRESH_MS = 30_000;
 export const LIST_PAGE = 20;
@@ -30,7 +30,7 @@ const unseen = (rows: JobSummary[], more: JobSummary[]): JobSummary[] => {
  * load keeps trying too. It also loads again when the person comes back to the tab, signs in again, or calls
  * `refresh` (the app does that after a send). A hidden tab waits.
  */
-export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0) {
+export function usePagedJobs(scope: JobScope, enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0, status?: JobStatus) {
   const [state, setState] = useState<State>(first);
   const pages = useRef(1);
   // Only the newest answer counts, so a slow old reply cannot bring back an older list.
@@ -44,7 +44,7 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
       let jobs: JobSummary[] = [];
       let lastLength = 0;
       for (let page = 1; page <= pages.current; page += 1) {
-        const rows = await trackingApi.jobs(scope, page, LIST_PAGE);
+        const rows = await trackingApi.jobs(scope, page, LIST_PAGE, status);
         if (ticket !== latest.current) return;
         jobs = [...jobs, ...unseen(jobs, rows)];
         lastLength = rows.length;
@@ -54,7 +54,7 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
     } catch (e) {
       if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false }));
     }
-  }, [scope]);
+  }, [scope, status]);
 
   const loadMore = useCallback(async (): Promise<void> => {
     if (state.jobs === null || !state.hasMore || state.loadingMore || moreInFlight.current) return;
@@ -62,7 +62,7 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
     const ticket = ++latest.current;
     setState((s) => ({ ...s, loadingMore: true, moreFailed: false, error: '' }));
     try {
-      const rows = await trackingApi.jobs(scope, pages.current + 1, LIST_PAGE);
+      const rows = await trackingApi.jobs(scope, pages.current + 1, LIST_PAGE, status);
       if (ticket !== latest.current) return;
       pages.current += 1;
       setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], rows)], hasMore: rows.length === LIST_PAGE, loadingMore: false, moreFailed: false }));
@@ -71,7 +71,7 @@ export function usePagedJobs(scope: 'mine' | 'team', enabled = true, intervalMs 
     } finally {
       moreInFlight.current = false;
     }
-  }, [scope, state.jobs, state.hasMore, state.loadingMore]);
+  }, [scope, status, state.jobs, state.hasMore, state.loadingMore]);
 
   useEffect(() => {
     if (!enabled) return;

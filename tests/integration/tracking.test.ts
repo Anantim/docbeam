@@ -120,6 +120,28 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     expect(team.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
   });
 
+  it('lists mine, the ones shared with my teams, or both under scope=all (D-F1-9)', async () => {
+    const ids = (r: { body: Array<{ jobId: string }> }) => r.body.map((j) => j.jobId);
+    expect(ids(await get(priya, '/jobs?scope=all&limit=100'))).toContain(job.jobId);
+    expect(ids(await get(raj, '/jobs?scope=all&limit=100'))).toContain(job.jobId);
+    expect(ids(await get(raj, '/jobs?scope=mine&limit=100'))).not.toContain(job.jobId);
+    expect(ids(await get(sam, '/jobs?scope=all&limit=100'))).not.toContain(job.jobId);
+    expect((await get(priya, '/jobs?scope=nope')).status).toBe(400);
+  });
+
+  it('filters by status, from the deliveries the caller may see: the same job can be in progress for the sender and finished with errors for a team member', async () => {
+    const ids = (r: { body: Array<{ jobId: string }> }) => r.body.map((j) => j.jobId);
+    expect(ids(await get(priya, '/jobs?scope=mine&status=in_progress&limit=100'))).toContain(job.jobId);
+    expect(ids(await get(priya, '/jobs?scope=mine&status=completed&limit=100'))).not.toContain(job.jobId);
+    expect(ids(await get(raj, '/jobs?scope=team&status=completed_with_errors&limit=100'))).toContain(job.jobId);
+    expect(ids(await get(raj, '/jobs?scope=all&status=in_progress&limit=100'))).not.toContain(job.jobId);
+    const filtered = await get(raj, '/jobs?scope=team&status=completed_with_errors&limit=100');
+    expect(filtered.body.every((j: { status: string }) => j.status === 'completed_with_errors')).toBe(true);
+    const bad = await get(priya, '/jobs?status=sleeping');
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('shows a Cardio member only the Cardio deliveries, with counts for those', async () => {
     const detail = await get(raj, `/jobs/${job.jobId}`);
     expect(detail.status).toBe(200);

@@ -160,14 +160,21 @@ export async function columnReport(page: Page, head: string, rows: string): Prom
 export const counts = (page: Page) => page.getByRole('group', { name: 'Filter deliveries by status' });
 
 /**
- * The numbers of the open distribution: Delivered, Failed, In progress, Waiting and, once something was cancelled,
- * Cancelled. They are read from the filter buttons ("Delivered, 4 deliveries"), which carry the live counts.
+ * The numbers of the open distribution: Completed, Failed, In progress, Pending and, once something was cancelled,
+ * Cancelled. They are read from the filter buttons ("Completed, 4 deliveries"), which carry the live counts.
  */
 export async function readCounts(page: Page): Promise<number[]> {
   const labels = await counts(page).getByRole('button').evaluateAll((els: Array<{ getAttribute(name: string): string | null }>) => els.map((e) => e.getAttribute('aria-label') ?? ''));
   const by = new Map(labels.map((l) => [l.split(',')[0], Number(/(\d+) deliver/.exec(l)?.[1])]));
-  const order = ['Delivered', 'Failed', 'In progress', 'Waiting', 'Cancelled'];
+  const order = ['Completed', 'Failed', 'In progress', 'Pending', 'Cancelled'];
   return order.filter((name) => by.has(name)).map((name) => by.get(name) as number);
+}
+
+/** Opens the History section of the panel (it is closed until asked for) and returns it. */
+export async function openHistory(page: Page) {
+  const history = page.locator('details.history');
+  if ((await history.getAttribute('open')) === null) await history.locator('summary').click();
+  return history;
 }
 
 /** A distribution's row in the list. */

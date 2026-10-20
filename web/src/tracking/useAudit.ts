@@ -8,10 +8,12 @@ interface Query {
   actions: readonly string[];
   /** Changes when the list must load again from the start. */
   reloadKey?: number;
+  /** False keeps it from loading, for a section that is closed. */
+  enabled?: boolean;
 }
 
 /** The audit trail, newest first, a page at a time. Changing the query or the reload key starts again. */
-export function useAudit({ jobId, actions, reloadKey = 0 }: Query) {
+export function useAudit({ jobId, actions, reloadKey = 0, enabled = true }: Query) {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,8 +44,8 @@ export function useAudit({ jobId, actions, reloadKey = 0 }: Query) {
 
   useEffect(() => {
     generation.current += 1;
-    void fetchPage(1, true);
-  }, [fetchPage, reloadKey]);
+    if (enabled) void fetchPage(1, true);
+  }, [fetchPage, reloadKey, enabled]);
 
   const loadMore = useCallback(() => fetchPage(page.current + 1, false), [fetchPage]);
   return { events, hasMore, loading, error, loadMore };

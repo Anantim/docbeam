@@ -108,13 +108,11 @@ test('signing out leaves the open distribution, so the next person does not land
   await expect(notFound(page)).toHaveCount(0);
 });
 
-test('the Open-by-ID box is in the same place on Mine and My teams, with or without distributions', async ({ page }) => {
+test('the Open-by-ID box is in the same place on every filter, with or without distributions', async ({ page }) => {
   const placed = async (): Promise<{ x: number; y: number }> => {
     await expect(box(page)).toBeVisible();
     await expect(box(page)).toBeInViewport(); // not pushed below a long list
-    const tabs = (await page.getByRole('group', { name: 'Whose distributions' }).boundingBox())!;
     const field = (await box(page).boundingBox())!;
-    expect(Math.abs(field.y + field.height / 2 - (tabs.y + tabs.height / 2)), 'the box is in the toolbar, level with the Mine / My teams switch').toBeLessThan(24);
     return { x: Math.round(field.x), y: Math.round(field.y) };
   };
 

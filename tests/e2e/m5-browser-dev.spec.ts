@@ -83,7 +83,7 @@ test('slow connection: a file uploads over a slow link, is checked, sent and del
   await tick(page, CARDIO_IRB);
   await send(page);
   await expect.poll(() => readCounts(page), { timeout: 120_000 }).toEqual([1, 0, 0, 0]);
-  await expect(taskRow(page, file.name)).toContainText('Delivered');
+  await expect(taskRow(page, file.name)).toContainText('Completed');
   await page.screenshot({ path: evidence('slow-connection-delivered') });
 });
 
