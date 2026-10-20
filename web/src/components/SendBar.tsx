@@ -1,8 +1,8 @@
+import { useId } from 'react';
+
 interface Props {
-  /** The batch in one line: "3 files to 5 folders: 15 deliveries". Empty when there is nothing yet. */
-  summary: string;
   ready: boolean;
-  /** Why Send is off, in a few words. Shown under the summary. */
+  /** Why Send is off, in a few words. Null when there is nothing to say (an empty page: the drop area says it). */
   reason?: string | null;
   sending: boolean;
   error: string | null;
@@ -12,10 +12,13 @@ interface Props {
 }
 
 /**
- * The sticky bar (D-F1-8): one summary line, then Clear (a text button) and Send, the only filled button of the
- * screen. Send is off with a one-line reason until the batch is valid, and asks for confirmation when it is pressed.
+ * The sticky bar (D-F1-20): Clear (a text button) and Send, the only filled button of the screen. When Send is off the
+ * reason is small muted text right beside them, tied to Send with `aria-describedby`; no tooltip carries it. The full
+ * summary of the batch is in the question that Send asks.
  */
-export function SendBar({ summary, ready, reason, sending, error, canClear, onClear, onSend }: Props) {
+export function SendBar({ ready, reason, sending, error, canClear, onClear, onSend }: Props) {
+  const reasonId = useId();
+  const why = ready || !reason ? null : reason;
   return (
     <div className="sendbar">
       <div className="sendbar-inner">
@@ -25,16 +28,13 @@ export function SendBar({ summary, ready, reason, sending, error, canClear, onCl
           </div>
         )}
         <div className="sendbar-row">
-          <div className="send-text">
-            <div className="send-summary">{summary}</div>
-            <div className="send-reason" role="status">
-              {ready ? null : reason}
-            </div>
+          <div className="send-reason" id={reasonId} role="status">
+            {why}
           </div>
-          <button className="link plain-action" type="button" disabled={!canClear} title={canClear ? undefined : 'Nothing to clear'} onClick={onClear}>
+          <button className="link plain-action" type="button" disabled={!canClear} onClick={onClear}>
             Clear
           </button>
-          <button className="btn" type="button" disabled={!ready || sending} title={ready || sending ? undefined : (reason ?? undefined)} onClick={onSend}>
+          <button className="btn" type="button" disabled={!ready || sending} aria-describedby={why ? reasonId : undefined} onClick={onSend}>
             {sending ? 'Sending…' : 'Send'}
           </button>
         </div>

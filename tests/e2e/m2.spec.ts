@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, CARDIO_IRB, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, docx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
 
 // M2, Upload and distribute, as a regression pack (flow 2): pick, upload, scan, map, review, send.
 // (The 101 MiB multipart upload, the platform stopped mid-run and the SIGTERM drain are covered by the
@@ -16,9 +16,11 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
 
   const [name] = await addPdfs(page, 1, 'm2');
   await expect(row(page, name as string).locator('.status-chip')).toHaveText('Ready');
-  // Ready, but nowhere to send it yet: Send says what is missing.
-  await expect(send0).toHaveAttribute('title', '1 file has no folder. Tick a folder');
-  await expect(page.locator('.send-reason')).toHaveText('1 file has no folder. Tick a folder');
+  // Ready, but nowhere to send it yet: the words beside Clear say what is missing, tied to Send, with no tooltip (D-F1-20).
+  await expect(page.locator('.send-reason')).toHaveText('Choose folders for 1 file');
+  await expect(send0).toHaveAttribute('aria-describedby', (await page.locator('.send-reason').getAttribute('id')) as string);
+  await expect(send0).not.toHaveAttribute('title', /.+/);
+  await expect(page.locator('.send-summary')).toHaveCount(0); // the summary line is gone from the bar
 
   await tick(page, CARDIO_IRB);
   const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
@@ -37,7 +39,8 @@ test('folders can be ticked before any file is added, and every file added while
   await signIn(page, PRIYA);
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
-  await expect(page.locator('.send-reason')).toHaveText('Add a file first');
+  await expect(page.locator('.send-reason')).toHaveText(''); // the empty page says nothing: the drop area says what to do
+  await expect(page.getByRole('region', { name: 'Destinations' }).locator('.card-hint')).toHaveCount(0); // nothing ticked: no words beside the title
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
 
   await addPdfs(page, 2, 'order');
@@ -51,14 +54,26 @@ test('folders can be ticked before any file is added, and every file added while
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 
-test('a file type that is not allowed is listed under Not added, and can be dismissed', async ({ page }) => {
+test('a file type that is not allowed is listed in one calm "not added" box with one Close button; it stays until closed or the page is cleared (D-F1-35)', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
   const notAdded = page.locator('.not-added');
-  await expect(notAdded).toContainText('setup.exe');
-  await expect(notAdded).toContainText('This type is not allowed. Use PDF, DOCX, XLSX, PNG or JPG.');
+  await expect(notAdded).toContainText('1 file not added'); // singular
+  await expect(notAdded.locator('.not-added-name')).toHaveText('setup.exe');
+  await expect(notAdded.locator('.not-added-reason')).toHaveText('This type is not allowed. Use PDF, DOCX, XLSX, PNG or JPG.');
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Dismiss setup.exe' }).click();
+  await expect(notAdded.getByRole('button')).toHaveCount(1); // one button for the whole box, none per line
+  // A second refused file is added to the same box (plural), and nothing dismisses it on its own.
+  await page.getByLabel('Choose files').setInputFiles([{ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') }]);
+  await expect(notAdded).toContainText('2 files not added');
+  await page.waitForTimeout(1500);
+  await expect(notAdded).toHaveCount(1);
+  await notAdded.getByRole('button', { name: 'Close' }).click();
+  await expect(notAdded).toHaveCount(0);
+  // It also goes when the page is cleared.
+  await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
+  await expect(notAdded).toHaveCount(1);
+  await page.getByRole('button', { name: 'Clear' }).click();
   await expect(notAdded).toHaveCount(0);
 });
 
@@ -75,7 +90,7 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   await expect(eicar).toContainText('Will not be sent');
   const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
   await expect(sendBtn).toBeDisabled();
-  await expect(sendBtn).toHaveAttribute('title', 'Remove the file refused for malware first'); // it is the only file
+  await expect(page.locator('.send-reason')).toHaveText('Remove the file refused for malware'); // it is the only file
   await page.getByRole('button', { name: `Remove ${name}` }).click();
   await expect(row(page, name)).toHaveCount(0);
 
@@ -99,17 +114,24 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   expect(await refusals(RAJ)).toBe(0);
 });
 
-test('ticking a folder applies to the selected file only, until "Use all files"', async ({ page }) => {
+test('ticking a folder applies to the selected file only, until none is selected (the "for N selected files" words beside Destinations)', async ({ page }) => {
   await signIn(page, PRIYA);
+  const dest = page.getByRole('region', { name: 'Destinations' });
   const [a, b] = await addPdfs(page, 2, 'scope');
+  await expect(dest.locator('.card-hint')).toHaveCount(0); // none selected: nothing beside the title
   await row(page, a as string).locator('.fname').click(); // a click on a row selects it
-  await expect(page.locator('.scope.scoped')).toContainText('1 selected file');
+  await expect(dest.locator('.card-hint')).toHaveText('for 1 selected file');
+  await expect(page.getByRole('button', { name: 'Use all files' })).toHaveCount(0); // the strip is gone
   await tick(page, CARDIO_IRB);
   await expect(row(page, a as string).locator('.chips')).toContainText('1 folder');
   await expect(row(page, b as string)).toContainText('None yet');
+  await expect(page.locator('.send-reason')).toHaveText('Choose folders for 1 file');
 
-  await page.getByRole('button', { name: 'Use all files' }).click();
-  await expect(page.locator('.scope')).toContainText('all 2 files');
+  // The Files header checkbox selects all, and a second click selects none: a tick then goes to all files.
+  await page.getByLabel('Select all to choose their folders').click();
+  await expect(dest.locator('.card-hint')).toHaveText('for 2 selected files');
+  await page.getByLabel('Select all to choose their folders').click();
+  await expect(dest.locator('.card-hint')).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear' }).click();
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
 });
@@ -119,7 +141,7 @@ test('a file shows how many folders it goes to, with the list on demand; Preview
   const [a] = await addPdfs(page, 2, 'review');
   await tick(page, CARDIO_IRB);
   await tick(page, CARDIO_PROTOCOL);
-  await expect(page.locator('.send-summary')).toHaveText('2 files to 2 folders: 4 deliveries');
+  await expect(page.locator('.send-summary')).toHaveCount(0); // the full summary is in the question that Send asks
   await expect(row(page, a as string).locator('.chips')).toContainText('2 folders');
   // The folders are on demand, in a popover, not on the page.
   await row(page, a as string).getByRole('button', { name: /^Show the 2 folders of/ }).click();
@@ -132,19 +154,60 @@ test('a file shows how many folders it goes to, with the list on demand; Preview
   await page.getByRole('button', { name: `Preview ${a}`, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'File preview' });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('Shown from the copy in your browser. Nothing has been sent yet.');
+  await expect(dialog.locator('.pv-meta')).toHaveText(/^[\d.,]+ (B|KB|MB|GB)$/); // the size only (D-F1-27)
+  await expect(dialog).not.toContainText('not sent yet');
+  await expect(dialog).not.toContainText('Shown from the copy in your browser'); // and there is no footer line (D-F1-23)
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
 
   // Send asks first; Cancel is the default, and Esc sends nothing.
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const ask = page.getByRole('dialog', { name: 'Send 2 files to 2 folders?' });
-  await expect(ask).toContainText('4 deliveries to 1 team.');
+  await expect(ask).not.toContainText('deliveries'); // the title says what goes where; no count of deliveries or teams (D-F1-23)
+  await expect(ask.locator('p')).toHaveText(["Delivered files can't be recalled."]); // one line
   await expect(ask).toContainText("Delivered files can't be recalled.");
   await expect(ask.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(ask).toHaveCount(0);
   await expect(page.locator('.frow[data-id]')).toHaveCount(2); // nothing was sent
+  await page.getByRole('button', { name: 'Clear' }).click();
+});
+
+test('before sending, the preview shows a real multi-page PDF, a DOCX and an image, with no footer line (D-F1-23)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  const id = randomUUID().slice(0, 6);
+  const PDF = `multi-${id}.pdf`;
+  const DOCX = `letter-${id}.docx`;
+  const PNG = `scan-${id}.png`;
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
+  await page.getByLabel('Choose files').setInputFiles([
+    { name: PDF, mimeType: 'application/pdf', buffer: makePdf(`Consent ${id}`, 3) },
+    { name: DOCX, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await docx(`Letter of intent ${id}`) },
+    { name: PNG, mimeType: 'image/png', buffer: png },
+  ]);
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(3, { timeout: 90_000 });
+  const dialog = page.getByRole('dialog', { name: 'File preview' });
+
+  // The PDF is the browser's own copy in the viewer's frame: three pages, each with its text.
+  await page.getByRole('button', { name: `Preview ${PDF}`, exact: true }).click();
+  const frame = page.getByTitle(`Preview of ${PDF}`);
+  await expect(frame).toBeVisible();
+  const text = (await page.evaluate(`fetch(document.querySelector('iframe[title="Preview of ${PDF}"]').src).then((r) => r.text())`)) as string;
+  expect(text).toContain('/Count 3');
+  for (const n of [1, 2, 3]) expect(text).toContain(`(Page ${n} of 3)`);
+  expect(text).toContain(`Consent ${id}`);
+  await expect(dialog).not.toContainText('Shown from the copy in your browser');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: `Preview ${DOCX}`, exact: true }).click();
+  await expect(page.frameLocator(`iframe[title="Preview of ${DOCX}"]`).locator('body')).toContainText(`Letter of intent ${id}`);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: `Preview ${PNG}`, exact: true }).click();
+  const image = dialog.getByRole('img', { name: PNG });
+  await expect(image).toBeVisible();
+  expect(await image.evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth)).toBeGreaterThan(0); // it decoded
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 

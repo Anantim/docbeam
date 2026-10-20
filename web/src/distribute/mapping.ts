@@ -137,11 +137,11 @@ export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
   const batch = buildBatch(mapping, files);
 
   let reason: string | null = null;
-  if (usable.length === 0) reason = infected > 0 ? 'Remove the file refused for malware first' : 'Add a file first';
-  else if (infected > 0) reason = `Remove the ${plural(infected, 'file', 'files')} refused for malware first`;
-  else if (failed > 0) reason = `${plural(failed, 'file', 'files')} failed to upload. Retry or remove ${failed === 1 ? 'it' : 'them'}`;
-  else if (waiting > 0) reason = `${plural(waiting, 'file is', 'files are')} not ready yet`;
-  else if (unmapped > 0) reason = `${plural(unmapped, 'file has', 'files have')} no folder. Tick a folder`;
+  if (usable.length === 0) reason = infected > 0 ? 'Remove the file refused for malware' : 'Add a file first';
+  else if (infected > 0) reason = `Remove the ${plural(infected, 'file', 'files')} refused for malware`;
+  else if (failed > 0) reason = `Retry or remove ${plural(failed, 'file', 'files')} that failed to upload`;
+  else if (waiting > 0) reason = `Wait for ${plural(waiting, 'file', 'files')} to finish scanning`;
+  else if (unmapped > 0) reason = `Choose folders for ${plural(unmapped, 'file', 'files')}`;
   else if (!batch.result.ok) reason = batch.result.reason;
   return { ready: reason === null, reason, batch: batch.result };
 }

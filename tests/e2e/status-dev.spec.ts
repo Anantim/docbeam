@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, CARDIO_IRB, distRow, PRIYA, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, distRow, pickFilter, PRIYA, send, signIn, tick } from './helpers.js';
 
 // The changed screens on dev (F1): Distribute with the question before Send, and Status with its list, filters,
 // side panel. Needs DEV_APP_URL and DEV_SEED_PASSWORD (see playwright.dev.config.ts).
@@ -7,7 +7,8 @@ test('send with the question first, then the list, a filter, the panel and Esc, 
   await signIn(page, PRIYA);
   await addPdfs(page, 1, 'f1dev');
   await tick(page, CARDIO_IRB);
-  await expect(page.locator('.send-summary')).toHaveText('1 file to 1 folder: 1 delivery');
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled(); // nothing is missing: no reason beside the buttons
+  await expect(page.locator('.send-reason')).toHaveText('');
 
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const ask = page.getByRole('dialog', { name: 'Send 1 file to 1 folder?' });
@@ -25,11 +26,13 @@ test('send with the question first, then the list, a filter, the panel and Esc, 
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/#\/status$/);
   await expect(distRow(page, jobId.slice(0, 8))).toBeVisible();
-  await page.getByLabel('Status').selectOption('completed');
+  await pickFilter(page, 'Status', 'Completed');
   await expect(distRow(page, jobId.slice(0, 8))).toBeVisible();
-  await page.getByLabel('Status').selectOption('cancelled');
+  await pickFilter(page, 'Status', 'Cancelled');
   await expect(distRow(page, jobId.slice(0, 8))).toHaveCount(0);
-  await page.getByRole('button', { name: 'All I can see' }).click();
-  await page.getByLabel('Status').selectOption('');
+  await pickFilter(page, 'Sender', 'Me');
+  await pickFilter(page, 'Status', 'Any status');
+  await expect(distRow(page, jobId.slice(0, 8))).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters' }).click();
   await expect(distRow(page, jobId.slice(0, 8))).toBeVisible();
 });

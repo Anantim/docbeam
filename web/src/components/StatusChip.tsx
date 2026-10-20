@@ -13,12 +13,14 @@ interface Props {
   title?: string | undefined;
   /** The larger chip in the header of a distribution. */
   big?: boolean;
+  /** What a screen reader says for the chip when the tooltip's sentence is more useful than the word (D-F1-38). */
+  ariaLabel?: string | undefined;
 }
 
 /** The text with a dot, tinted by its tone. Delivery states, distribution states and file states all use it. */
-export function StatusChip({ tone, label, title, big = false }: Props) {
+export function StatusChip({ tone, label, title, big = false, ariaLabel }: Props) {
   return (
-    <span className={`status-chip ${big ? 'big' : ''}`} data-tone={tone} title={title}>
+    <span className={`status-chip ${big ? 'big' : ''}`} data-tone={tone} title={title} role={ariaLabel ? 'img' : undefined} aria-label={ariaLabel}>
       <span className="status-dot" aria-hidden="true" />
       {label}
     </span>

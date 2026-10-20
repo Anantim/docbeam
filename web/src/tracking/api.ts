@@ -1,13 +1,12 @@
 import { apiFetch } from '../auth/session.js';
 import type { Counts } from '../live/socket.js';
+import { jobsQuery, type Filters } from './filters.js';
 
 export type { Counts } from '../live/socket.js';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 /** What a delivery is shown as: a cancelled one is stored as failed with the code CANCELLED (D-M3-17). */
 export type TaskKind = TaskStatus | 'cancelled';
-/** Mine, sent to my teams by others, or both. */
-export type JobScope = 'mine' | 'team' | 'all';
 export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'completed_with_errors' | 'cancelled';
 
 export interface JobSummary {
@@ -20,6 +19,22 @@ export interface JobSummary {
   destinationCount: number;
   counts: Counts;
   status: JobStatus;
+}
+
+export interface JobsPage {
+  items: JobSummary[];
+  /** Null at the end of the list. */
+  nextCursor: string | null;
+}
+
+export interface Member {
+  userId: string;
+  name: string;
+}
+
+export interface TeamChoice {
+  id: string;
+  name: string;
 }
 
 export interface JobDetail extends Omit<JobSummary, 'fileCount' | 'destinationCount'> {
@@ -71,8 +86,17 @@ export const TASK_PAGE = 100;
 const post = <T>(path: string): Promise<T> => apiFetch<T>(path, { method: 'POST' });
 
 export const trackingApi = {
-  jobs: (scope: JobScope, page = 1, limit = 20, status?: JobStatus): Promise<JobSummary[]> =>
-    apiFetch(`/jobs?scope=${scope}&page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`),
+  /** One page of everything the person can see, newest first, after `cursor` (D-F1-21). */
+  jobs: (filters: Filters, cursor: string | null, limit = 20): Promise<JobsPage> =>
+    apiFetch(`/jobs?${jobsQuery(filters)}&limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  /** How many distributions the person can see are pending or in progress, over the whole list (D-F1-34). */
+  running: async (): Promise<number> => (await apiFetch<{ running: number }>('/jobs/running')).running,
+  /** The distributions the person can see whose id starts with these 8 characters, at most 5 (D-F1-32). */
+  byIdPrefix: async (prefix: string): Promise<JobSummary[]> => (await apiFetch<JobsPage>(`/jobs?scope=all&idPrefix=${encodeURIComponent(prefix)}`)).items,
+  /** The people in the person's teams, for the Sender filter. */
+  members: async (): Promise<Member[]> => (await apiFetch<{ items: Member[] }>('/teams/members')).items,
+  /** The person's teams, for the Team filter. */
+  teams: async (): Promise<TeamChoice[]> => (await apiFetch<{ items: TeamChoice[]; nextCursor: string | null }>('/teams?limit=100')).items,
   job: (jobId: string): Promise<JobDetail> => apiFetch(`/jobs/${jobId}`),
   tasks: (jobId: string, page: number, status?: TaskKind): Promise<TaskPage> =>
     apiFetch(`/jobs/${jobId}/tasks?page=${page}&limit=${TASK_PAGE}${status ? `&status=${status}` : ''}`),

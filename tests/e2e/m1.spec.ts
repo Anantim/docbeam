@@ -139,7 +139,7 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
   await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
   await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
   await page.getByRole('button', { name: 'Status' }).click();
-  await page.getByRole('button', { name: 'My teams' }).click();
+  // Opening Status reads the list (D-F1-25): that call meets the 401.
   const dialog = page.getByRole('dialog', { name: 'Sign in again' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Nothing on this page is lost');

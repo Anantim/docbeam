@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, jobIdOf, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
+import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, jobIdOf, pickFilter, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
 
 // Found on dev in the person's browser checks (D-M3-17): an old sign-in error that stayed after signing in again,
 // and the counts of a distribution that was cancelled part way.
@@ -20,7 +20,7 @@ test('while the sign-in is over the page behind the dialog shows no error, and a
   // The server stops accepting the token and the refresh, as after 12 hours.
   await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
   await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
-  await page.getByRole('button', { name: 'My teams' }).click();
+  await pickFilter(page, 'Sender', 'Me'); // a filter reads the list again: this call meets the 401
   const dialog = page.getByRole('dialog', { name: 'Sign in again' });
   await expect(dialog).toBeVisible();
   await page.evaluate((id) => {
@@ -160,7 +160,9 @@ test('the sign-in dialog covers the whole viewport on a long page scrolled down,
   await page.evaluate(`window.scrollTo(0, document.documentElement.scrollHeight)`);
   await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
   await page.route('**/api/auth/refresh', (route) => route.fulfill(unauthorised));
-  await page.getByRole('button', { name: 'My teams' }).dispatchEvent('click'); // no scrolling into view
+  // Open the Sender menu and choose "Me" without scrolling the page to them (a click would).
+  await page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Sender/ }).dispatchEvent('click');
+  await page.getByRole('menuitemradio', { name: 'Me', exact: true }).dispatchEvent('click');
   const dialog = page.getByRole('dialog', { name: 'Sign in again' });
   await expect(dialog).toBeVisible();
   const viewport = page.viewportSize()!;

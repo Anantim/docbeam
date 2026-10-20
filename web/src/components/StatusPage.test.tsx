@@ -10,7 +10,7 @@ import { StatusPage } from './StatusPage.js';
 
 type StatusProps = Parameters<typeof StatusPage>[0];
 
-const api = vi.hoisted(() => ({ job: vi.fn(), jobs: vi.fn(), tasks: vi.fn(), cancel: vi.fn(), retry: vi.fn() }));
+const api = vi.hoisted(() => ({ job: vi.fn(), jobs: vi.fn(), tasks: vi.fn(), cancel: vi.fn(), retry: vi.fn(), members: vi.fn(), teams: vi.fn(), byIdPrefix: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ApiModule>()),
   trackingApi: api,
@@ -76,15 +76,19 @@ const mine = (jobs: JobSummary[] | null = [], over: Partial<ReturnType<typeof us
 });
 const notify = vi.fn();
 
-function renderPage(over: { jobId?: string | null; onOpen?: (id: string | null) => void; onLive?: StatusProps['onLive']; live?: LiveClient; mine?: ReturnType<typeof mine> } = {}) {
+function renderPage(
+  over: { jobId?: string | null; onOpen?: (id: string | null) => void; onLive?: StatusProps['onLive']; live?: LiveClient; mine?: ReturnType<typeof mine>; filters?: StatusProps['filters']; onFilters?: StatusProps['onFilters'] } = {},
+) {
   const f = fakeLive();
   const utils = render(
     <StatusPage
       meId="u"
       jobId={'jobId' in over ? (over.jobId ?? null) : JOB}
+      filters={over.filters ?? {}}
+      onFilters={over.onFilters ?? vi.fn()}
       onOpen={over.onOpen ?? vi.fn()}
       onLive={over.onLive}
-      mine={over.mine ?? mine()}
+      all={over.mine ?? mine()}
       notify={notify}
       live={over.live ?? f.live}
     />,
@@ -94,7 +98,9 @@ function renderPage(over: { jobId?: string | null; onOpen?: (id: string | null) 
 
 beforeEach(() => {
   api.job.mockResolvedValue(detail());
-  api.jobs.mockResolvedValue([]);
+  api.jobs.mockResolvedValue({ items: [], nextCursor: null });
+  api.members.mockResolvedValue([]);
+  api.teams.mockResolvedValue([]);
   api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 0, tasks: [] });
 });
 afterEach(() => {
@@ -308,8 +314,28 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    await screen.findByText(/Priya Shah, 16 Oct .*Only the deliveries to your teams are shown/);
+    const lead = await screen.findByText((_, el) => el?.classList.contains('lead') === true && /^Sent by Priya Shah · 16 Oct .*Only the deliveries to your teams are shown/.test(el.textContent ?? ''));
+    expect(lead.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
     expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed/ })).toBeNull();
+  });
+
+  it('shows the shape of the panel while it loads: the sent-by line, the progress bar and the deliveries under their real header', () => {
+    api.job.mockReturnValue(new Promise(() => undefined)); // never answers
+    renderPage();
+    const busy = screen.getByLabelText('Loading the distribution');
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    expect(busy.querySelector('.lead .sk')).not.toBeNull();
+    expect(busy.querySelector('.sk-bar')).not.toBeNull();
+    expect(within(busy).getAllByText(/File and folder|Status|Attempts|Details/).length).toBe(4);
+    expect(busy.querySelectorAll('.ttable .trow:not(.thead)').length).toBe(4);
+  });
+
+  it('says "Sent by <full name> (you) · date" under the header of my own distribution: a muted label, the name in normal weight (D-F1-22)', async () => {
+    const page = renderPage();
+    await act(async () => page.release());
+    const lead = await screen.findByText((_, el) => el?.classList.contains('lead') === true && /^Sent by Priya Shah \(you\) · 16 Oct \d\d:\d\d$/.test(el.textContent ?? ''));
+    expect(lead.querySelector('.sentby')?.textContent).toBe('Sent by');
+    expect(lead.querySelector('.sender-name')?.textContent).toBe('Priya Shah (you)');
   });
 
   it('turns Retry off for a cancelled distribution and says why in its title', async () => {
@@ -402,21 +428,50 @@ describe('the list and Open by ID', () => {
     expect(document.activeElement).toBe(button);
   });
 
-  it('opens a distribution from a pasted link and rejects the short id', async () => {
+  it('opens a distribution from a pasted link or a full id, with the field named "Distribution ID or link"', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     renderPage({ jobId: null, onOpen });
     const field = await openCard(user);
-    await user.type(field, '3f1c2a9e');
-    await user.click(screen.getByRole('button', { name: 'Open' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
-    expect(onOpen).not.toHaveBeenCalled();
-
-    await user.clear(field);
+    expect(field.getAttribute('placeholder')).toBe('Distribution ID or link');
     await user.type(field, `https://x.cloudfront.net/#/status/${JOB.toUpperCase()}`);
     await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(onOpen).toHaveBeenCalledWith(JOB);
     expect(screen.queryByLabelText('Distribution ID or link')).toBeNull(); // the card closes
+    expect(api.byIdPrefix).not.toHaveBeenCalled(); // a full id needs no look-up
+  });
+
+  it('takes the 8 characters the list shows: one match opens it, several are listed to choose from, none says so, bad input says what to enter (D-F1-32)', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    renderPage({ jobId: null, onOpen });
+    const field = await openCard(user);
+
+    api.byIdPrefix.mockResolvedValueOnce([summary(JOB)]);
+    await user.type(field, '3F1C2A9E{Enter}');
+    expect(api.byIdPrefix).toHaveBeenLastCalledWith('3f1c2a9e'); // lower-cased
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(JOB));
+
+    onOpen.mockClear();
+    const again = await openCard(user);
+    api.byIdPrefix.mockResolvedValueOnce([summary('3f1c2a9e-0000-4000-8000-000000000001'), summary('3f1c2a9e-0000-4000-8000-000000000002', 'Raj Mehta')]);
+    await user.type(again, '3f1c2a9e{Enter}');
+    const list = await screen.findByRole('list', { name: 'Distributions with that ID' });
+    expect(onOpen).not.toHaveBeenCalled(); // several: the person chooses
+    const rows = within(list).getAllByRole('button');
+    expect(rows.map((r) => r.textContent?.replace(/\d{1,2} \w{3} \d\d:\d\d/, '<date>'))).toEqual(['3f1c2a9e<date>You', '3f1c2a9e<date>Raj Mehta']);
+    await user.click(rows[1] as HTMLElement);
+    expect(onOpen).toHaveBeenCalledWith('3f1c2a9e-0000-4000-8000-000000000002');
+
+    const third = await openCard(user);
+    api.byIdPrefix.mockResolvedValueOnce([]);
+    await user.type(third, 'abcdef01{Enter}');
+    expect((await screen.findByRole('alert')).textContent).toBe('No distribution with that ID that you can see.');
+
+    await user.clear(third);
+    await user.type(third, '12345{Enter}'); // neither 8 characters, a full id nor a link
+    expect((await screen.findByRole('alert')).textContent).toBe('Enter the 8-character ID from the list, the full ID, or a link.');
+    expect(api.byIdPrefix).toHaveBeenCalledTimes(3); // the bad input never reached the server
   });
 
   it('keeps Open off while the field is empty or only spaces, and clears the note when typing starts again', async () => {
@@ -426,15 +481,15 @@ describe('the list and Open by ID', () => {
     const field = await openCard(user);
     const open = screen.getByRole('button', { name: 'Open' }) as HTMLButtonElement;
     expect(open.disabled).toBe(true);
-    expect(open.title).toBe('Paste a distribution id or link first');
+    expect(open.title).toBe('Enter a distribution ID or link first');
     await user.type(field, '   ');
     expect(open.disabled).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
 
     await user.clear(field);
-    await user.type(field, '3f1c2a9e');
+    await user.type(field, '3f1c2a');
     await user.click(open);
-    expect((await screen.findByRole('alert')).textContent).toContain('full distribution id');
+    expect((await screen.findByRole('alert')).textContent).toContain('8-character ID');
     await user.type(field, 'x');
     expect(screen.queryByRole('alert')).toBeNull();
 
@@ -446,25 +501,23 @@ describe('the list and Open by ID', () => {
   it('lists my distributions as a table: id, status, sent, and (when there is room) sender, files, folders', async () => {
     renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 7, destinationCount: 4 })]) });
     const table = screen.getByRole('table', { name: 'Distributions' });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Sender', 'Files', 'Folders']);
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // no Sender column (D-F1-33)
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
     const sent = '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5));
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbb', 'Completed', sent, 'You', '7', '4']);
+    // The sender is on every row, small and muted under the ID, in every state of the list.
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, '7', '4']);
+    expect(row.querySelector('.dist-sender')?.textContent).toBe('You');
   });
 
-  it('lists the team ones, with the sender\'s name, when My teams is picked, and a click opens the panel', async () => {
-    api.jobs.mockResolvedValue([summary('aaaaaaaa-0000-4000-8000-000000000000', 'Raj Mehta')]);
+  it('shows the sender\'s name on a row somebody else sent, and a click on the row opens it (everything I can see, D-F1-21)', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
-    renderPage({ jobId: null, onOpen, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000')]) });
-    expect(screen.getByText('bbbbbbbb')).toBeTruthy();
-    expect(screen.queryByText('aaaaaaaa')).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: 'My teams' }));
-    await screen.findByText('aaaaaaaa');
-    expect(api.jobs).toHaveBeenCalledWith('team', 1, 20, undefined);
-    expect(screen.getByText('Raj Mehta')).toBeTruthy();
-    await user.click(screen.getByText('Raj Mehta')); // the whole row is the target
+    renderPage({ jobId: null, onOpen, mine: mine([summary('aaaaaaaa-0000-4000-8000-000000000000', 'Raj Mehta'), summary('bbbbbbbb-0000-4000-8000-000000000000')]) });
+    expect(screen.getAllByText('Raj Mehta').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'My teams' })).toBeNull(); // the switch is gone
+    expect(screen.queryByRole('button', { name: 'Mine' })).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull(); // so is the status dropdown
+    await user.click(screen.getAllByText('Raj Mehta')[0] as HTMLElement); // the whole row is the target
     expect(onOpen).toHaveBeenCalledWith('aaaaaaaa-0000-4000-8000-000000000000');
   });
 
@@ -485,10 +538,16 @@ describe('the list and Open by ID', () => {
 
   it('has a designed empty state, a loading state and an error state with a retry', async () => {
     const { unmount } = renderPage({ jobId: null, mine: mine([]) });
-    expect(screen.getByText('You have not sent a distribution yet')).toBeTruthy();
+    expect(screen.getByText('No distributions yet')).toBeTruthy();
     unmount();
     const loading = renderPage({ jobId: null, mine: mine(null) });
-    expect(screen.getByLabelText('Loading distributions').getAttribute('aria-busy')).toBe('true');
+    const busy = screen.getByLabelText('Loading distributions');
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    // The real header row, and in each placeholder row grey bars shaped like the ID, the sender line, the chip and the date (D-F1-22).
+    expect(within(busy).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent).filter(Boolean)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // the last, empty column holds the spare width
+    const rows = busy.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(5);
+    for (const cls of ['.sk-id', '.sk-sender', '.sk-chip', '.sk-date']) expect(rows[0]?.querySelector(cls)).not.toBeNull();
     loading.unmount();
     const m = mine(null, { error: 'The list could not be loaded.' });
     renderPage({ jobId: null, mine: m });
@@ -517,10 +576,10 @@ describe('the list and Open by ID', () => {
       await user.click(screen.getByRole('button', { name: 'Show more' }));
       expect(m.loadMore).toHaveBeenCalledTimes(1);
       const loading = mine(m.jobs, { hasMore: true, loadingMore: true });
-      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} mine={loading} notify={notify} />);
+      rerender(<StatusPage meId="u" jobId={null} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={loading} notify={notify} />);
       expect(screen.getByText('Loading more…')).toBeTruthy();
       const last = mine(m.jobs, { hasMore: false });
-      rerender(<StatusPage meId="u" jobId={null} onOpen={vi.fn()} mine={last} notify={notify} />);
+      rerender(<StatusPage meId="u" jobId={null} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={last} notify={notify} />);
       expect(screen.getByText('Showing 2')).toBeTruthy(); // the count stays at the end, with no button
       expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
     } finally {
@@ -550,6 +609,126 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
   });
 });
 
+describe('the panel of a distribution that was just sent (D-F1-31)', () => {
+  it('takes the focus on its heading when it opens, and only for the one that was sent', async () => {
+    const f = fakeLive();
+    const { unmount } = render(<StatusPage meId="u" jobId={JOB} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={mine()} notify={notify} live={f.live} focusJobId={JOB} />);
+    await act(async () => f.release());
+    await waitFor(() => expect(document.activeElement?.tagName).toBe('H2'));
+    expect(document.activeElement?.textContent).toBe(JOB.slice(0, 8));
+    unmount();
+    const g = fakeLive();
+    render(<StatusPage meId="u" jobId={JOB} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={mine()} notify={notify} live={g.live} focusJobId={null} />);
+    await act(async () => g.release());
+    await screen.findByText(/Sent by/);
+    expect(document.activeElement?.tagName).not.toBe('H2'); // a panel opened by a click does not steal the focus
+  });
+});
+
+describe('opening Status (D-F1-25)', () => {
+  it('reads the list again once, so a distribution sent to my team meanwhile is there', () => {
+    const all = mine([summary('bbbbbbbb-0000-4000-8000-000000000000')]);
+    renderPage({ jobId: null, mine: all });
+    expect(all.refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the filter row (D-F1-21)', () => {
+  const bar = () => within(screen.getByRole('group', { name: 'Filters' }));
+  const twoTeams = [
+    { id: '11111111-1111-4111-8111-111111111111', name: 'Cardio' },
+    { id: '22222222-2222-4222-8222-222222222222', name: 'Oncology' },
+  ];
+
+  it('is one row of small buttons: Status, Sender, Sent; Team only for a person in more than one team', async () => {
+    renderPage({ jobId: null });
+    expect(bar().getAllByRole('button').map((b) => b.textContent)).toEqual(['Status', 'Sender', 'Sent']); // no team list yet, no "Clear filters"
+    cleanup();
+    api.teams.mockResolvedValue([twoTeams[0]]);
+    renderPage({ jobId: null });
+    await waitFor(() => expect(api.teams).toHaveBeenCalled());
+    expect(bar().queryByRole('button', { name: 'Team' })).toBeNull(); // one team: no Team filter
+    cleanup();
+    api.teams.mockResolvedValue(twoTeams);
+    renderPage({ jobId: null });
+    expect(await bar().findByRole('button', { name: 'Team' })).toBeTruthy();
+  });
+
+  it('opens a short menu per filter with the choices of the design, and a choice sets the filter', async () => {
+    const user = userEvent.setup();
+    const onFilters = vi.fn();
+    api.members.mockResolvedValue([
+      { userId: 'u', name: 'Priya Shah' }, // me: listed as "Me", not twice
+      { userId: '33333333-3333-4333-8333-333333333333', name: 'Raj Mehta' },
+    ]);
+    api.teams.mockResolvedValue(twoTeams);
+    renderPage({ jobId: null, onFilters });
+    await bar().findByRole('button', { name: 'Team' });
+    await waitFor(() => expect(api.members).toHaveBeenCalled());
+    const choices = async (name: string): Promise<string[]> => {
+      await user.click(bar().getByRole('button', { name }));
+      const labels = within(screen.getByRole('menu', { name })).getAllByRole('menuitemradio').map((i) => i.textContent);
+      await user.keyboard('{Escape}');
+      return labels;
+    };
+    expect(await choices('Status')).toEqual(['Any status', 'Pending', 'In progress', 'Completed', 'Completed with errors', 'Cancelled']);
+    await waitFor(async () => expect(await choices('Sender')).toEqual(['Anyone', 'Me', 'Raj Mehta']));
+    expect(await choices('Sent')).toEqual(['Any time', 'Today', 'Last 7 days', 'Last 30 days']);
+    expect(await choices('Team')).toEqual(['Any team', 'Cardio', 'Oncology']);
+
+    await user.click(bar().getByRole('button', { name: 'Status' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Completed with errors' }));
+    expect(onFilters).toHaveBeenLastCalledWith({ status: 'completed_with_errors' });
+    expect(screen.queryByRole('menu')).toBeNull(); // the menu closes on a choice
+    await user.click(bar().getByRole('button', { name: 'Sender' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Raj Mehta' }));
+    expect(onFilters).toHaveBeenLastCalledWith({ sender: '33333333-3333-4333-8333-333333333333' });
+  });
+
+  it('shows a set filter\'s value on its button in the accent style, and "Clear filters" only while one is set', async () => {
+    const user = userEvent.setup();
+    const onFilters = vi.fn();
+    api.jobs.mockResolvedValue({ items: [], nextCursor: null });
+    renderPage({ jobId: null, onFilters, filters: { sender: 'me', sent: '7d' } });
+    const sender = bar().getByRole('button', { name: 'Sender: Me' });
+    expect(sender.className).toContain('on');
+    expect(bar().getByRole('button', { name: 'Sent: Last 7 days' }).className).toContain('on');
+    expect(bar().getByRole('button', { name: 'Status' }).className).not.toContain('on');
+    await user.click(bar().getByRole('button', { name: 'Clear filters' }));
+    expect(onFilters).toHaveBeenCalledWith({});
+  });
+
+  it('reads the list again with the filters, from the server, while the app\'s unfiltered list stays untouched', async () => {
+    api.jobs.mockResolvedValue({ items: [summary('aaaaaaaa-0000-4000-8000-000000000000', 'Raj Mehta')], nextCursor: null });
+    const all = mine([summary('bbbbbbbb-0000-4000-8000-000000000000')]);
+    renderPage({ jobId: null, mine: all, filters: { sender: 'me' } });
+    await screen.findByText('aaaaaaaa');
+    expect(screen.queryByText('bbbbbbbb')).toBeNull(); // the filtered list is its own
+    expect(api.jobs).toHaveBeenCalledWith({ sender: 'me' }, null, 20);
+  });
+
+  it('says no distribution matches when filters leave nothing, and offers to clear them', async () => {
+    const user = userEvent.setup();
+    const onFilters = vi.fn();
+    api.jobs.mockResolvedValue({ items: [], nextCursor: null });
+    renderPage({ jobId: null, onFilters, filters: { status: 'cancelled' } });
+    await screen.findByText('No distribution matches these filters');
+    await user.click(within(document.querySelector('.state') as HTMLElement).getByRole('button', { name: 'Clear filters' }));
+    expect(onFilters).toHaveBeenCalledWith({});
+  });
+
+  it('Esc closes an open menu and does not close the panel behind it', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    renderPage({ onOpen });
+    await user.click(bar().getByRole('button', { name: 'Status' }));
+    expect(screen.getByRole('menu')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+});
+
 describe('the badge on the Status tab follows the open distribution (D-F1-15)', () => {
   it('tells the app the live counts, and reads my list again the moment the distribution finishes', async () => {
     const onLive = vi.fn();
@@ -557,7 +736,8 @@ describe('the badge on the Status tab follows the open distribution (D-F1-15)', 
     const page = renderPage({ mine: m, onLive });
     await opened(page);
     expect(onLive).toHaveBeenCalledWith(JOB, counts({ completed: 4, in_progress: 1, pending: 5 })); // the detail it shows
-    expect(m.refresh).not.toHaveBeenCalled(); // still running: the next read is the usual one
+    expect(m.refresh).toHaveBeenCalledTimes(1); // only the read when Status opened; still running, so no other read
+    vi.mocked(m.refresh).mockClear();
 
     await page.push({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T10:05:10.000Z', counts: counts({ completed: 10 }) });
     expect(onLive).toHaveBeenLastCalledWith(JOB, counts({ completed: 10 }));

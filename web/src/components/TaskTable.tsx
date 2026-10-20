@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type FocusEvent } from 'react';
 import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
@@ -21,15 +21,24 @@ interface Props {
   /** Preview and Download on a delivered file (flow 4). */
   onPreview: (task: TaskRow) => void;
   onDownload: (task: TaskRow) => void;
+  /** How tall the rows' box is when it does not fill: the rows scroll inside it. */
   viewportHeight?: number;
+  /** In the side panel: the box takes the height that is left (CSS) and the rows scroll inside it, with a fade at the bottom edge (D-F1-26). */
+  fill?: boolean;
 }
+
+/** Space kept clear under a row that keyboard focus scrolls into view, so the fade at the bottom edge does not cover it. */
+const FOCUS_PAD = 24;
 
 /**
  * The deliveries of one distribution, up to 2,000 rows, 100 loaded at a time. Only the rows in view are drawn
  * (TDD Step 3.4). Live pushes change a row in place; a reload keeps the old rows on screen until the new page arrives.
  */
-export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownload, viewportHeight = 480 }: Props) {
+export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownload, viewportHeight: fixedHeight = 480, fill = false }: Props) {
   const [pages, setPages] = useState<Map<number, TaskRow[]>>(new Map());
+  // The height of the rows' box as the page lays it out (only when it fills); the number given is used until it is known.
+  const [measured, setMeasured] = useState(0);
+  const viewportHeight = fill && measured > 0 ? measured : fixedHeight;
   const [total, setTotal] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const [error, setError] = useState('');
@@ -83,6 +92,29 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     for (const p of wanted) void load(p, generation.current);
   }, [reloadKey, load]);
 
+  useEffect(() => {
+    const box = scroller.current;
+    if (!fill || !box || typeof ResizeObserver === 'undefined') return;
+    const watcher = new ResizeObserver(() => setMeasured(box.clientHeight));
+    watcher.observe(box);
+    setMeasured(box.clientHeight);
+    return () => watcher.disconnect();
+  }, [fill]);
+
+  // Keyboard focus that moves into a row that is out of view (or under the fade) scrolls that row into the box.
+  // Only for keyboard focus: a mouse click on a button in a row must not move the rows under the pointer.
+  const byKeyboard = useRef(false);
+  const onFocusRow = (event: FocusEvent<HTMLDivElement>): void => {
+    if (!byKeyboard.current) return;
+    const rowEl = (event.target as HTMLElement).closest<HTMLElement>('[role="row"][aria-rowindex]');
+    const box = scroller.current;
+    if (!rowEl || !box) return;
+    const top = (Number(rowEl.getAttribute('aria-rowindex')) - 2) * ROW_HEIGHT;
+    if (top < box.scrollTop) box.scrollTop = top;
+    else if (top + ROW_HEIGHT + FOCUS_PAD > box.scrollTop + viewportHeight) box.scrollTop = top + ROW_HEIGHT + FOCUS_PAD - viewportHeight;
+    setScrollTop(box.scrollTop);
+  };
+
   // Scrolling to rows that are not loaded yet loads their pages.
   const range = visibleRange({ scrollTop, viewport: viewportHeight, rowHeight: ROW_HEIGHT, total });
   useEffect(() => {
@@ -128,8 +160,11 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
   }
 
+  // More rows below the box: a soft fade at its bottom edge says so.
+  const moreBelow = total * ROW_HEIGHT > scrollTop + viewportHeight + 2;
+
   return (
-    <div className="ttable" role="table" aria-label="Deliveries" aria-rowcount={total + 1}>
+    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={total + 1}>
       <div className="trow thead" role="row">
         <div role="columnheader">File and folder</div>
         <div role="columnheader">Status</div>
@@ -144,35 +179,53 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
         </div>
       )}
       {!firstLoaded && !error && (
-        <div className="tree-skeleton" role="status" aria-label="Loading deliveries" aria-busy="true">
+        // Under the real header: rows in the same grid, with bars the shape of the file and folder, the status chip,
+        // the attempts and the two icon buttons (D-F1-22).
+        <div className="tskel" role="status" aria-label="Loading deliveries" aria-busy="true">
           {Array.from({ length: 4 }, (_, i) => (
-            <span className="skeleton" key={i} />
+            <div className="trow" key={i} aria-hidden="true">
+              <div>
+                <span className="sk sk-file" />
+                <span className="sk sk-path" />
+              </div>
+              <div>
+                <span className="sk sk-chip" />
+              </div>
+              <div className="tattempts">
+                <span className="sk sk-num" />
+              </div>
+              <div>
+                <span className="sk sk-date" />
+              </div>
+            </div>
           ))}
         </div>
       )}
       {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
-      <div
-        ref={scroller}
-        className="tscroll"
-        style={{ height: Math.min(viewportHeight, Math.max(ROW_HEIGHT, total * ROW_HEIGHT)) }}
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-        tabIndex={0}
-        role="region"
-        aria-label="Delivery rows, scrolls"
-      >
-        <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
-          {rows.map(({ index, task }) => (
-            <div key={task?.taskId ?? `empty-${index}`} className="trow" role="row" aria-rowindex={index + 2} style={{ position: 'absolute', top: index * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}>
-              {task ? <TaskCells task={task} onPreview={onPreview} onDownload={onDownload} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
-            </div>
-          ))}
+      <div className={`tbody-wrap fadewrap ${fill ? 'fill' : ''} ${moreBelow ? 'more-below' : ''}`}>
+        <div
+          ref={scroller}
+          className={`tscroll ${fill ? 'fill' : ''}`}
+          // With `fill` the height asked for is all the rows; the CSS (flex-shrink, and `min-height: 0` on every parent up to the
+          // panel) shrinks it to the room that is left. A parent that loses its `min-height: 0` makes the box as tall as every row.
+          style={{ height: fill ? Math.max(ROW_HEIGHT, total * ROW_HEIGHT) :Math.min(viewportHeight, Math.max(ROW_HEIGHT, total * ROW_HEIGHT)) }}
+          onFocus={onFocusRow}
+          onKeyDownCapture={() => (byKeyboard.current = true)}
+          onPointerDownCapture={() => (byKeyboard.current = false)}
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          tabIndex={0}
+          role="region"
+          aria-label="Delivery rows, scrolls"
+        >
+          <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
+            {rows.map(({ index, task }) => (
+              <div key={task?.taskId ?? `empty-${index}`} className="trow" role="row" aria-rowindex={index + 2} style={{ position: 'absolute', top: index * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}>
+                {task ? <TaskCells task={task} onPreview={onPreview} onDownload={onDownload} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      {total * ROW_HEIGHT > viewportHeight && (
-        <div className="tnote">
-          {plural(total, 'delivery', 'deliveries')}: scroll the list to see them all.
-        </div>
-      )}
     </div>
   );
 }

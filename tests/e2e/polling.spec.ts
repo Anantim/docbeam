@@ -17,8 +17,8 @@ test('no request repeats after every distribution has finished, and coming back 
   });
   page.on('response', async (res) => {
     if (res.url().includes('/api/jobs') && res.request().method() === 'GET' && !/\/jobs\/[0-9a-f-]{36}/.test(res.url())) {
-      const body = (await res.json().catch(() => [])) as { jobs?: { status: string }[] } | { status: string }[];
-      const list = Array.isArray(body) ? body : (body.jobs ?? []);
+      const body = (await res.json().catch(() => ({}))) as { items?: { status: string }[] };
+      const list = body.items ?? [];
       running.push(list.some((j) => j.status === 'pending' || j.status === 'in_progress'));
     }
   });

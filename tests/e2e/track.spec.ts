@@ -8,6 +8,7 @@ import {
   distRow,
   jobIdOf,
   ONC_ETHICS,
+  pickFilter,
   PRIYA,
   RAJ,
   readCounts,
@@ -81,11 +82,10 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
     await withWorkersStopped(async ({ hold, start }) => {
       const { jobId } = await sendFiles(page, 2, [CARDIO_IRB, ONC_ETHICS], hold);
 
-      // Raj: Status, My teams, open it.
+      // Raj: Status shows everything he can see, so the distribution is there; open it.
       await raj.getByRole('button', { name: 'Status' }).click();
-      await raj.getByRole('button', { name: 'My teams' }).click();
       await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
-      await expect(raj.getByText(/Priya Shah, .*Only the deliveries to your teams are shown/)).toBeVisible();
+      await expect(raj.getByText(/Sent by Priya Shah · .*Only the deliveries to your teams are shown/)).toBeVisible();
       await expect(raj.locator('.ttable .status-chip')).toHaveCount(2);
       await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
@@ -109,7 +109,6 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await expect(sam.getByText('Distribution not found')).toBeVisible();
       await sam.evaluate("window.location.hash = '#/status/00000000-0000-4000-8000-000000000000'");
       await expect(sam.getByText('Distribution not found')).toBeVisible();
-      await sam.getByRole('button', { name: 'My teams' }).click();
       await expect(sam.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` })).toHaveCount(0);
 
       // Raj's panel of the distribution: Cardio deliveries, nothing about Oncology. The web app shows no audit trail (D-F1-13).
@@ -246,19 +245,21 @@ test('the live connection drops mid-run and the page catches up without a reload
   });
 });
 
-test('the list shows my distributions with their counts', async ({ page }) => {
+test('the list shows everything I can see with their counts, and no Mine / My teams switch', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   const cards = page.locator('.dist-table tbody tr');
   await expect(cards.first()).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Folders' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Mine' })).toHaveAttribute('aria-pressed', 'true');
-  // A short id does not open anything; a full id or a link does.
+  for (const gone of ['Mine', 'My teams', 'All I can see']) await expect(page.getByRole('button', { name: gone })).toHaveCount(0);
+  await expect(page.getByRole('combobox')).toHaveCount(0); // and no status dropdown
+  await expect(page.locator('.dist-sender').first()).toHaveText(/\S/); // the sender is on every row
+  // Something that is not an id opens nothing; the short id, a full id or a link do (D-F1-32).
   await page.getByRole('button', { name: 'Open by ID' }).click();
   const idField = page.getByLabel('Distribution ID or link');
-  await idField.fill('3f1c2a9e');
+  await idField.fill('3f1c2a');
   await page.getByRole('button', { name: 'Open', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('full distribution id');
+  await expect(page.getByRole('alert')).toContainText('8-character ID');
   const firstTitle = (await cards.first().locator('.dist-id').getAttribute('title')) as string;
   await idField.fill(`http://localhost:5173/#/status/${firstTitle.toUpperCase()}`);
   await page.getByRole('button', { name: 'Open', exact: true }).click();
@@ -343,20 +344,59 @@ test('the list updates its counts by itself, every 30 seconds, with no live push
   });
 });
 
-test('the filters: Mine, My teams and All I can see, and a status', async ({ page }) => {
+test('the filter row: Status, Sender, Sent, Team; set filters show on their buttons, live in the address, survive a reload, and clear together', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(distRow(page).first()).toBeVisible();
-  const all = page.getByRole('button', { name: 'All I can see' });
-  await all.click();
-  await expect(all).toHaveAttribute('aria-pressed', 'true');
-  await expect(distRow(page).first()).toBeVisible();
-  // A status narrows the list: every row has it, or the list says none has.
-  await page.getByLabel('Status').selectOption('cancelled');
+  const bar = page.getByRole('group', { name: 'Filters' });
+  await expect(bar.getByRole('button', { name: 'Team' })).toBeVisible(); // Priya is in two teams
+  await expect(bar.getByRole('button', { name: 'Clear filters' })).toHaveCount(0); // nothing is set
+
+  // A status narrows the list: every row has it, or the list says none matches.
+  await pickFilter(page, 'Status', 'Cancelled');
+  await expect(bar.getByRole('button', { name: 'Status: Cancelled' })).toHaveClass(/on/);
+  await expect(page).toHaveURL(/#\/status\?status=cancelled$/);
   const rows = distRow(page);
-  const none = page.getByText('No distribution has this status');
+  const none = page.getByText('No distribution matches these filters');
   await expect(rows.first().or(none)).toBeVisible();
   if ((await none.count()) === 0) for (const text of await rows.locator('.status-chip').allTextContents()) expect(text).toBe('Cancelled');
-  await page.getByLabel('Status').selectOption('');
+
+  // Two filters at once; the address keeps both and a reload opens the same list.
+  await pickFilter(page, 'Sender', 'Me');
+  await expect(bar.getByRole('button', { name: 'Sender: Me' })).toHaveClass(/on/);
+  await expect(page).toHaveURL(/#\/status\?status=cancelled&sender=me$/);
+  await page.reload();
+  await expect(bar.getByRole('button', { name: 'Status: Cancelled' })).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Sender: Me' })).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Clear filters' })).toBeVisible();
+
+  // Sent: Today, and the Team menu has the person's teams.
+  await pickFilter(page, 'Sent', 'Today');
+  await expect(bar.getByRole('button', { name: 'Sent: Today' })).toBeVisible();
+  await bar.getByRole('button', { name: /^Team/ }).click();
+  await expect(page.getByRole('menuitemradio')).toHaveText(['Any team', 'Cardio', 'Oncology']);
+  await page.keyboard.press('Escape');
+
+  await bar.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(page).toHaveURL(/#\/status$/);
+  await expect(bar.getByRole('button', { name: 'Clear filters' })).toHaveCount(0);
   await expect(distRow(page).first()).toBeVisible();
+});
+
+test('an old address with a scope opens the full list, and a team viewer sees what was sent to their team without any switch', async ({ page }) => {
+  await signIn(page, RAJ);
+  await page.goto('/#/status?scope=team&status=sleeping');
+  await expect(page.getByRole('heading', { name: 'Distributions' })).toBeVisible();
+  const bar = page.getByRole('group', { name: 'Filters' });
+  await expect(bar.getByRole('button', { name: 'Clear filters' })).toHaveCount(0); // nothing of it is a filter
+  await expect(distRow(page).first()).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Team' })).toHaveCount(0); // Raj is in one team: no Team filter
+  await bar.getByRole('button', { name: /^Sender/ }).click();
+  const names = await page.getByRole('menuitemradio').allTextContents();
+  expect(names.slice(0, 2)).toEqual(['Anyone', 'Me']);
+  expect(names).toContain('Priya Shah'); // a member of his team, from the platform
+  expect(names).not.toContain('Sam Ito'); // not in his teams
+  await page.getByRole('menuitemradio', { name: 'Priya Shah' }).click();
+  await expect(page).toHaveURL(/#\/status\?sender=[0-9a-f-]{36}$/);
+  for (const sender of await page.locator('.dist-table tbody tr .dist-sender').allTextContents()) expect(sender).toBe('Priya Shah');
 });

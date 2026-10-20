@@ -47,14 +47,15 @@ interface TaskSpec {
 /** A job by Priya with one file per task. `fileAgeHours` and `firstCompletedHoursAgo` set the retry window. */
 async function insertJob(
   specs: TaskSpec[],
-  options: { fileAgeHours?: number; firstCompletedHoursAgo?: number; completed?: boolean } = {},
+  options: { fileAgeHours?: number; firstCompletedHoursAgo?: number; completed?: boolean; sender?: { email: string; name: string }; sentHoursAgo?: number; id?: string } = {},
 ): Promise<{ jobId: string; taskIds: string[]; fileIds: string[] }> {
-  const jobId = randomUUID();
+  const jobId = options.id ?? randomUUID();
   const done = options.firstCompletedHoursAgo !== undefined;
+  const sender = options.sender ?? { email: priya, name: 'Priya Shah' };
   await db.query(
-    `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at)
-     VALUES ($1, $2, 'Priya Shah', $3, $4, now(), $5, $5)`,
-    [jobId, ids[priya], specs.length, randomUUID(), done ? new Date(Date.now() - (options.firstCompletedHoursAgo as number) * 3_600_000) : null],
+    `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
+     VALUES ($1, $2, $6, $3, $4, now(), $5, $5, now() - ($7::float * interval '1 hour'))`,
+    [jobId, ids[sender.email], specs.length, randomUUID(), done ? new Date(Date.now() - (options.firstCompletedHoursAgo as number) * 3_600_000) : null, sender.name, options.sentHoursAgo ?? 0],
   );
   const taskIds: string[] = [];
   const fileIds: string[] = [];
@@ -114,14 +115,14 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
 
   it('lists the sender\'s jobs under mine, newest first, and not under team', async () => {
     const mine = await get(priya, '/jobs');
-    expect(mine.body[0].jobId).toBe(job.jobId);
-    expect(mine.body[0]).toMatchObject({ taskCount: 5, status: 'in_progress', submittedBy: { name: 'Priya Shah' }, fileCount: 5, destinationCount: 2 });
+    expect(mine.body.items[0].jobId).toBe(job.jobId);
+    expect(mine.body.items[0]).toMatchObject({ taskCount: 5, status: 'in_progress', submittedBy: { name: 'Priya Shah' }, fileCount: 5, destinationCount: 2 });
     const team = await get(priya, '/jobs?scope=team');
-    expect(team.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
+    expect(team.body.items.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
   });
 
   it('lists mine, the ones shared with my teams, or both under scope=all (D-F1-9)', async () => {
-    const ids = (r: { body: Array<{ jobId: string }> }) => r.body.map((j) => j.jobId);
+    const ids = (r: { body: { items: Array<{ jobId: string }> } }) => r.body.items.map((j) => j.jobId);
     expect(ids(await get(priya, '/jobs?scope=all&limit=100'))).toContain(job.jobId);
     expect(ids(await get(raj, '/jobs?scope=all&limit=100'))).toContain(job.jobId);
     expect(ids(await get(raj, '/jobs?scope=mine&limit=100'))).not.toContain(job.jobId);
@@ -130,13 +131,13 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
   });
 
   it('filters by status, from the deliveries the caller may see: the same job can be in progress for the sender and finished with errors for a team member', async () => {
-    const ids = (r: { body: Array<{ jobId: string }> }) => r.body.map((j) => j.jobId);
+    const ids = (r: { body: { items: Array<{ jobId: string }> } }) => r.body.items.map((j) => j.jobId);
     expect(ids(await get(priya, '/jobs?scope=mine&status=in_progress&limit=100'))).toContain(job.jobId);
     expect(ids(await get(priya, '/jobs?scope=mine&status=completed&limit=100'))).not.toContain(job.jobId);
     expect(ids(await get(raj, '/jobs?scope=team&status=completed_with_errors&limit=100'))).toContain(job.jobId);
     expect(ids(await get(raj, '/jobs?scope=all&status=in_progress&limit=100'))).not.toContain(job.jobId);
     const filtered = await get(raj, '/jobs?scope=team&status=completed_with_errors&limit=100');
-    expect(filtered.body.every((j: { status: string }) => j.status === 'completed_with_errors')).toBe(true);
+    expect(filtered.body.items.every((j: { status: string }) => j.status === 'completed_with_errors')).toBe(true);
     const bad = await get(priya, '/jobs?status=sleeping');
     expect(bad.status).toBe(400);
     expect(bad.body.error.code).toBe('VALIDATION_ERROR');
@@ -151,10 +152,10 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     expect(detail.body.destinations).toEqual(['Cardio / Regulatory']); // Oncology is hidden from Raj
 
     const list = await get(raj, '/jobs?scope=team');
-    const entry = list.body.find((j: { jobId: string }) => j.jobId === job.jobId);
+    const entry = list.body.items.find((j: { jobId: string }) => j.jobId === job.jobId);
     expect(entry).toMatchObject({ taskCount: 2, counts: { completed: 1, failed: 1 }, status: 'completed_with_errors', fileCount: 2, destinationCount: 1 }); // only what Raj may see
     const mine = await get(raj, '/jobs');
-    expect(mine.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
+    expect(mine.body.items.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
 
     const tasks = await get(raj, `/jobs/${job.jobId}/tasks`);
     expect(tasks.body.total).toBe(2);
@@ -168,7 +169,7 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     expect(hidden.body.error.code).toBe(missing.body.error.code);
     expect((await get(sam, `/jobs/${job.jobId}/tasks`)).status).toBe(404);
     const list = await get(sam, '/jobs?scope=team');
-    expect(list.body.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
+    expect(list.body.items.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
     expect((await get(sam, '/jobs/not-a-uuid')).status).toBe(404);
   });
 
@@ -192,6 +193,226 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     const old = await insertJob([{ team: cardio, status: 'completed' }], { fileAgeHours: 34 * 24 });
     const tasks = await get(priya, `/jobs/${old.jobId}/tasks`);
     expect(tasks.body.tasks[0].fileExpired).toBe(true);
+  });
+});
+
+describe('GET /jobs filters and the cursor (D-F1-21)', () => {
+  const neuro = team('Neuro');
+  let fromPriya: { jobId: string }; // Cardio and Oncology, 3 days ago, in progress
+  let fromRaj: { jobId: string }; // Cardio, now, completed
+  let old: { jobId: string }; // Oncology only, 10 days ago, completed
+  const raj0 = { email: raj, name: 'Raj Mehta' };
+  type Item = { jobId: string; submittedBy: { userId: string } };
+  /** Every page of the answer, followed by its cursor: the database holds many jobs from other tests. */
+  const list = async (email: string, query: string): Promise<Item[]> => {
+    const out: Item[] = [];
+    let cursor: string | null = null;
+    do {
+      const reply: { status: number; body: { items: Item[]; nextCursor: string | null } } = await get(email, `/jobs?scope=all&limit=100&${query}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      expect(reply.status).toBe(200);
+      out.push(...reply.body.items);
+      cursor = reply.body.nextCursor;
+    } while (cursor);
+    return out;
+  };
+  const idsOf = (items: Item[]) => items.map((j) => j.jobId);
+
+  beforeAll(async () => {
+    fromPriya = await insertJob([{ team: cardio, status: 'completed' }, { team: oncology, status: 'pending' }], { sentHoursAgo: 72 });
+    fromRaj = await insertJob([{ team: cardio, status: 'completed' }], { sender: raj0 });
+    old = await insertJob([{ team: oncology, status: 'completed' }], { sentHoursAgo: 240 });
+  });
+
+  it('sender=me narrows to what I sent; sender=<user id> to one person; someone outside my reach gives an empty list, not a leak', async () => {
+    const mine = await list(raj, 'sender=me');
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((j) => j.submittedBy.userId === ids[raj])).toBe(true);
+    expect(idsOf(mine)).toContain(fromRaj.jobId);
+    expect(idsOf(mine)).not.toContain(fromPriya.jobId);
+    const byPriya = await list(raj, `sender=${ids[priya]}`);
+    expect(byPriya.every((j) => j.submittedBy.userId === ids[priya])).toBe(true);
+    expect(idsOf(byPriya)).toContain(fromPriya.jobId); // Raj is in Cardio, so he sees Priya's Cardio deliveries
+    expect(idsOf(byPriya)).not.toContain(old.jobId); // Oncology only: not Raj's to see, whoever sent it
+    expect(await list(raj, `sender=${ids[sam]}`)).toEqual([]);
+  });
+
+  it('sentSince keeps what was sent at or after the date', async () => {
+    const since = (hours: number) => `sentSince=${encodeURIComponent(new Date(Date.now() - hours * 3_600_000).toISOString())}`;
+    expect(idsOf(await list(priya, since(24)))).not.toContain(fromPriya.jobId); // 3 days ago
+    expect(idsOf(await list(priya, since(24)))).toContain(fromRaj.jobId); // now
+    expect(idsOf(await list(priya, since(24 * 7)))).toContain(fromPriya.jobId);
+    expect(idsOf(await list(priya, since(24 * 7)))).not.toContain(old.jobId); // 10 days ago
+    expect(idsOf(await list(priya, since(24 * 30)))).toContain(old.jobId);
+  });
+
+  it('team keeps the distributions with a delivery to that team; a team that is not mine is 400', async () => {
+    expect(idsOf(await list(priya, `team=${oncology.id}`))).toContain(old.jobId);
+    expect(idsOf(await list(priya, `team=${oncology.id}`))).not.toContain(fromRaj.jobId); // Cardio only
+    expect(idsOf(await list(priya, `team=${cardio.id}`))).toContain(fromRaj.jobId);
+    const outside = await get(raj, `/jobs?scope=all&team=${oncology.id}`); // Raj is not in Oncology
+    expect(outside.status).toBe(400);
+    expect(outside.body.error.code).toBe('VALIDATION_ERROR');
+    expect((await get(sam, `/jobs?scope=all&team=${cardio.id}`)).status).toBe(400);
+    expect((await get(sam, `/jobs?scope=all&team=${neuro.id}`)).status).toBe(200);
+    expect((await get(priya, '/jobs?scope=all&team=not-a-uuid')).status).toBe(400);
+  });
+
+  it('a bad value is 400 VALIDATION_ERROR: sender, sentSince, cursor', async () => {
+    for (const bad of ['sender=someone', 'sentSince=yesterday', 'sentSince=2020', 'sentSince=2026-10-20T10:00','sentSince=1', 'sentSince=2026-10-20&sentSince=2026-10-21', 'cursor=abc', 'cursor=' + Buffer.from('["x","y"]').toString('base64url')]) {
+      const reply = await get(priya, `/jobs?scope=all&${bad}`);
+      expect([bad, reply.status]).toEqual([bad, 400]);
+      expect(reply.body.error.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
+  it('filters combine with each other and with status', async () => {
+    const week = `sentSince=${encodeURIComponent(new Date(Date.now() - 7 * 24 * 3_600_000).toISOString())}`;
+    const both = await list(priya, `sender=me&${week}&team=${cardio.id}`);
+    expect(idsOf(both)).toContain(fromPriya.jobId);
+    expect(idsOf(both)).not.toContain(fromRaj.jobId); // not mine
+    expect(idsOf(both)).not.toContain(old.jobId); // too old
+    // For Priya the 3-day-old job is in progress (a delivery is pending), so status narrows it away and back.
+    expect(idsOf(await list(priya, `sender=me&${week}&status=pending`))).not.toContain(fromPriya.jobId);
+    expect(idsOf(await list(priya, `sender=me&${week}&status=in_progress`))).toContain(fromPriya.jobId);
+    expect(idsOf(await list(priya, `sender=me&${week}&status=completed`))).not.toContain(fromPriya.jobId);
+    // Raj sees only his Cardio delivery of it, which is completed.
+    expect(idsOf(await list(raj, `sender=${ids[priya]}&${week}&status=completed`))).toContain(fromPriya.jobId);
+  });
+
+  it('pages with a cursor: every row once, newest first, nothing shifted by a job that arrives meanwhile, null at the end', async () => {
+    const mineNow: { jobId: string }[] = [];
+    for (let i = 0; i < 5; i += 1) mineNow.push(await insertJob([{ team: cardio, status: 'completed' }], { sentHoursAgo: (i + 1) / 600 })); // 6 seconds apart
+    const window = `sentSince=${encodeURIComponent(new Date(Date.now() - 6 * 60_000).toISOString())}`;
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    let arrivals = 0;
+    do {
+      const url: string = `/jobs?scope=all&limit=2&${window}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+      const page: { status: number; body: { items: Item[]; nextCursor: string | null } } = await get(priya, url);
+      expect(page.status).toBe(200);
+      expect(page.body.items.length).toBeLessThanOrEqual(2);
+      seen.push(...idsOf(page.body.items));
+      cursor = page.body.nextCursor;
+      pages += 1;
+      if (pages === 1) {
+        await insertJob([{ team: cardio, status: 'completed' }]); // a new distribution lands at the top after page 1
+        arrivals += 1;
+      }
+    } while (cursor && pages < 50);
+    expect(cursor).toBeNull();
+    expect(pages).toBeGreaterThan(2); // more than one page of two
+    expect(new Set(seen).size).toBe(seen.length); // none twice, although a new job arrived
+    expect(arrivals).toBe(1);
+    const positions = mineNow.map((j) => seen.indexOf(j.jobId));
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b)); // newest first
+    // A filtered page with a cursor stays inside the filter.
+    const first = (await get(priya, `/jobs?scope=all&limit=1&sender=me&${window}`)).body;
+    expect(first.nextCursor).toBeTruthy();
+    const second = (await get(priya, `/jobs?scope=all&limit=1&sender=me&${window}&cursor=${encodeURIComponent(first.nextCursor)}`)).body;
+    expect(second.items[0].submittedBy.userId).toBe(ids[priya]);
+    expect(second.items[0].jobId).not.toBe(first.items[0].jobId);
+  });
+
+  it('only narrows: scope=mine and team still answer as before, and no filter shows a job the scope does not allow', async () => {
+    expect(idsOf((await get(raj, '/jobs?scope=mine&limit=100')).body.items)).not.toContain(fromPriya.jobId);
+    expect(idsOf(await list(sam, `sender=${ids[priya]}`))).toEqual([]); // Sam is in no team of Priya's
+  });
+});
+
+describe('GET /jobs/running: the number behind the badge on the Status tab (D-F1-34)', () => {
+  /** The rows under one status filter, every page. */
+  const rowsWith = async (email: string, status: string): Promise<number> => {
+    let n = 0;
+    let cursor: string | null = null;
+    do {
+      const reply: { body: { items: unknown[]; nextCursor: string | null } } = await get(email, `/jobs?scope=all&limit=100&status=${status}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      n += reply.body.items.length;
+      cursor = reply.body.nextCursor;
+    } while (cursor);
+    return n;
+  };
+
+  it('equals the rows under the Pending and In progress filters together, for the sender and for a team member', async () => {
+    // Older running distributions beyond the first page of the list are the case the badge got wrong when it counted
+    // only the rows it had loaded: put several below 25 newer finished ones.
+    for (let i = 0; i < 2; i += 1) await insertJob([{ team: cardio, status: 'pending' }, { team: oncology, status: 'in_progress' }], { sentHoursAgo: 100 + i });
+    await insertJob([{ team: oncology, status: 'in_progress' }], { sentHoursAgo: 101 }); // Oncology only: Raj cannot see it
+    for (let i = 0; i < 25; i += 1) await insertJob([{ team: cardio, status: 'completed' }], { sentHoursAgo: i / 100 });
+    for (const email of [priya, raj, sam]) {
+      const badge = (await get(email, '/jobs/running')).body.running as number;
+      const filters = (await rowsWith(email, 'pending')) + (await rowsWith(email, 'in_progress'));
+      expect([email, badge]).toEqual([email, filters]);
+    }
+    expect((await get(priya, '/jobs/running')).body.running).toBeGreaterThanOrEqual(3);
+  });
+
+  it('counts a distribution that is finished for a team member but still running for the sender only for the sender', async () => {
+    const mixed = await insertJob([{ team: cardio, status: 'completed' }, { team: oncology, status: 'in_progress' }], { sentHoursAgo: 0.001 });
+    const before = { priya: (await get(priya, '/jobs/running')).body.running as number, raj: (await get(raj, '/jobs/running')).body.running as number };
+    await db.query("UPDATE tasks SET status = 'completed' WHERE job_id = $1", [mixed.jobId]);
+    expect((await get(priya, '/jobs/running')).body.running).toBe(before.priya - 1); // finished for the sender now
+    expect((await get(raj, '/jobs/running')).body.running).toBe(before.raj); // Raj never saw it as running
+  });
+
+  it('answers 401 without a sign-in', async () => {
+    expect((await call(DOCBEAM_URL, '/jobs/running')).status).toBe(401);
+  });
+});
+
+describe('GET /jobs?idPrefix= finds a distribution by the 8 characters the list shows (D-F1-32)', () => {
+  const prefixOf = (id: string) => id.slice(0, 8);
+  const find = async (email: string, prefix: string) => (await get(email, `/jobs?scope=all&idPrefix=${prefix}`)).body as { items: Array<{ jobId: string }>; nextCursor: string | null };
+
+  it('finds one I can see, by lower or upper case, and nothing else', async () => {
+    const mine = await insertJob([{ team: cardio, status: 'completed' }]);
+    const found = await find(priya, prefixOf(mine.jobId));
+    expect(found.items.map((j) => j.jobId)).toEqual([mine.jobId]);
+    expect((await find(priya, prefixOf(mine.jobId).toUpperCase())).items.map((j) => j.jobId)).toEqual([mine.jobId]);
+    // A team member finds it too (it was sent to their team).
+    expect((await find(raj, prefixOf(mine.jobId))).items.map((j) => j.jobId)).toEqual([mine.jobId]);
+  });
+
+  it('gives no match for a distribution the caller cannot see: the same empty answer as for an id that does not exist', async () => {
+    const oncologyOnly = await insertJob([{ team: oncology, status: 'completed' }]);
+    expect((await find(raj, prefixOf(oncologyOnly.jobId))).items).toEqual([]); // Raj is in Cardio only
+    expect((await find(sam, prefixOf(oncologyOnly.jobId))).items).toEqual([]);
+    expect((await find(priya, '00000000')).items.every((j) => j.jobId.startsWith('00000000'))).toBe(true); // nothing invented
+    expect((await find(priya, prefixOf(randomUUID()))).items).toEqual([]);
+  });
+
+  it('returns every match when two distributions share the prefix, up to 5, newest first', async () => {
+    const stem = prefixOf(randomUUID());
+    const ids = [1, 2, 3, 4, 5, 6].map((n) => `${stem}-0000-4000-8000-00000000000${n}`);
+    for (const [i, id] of ids.entries()) await insertJob([{ team: cardio, status: 'completed' }], { id, sentHoursAgo: 6 - i });
+    const found = await find(priya, stem);
+    expect(found.items).toHaveLength(5); // at most 5
+    expect(found.items.map((j) => j.jobId)).toEqual([ids[5], ids[4], ids[3], ids[2], ids[1]]); // newest first (the 6th was sent last)
+    // Two sharing a prefix, one visible to Raj and one not: Raj sees one.
+    const stem2 = prefixOf(randomUUID());
+    const shared = await insertJob([{ team: cardio, status: 'completed' }], { id: `${stem2}-0000-4000-8000-000000000001` });
+    await insertJob([{ team: oncology, status: 'completed' }], { id: `${stem2}-0000-4000-8000-000000000002` });
+    expect((await find(raj, stem2)).items.map((j) => j.jobId)).toEqual([shared.jobId]);
+    expect((await find(priya, stem2)).items).toHaveLength(2);
+  });
+
+  it('uses the primary key index: a range on id, not a scan', async () => {
+    const plan = await db.query(
+      `EXPLAIN SELECT id FROM jobs WHERE id >= '3f1c2a9e-0000-0000-0000-000000000000'::uuid AND id <= '3f1c2a9e-ffff-ffff-ffff-ffffffffffff'::uuid`,
+    );
+    const text = plan.rows.map((r) => r['QUERY PLAN']).join('\n');
+    expect(text).toMatch(/jobs_pkey/); // an index scan on the primary key (the table is small, so Postgres may still pick a scan: see below)
+  });
+
+  it('is 400 VALIDATION_ERROR for anything but 8 hex characters, and the access rules of scope hold', async () => {
+    for (const bad of ['', 'abc', '3f1c2a9', '3f1c2a9e1', 'zzzzzzzz', '3f1c2a9e-84d5', `3f1c2a9e&idPrefix=3f1c2a9f`]) {
+      const reply = await get(priya, `/jobs?scope=all&idPrefix=${bad}`);
+      expect([bad, reply.status]).toEqual([bad, 400]);
+      expect(reply.body.error.code).toBe('VALIDATION_ERROR');
+    }
+    const mine = await insertJob([{ team: cardio, status: 'completed' }]);
+    expect((await get(raj, `/jobs?scope=mine&idPrefix=${prefixOf(mine.jobId)}`)).body.items).toEqual([]); // not Raj's own
   });
 });
 
@@ -295,7 +516,7 @@ describe('POST /jobs/:id/cancel while deliveries run', () => {
     // The two cancelled deliveries are counted as cancelled, not as failed (D-M3-17).
     expect(detail.body).toMatchObject({ status: 'cancelled', taskCount: 4, counts: { completed: 2, failed: 0, cancelled: 2, pending: 0, in_progress: 0 } });
     const list = await get(priya, '/jobs?scope=mine&limit=50');
-    expect(list.body.find((j: { jobId: string }) => j.jobId === job.jobId)).toMatchObject({ taskCount: 4, counts: { completed: 2, failed: 0, cancelled: 2 }, status: 'cancelled' });
+    expect(list.body.items.find((j: { jobId: string }) => j.jobId === job.jobId)).toMatchObject({ taskCount: 4, counts: { completed: 2, failed: 0, cancelled: 2 }, status: 'cancelled' });
     // The task filters follow: Failed holds real failures only, Cancelled holds the cancelled ones.
     const cancelledRows = await get(priya, `/jobs/${job.jobId}/tasks?status=cancelled`);
     expect(cancelledRows.body).toMatchObject({ total: 2 });

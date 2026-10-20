@@ -5,38 +5,41 @@ import { SendBar } from './SendBar.js';
 
 afterEach(cleanup);
 const noop = (): void => undefined;
-const base = { summary: '2 files to 2 folders: 4 deliveries', error: null, onClear: noop, onSend: noop };
+const base = { error: null, onClear: noop, onSend: noop };
 
-describe('SendBar titles', () => {
-  it('says why Send is off, and why Clear is off', () => {
-    render(<SendBar {...base} ready={false} reason="2 files are not ready yet" sending={false} canClear={false} />);
+describe('SendBar (D-F1-20)', () => {
+  it('has Clear and Send and no summary line', () => {
+    render(<SendBar {...base} ready reason={null} sending={false} canClear />);
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
+    expect(screen.queryByText(/deliveries?$/)).toBeNull();
+  });
+
+  it('shows the reason as text beside the buttons and ties it to Send; no tooltip carries it', () => {
+    render(<SendBar {...base} ready={false} reason="Choose folders for 2 files" sending={false} canClear />);
+    const reason = screen.getByRole('status');
+    expect(reason.textContent).toBe('Choose folders for 2 files');
     const send = screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
-    expect(send.title).toBe('2 files are not ready yet');
-    const clear = screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement;
-    expect(clear.disabled).toBe(true);
-    expect(clear.title).toBe('Nothing to clear');
-  });
-
-  it('shows the reason beside the button while Send is off, and nothing once it is on', () => {
-    const { rerender } = render(<SendBar {...base} ready={false} reason="Add a file first" sending={false} canClear={false} />);
-    expect(screen.getByRole('status').textContent).toBe('Add a file first');
-    rerender(<SendBar {...base} ready reason={null} sending={false} canClear />);
-    expect(screen.getByRole('status').textContent).toBe('');
-  });
-
-  it('has no title on a button that is on', () => {
-    render(<SendBar {...base} ready reason={null} sending={false} canClear />);
-    expect(screen.getByRole('button', { name: 'Send' }).getAttribute('title')).toBeNull();
+    expect(send.getAttribute('aria-describedby')).toBe(reason.id);
+    expect(send.getAttribute('title')).toBeNull();
     expect(screen.getByRole('button', { name: 'Clear' }).getAttribute('title')).toBeNull();
+    // The reason comes before Clear, which comes before Send: immediately left of Clear.
+    const order = [...(reason.parentElement as HTMLElement).children];
+    expect(order.indexOf(reason)).toBe(0);
+    expect(order[1]?.textContent).toBe('Clear');
   });
 
-  it('shows the batch in one line above the reason', () => {
-    render(<SendBar {...base} ready={false} reason="Add a file first" sending={false} canClear={false} />);
-    expect(screen.getByText('2 files to 2 folders: 4 deliveries')).toBeTruthy();
+  it('shows nothing when there is no reason (the empty page) and once Send is on', () => {
+    const { rerender } = render(<SendBar {...base} ready={false} reason={null} sending={false} canClear={false} />);
+    expect(screen.getByRole('status').textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-describedby')).toBeNull();
+    rerender(<SendBar {...base} ready reason="stale words" sending={false} canClear />);
+    expect(screen.getByRole('status').textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Send' }).getAttribute('aria-describedby')).toBeNull();
   });
 
-  it('has no title while sending: the label says it', () => {
+  it('says Sending… while sending, with no title', () => {
     render(<SendBar {...base} ready reason={null} sending canClear />);
     expect(screen.getByRole('button', { name: 'Sending…' }).getAttribute('title')).toBeNull();
   });

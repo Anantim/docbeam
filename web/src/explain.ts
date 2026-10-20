@@ -36,7 +36,7 @@ export const UPLOAD_STATUS_MEANING: Record<FileStatus, string> = {
   uploading: 'Sending the file to storage.',
   checking: 'Stored. The malware scan is running.',
   verified: 'Stored, intact and scanned clean.',
-  refused: 'Storage refused the upload because it did not match what was checked.',
+  refused: 'Storage did not accept the upload because it did not match what was checked. Retry it.',
   interrupted: 'The connection broke. Retry carries on from the parts already stored.',
   unchecked: 'The file could not be scanned, so it cannot be sent.',
   infected: 'Malware was found. The file was deleted and can never be sent.',

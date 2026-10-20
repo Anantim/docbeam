@@ -39,17 +39,14 @@ declare function getComputedStyle(el: BrowserElement): BrowserStyle;
 
 const PAUSE_NOTE = 'After 5 wrong passwords in a row, sign-in pauses for 15 minutes. Wait, then try again.';
 
-test('a disabled button has the disabled attribute and the not-allowed cursor, and says why', async ({ page }) => {
+test('a disabled button has the disabled attribute and the not-allowed cursor, and looks off; no tooltip says why (D-F1-20)', async ({ page }) => {
   await signIn(page, PRIYA);
-  for (const [name, title] of [
-    ['Send', 'Add a file first'],
-    ['Clear', 'Nothing to clear'],
-  ] as const) {
+  for (const name of ['Send', 'Clear'] as const) {
     const button = page.getByRole('button', { name });
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('disabled', '');
     await expect(button).toHaveCSS('cursor', 'not-allowed');
-    await expect(button).toHaveAttribute('title', title);
+    await expect(button).not.toHaveAttribute('title', /.+/); // the reason, when there is one, is text beside the buttons
     await expect(button).toHaveCSS('color', rgb('#98A2B3')); // greyed, not the live colour
   }
   // An enabled button of the same kind does not look like that.

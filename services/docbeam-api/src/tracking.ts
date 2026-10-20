@@ -65,6 +65,34 @@ export function fileExpired(uploadedOrCreatedAt: Date, now: Date): boolean {
   return now.getTime() - uploadedOrCreatedAt.getTime() > LIMITS.stagedFileDays * 24 * 60 * 60 * 1000;
 }
 
+/**
+ * The position of the last row of a page of GET /jobs: when it was sent and its id, as an opaque string (D-F1-21).
+ * The list is newest first (then id), so the next page is everything after that position, and a distribution that
+ * arrives meanwhile cannot shift or repeat a row.
+ */
+export interface JobCursor {
+  createdAt: string;
+  id: string;
+}
+
+export function encodeJobCursor(cursor: JobCursor): string {
+  return Buffer.from(JSON.stringify([cursor.createdAt, cursor.id])).toString('base64url');
+}
+
+/** The cursor in a string, or null for anything that is not one this service made. */
+export function decodeJobCursor(text: string): JobCursor | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(text, 'base64url').toString('utf8'));
+    if (!Array.isArray(parsed) || parsed.length !== 2) return null;
+    const [createdAt, id] = parsed as unknown[];
+    if (typeof createdAt !== 'string' || typeof id !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(createdAt) || Number.isNaN(Date.parse(createdAt))) return null;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null;
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
 /** `page` starts at 1. A missing or bad value falls back; a too-large limit is cut to the maximum. */
 export function pageOf(
   query: { page?: unknown; limit?: unknown },

@@ -101,6 +101,13 @@ export const SearchIcon = (p: Props) => (
   </Svg>
 );
 
+export const AlertIcon = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 4.8v3.8M8 11v.1" />
+  </Svg>
+);
+
 export const LogoutIcon = (p: Props) => (
   <Svg {...p}>
     <path d="M6.5 3h-3v10h3M9.5 5.5 12 8l-2.5 2.5M12 8H6.5" />

@@ -1,14 +1,15 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
-import { CloseIcon, UploadIcon } from './Icons.js';
+import { AlertIcon, CloseIcon, UploadIcon } from './Icons.js';
 
 const ACCEPT = ALLOWED_FILE_TYPES.flatMap((t) => t.extensions).join(',');
 
 interface Props {
   onPick: (files: File[]) => void;
   rejected: Rejected[];
-  onDismiss: (name?: string) => void;
+  /** Closes the whole "not added" box. */
+  onDismiss: () => void;
   /** True when there is no file yet: the card is one big place to drop files. */
   empty: boolean;
   /** The documents table, shown when there are files. */
@@ -49,23 +50,27 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props
         )}
       </div>
       {rejected.length > 0 && (
-        <div className="alert not-added" role="alert">
-          <div className="not-added-head">
-            <strong>Not added</strong>
-            <button className="icon small" type="button" aria-label="Dismiss all" title="Dismiss all" onClick={() => onDismiss()}>
-              <CloseIcon />
-            </button>
+        // Calm: a light box with an error-coloured edge and icon, the file name in normal text and the reason muted. One
+        // button closes the whole box; it stays until it is closed or the page is cleared (D-F1-35).
+        <div className="not-added" role="alert">
+          <span className="not-added-icon" aria-hidden="true">
+            <AlertIcon size={16} />
+          </span>
+          <div className="not-added-body">
+            <strong>
+              {rejected.length} {rejected.length === 1 ? 'file' : 'files'} not added
+            </strong>
+            <ul>
+              {rejected.map((r, i) => (
+                <li key={`${r.name}-${i}`}>
+                  <span className="not-added-name">{r.name}</span> <span className="not-added-reason">{r.reason}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          {rejected.map((r, i) => (
-            <div className="not-added-row" key={`${r.name}-${i}`}>
-              <span>
-                <span className="mono">{r.name}</span>: {r.reason}
-              </span>
-              <button className="icon small" type="button" aria-label={`Dismiss ${r.name}`} title={`Dismiss ${r.name}`} onClick={() => onDismiss(r.name)}>
-                <CloseIcon />
-              </button>
-            </div>
-          ))}
+          <button className="icon small" type="button" aria-label="Close" title="Close" onClick={onDismiss}>
+            <CloseIcon />
+          </button>
         </div>
       )}
       {empty ? (

@@ -6,10 +6,14 @@ const none: Pick = { selected: new Set(), anchor: null };
 const click = { shift: false, ctrl: false };
 
 describe('pickRow', () => {
-  it('a plain click selects that row only, and clicking the only selected row clears it', () => {
+  it('a plain click toggles that row without changing the others: no Ctrl needed (D-F1-36)', () => {
     const one = pickRow(none, order, 'b', click);
     expect([...one.selected]).toEqual(['b']);
-    expect([...pickRow(one, order, 'c', click).selected]).toEqual(['c']);
+    const two = pickRow(one, order, 'c', click);
+    expect([...two.selected].sort()).toEqual(['b', 'c']); // b stays
+    const three = pickRow(two, order, 'e', click);
+    expect([...three.selected].sort()).toEqual(['b', 'c', 'e']);
+    expect([...pickRow(three, order, 'c', click).selected].sort()).toEqual(['b', 'e']); // a second click on c takes only c off
     expect(pickRow(one, order, 'b', click).selected.size).toBe(0);
   });
 

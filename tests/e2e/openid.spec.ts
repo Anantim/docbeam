@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { newAccount, PRIYA, signIn } from './helpers.js';
+import { newAccount, pickFilter, PRIYA, signIn } from './helpers.js';
 
 // "Open by ID": a small icon button on the Status page that opens a card with one field (D-F1-15), and the
 // empty state of the Status page (found on dev, M3 browser check 13).
 
-const NOTE = 'Paste the full distribution id or a link to it. The short 8-character id is not enough.';
+const NOTE = 'Enter the 8-character ID from the list, the full ID, or a link.';
 
 const trigger = (page: Page) => page.getByRole('button', { name: 'Open by ID' });
 const card = (page: Page) => page.getByRole('form', { name: 'Open a distribution by ID' });
@@ -44,31 +44,48 @@ test('Open is off while the field is empty or only spaces, and says why', async 
   await openCard(page);
   await expect(openButton(page)).toBeDisabled();
   await expect(openButton(page)).toHaveCSS('cursor', 'not-allowed');
-  await expect(openButton(page)).toHaveAttribute('title', 'Paste a distribution id or link first');
+  await expect(openButton(page)).toHaveAttribute('title', 'Enter a distribution ID or link first');
   await box(page).fill('   ');
   await expect(openButton(page)).toBeDisabled();
   // Enter in an empty field does nothing either: no note, nothing opened.
   await box(page).press('Enter');
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page).toHaveURL(/#\/status$/);
-  await box(page).fill('3f1c2a9e');
+  await box(page).fill('3f1c2a');
   await expect(openButton(page)).toBeEnabled();
 });
 
-test('a short id shows the note; typing clears it; a new Open starts without it', async ({ page }) => {
+test('the 8 characters from the list open the distribution; an unknown one and a bad one say so; typing clears the note (D-F1-32)', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
+  await expect(page.locator('.dist-table tbody tr').first()).toBeVisible();
+  const shortId = (await page.locator('.dist-table tbody tr .dist-id').nth(2).textContent())!.trim(); // as the list shows it
+  expect(shortId).toMatch(/^[0-9a-f]{8}$/);
   await openCard(page);
   await expect(page.getByRole('alert')).toHaveCount(0); // nothing shown before anyone tries
-  await box(page).fill('3f1c2a9e');
+  await expect(box(page)).toHaveAttribute('placeholder', 'Distribution ID or link');
+
+  // Bad input: neither 8 characters, a full id nor a link.
+  await box(page).fill('3f1c2a');
   await openButton(page).click();
   await expect(page.getByRole('alert')).toHaveText(NOTE);
   await box(page).press('x');
-  await expect(page.getByRole('alert')).toHaveCount(0);
-  // The note is gone as soon as a new attempt starts, so it never sits beside the answer to that attempt.
-  await box(page).fill('3f1c2a9e');
+  await expect(page.getByRole('alert')).toHaveCount(0); // typing clears the note
+  // 8 characters that match nothing the person can see.
+  await box(page).fill('00000000');
   await openButton(page).click();
-  await expect(page.getByRole('alert')).toHaveText(NOTE);
+  await expect(page.getByRole('alert')).toHaveText('No distribution with that ID that you can see.');
+  await expect(page).toHaveURL(/#\/status$/);
+
+  // The 8 characters of a row: it opens (one match), in upper case too.
+  await box(page).fill(shortId.toUpperCase());
+  await openButton(page).click();
+  await expect(page).toHaveURL(new RegExp(`#/status/${shortId}-`));
+  await expect(page.getByRole('complementary')).toBeVisible();
+  await expect(card(page)).toHaveCount(0); // it closed on opening
+
+  // A full unknown id still gets the not-found panel.
+  await openCard(page);
   await box(page).fill(randomUUID());
   await openButton(page).click();
   await expect(notFound(page)).toBeVisible();
@@ -100,9 +117,9 @@ test('a person with no distributions sees the empty state on first load, not "no
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(emptyState(page)).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
-  await expect(page.getByText('You have not sent a distribution yet')).toBeVisible();
-  await page.getByRole('button', { name: 'My teams' }).click();
-  await expect(emptyState(page)).toBeVisible();
+  await expect(page.getByText('No distributions yet')).toBeVisible();
+  await pickFilter(page, 'Sender', 'Me'); // with a filter set the empty list says no distribution matches
+  await expect(page.getByText('No distribution matches these filters')).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
 });
 
@@ -129,21 +146,21 @@ test('the Open by ID button is in the same place on every filter, with or withou
     return { x: Math.round(at.x), y: Math.round(at.y) };
   };
 
-  // Priya has many distributions on Mine.
+  // Priya has many distributions.
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(page.locator('.dist-table tbody tr').first()).toBeVisible();
   expect(await page.locator('.dist-table tbody tr').count()).toBeGreaterThan(2);
-  const mine = await placed();
-  await page.getByRole('button', { name: 'My teams' }).click();
-  expect(await placed()).toEqual(mine);
+  const full = await placed();
+  await pickFilter(page, 'Sender', 'Me');
+  expect(await placed()).toEqual(full);
   await page.getByRole('button', { name: 'Sign out' }).click();
 
-  // A person with none: the list is empty on both tabs.
+  // A person with none: the list is empty, with and without a filter.
   await newAccount(page, 'E2E Empty');
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(page.locator('.dist-table tbody tr')).toHaveCount(0);
-  expect(await placed()).toEqual(mine);
-  await page.getByRole('button', { name: 'My teams' }).click();
-  expect(await placed()).toEqual(mine);
+  expect(await placed()).toEqual(full);
+  await pickFilter(page, 'Sent', 'Today');
+  expect(await placed()).toEqual(full);
 });

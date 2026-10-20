@@ -7,7 +7,11 @@ import type { Db } from '../db.js';
 import { loadAccess } from '../job-access.js';
 import type { PlatformClient } from '../platform.js';
 import { pgArray } from '../sql.js';
-import { addCount, emptyCounts, fileExpired, pageOf, retryState, statusOf, totalOf, type Counts } from '../tracking.js';
+import { addCount, decodeJobCursor, emptyCounts, encodeJobCursor, fileExpired, pageOf, retryState, statusOf, totalOf, type Counts } from '../tracking.js';
+import { UUID_PATTERN } from '../validate.js';
+
+/** An id typed as its first 8 characters finds at most this many distributions (the popover lets the person choose). */
+const ID_PREFIX_MATCHES = 5;
 
 const RETRYABLE_CODES = ['RETRIES_EXHAUSTED', 'FANOUT_FAILED'];
 
@@ -67,36 +71,64 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
 
   app.get('/jobs', user, async (request) => {
     const userId = caller(request);
-    const query = request.query as { scope?: string; page?: string; limit?: string; status?: string };
+    const query = request.query as { scope?: string; cursor?: string; limit?: string; status?: string; sender?: string; sentSince?: string; team?: string; idPrefix?: string };
     const scope = query.scope ?? 'mine';
     if (scope !== 'mine' && scope !== 'team' && scope !== 'all') throw new ApiError(400, 'VALIDATION_ERROR', 'scope must be mine, team or all.');
     if (query.status !== undefined && !(JOB_STATUSES as readonly string[]).includes(query.status)) {
       throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${JOB_STATUSES.join(', ')}.`);
     }
-    const { limit, offset } = pageOf(query, LIMITS.jobsPageDefault, LIMITS.jobsPageMax);
+    if (query.sender !== undefined && query.sender !== 'me' && !UUID_PATTERN.test(query.sender)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'sender must be me or a user id.');
+    }
+    // An ISO 8601 date or a date-time with a zone (2026-10-20 or 2026-10-20T10:00:00Z); a repeated parameter is not one.
+    const ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2}))?$/;
+    const sentSince = query.sentSince === undefined ? null : typeof query.sentSince === 'string' && ISO.test(query.sentSince) ? new Date(query.sentSince) : new Date(NaN);
+    if (sentSince !== null && Number.isNaN(sentSince.getTime())) throw new ApiError(400, 'VALIDATION_ERROR', 'sentSince must be an ISO date.');
+    if (query.team !== undefined && !UUID_PATTERN.test(query.team)) throw new ApiError(400, 'VALIDATION_ERROR', 'team must be a team id.');
+    // The first 8 characters of an id, as the list shows them (D-F1-32). Looked up by a range on the primary key, so it uses the index.
+    if (query.idPrefix !== undefined && !(typeof query.idPrefix === 'string' && /^[0-9a-f]{8}$/i.test(query.idPrefix))) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'idPrefix must be the first 8 characters of an id.');
+    }
+    const after = query.cursor === undefined ? null : decodeJobCursor(query.cursor);
+    if (query.cursor !== undefined && after === null) throw new ApiError(400, 'VALIDATION_ERROR', 'cursor is not valid.');
+    const limitRaw = Math.floor(Number(query.limit));
+    const limit = query.idPrefix !== undefined ? ID_PREFIX_MATCHES : Math.min(LIMITS.jobsPageMax, limitRaw > 0 ? limitRaw : LIMITS.jobsPageDefault);
 
     // `mine` is what I sent, `team` is what others sent to my teams, `all` is both (D-F1-9).
     const teams = scope === 'mine' ? [] : await platform.userTeams(userId);
+    // Filters only narrow what the scope already allows. A team that is not the caller's is refused, not shown empty.
+    if (query.team !== undefined && !teams.includes(query.team.toLowerCase())) throw new ApiError(400, 'VALIDATION_ERROR', 'team must be one of your teams.');
     const sharedWithMe = sql`id IN (SELECT job_id FROM tasks WHERE team_id = ANY(${pgArray(teams, 'uuid')}))`;
     let where = sql`submitted_by_user_id = ${userId}`;
     if (scope === 'team') where = teams.length === 0 ? sql`false` : sql`submitted_by_user_id <> ${userId} AND ${sharedWithMe}`;
     else if (scope === 'all' && teams.length > 0) where = sql`(submitted_by_user_id = ${userId} OR ${sharedWithMe})`;
+    if (query.sender !== undefined) where = sql`${where} AND submitted_by_user_id = ${query.sender === 'me' ? userId : query.sender}::uuid`;
+    if (sentSince !== null) where = sql`${where} AND created_at >= ${sentSince.toISOString()}::timestamptz`;
+    if (query.team !== undefined) where = sql`${where} AND id IN (SELECT job_id FROM tasks WHERE team_id = ${query.team}::uuid)`;
+    if (query.idPrefix !== undefined) {
+      const p = query.idPrefix.toLowerCase();
+      where = sql`${where} AND id >= ${`${p}-0000-0000-0000-000000000000`}::uuid AND id <= ${`${p}-ffff-ffff-ffff-ffffffffffff`}::uuid`;
+    }
+    // The page after the cursor: newest first, then id, so the position is (created_at DESC, id ASC).
+    const afterCursor = after ? sql`(created_at < ${after.createdAt}::timestamptz OR (created_at = ${after.createdAt}::timestamptz AND id > ${after.id}::uuid))` : sql`true`;
+    const pageFields = sql`id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at,
+                           to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at`;
 
-    type Row = { id: string; submitted_by_user_id: string; submitted_by_name: string; created_at: Date; cancelled_at: Date | null };
-    let rows: Row[];
+    type Row = { id: string; submitted_by_user_id: string; submitted_by_name: string; created_at: Date; cancelled_at: Date | null; cursor_at: string };
+    let found: Row[];
     if (query.status === undefined) {
-      rows = (
+      found = (
         await db.execute<Row>(sql`
-          SELECT id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at FROM jobs
-           WHERE ${where}
-           ORDER BY created_at DESC, id LIMIT ${limit} OFFSET ${offset}`)
+          SELECT ${pageFields} FROM jobs
+           WHERE ${where} AND ${afterCursor}
+           ORDER BY created_at DESC, id LIMIT ${limit + 1}`)
       ).rows;
     } else {
       // A status filter needs the counts first: the status is derived from the deliveries the caller may see, with the
       // same rule as `jobStatus` (open = pending + in progress; a cancelled delivery counts as failed there).
-      rows = (
+      found = (
         await db.execute<Row>(sql`
-          SELECT id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at FROM (
+          SELECT ${pageFields} FROM (
             SELECT j.id, j.submitted_by_user_id, j.submitted_by_name, j.created_at, j.cancelled_at,
                    CASE
                      WHEN c.pending + c.in_progress = 0 AND j.cancelled_at IS NOT NULL THEN 'cancelled'
@@ -105,7 +137,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
                      WHEN c.pending = c.pending + c.in_progress + c.completed + c.failed THEN 'pending'
                      ELSE 'in_progress'
                    END AS status
-              FROM (SELECT * FROM jobs WHERE ${where}) j
+              FROM (SELECT * FROM jobs WHERE ${where} AND ${afterCursor}) j
               CROSS JOIN LATERAL (
                 SELECT count(*) FILTER (WHERE t.status = 'pending')::int AS pending,
                        count(*) FILTER (WHERE t.status = 'in_progress')::int AS in_progress,
@@ -114,13 +146,17 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
                   FROM tasks t
                  WHERE t.job_id = j.id AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))) c) x
            WHERE status = ${query.status}
-           ORDER BY created_at DESC, id LIMIT ${limit} OFFSET ${offset}`)
+           ORDER BY created_at DESC, id LIMIT ${limit + 1}`)
       ).rows;
     }
 
+    // One row more than asked tells whether another page follows; the cursor is the position of the last row shown.
+    const rows = found.slice(0, limit);
+    const last = rows[rows.length - 1];
+    const nextCursor = found.length > limit && last ? encodeJobCursor({ createdAt: last.cursor_at, id: last.id }) : null;
     const ids = rows.map((r) => r.id);
     const [counts, reach] = await Promise.all([countsFor(ids, userId, teams), reachFor(ids, userId, teams)]);
-    return rows.map((r) => {
+    const items = rows.map((r) => {
       const c = counts.get(r.id) ?? emptyCounts();
       return {
         fileCount: reach.get(r.id)?.files ?? 0,
@@ -133,6 +169,23 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
         status: statusOf(c, r.cancelled_at !== null),
       };
     });
+    return { items, nextCursor };
+  });
+
+  // How many distributions the caller can see that are pending or in progress, for the badge on the Status tab (D-F1-34).
+  // A distribution is one of those exactly when a delivery the caller may see is still open (the same deliveries the list
+  // counts: all of them for the sender, the ones to the caller's teams for anyone else), so this equals the number of rows
+  // under the Pending and In progress filters together, however many pages the list has.
+  app.get('/jobs/running', user, async (request) => {
+    const userId = caller(request);
+    const teams = await platform.userTeams(userId);
+    const result = await db.execute<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM jobs j
+       WHERE EXISTS (
+         SELECT 1 FROM tasks t
+          WHERE t.job_id = j.id AND t.status IN ('pending', 'in_progress')
+            AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')})))`);
+    return { running: result.rows[0]?.n ?? 0 };
   });
 
   app.get('/jobs/:jobId', user, async (request) => {

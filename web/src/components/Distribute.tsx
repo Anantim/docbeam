@@ -60,8 +60,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const selectedUsable = usable.filter((f) => selected.has(f.id));
   const state = readiness(mapping, [...files]);
   const summary = summarise(mapping, [...files]);
-  const summaryText =
-    summary.files === 0 ? '' : `${plural(summary.files, 'file', 'files')} to ${plural(summary.folders, 'folder', 'folders')}: ${plural(summary.deliveries, 'delivery', 'deliveries')}`;
 
   const scopeTitle =
     selectedUsable.length > 0
@@ -131,7 +129,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     setSending(false);
     setAsking(false);
     if (out.ok) {
-      notify(`Distribution ${out.jobId.slice(0, 8)} sent. ${plural(out.taskCount, 'delivery', 'deliveries')} queued.`);
+      notify('Sent');
       clearAll();
       onSent?.(out.jobId);
     } else {
@@ -154,7 +152,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             empty={files.length === 0}
             onPick={pickFiles}
             rejected={rejected}
-            onDismiss={(name) => setRejected((r) => (name === undefined ? [] : r.filter((x) => x.name !== name)))}
+            onDismiss={() => setRejected([])}
           >
             <FileTable
               files={files}
@@ -172,19 +170,24 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}
-            onUseAll={selectedUsable.length > 0 ? () => setPick({ selected: new Set(), anchor: null }) : undefined}
+            hint={selectedUsable.length > 0 ? `for ${plural(selectedUsable.length, 'selected file', 'selected files')}` : undefined}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
+            filesOf={(d) => {
+              // The files in scope (the selected ones, or all) that go to this folder.
+              const key = destinationKey(d);
+              const inScope = files.filter((f) => isUsable(f) && scopeIds.has(f.id));
+              return { names: inScope.filter((f) => (mapping.files[f.id] ?? []).includes(key)).map((f) => f.name), total: inScope.length };
+            }}
           />
         </div>
       </div>
 
       <SendBar
-        summary={summaryText}
         ready={state.ready}
-        reason={state.reason}
+        reason={files.length === 0 ? null : state.reason}
         sending={sending}
         error={sendError}
-        canClear={files.length > 0 || mapping.held.length > 0}
+        canClear={files.length > 0 || mapping.held.length > 0 || rejected.length > 0}
         onClear={clearAll}
         onSend={() => setAsking(true)}
       />
@@ -193,8 +196,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         <SendDialog
           files={summary.files}
           folders={summary.folders}
-          deliveries={summary.deliveries}
-          teams={summary.teams}
           busy={sending}
           onSend={() => void send()}
           onCancel={() => setAsking(false)}
@@ -207,8 +208,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
           contentType={previewing.contentType}
           sizeBytes={previewing.sizeBytes}
           blob={previewing.file}
-          meta={`${formatSize(previewing.sizeBytes)}, not sent yet`}
-          note="Shown from the copy in your browser. Nothing has been sent yet."
+          meta={formatSize(previewing.sizeBytes)}
           onClose={() => setPreviewId(null)}
         />
       )}

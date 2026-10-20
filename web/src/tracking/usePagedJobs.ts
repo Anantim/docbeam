@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiFailure } from '../auth/session.js';
-import { trackingApi, type Counts, type JobScope, type JobStatus, type JobSummary } from './api.js';
+import { trackingApi, type Counts, type JobSummary } from './api.js';
 import { statusFromCounts } from './apply.js';
+import { NO_FILTERS, sameFilters, type Filters } from './filters.js';
 
 export const LIST_REFRESH_MS = 30_000;
 export const LIST_PAGE = 20;
@@ -9,7 +10,7 @@ export const LIST_PAGE = 20;
 interface State {
   jobs: JobSummary[] | null;
   error: string;
-  /** A full last page means another may follow. */
+  /** The server gave a cursor for a next page. */
   hasMore: boolean;
   loadingMore: boolean;
   /** The request for the next page failed (the rows already shown stay). */
@@ -18,65 +19,75 @@ interface State {
 
 const first: State = { jobs: null, error: '', hasMore: false, loadingMore: false, moreFailed: false };
 
-/** The rows of `more` that `rows` does not hold yet: a new distribution shifts the pages, so a row can come twice. */
+/** The rows of `more` that `rows` does not hold yet. The cursor keeps pages from shifting; this guards a refresh that overlaps. */
 const unseen = (rows: JobSummary[], more: JobSummary[]): JobSummary[] => {
   const have = new Set(rows.map((j) => j.jobId));
   return more.filter((j) => !have.has(j.jobId));
 };
 
 /**
- * A list of distributions, newest first, 20 at a time (F1 part C, D-F1-7). It loads the first page when it is
- * switched on and `loadMore` adds the next. It reloads the pages already shown every 30 seconds, but only while
- * a listed distribution is pending or in progress (TDD Step 3.4: live pushes are for the open one only); a failed
- * load keeps trying too. It also loads again when the person comes back to the tab, signs in again, or calls
- * `refresh` (the app does that after a send). A hidden tab waits.
+ * Everything the person can see, newest first, 20 at a time, narrowed by the filters (F1, D-F1-21). It loads the first
+ * page when it is switched on and `loadMore` adds the next one, by the cursor the server gave. It reloads the pages
+ * already shown every 30 seconds, but only while a listed distribution is pending or in progress (TDD Step 3.4: live
+ * pushes are for the open one only); a failed load keeps trying too. It also loads again when the person comes back
+ * to the tab, signs in again, changes a filter, or calls `refresh` (the app does that after a send). A hidden tab waits.
  */
-export function usePagedJobs(scope: JobScope, enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0, status?: JobStatus) {
+export function usePagedJobs(filters: Filters = NO_FILTERS, enabled = true, intervalMs = LIST_REFRESH_MS, signedInAgain = 0) {
   const [state, setState] = useState<State>(first);
   const pages = useRef(1);
+  const next = useRef<string | null>(null);
   // Only the newest answer counts, so a slow old reply cannot bring back an older list.
   const latest = useRef(0);
-  // One next-page request at a time, even when the end of the list asks twice before the first answer.
+  // One next-page request at a time, even when the button is pressed twice before the first answer.
   const moreInFlight = useRef(false);
+  // The filters as a value that changes only when a choice does, so the list is not read again for an equal object.
+  const held = useRef(filters);
+  if (!sameFilters(held.current, filters)) held.current = filters;
+  const chosen = held.current;
 
   const refresh = useCallback(async (): Promise<void> => {
     const ticket = ++latest.current;
     try {
       let jobs: JobSummary[] = [];
-      let lastLength = 0;
+      let cursor: string | null = null;
       for (let page = 1; page <= pages.current; page += 1) {
-        const rows = await trackingApi.jobs(scope, page, LIST_PAGE, status);
+        const got = await trackingApi.jobs(chosen, cursor, LIST_PAGE);
         if (ticket !== latest.current) return;
-        jobs = [...jobs, ...unseen(jobs, rows)];
-        lastLength = rows.length;
-        if (rows.length < LIST_PAGE) break;
+        jobs = [...jobs, ...unseen(jobs, got.items)];
+        cursor = got.nextCursor;
+        if (cursor === null) break;
       }
-      setState((s) => ({ ...s, jobs, error: '', hasMore: lastLength === LIST_PAGE, loadingMore: false, moreFailed: false }));
+      next.current = cursor;
+      setState((s) => ({ ...s, jobs, error: '', hasMore: cursor !== null, loadingMore: false, moreFailed: false }));
     } catch (e) {
       if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false }));
     }
-  }, [scope, status]);
+  }, [chosen]);
 
   const loadMore = useCallback(async (): Promise<void> => {
-    if (state.jobs === null || !state.hasMore || state.loadingMore || moreInFlight.current) return;
+    const cursor = next.current;
+    if (state.jobs === null || cursor === null || state.loadingMore || moreInFlight.current) return;
     moreInFlight.current = true;
     const ticket = ++latest.current;
     setState((s) => ({ ...s, loadingMore: true, moreFailed: false, error: '' }));
     try {
-      const rows = await trackingApi.jobs(scope, pages.current + 1, LIST_PAGE, status);
+      const got = await trackingApi.jobs(chosen, cursor, LIST_PAGE);
       if (ticket !== latest.current) return;
       pages.current += 1;
-      setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], rows)], hasMore: rows.length === LIST_PAGE, loadingMore: false, moreFailed: false }));
+      next.current = got.nextCursor;
+      setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], got.items)], hasMore: got.nextCursor !== null, loadingMore: false, moreFailed: false }));
     } catch (e) {
       if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false, moreFailed: true }));
     } finally {
       moreInFlight.current = false;
     }
-  }, [scope, status, state.jobs, state.hasMore, state.loadingMore]);
+  }, [chosen, state.jobs, state.loadingMore]);
 
   useEffect(() => {
     if (!enabled) return;
     pages.current = 1;
+    next.current = null;
+    moreInFlight.current = false; // a next-page request of the old filters must not block the new ones; its answer is ignored by the ticket
     setState(first);
     void refresh();
     // `signedInAgain` changes after a sign-in from the 12-hour dialog: start clean, so an old "sign-in has ended" goes.
@@ -105,8 +116,9 @@ export function usePagedJobs(scope: JobScope, enabled = true, intervalMs = LIST_
 }
 
 /**
- * How many of my distributions are pending or in progress, for the badge on the Status tab. The distribution that is
- * open follows its live counts, so the badge drops the moment it finishes and does not wait for the next refresh.
+ * How many of the distributions in the list are pending or in progress, for the badge on the Status tab. The app counts
+ * its own unfiltered list, so a filter never changes the badge. The distribution that is open follows its live counts,
+ * so the badge drops the moment it finishes and does not wait for the next refresh.
  */
 export function runningCount(jobs: JobSummary[] | null, live: { jobId: string; counts: Counts } | null = null): number {
   return (jobs ?? []).filter((j) => {

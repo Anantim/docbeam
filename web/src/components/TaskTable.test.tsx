@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
@@ -74,13 +75,14 @@ describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
     for (let i = 0; i < 6; i += 1) expect(screen.getByText(name(i))).toBeTruthy();
     expect(screen.getAllByRole('row').length - 1).toBe(6);
     expect(screen.queryByText(/scroll the list/)).toBeNull();
+    expect(screen.getByRole('table', { name: 'Deliveries, 6' })).toBeTruthy(); // the count is in the table's accessible name
   });
 
   it('says that the list scrolls when it does not fit, with the number of deliveries', async () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
     await screen.findByText(name(0));
-    expect(screen.getByText(/2,000 deliveries|2000 deliveries/)).toBeTruthy();
+    expect(screen.getByRole('table', { name: 'Deliveries, 2000' })).toBeTruthy(); // the count is in the accessible name (D-F1-30)
     expect(screen.getByRole('region', { name: 'Delivery rows, scrolls' })).toBeTruthy();
   });
 
@@ -90,7 +92,72 @@ describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
     expect((screen.getByRole('region', { name: 'Delivery rows, scrolls' }) as HTMLElement).style.height).toBe('320px'); // 5 rows of 64 px
-    expect(screen.getByText(/scroll the list/)).toBeTruthy(); // and now the table says so
+    expect(screen.queryByText(/scroll the list/)).toBeNull(); // no line says it any more: the fade and the shadow do (D-F1-30)
+    expect(document.querySelector('.tbody-wrap')?.className).toContain('more-below');
+  });
+});
+
+describe('TaskTable while it loads (D-F1-22)', () => {
+  it('keeps the real header and shows rows of bars the shape of a delivery, with aria-busy', () => {
+    api.tasks.mockImplementation(() => new Promise(() => undefined));
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
+    expect(screen.getByRole('columnheader', { name: 'File and folder' })).toBeTruthy();
+    const busy = screen.getByRole('status', { name: 'Loading deliveries' });
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    const rows = busy.querySelectorAll('.trow');
+    expect(rows.length).toBe(4);
+    for (const cls of ['.sk-file', '.sk-path', '.sk-chip']) expect(rows[0]?.querySelector(cls)).not.toBeNull();
+  });
+});
+
+describe('the pulse of every loading bar', () => {
+  it('is a gentle opacity pulse, and the one reduced-motion rule turns every animation off', () => {
+    const css = readFileSync('web/src/styles.css', 'utf8'); // tests run from the repository root
+    expect(css).toMatch(/\.skeleton, \.sk \{[^}]*animation: pulse/);
+    expect(css).toMatch(/@keyframes pulse \{ 50% \{ opacity: 0\.45; \} \}/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \* \{[^}]*animation: none !important/);
+  });
+});
+
+describe('TaskTable in the panel: fade and focus (D-F1-26)', () => {
+  const done = (i: number): Partial<TaskRow> => ({ status: 'completed', attemptCount: 1, fileName: name(i) });
+
+  it('fades the bottom edge while more rows are below, and not at the end or when everything fits', async () => {
+    const { live } = fakeLive();
+    api.tasks.mockImplementation(async (_j: string, page: number) => pageOf(page));
+    const many = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} fill />);
+    await screen.findByText(name(0));
+    expect(many.container.querySelector('.tbody-wrap')?.className).toContain('more-below');
+    fireEvent.scroll(screen.getByLabelText('Delivery rows, scrolls'), { target: { scrollTop: TOTAL * 64 - 320 } }); // the very end
+    await waitFor(() => expect(many.container.querySelector('.tbody-wrap')?.className).not.toContain('more-below'));
+    many.unmount();
+
+    api.tasks.mockImplementation(async () => ({ page: 1, limit: 100, total: 3, tasks: Array.from({ length: 3 }, (_, i) => row(i)) }));
+    const few = render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} fill />);
+    await screen.findByText(name(0));
+    expect(few.container.querySelector('.tbody-wrap')?.className).not.toContain('more-below'); // 3 rows fit
+  });
+
+  it('scrolls a row into the box when keyboard focus moves into it from below, and keeps it clear of the fade', async () => {
+    const { live } = fakeLive();
+    api.tasks.mockImplementation(async (_j: string, page: number) => pageOf(page, done));
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} fill />);
+    await screen.findByText(name(0));
+    const box = screen.getByLabelText('Delivery rows, scrolls');
+    expect(box.scrollTop).toBe(0);
+    // Row 6 is drawn (a little beyond the box) but its top, 384, is below the 320 px box. A mouse click moves nothing.
+    fireEvent.pointerDown(box);
+    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(6)}` }));
+    expect(box.scrollTop).toBe(0);
+    fireEvent.keyDown(box, { key: 'Tab' }); // keyboard focus does
+    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(6)}` }));
+    expect(box.scrollTop).toBe(6 * 64 + 64 + 24 - 320); // its bottom plus the room kept under it, at the box's bottom
+    // And back up: focus in a row above the box scrolls up to it.
+    fireEvent.scroll(box, { target: { scrollTop: 600 } });
+    await screen.findByText(name(10));
+    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(9)}` }));
+    expect(box.scrollTop).toBe(9 * 64);
   });
 });
 
@@ -99,7 +166,7 @@ describe('TaskTable', () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
-    expect(screen.getByRole('table', { name: 'Deliveries' }).getAttribute('aria-rowcount')).toBe(String(TOTAL + 1));
+    expect(screen.getByRole('table', { name: `Deliveries, ${TOTAL}` }).getAttribute('aria-rowcount')).toBe(String(TOTAL + 1));
     const drawn = screen.getAllByRole('row').length - 1; // minus the header
     expect(drawn).toBeGreaterThan(4);
     expect(drawn).toBeLessThan(30);
