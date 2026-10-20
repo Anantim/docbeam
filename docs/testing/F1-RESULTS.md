@@ -46,7 +46,7 @@ See `docs/STATUS.md`, "Dev state": it records the destroy result and the checks 
 
 ## 5. Screenshots
 
-`docs/testing/f1-evidence/`: `before/` (the old screens, 1440 and 1280 px), `after/` (part A), `after-c/` (part C), `after-e3/` (every screen at 1440, 1280 and 1024 px: sign-in, register, sign-in error, Distribute empty and filled, preview, the Send question, Status panel, list, Upload events, toast, the sign-in-again dialog), `demo-frames/` (one frame per step of the demo, from the recording on dev), `dev/` (the raw output of the dev checks).
+`docs/testing/f1-evidence/`: `before/` (the old screens, 1440 and 1280 px), `after/` (the screens after the follow-up pull request, at 1440, 1280 and 1024 px: sign-in, sign-in error, Distribute empty and filled, preview, the Send question, Status panel, list, Open by ID, toast, the sign-in-again dialog, and two dialogs on a long scrolled page), `dev/` (the raw output of the dev checks). The pictures of the earlier parts (the old `after/`, `after-c/`, `after-e3/`) and the demo frames were removed in the cleanup; they showed screens that no longer exist (the register page, the audit views), and git history has them.
 
 ## 6. Every point of the prompt: YES or NO
 
@@ -67,17 +67,17 @@ See `docs/STATUS.md`, "Dev state": it records the destroy result and the checks 
 | C. One list (short id, sent at, sender, files, destinations, status), newest first, paged on scroll; click opens a side panel with deliveries, Retry, Cancel and History; same access rules; the hash keeps it | YES | `DistributionList`, `DistributionPanel`, `StatusPage.test.tsx`, `track.spec.ts` |
 | Follow-up: Distribute target layout (two columns, selection with Shift and Ctrl, one summary line, Send the only primary button, question with Cancel as the default, no Review, no stats card) | YES | D-F1-8; `Distribute.test.tsx`, `m2.spec.ts`; `after-e3/05` and `07` |
 | Follow-up: Status target layout (full-width list, filters Mine, My teams, All I can see and status, progress bar for running, 40 % panel, deliveries with attempts and reason, Preview and Download, collapsed History, Esc and close, hash) | YES, with one change: the panel's counts are the filter row under the header, shown once, not a second set of tiles (D-F1-9) | `after-e3/08` |
-| Follow-up 1: every screen reviewed (sign-in, register, session dialog, preview, toasts, empty and error states) | YES | `after-e3/` |
+| Follow-up 1: every screen reviewed (sign-in, register, session dialog, preview, toasts, empty and error states) | YES (those screens were later changed again, see section 7) | `after/` (current screens) |
 | Follow-up 2: microcopy (sentence case, one verb per action, the same status words, errors that say what to do) | YES | D-F1-10; grep of the texts |
 | Follow-up 3: accessibility (keyboard in the tree, panel and dialogs, focus trap and Esc, focus rings from tokens, labels, polite live updates) | YES for what is listed; no screen reader was run, and the focus ring and contrast were not measured with a tool | D-F1-10; `Distribute.test.tsx` |
 | Follow-up 4: skeleton rows, transitions under 200 ms, reduced motion | YES | `styles.css`; 150 ms transitions |
 | Follow-up 5: one icon style, one font family with a system fallback | YES | `Icons.tsx`; the monospace font was dropped |
-| Follow-up 6: works down to 1024 px, 1024 added to the screenshots | YES | `after-e3/*-1024.png` |
+| Follow-up 6: works down to 1024 px, 1024 added to the screenshots | YES | `after/*-1024.png` |
 | Follow-up 7: audit of the 2,000-row list, the tree and the panel for needless renders and repeated requests, before and after | YES | the two render-count tests; History is read when opened, not on open (D-F1-10) |
 | Follow-up 8: code-review across `web/`, one cleanup PR before part D | YES | #29, D-F1-11 |
 | D. Dev brought up with the runbook, re-seeded, `m5-submit-load` (loaded and `--quiet`), `m5-browse-timing`, dev browser specs | YES | section 3 |
-| D. A recorder at `scripts/demo/record.ts` per the demo script: 1280x720, visible cursor, a caption per step, 3 to 5 minutes, under 25 MB, frame-checked | YES: 263 s, 3.5 MB, 22 frames looked at | `docs/demo/docbeam-demo.webm`, `f1-evidence/demo-frames/` |
-| D. `docs/demo/docbeam-demo.mp4` replaced | **NO, not an mp4**: the only encoder on the laptop is Playwright's own ffmpeg, which can write VP9 in a webm but not H.264, and nothing may be installed. The old mp4 (the old screens) is deleted and the README points to the webm | D-F1-12 |
+| D. A recorder at `scripts/demo/record.ts` per the demo script: 1280x720, visible cursor, a caption per step, 3 to 5 minutes, under 25 MB, frame-checked | YES: 263 s, 3.5 MB, 22 frames looked at | `docs/demo/docbeam-demo.webm` (the 22 frames were removed in the cleanup) |
+| D. The demo video `docbeam-demo.mp4` replaced | **NO, not an mp4**: the only encoder on the laptop is Playwright's own ffmpeg, which can write VP9 in a webm but not H.264, and nothing may be installed. The old mp4 (the old screens) is deleted and the README points to the webm | D-F1-12 |
 | D. Dev torn down, nothing left | YES, see `docs/STATUS.md` "Dev state" | section 4 |
 | E. CODE-WALKTHROUGH, README, STATUS, F1-RESULTS, walkthrough F1, TESTER-GUIDE, DEMO-SCRIPT, RUNBOOK updated; false text fixed | YES | this pull request |
 | E. Confirm the 10:00 IST scheduled teardown found nothing to do | **NO, it cannot be confirmed: it did not run.** `gh run list --workflow dev-teardown.yml --event schedule` is empty at 12:00 IST (06:30 UTC) and the only run of that workflow is the manual one of 2026-10-19. The workflow is active and the cron entry is `30 4 20 10 *`; GitHub did not start it (scheduled runs can be late or skipped). Dev was up at 04:30 UTC (brought up for this round), so a run would have destroyed it; none did. The date guard stops any later scheduled run after 2026-10-21 | `gh run list`, `.github/workflows/dev-teardown.yml` |
@@ -116,10 +116,10 @@ In the dev round (section 3) the first version of `m5-browse-timing` asserted th
 | 8. Distribute with few files: no large empty area, a designed empty state | YES, with a limit: both cards are at least 28 rem tall, so with 3 files the Files card still has white space below the rows | `04-`, `05-` screenshots |
 | 9. `GET /teams` 50 per page (binders and folders 20); tests and `m5-browse-timing` updated; the assertion restored; honest note | YES for code and local tests; **NO for a dev run of the restored assertion** | D-F1-16; 7.2 |
 | 10. One-off schedule removed from `dev-teardown.yml`; STATUS says teardown is manual | YES | the workflow; `docs/STATUS.md` |
-| 11. Screenshots at 1440, 1280, 1024 px of every changed screen and dialog, reviewed with ui-ux-pro-max | YES | `after-f2/` (13 screens x 3 widths). The review found the compact list cut off its "Sent" column at 1024 px; fixed (list at least 26 rem, tighter padding) and shot again |
+| 11. Screenshots at 1440, 1280, 1024 px of every changed screen and dialog, reviewed with ui-ux-pro-max | YES | `after/` (13 screens x 3 widths). The review found the compact list cut off its "Sent" column at 1024 px; fixed (list at least 26 rem, tighter padding) and shot again |
 | Addition A. Register page, route, link, web code and tests removed; the old address opens sign-in; the quiet line under the form | YES | D-F1-17; `AuthCard.tsx`, `route.test.ts`, `m1.spec.ts` |
 | Addition B. Tagline and subtitle; title and meta description use the subtitle | YES | `AuthCard.tsx`, `web/index.html`, `ui.spec.ts` |
-| Addition C. Sign-in screenshots at 3 widths, reviewed | YES | `after-f2/01-sign-in-*`, `03-sign-in-error-*` |
+| Addition C. Sign-in screenshots at 3 widths, reviewed | YES | `after/01-sign-in-*`, `after/03-sign-in-error-*` |
 | README, CODE-WALKTHROUGH, TESTER-GUIDE, DEMO-SCRIPT, RUNBOOK and the F1 walkthrough updated | YES | this pull request |
 | The demo video shows the new screens | **NO**: `docs/demo/docbeam-demo.webm` was recorded before this change and still shows History and the old sign-in. `scripts/demo/record.ts` is updated; a new video needs dev up | STATUS |
 

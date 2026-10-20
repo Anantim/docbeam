@@ -212,7 +212,7 @@ Start with the plan (the order of checks, what each costs in time and AWS credit
 - You ran the manual checks yourself.
 - The README and demo script read well to someone who has never seen the project.
 - gitleaks over the whole history is clean before the repository is made public.
-- `docs/design/01-design-requirements.md` (the client's brief) was in the repository until M3 and was then removed. Before the repository is made public, it must be gone from the whole history too: propose how (for example git filter-repo, or publishing a fresh repository from a squashed copy), show me the plan, and run the rewrite and the force push only after my yes.
+- The file `01-design-requirements.md` in the design folder (the client's brief) was in the repository until M3 and was then removed. Before the repository is made public, it must be gone from the whole history too: propose how (for example git filter-repo, or publishing a fresh repository from a squashed copy), show me the plan, and run the rewrite and the force push only after my yes.
 - Then: record the demo video on dev, add its link to the README, tear dev down.
 
 ---

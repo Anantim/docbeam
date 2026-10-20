@@ -138,11 +138,11 @@ After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [do
 - **No sign-up in the web app (D-F1-17).** The study administrator sets accounts up (the seed script). `POST /auth/register` stays in the Auth Service and is switched off at the gateway by `public_registration_enabled`.
 - **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree and the list load 20 rows and more on scroll.
 - **Measured on dev (2026-10-20):** a 2,000-delivery submit p99 175 ms in normal operation and 452 ms under peak delivery load (server side); the first level of the tree for a user in 50 teams p99 848 ms from a laptop over the internet (27 ms at the gateway); ticking one of 40 folders draws one row (was 40).
-- **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm), 4 minutes 23 seconds, recorded by `scripts/demo/record.ts` on dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after-e3/](docs/testing/f1-evidence/after-e3/).
+- **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm), 4 minutes 23 seconds, recorded by `scripts/demo/record.ts` on dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
 
-![The Distribute screen](docs/testing/f1-evidence/after-e3/05-distribute-filled-1280.png)
+![The Distribute screen](docs/testing/f1-evidence/after/05-distribute-filled-1280.png)
 
-![The Status view with a distribution open](docs/testing/f1-evidence/after-e3/08-status-panel-1280.png)
+![The Status view with a distribution open](docs/testing/f1-evidence/after/08-status-panel-1280.png)
 
 ## Deploy to AWS
 

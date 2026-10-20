@@ -20,3 +20,7 @@ backend.hcl
 
 # Vitest JSON reports
 .vitest/
+
+# The demo recorder's step pictures and any stray video; the demo is docs/demo/docbeam-demo.webm
+docs/demo/frames/
+*.mp4
