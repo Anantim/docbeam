@@ -5,7 +5,7 @@ import { GetQueueUrlCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { finishTask } from '../../packages/shared/src/task-outcome.js';
-import { AUTH_URL, call, compose, DOCBEAM_URL, env, eventually, PLATFORM_URL, PREFIX, s3, serviceToken, sqs } from './helpers.js';
+import { AUTH_URL, call, compose, deleteJobs, DOCBEAM_URL, env, eventually, PLATFORM_URL, PREFIX, s3, serviceToken, sqs } from './helpers.js';
 
 // Delivery (Step 2.4) on the Compose stack: the Task Queue, the real platform and the real object store.
 // Most tests insert the job and send the task message themselves, so they do not depend on the platform
@@ -31,7 +31,9 @@ beforeAll(async () => {
   const lookup = await serviceToken('seed-script', 'users:read');
   priyaId = (await call(AUTH_URL, '/internal/users?email=priya.shah@example.com', { token: lookup })).body.id;
 });
+const madeJobs: string[] = [];
 afterAll(async () => {
+  await deleteJobs(docbeam, madeJobs);
   await docbeam.end();
   await platform.end();
 });
@@ -65,6 +67,7 @@ async function readyFile(): Promise<ReadyFile> {
 /** A job with one task per file, inserted directly. Returns the task ids in file order. */
 async function insertJob(files: ReadyFile[], folder = folderA.id, status: 'pending' | 'in_progress' = 'pending'): Promise<{ jobId: string; taskIds: string[] }> {
   const jobId = randomUUID();
+  madeJobs.push(jobId);
   await docbeam.query(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at) VALUES ($1, $2, 'Priya Shah', $3, $4, now())`,
     [jobId, priyaId, files.length, randomUUID()],
@@ -118,6 +121,7 @@ describe('delivery', () => {
     });
     expect(submitted.status).toBe(201);
     const jobId: string = submitted.body.jobId;
+    madeJobs.push(jobId);
 
     const done = await eventually(async () => {
       const job = (await docbeam.query('SELECT completed_at, first_completed_at FROM jobs WHERE id = $1', [jobId])).rows[0];

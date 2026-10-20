@@ -142,7 +142,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
 
   return (
     <>
-      <div className="page">
+      <div className="page page-fixed">
         <div className="page-head">
           <h1>New distribution</h1>
         </div>

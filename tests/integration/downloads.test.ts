@@ -4,7 +4,7 @@ import { request as httpRequest } from 'node:http';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AUTH_URL, call, DOCBEAM_URL, env, PREFIX, s3, serviceToken } from './helpers.js';
+import { AUTH_URL, call, deleteJobs, DOCBEAM_URL, env, PREFIX, s3, serviceToken } from './helpers.js';
 
 // Step 4.1 on the Compose stack: POST /files/:fileId/downloads with the real route and the LocalStack Object Store.
 //   Priya Shah: Cardio + Oncology. Raj Mehta: Cardio. Sam Ito: Neuro only.
@@ -30,7 +30,9 @@ beforeAll(async () => {
     ids[email] = (await call(AUTH_URL, `/internal/users?email=${email}`, { token: lookup })).body.id;
   }
 });
+const madeJobs: string[] = [];
 afterAll(async () => {
+  await deleteJobs(db, madeJobs);
   await db.end();
 });
 
@@ -50,6 +52,7 @@ async function makeFile(options: {
   store?: boolean;
 }): Promise<Made> {
   const jobId = randomUUID();
+  madeJobs.push(jobId);
   const fileId = randomUUID();
   const key = `staging/${ids[priya]}/${fileId}`;
   const uploaded = new Date(Date.now() - (options.uploadedDaysAgo ?? 1) * 86_400_000);

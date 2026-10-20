@@ -204,6 +204,8 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .files.over { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-tint); }
 .drop-state { flex: 1; margin: var(--s-4); padding: var(--s-8) var(--s-6); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
 .files .table-scroll { flex: 1; }
+.files-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.files-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .table-scroll { overflow-x: auto; }
 /* The "files not added" box: light, an error-coloured edge and icon, the name in normal text, the reason muted. */
 .not-added { display: flex; align-items: flex-start; gap: var(--s-3); margin: var(--s-3) var(--s-4); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); background: var(--surface-2); border-left: 3px solid var(--error-dot); border-radius: var(--radius); font-size: var(--fs-2); }
@@ -260,7 +262,8 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .filter.search > svg { position: absolute; left: calc(var(--s-4) + var(--s-3)); top: calc(var(--s-3) + 11px); color: var(--text-3); pointer-events: none; }
 .filter.search .field { padding-left: var(--s-8); }
 .tree-skeleton { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-3) var(--s-2); }
-.tree { padding: var(--s-1) var(--s-3) var(--s-3); display: flex; flex-direction: column; flex: 1; max-height: 60vh; overflow-y: auto; }
+.tree-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.tree { padding: var(--s-1) var(--s-3) var(--s-3); display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .row { padding-left: calc(var(--s-1) + var(--level, 0) * var(--s-6)); display: flex; align-items: center; gap: var(--s-2); min-height: var(--control); border-radius: var(--radius); }
 .row.on { background: var(--accent-tint); }
 .exp { width: 24px; height: 24px; border: 0; background: none; color: var(--text-3); border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; flex: none; }
@@ -372,6 +375,14 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
   .dist-fade { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .dist-scroll { flex: 1 1 auto; min-height: 0; overflow-y: scroll; scroll-padding-top: var(--dist-head); }
   .page-fixed .panel { position: static; max-height: none; height: 100%; }
+  /* Distribute is the same kind of screen (D-F1-39): the two cards fill the height between the title and the Send bar,
+     level at top and bottom; the file rows (under their fixed header row) and the folder tree (under its fixed search
+     box) scroll inside their cards. Opening or closing folders never changes the height of the page. */
+  .page-fixed .workspace { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .page-fixed .files, .page-fixed .dest { min-height: 0; }
+  .files-scroll, .tree { overflow-y: auto; }
+  .files .table-scroll { overflow: visible; } /* the card's own scroll area scrolls, so the header row can stick to it */
+  .files-scroll .frow.thead { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--line); }
 }
 /* The header row stays at the top of the scroll area. Its line is a shadow, because the border of a sticky cell in a table
    with collapsed borders scrolls away with the rows. */

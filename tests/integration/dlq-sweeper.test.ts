@@ -9,7 +9,7 @@ import { GetQueueUrlCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cleanup } from '../../workers/sweeper/src/index.js';
-import { env, eventually, logLines, PREFIX, s3, sqs } from './helpers.js';
+import { deleteJobs, env, eventually, logLines, PREFIX, s3, sqs } from './helpers.js';
 
 // DLQ Consumer and Sweeper (Step 2.5, ADR-014). Rows are inserted directly: these tests are about what
 // happens to a message that ends in a DLQ, not about how it got there.
@@ -22,7 +22,11 @@ let db: pg.Pool;
 beforeAll(() => {
   db = new pg.Pool({ connectionString: `postgres://postgres:${env.POSTGRES_PASSWORD}@localhost:5432/docbeam_db`, max: 2 });
 });
-afterAll(() => db.end());
+afterAll(async () => {
+  const left = await db.query<{ id: string }>('SELECT id FROM jobs WHERE submitted_by_user_id = $1', [OWNER]);
+  await deleteJobs(db, left.rows.map((r) => r.id));
+  await db.end();
+});
 
 async function insertFile(options: { status?: string; ageHours?: number; jobId?: string | null; multipartUploadId?: string } = {}) {
   const id = randomUUID();

@@ -441,6 +441,20 @@ describe('the list and Open by ID', () => {
     expect(api.byIdPrefix).not.toHaveBeenCalled(); // a full id needs no look-up
   });
 
+  it('drops a look-up that answers after the text was changed', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    renderPage({ jobId: null, onOpen });
+    const field = await openCard(user);
+    let answer: (v: unknown[]) => void = () => undefined;
+    api.byIdPrefix.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    await user.type(field, '3f1c2a9e{Enter}');
+    await user.clear(field); // the person changed their mind while it was running
+    answer([summary(JOB)]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it('takes the 8 characters the list shows: one match opens it, several are listed to choose from, none says so, bad input says what to enter (D-F1-32)', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();

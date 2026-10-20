@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../auth/session.js';
 import type { Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
@@ -7,6 +7,7 @@ import { plural } from '../text.js';
 import { FolderList } from './DestinationChips.js';
 import { MoreRow } from './MoreRow.js';
 import { Popover } from './Popover.js';
+import { useMoreBelow } from './useMoreBelow.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon, SearchIcon } from './Icons.js';
 
 interface Props {
@@ -209,11 +210,30 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
   toggleRef.current = onToggle;
   const toggle = useCallback((d: Destination) => toggleRef.current(d), []);
 
+  const { ref: treeRef, more: moreBelow } = useMoreBelow<HTMLDivElement>();
+  // The level that was just opened: its rows are scrolled into view inside the card once they are drawn (D-F1-39).
+  const reveal = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const id = reveal.current;
+    const box = treeRef.current;
+    if (id === null || !box) return;
+    const block = box.querySelector<HTMLElement>(`[data-node="${id}"]`);
+    if (block && loaded.has(id)) reveal.current = null;
+    if (!block) return;
+    const area = box.getBoundingClientRect();
+    const hidden = block.getBoundingClientRect().bottom - area.bottom;
+    // Never push the opened row itself out of view at the top.
+    if (hidden > 0) box.scrollTop += Math.min(hidden, Math.max(0, block.getBoundingClientRect().top - area.top));
+  });
+
   const expand = useCallback((node: TreeNode) => {
     setOpen((s) => {
       const n = new Set(s);
       if (n.has(node.id)) n.delete(node.id);
-      else n.add(node.id);
+      else {
+        n.add(node.id);
+        reveal.current = node.id;
+      }
       return n;
     });
     if (!loadedRef.current.has(node.id) && !inFlight.current.has(node.id)) void load(node, null);
@@ -232,7 +252,7 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     const fileTotal = going?.total ?? 0;
 
     return (
-      <div key={node.id}>
+      <div key={node.id} data-node={node.id}>
         <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} fileNames={fileNames} fileTotal={fileTotal} onExpand={expand} onToggle={toggle} />
         {isOpen && busy.has(node.id) && children === undefined && (
           <div className="nested" style={{ ['--level' as string]: level }}>
@@ -295,7 +315,8 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
-      <div className="tree" onKeyDown={onTreeKey}>
+      <div className={`tree-wrap fadewrap ${moreBelow ? 'more-below' : ''}`}>
+      <div className="tree" ref={treeRef} onKeyDown={onTreeKey}>
         {rootError && (
           <div className="state small" role="alert">
             <strong>Could not load your teams</strong>
@@ -319,6 +340,7 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
         )}
         {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
         {roots !== null && rootsNext !== null && !keep && <MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
+      </div>
       </div>
     </section>
   );
