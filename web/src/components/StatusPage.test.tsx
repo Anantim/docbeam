@@ -76,6 +76,8 @@ const mine = (jobs: JobSummary[] | null = [], over: Partial<ReturnType<typeof us
   moreFailed: false,
   refresh: vi.fn(async () => undefined),
   loadMore: vi.fn(async () => undefined),
+  // By default the row is "in the list" as far as the page knows: nothing is read and nothing is pinned.
+  loadUntil: vi.fn(async () => true),
   ...over,
 });
 const notify = vi.fn();
@@ -610,8 +612,69 @@ describe('the list and Open by ID', () => {
     expect(screen.queryByRole('form', { name: 'Open a distribution by ID' })).toBeNull(); // the card is closed
     const row = screen.getByRole('button', { name: `Open distribution ${JOB.slice(0, 8)}` }).closest('tr') as HTMLElement;
     await vi.waitFor(() => expect(row.classList.contains('fresh')).toBe(true)); // the same highlight as a just-sent row
-    expect(scrolled).toHaveBeenCalledWith({ block: 'nearest' }); // and the row is brought into view
+    expect(scrolled).toHaveBeenCalledWith({ block: 'center' }); // and the row is brought into view
     await vi.waitFor(() => expect(row.classList.contains('fresh')).toBe(false), { timeout: 2500 }); // it fades out after a second
+  });
+
+  describe('Open by ID and a link bring the row into view and highlight it (D-F1-74)', () => {
+    const OTHER = '8a7b6c5d-0000-4000-8000-000000000002';
+    const FAR = '9b8c7d6e-0000-4000-8000-000000000009';
+    const rowOf = (id: string) => screen.getByRole('button', { name: `Open distribution ${id.slice(0, 8)}` }).closest('tr') as HTMLElement;
+
+    it('another distribution in the list: the list is asked for it, its row is scrolled into view and highlighted', async () => {
+      const scrolled = vi.fn();
+      Element.prototype.scrollIntoView = scrolled;
+      const user = userEvent.setup();
+      const onOpen = vi.fn();
+      const all = mine([summary(JOB), summary(OTHER, 'Raj Mehta')]);
+      renderPage({ jobId: JOB, onOpen, mine: all });
+      await user.type(await openCard(user), `${OTHER}{Enter}`);
+      expect(onOpen).toHaveBeenCalledWith(OTHER);
+      expect(all.loadUntil).toHaveBeenCalledWith(OTHER, 5);
+      await vi.waitFor(() => expect(rowOf(OTHER).classList.contains('fresh')).toBe(true));
+      expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+      expect(rowOf(OTHER).classList.contains('pinned')).toBe(false); // it is a loaded row: nothing is pinned
+    });
+
+    it('a row that is not loaded yet and cannot be reached: it is the first row, pinned, highlighted and selected', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      const user = userEvent.setup();
+      api.byIdPrefix.mockResolvedValue([summary(FAR, 'Raj Mehta')]); // asked once for the address and once for Open by ID
+      const all = mine([summary(JOB), summary(OTHER, 'Raj Mehta')], { loadUntil: vi.fn(async () => false) });
+      renderPage({ jobId: FAR, mine: all });
+      await user.type(await openCard(user), `${FAR}{Enter}`);
+      await vi.waitFor(() => expect(rowOf(FAR).classList.contains('pinned')).toBe(true));
+      expect(api.byIdPrefix).toHaveBeenCalledWith(FAR.slice(0, 8));
+      const rows = [...document.querySelectorAll('.dist-table tbody tr')];
+      expect(rows[0]).toBe(rowOf(FAR)); // at the top, above the loaded rows
+      await vi.waitFor(() => expect(rowOf(FAR).classList.contains('fresh')).toBe(true));
+      expect(rowOf(FAR).classList.contains('on')).toBe(true);
+      expect(rows).toHaveLength(3);
+    });
+
+    it('a row that is in the list after reading pages is not pinned', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      const user = userEvent.setup();
+      const all = mine([summary(JOB), summary(FAR, 'Raj Mehta')]); // loadUntil says true: the pages brought it in
+      renderPage({ jobId: FAR, mine: all });
+      await user.type(await openCard(user), `${FAR}{Enter}`);
+      expect(all.loadUntil).toHaveBeenCalledWith(FAR, 5);
+      await vi.waitFor(() => expect(rowOf(FAR).classList.contains('fresh')).toBe(true));
+      expect(api.byIdPrefix).not.toHaveBeenCalled();
+      expect(rowOf(FAR).classList.contains('pinned')).toBe(false);
+    });
+
+    it('a link: a distribution that the address opens is revealed too, and a click on a row is not', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      const user = userEvent.setup();
+      const all = mine([summary(JOB), summary(OTHER, 'Raj Mehta')]);
+      renderPage({ jobId: OTHER, mine: all });
+      await vi.waitFor(() => expect(all.loadUntil).toHaveBeenCalledWith(OTHER, 5)); // opened by the address
+      await vi.waitFor(() => expect(rowOf(OTHER).classList.contains('fresh')).toBe(true));
+      vi.mocked(all.loadUntil).mockClear();
+      await user.click(rowOf(JOB));
+      expect(all.loadUntil).not.toHaveBeenCalled(); // a click is on a row that is already in view
+    });
   });
 
   it('takes the 8 characters the list shows: one match opens it, several are listed to choose from, none says so, bad input says what to enter (D-F1-32)', async () => {

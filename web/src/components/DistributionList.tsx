@@ -36,6 +36,8 @@ interface Props {
   freshId?: string | null;
   /** A distribution to bring into view and highlight for a second: Open by ID on the one that is already open (D-F1-51). */
   flashId?: string | null;
+  /** A distribution opened by ID that is not among the loaded rows: shown on its own as the first row, marked as pinned (D-F1-74). */
+  pinned?: JobSummary | null;
 }
 const SKELETON_ROWS = 5;
 interface RowProps {
@@ -52,6 +54,8 @@ interface RowProps {
   arrive: boolean;
   /** The distribution that was just sent: its row is highlighted and the highlight fades out over a second. */
   fresh: boolean;
+  /** Not one of the loaded rows: opened by ID and shown at the top on its own. */
+  pinned: boolean;
 }
 
 const sameNames = (a: readonly string[], b: readonly string[]): boolean => a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
@@ -64,6 +68,7 @@ const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.notify === b.notify &&
   a.arrive === b.arrive &&
   a.fresh === b.fresh &&
+  a.pinned === b.pinned &&
   a.tabStop === b.tabStop &&
   a.counts === b.counts &&
   a.job.jobId === b.job.jobId &&
@@ -76,14 +81,14 @@ const sameRow = (a: RowProps, b: RowProps): boolean =>
   a.job.submittedBy.name === b.job.submittedBy.name &&
   (Object.keys(a.job.counts) as Array<keyof Counts>).every((k) => a.job.counts[k] === b.job.counts[k]);
 
-const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, notify, arrive, fresh }: RowProps) {
+const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, notify, arrive, fresh, pinned }: RowProps) {
   const status = counts ? statusFromCounts(counts, job.status === 'cancelled') : job.status;
   const chip = jobChip(status);
   const sender = job.submittedBy.userId === meId ? 'You' : job.submittedBy.name;
   const firstFile = job.fileNames[0] ?? '';
   const firstFolders = job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ');
   return (
-    <tr className={`${selected ? 'on' : ''} ${arrive ? 'arrive' : ''} ${fresh ? 'fresh' : ''}`} onClick={() => onOpen(job.jobId)}>
+    <tr className={`${selected ? 'on' : ''} ${arrive ? 'arrive' : ''} ${fresh ? 'fresh' : ''} ${pinned ? 'pinned' : ''}`} onClick={() => onOpen(job.jobId)}>
       <td>
         <span className="dist-id-cell">
           <Tooltip text={job.jobId}>
@@ -183,7 +188,7 @@ function ListHead() {
  * The distributions, newest first, one row each: short id, when it was sent, who sent it, how many files and
  * destinations, and its status. A row opens the side panel. The list is paged on scroll (D-F1-7).
  */
-export function DistributionList({ meId, filtered = false, onClearFilters, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, notify, live, freshId = null, flashId = null }: Props) {
+export function DistributionList({ meId, filtered = false, onClearFilters, jobs, error, hasMore, loadingMore, moreFailed, onMore, onRetry, selectedId, onOpen, notify, live, freshId = null, flashId = null, pinned = null }: Props) {
   if (jobs === null && error === '') {
     // The real header row, and in each row grey bars the shape of what will come: the ID with the sender under it, the
     // status chip, the date, and (when there is room) sender, files and folders (D-F1-22).
@@ -228,7 +233,7 @@ export function DistributionList({ meId, filtered = false, onClearFilters, jobs,
       </div>
     );
   }
-  if (jobs.length === 0) {
+  if (jobs.length === 0 && !pinned) {
     return (
       <div className="card state">
         <strong>{filtered ? 'No distribution matches these filters' : 'No distributions yet'}</strong>
@@ -243,10 +248,10 @@ export function DistributionList({ meId, filtered = false, onClearFilters, jobs,
     );
   }
 
-  return <LoadedList meId={meId} jobs={jobs} error={error} hasMore={hasMore} loadingMore={loadingMore} moreFailed={moreFailed} onMore={onMore} selectedId={selectedId} onOpen={onOpen} notify={notify} live={live} freshId={freshId} flashId={flashId} />;
+  return <LoadedList meId={meId} jobs={pinned ? [pinned, ...jobs] : jobs} pinnedId={pinned?.jobId ?? null} error={error} hasMore={hasMore} loadingMore={loadingMore} moreFailed={moreFailed} onMore={onMore} selectedId={selectedId} onOpen={onOpen} notify={notify} live={live} freshId={freshId} flashId={flashId} />;
 }
 
-type LoadedProps = Pick<Props, 'meId' | 'error' | 'hasMore' | 'loadingMore' | 'moreFailed' | 'onMore' | 'selectedId' | 'onOpen' | 'notify' | 'live' | 'freshId' | 'flashId'> & { jobs: JobSummary[] };
+type LoadedProps = Pick<Props, 'meId' | 'error' | 'hasMore' | 'loadingMore' | 'moreFailed' | 'onMore' | 'selectedId' | 'onOpen' | 'notify' | 'live' | 'freshId' | 'flashId'> & { jobs: JobSummary[]; pinnedId: string | null };
 
 /**
  * The list with its rows. From 1024 px up the page does not scroll and this card fills the height that is left: the table
@@ -255,7 +260,7 @@ type LoadedProps = Pick<Props, 'meId' | 'error' | 'hasMore' | 'loadingMore' | 'm
  * Tab goes filters, list, panel. Opening or closing a distribution does not touch the scroll position: the selected row
  * is only scrolled into view when it is not.
  */
-function LoadedList({ meId, jobs, error, hasMore, loadingMore, moreFailed, onMore, selectedId, onOpen, notify, live, freshId = null, flashId = null }: LoadedProps) {
+function LoadedList({ meId, jobs, pinnedId, error, hasMore, loadingMore, moreFailed, onMore, selectedId, onOpen, notify, live, freshId = null, flashId = null }: LoadedProps) {
   // The rows the list held on its first draw do not animate; a row that comes later fades in (D-F1-47).
   const seen = useRef<Set<string> | null>(null);
   const firstDraw = seen.current === null;
@@ -287,7 +292,8 @@ function LoadedList({ meId, jobs, error, hasMore, loadingMore, moreFailed, onMor
 
   // Open by ID on the distribution that is already open: its row is brought into view (the highlight is the `fresh` class below).
   useEffect(() => {
-    if (flashId) scroller.current?.querySelector<HTMLElement>(`[data-job-id="${flashId}"]`)?.scrollIntoView?.({ block: 'nearest' });
+    // In the middle, not at the nearest edge: at the edge the row sits under the fade at the bottom of the list (D-F1-74).
+    if (flashId) scroller.current?.querySelector<HTMLElement>(`[data-job-id="${flashId}"]`)?.scrollIntoView?.({ block: 'center' });
   }, [flashId]);
 
   useEffect(() => {
@@ -322,7 +328,7 @@ function LoadedList({ meId, jobs, error, hasMore, loadingMore, moreFailed, onMor
           <tbody onKeyDown={onKeyDown} onFocus={(e) => setActive((e.target as HTMLElement).closest('tr')?.querySelector('[data-job-id]')?.getAttribute('data-job-id') ?? null)}>
             {jobs.map((job) => {
               const following = live && live.jobId === job.jobId ? live.counts : null;
-              return <Row key={job.jobId} job={job} counts={following} meId={meId} selected={selectedId === job.jobId} tabStop={stop === job.jobId} onOpen={onOpen} notify={notify} arrive={arrivals.has(job.jobId)} fresh={freshId === job.jobId || flashId === job.jobId} />;
+              return <Row key={job.jobId} job={job} counts={following} meId={meId} selected={selectedId === job.jobId} tabStop={stop === job.jobId} onOpen={onOpen} notify={notify} arrive={arrivals.has(job.jobId)} pinned={pinnedId === job.jobId} fresh={freshId === job.jobId || flashId === job.jobId} />;
             })}
           </tbody>
         </table>

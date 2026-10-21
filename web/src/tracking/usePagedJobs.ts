@@ -64,24 +64,54 @@ export function usePagedJobs(filters: Filters = NO_FILTERS, enabled = true, inte
     }
   }, [chosen]);
 
-  const loadMore = useCallback(async (): Promise<void> => {
+  // The rows now shown, for `loadUntil`, which reads them between two pages without waiting for a draw.
+  const shown = useRef<JobSummary[] | null>(null);
+  shown.current = state.jobs;
+
+  /** Reads the next page and adds it. The rows it added, or null when nothing was read (no next page, or one is on its way). */
+  const fetchNext = useCallback(async (): Promise<JobSummary[] | null> => {
     const cursor = next.current;
-    if (state.jobs === null || cursor === null || state.loadingMore || moreInFlight.current) return;
+    if (shown.current === null || cursor === null || moreInFlight.current) return null;
     moreInFlight.current = true;
     const ticket = ++latest.current;
     setState((s) => ({ ...s, loadingMore: true, moreFailed: false, error: '' }));
     try {
       const got = await trackingApi.jobs(chosen, cursor, LIST_PAGE);
-      if (ticket !== latest.current) return;
+      if (ticket !== latest.current) return null;
       pages.current += 1;
       next.current = got.nextCursor;
+      const added = unseen(shown.current ?? [], got.items);
+      shown.current = [...(shown.current ?? []), ...added];
       setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], got.items)], hasMore: got.nextCursor !== null, loadingMore: false, moreFailed: false }));
+      return added;
     } catch (e) {
       if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false, moreFailed: true }));
+      return null;
     } finally {
       moreInFlight.current = false;
     }
-  }, [chosen, state.jobs, state.loadingMore]);
+  }, [chosen]);
+
+  const loadMore = useCallback(async (): Promise<void> => {
+    await fetchNext();
+  }, [fetchNext]);
+
+  /**
+   * Reads pages until the list holds the distribution, but not more than `maxPages`. True when it is in the list, false when
+   * it is not (the end of the list, a failed page, or too far: the page then shows it on its own, D-F1-74).
+   */
+  const loadUntil = useCallback(
+    async (jobId: string, maxPages: number): Promise<boolean> => {
+      if (shown.current?.some((j) => j.jobId === jobId)) return true;
+      for (let page = 0; page < maxPages; page += 1) {
+        const added = await fetchNext();
+        if (added === null) return false;
+        if (added.some((j) => j.jobId === jobId)) return true;
+      }
+      return false;
+    },
+    [fetchNext],
+  );
 
   useEffect(() => {
     if (!enabled) return;
@@ -112,7 +142,7 @@ export function usePagedJobs(filters: Filters = NO_FILTERS, enabled = true, inte
     return () => clearInterval(id);
   }, [enabled, running, refresh, intervalMs]);
 
-  return { ...state, refresh, loadMore };
+  return { ...state, refresh, loadMore, loadUntil };
 }
 
 /**

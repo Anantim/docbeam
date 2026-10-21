@@ -4,7 +4,7 @@
 
 DocBeam is a batch document distribution app for clinical trial teams. It is a portfolio project: designed first (`docs/design/`), then built in six milestones, and shown running on AWS (Sydney) from Terraform. Prod is written but never deployed.
 
-> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (also as [webm](docs/demo/docbeam-demo.webm); 4 minutes 52 seconds; recorded by a script, `scripts/demo/record.ts`, **locally** (docker compose, seeded) on the final build on 2026-10-21: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
+> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (also as [webm](docs/demo/docbeam-demo.webm); 4 minutes 49 seconds; recorded by a script, `scripts/demo/record.ts`, **locally** (docker compose, seeded) on the final build on 2026-10-21: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
 
 ## At a glance
 
@@ -23,7 +23,7 @@ Measured on the deployed dev site (AWS Sydney). The latest run leads; older runs
 | A 1 GiB file, uploaded in 64 parts, scanned and delivered | 54 s to upload, 95 s to scan, 36.9 s to deliver; same SHA-256 | 2026-10-18 | [multipart-1gb.txt](docs/testing/m5-evidence/multipart-1gb.txt) |
 | Virus scan (ClamAV) | about 15 s a file, 10 files at a time (100 files take about 2.5 minutes) | 2026-10-18 | [M5-RESULTS.md](docs/testing/M5-RESULTS.md) |
 | Cost of dev while it is up | about 3 to 5 USD a day, torn down when not in use | 2026-10 | [AGENTS.md](AGENTS.md), [STATUS.md](docs/STATUS.md) |
-| Tests | 829 unit (94 files), 210 integration (18 files, real ClamAV), 125 browser (plus 10 that run only on dev); lint and typecheck clean | 2026-10-21 | [F1-RESULTS.md](docs/testing/F1-RESULTS.md) section 8.10 |
+| Tests | 835 unit (94 files), 210 integration (18 files, real ClamAV), 126 browser (plus 10 that run only on dev); lint and typecheck clean | 2026-10-21 | [F1-RESULTS.md](docs/testing/F1-RESULTS.md) section 8.10 |
 
 ## The problem
 
@@ -116,9 +116,9 @@ Locally the `workers` container polls the LocalStack queues and runs the same ha
 
 | Layer | Command | Latest result (2026-10-21) |
 |---|---|---|
-| Unit and web (vitest) | `npm test` | 94 files, 829 tests |
+| Unit and web (vitest) | `npm test` | 94 files, 835 tests |
 | Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 210 tests |
-| Browser (Playwright, local) | `npm run test:e2e` | 125 passed (plus 10 that run only on dev) |
+| Browser (Playwright, local) | `npm run test:e2e` | 126 passed (plus 10 that run only on dev) |
 | Browser on dev (Playwright) | `npm run test:e2e:dev` | 11 tests passed on 2026-10-20 (see F1 below) |
 | Checks on deployed dev | `scripts/m5-all.sh` | see M5 below |
 | Repository safe to publish | `scripts/check-public.sh` | gitleaks clean over every commit |
@@ -158,7 +158,7 @@ After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [do
 - **No sign-up in the web app (D-F1-17).** The study administrator sets accounts up (the seed script). `POST /auth/register` stays in the Auth Service and is switched off at the gateway by `public_registration_enabled`.
 - **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree loads 20 rows and more on scroll; the list of distributions loads 20 at a time as you scroll (the next page is asked for when its scroll area comes within about five rows of the end, with "Loading more…" while it comes and "That's everything" at the end; no page numbers and no "Show more", D-F1-49). The copy icon after a distribution ID copies its link.
 - **Measured on dev:** see "At a glance" at the top for the latest numbers. Ticking one of 40 folders draws one row (was 40).
-- **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) and [webm](docs/demo/docbeam-demo.webm), 4 minutes 52 seconds, recorded locally on the final build on 2026-10-21 (with a real PDF preview, D-F1-73) (the mp4 is made from the webm with ffmpeg) by `scripts/demo/record.ts`; the recorder can also record dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
+- **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) and [webm](docs/demo/docbeam-demo.webm), 4 minutes 49 seconds, recorded locally on the final build on 2026-10-21 (with a real PDF preview, D-F1-73) (the mp4 is made from the webm with ffmpeg) by `scripts/demo/record.ts`; the recorder can also record dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
 
 ![The Distribute screen](docs/testing/f1-evidence/after/07-distribute-ready-to-send-1280.png)
 

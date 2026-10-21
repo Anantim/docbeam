@@ -7,6 +7,35 @@ import { newAccount, pickFilter, PRIYA, removeSeeded, seedJob, signIn, tooltipOf
 
 const NOTE = 'Enter the 8-character ID from the list, the full ID, or a link.';
 
+test('Open by ID on another distribution, and a link to one, scroll its row into view and highlight it (D-F1-74)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PRIYA);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
+  const rows = page.locator('.dist-table tbody tr [data-job-id]');
+  await expect(rows.nth(15)).toBeAttached(); // at least 16 distributions are loaded
+  const jobId = (await rows.nth(15).getAttribute('data-job-id')) as string;
+  const rowId = page.locator(`[data-job-id="${jobId}"]`);
+  await expect(rowId).not.toBeInViewport(); // the 16th row is below the visible part of the list
+
+  await trigger(page).click();
+  await box(page).fill(jobId.slice(0, 8)); // the 8 characters the list shows
+  await box(page).press('Enter');
+  await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`));
+  await expect(rowId).toBeInViewport(); // the list scrolled to it
+  const tr = page.locator('tr', { has: rowId });
+  await expect(tr).toHaveClass(/\bon\b/); // selected
+  await expect(tr).toHaveClass(/\bfresh\b/); // and highlighted for a second
+  await expect(tr).not.toHaveClass(/\bfresh\b/, { timeout: 3000 });
+
+  // A link: the same distribution opened by the address, with the list scrolled away from it first.
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.evaluate(`document.querySelector('.dist-scroll').scrollTop = 0`);
+  await page.goto(`/#/status/${jobId}`);
+  await page.reload();
+  await expect(page.getByRole('complementary')).toBeVisible();
+  await expect(page.locator(`[data-job-id="${jobId}"]`)).toBeInViewport();
+});
+
 test('Open by ID on the distribution that is already open closes the card, scrolls its row into view and highlights it for a second (D-F1-51)', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, PRIYA);

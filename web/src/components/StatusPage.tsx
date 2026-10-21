@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
 import { PANEL_OUT_MS, prefersReducedMotion } from '../motion.js';
-import type { Counts } from '../tracking/api.js';
+import { trackingApi, type Counts, type JobSummary } from '../tracking/api.js';
 import { isUnfiltered, type Filters } from '../tracking/filters.js';
 import { useFilterChoices } from '../tracking/useFilterChoices.js';
 import { usePagedJobs } from '../tracking/usePagedJobs.js';
@@ -12,6 +12,9 @@ import { FilterBar } from './FilterBar.js';
 import { OpenById } from './OpenById.js';
 
 type Jobs = ReturnType<typeof usePagedJobs>;
+
+/** How many more pages of 20 Open by ID reads to find a row before it shows the row on its own (D-F1-74). */
+const REVEAL_PAGES = 5;
 
 interface Props {
   /** The signed-in person's id. */
@@ -122,18 +125,61 @@ export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLiv
   useEffect(() => () => clearTimeout(flashTimer.current), []);
   const jobIdNow = useRef(jobId);
   jobIdNow.current = jobId;
+  // Opening by ID, or by a link, shows the row in the list whether or not that distribution was already open (D-F1-74): the list
+  // reads up to REVEAL_PAGES more pages until the row is in it; when it is not (too far down, or left out by a filter) the row
+  // is shown on its own at the top of the list, as a pinned row. Either way the row is brought into view and highlighted for a second.
+  const loadUntil = list.loadUntil;
+  const loadUntilRef = useRef(loadUntil);
+  loadUntilRef.current = loadUntil;
+  const [pinned, setPinned] = useState<JobSummary | null>(null);
+  // The distribution a reveal was started for (by Open by ID, or below by the address), so a row click does not start one.
+  const revealed = useRef<string | null>(null);
+  const reveal = useCallback(async (id: string): Promise<void> => {
+    const inList = await loadUntilRef.current(id, REVEAL_PAGES);
+    let pin: JobSummary | null = null;
+    if (!inList) {
+      try {
+        pin = (await trackingApi.byIdPrefix(id.slice(0, 8))).find((j) => j.jobId === id) ?? null;
+      } catch {
+        pin = null; // the panel says what is wrong; the list just has no pinned row
+      }
+    }
+    if (revealed.current !== id) return; // another one was opened meanwhile
+    setPinned(pin);
+    clearTimeout(flashTimer.current);
+    setFlashId(null); // off and on again, so a second look restarts the highlight
+    requestAnimationFrame(() => {
+      setFlashId(id);
+      flashTimer.current = setTimeout(() => setFlashId(null), 1000);
+    });
+  }, []);
   const openById = useCallback(
     (id: string): void => {
-      if (id !== jobIdNow.current) return open(id);
-      clearTimeout(flashTimer.current);
-      setFlashId(null); // off and on again, so a second look restarts the highlight
-      requestAnimationFrame(() => {
-        setFlashId(id);
-        flashTimer.current = setTimeout(() => setFlashId(null), 1000);
-      });
+      revealed.current = id;
+      if (id !== jobIdNow.current) open(id);
+      void reveal(id);
+    },
+    [open, reveal],
+  );
+  const openFromRow = useCallback(
+    (id: string): void => {
+      revealed.current = id;
+      setPinned(null);
+      open(id);
     },
     [open],
   );
+  // A distribution that the address opens (a copied link, or a reload) is revealed once the first page of the list is in.
+  const listReady = list.jobs !== null;
+  useEffect(() => {
+    if (jobId === null) {
+      revealed.current = null;
+      setPinned(null);
+    } else if (listReady && revealed.current !== jobId) {
+      revealed.current = jobId;
+      void reveal(jobId);
+    }
+  }, [jobId, listReady, reveal]);
 
   return (
     // From 1024 px up the page itself does not scroll (D-F1-29); the list and the panel scroll in their own areas.
@@ -157,7 +203,8 @@ export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLiv
           onMore={() => void list.loadMore()}
           onRetry={() => void list.refresh()}
           selectedId={jobId}
-          onOpen={open}
+          onOpen={openFromRow}
+          pinned={pinned && pinned.jobId === jobId && !(list.jobs ?? []).some((j) => j.jobId === pinned.jobId) ? pinned : null}
           notify={notify}
           live={jobId ? liveCounts : null}
           freshId={focusJobId ?? null}
