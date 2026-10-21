@@ -284,7 +284,7 @@ describe('browse pages across folders and documents (F1 part B)', () => {
 });
 
 describe('GET /folders/search (D-F1-67)', () => {
-  type Hit = { id: string; name: string; path: string; teamId: string; binderId: string; folderIds: string[] };
+  type Hit = { id: string; name: string; path: string; names: string[]; teamId: string; binderId: string; folderIds: string[] };
   const search = async (token: string | undefined, q: string, extra = '') => call(PLATFORM_URL, `/folders/search?q=${encodeURIComponent(q)}${extra}`, token ? { token } : {});
   const paths = (res: { body: { items: Hit[] } }) => res.body.items.map((h) => h.path);
 
@@ -293,6 +293,7 @@ describe('GET /folders/search (D-F1-67)', () => {
     const nested = (await search(priya.token, '2026')).body.items as Hit[];
     expect(nested.map((h) => h.path)).toEqual(['Cardio / CARDIO-301 Regulatory / Protocol amendments / 2026']);
     const hit = nested[0] as Hit;
+    expect(hit.names).toEqual(['Cardio', 'CARDIO-301 Regulatory', 'Protocol amendments', '2026']); // the path as names, for a page that must not split it
     expect(hit.folderIds).toHaveLength(2); // the folder it is in, then the match
     expect(hit.folderIds[1]).toBe(hit.id);
     expect(hit.teamId).toBe(team('Cardio').id);

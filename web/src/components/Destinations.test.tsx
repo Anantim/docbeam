@@ -112,7 +112,7 @@ describe('Destinations tree', () => {
 });
 
 describe('the folder search (D-F1-67)', () => {
-  const hit = (id: string, name: string, path: string, extra: Record<string, unknown> = {}) => ({ id, name, path, teamId: 't-cardio', binderId: 'b-reg', folderIds: [id], ...extra });
+  const hit = (id: string, name: string, path: string, extra: Record<string, unknown> = {}) => ({ id, name, path, names: path.split(' / '), teamId: 't-cardio', binderId: 'b-reg', folderIds: [id], ...extra });
   const search = (q: string, page: unknown) => {
     answers[`/folders/search?q=${q}`] = page;
   };

@@ -164,7 +164,7 @@ export class UploadManager {
    * back Checking, and one that is gone, refused, failed its check or was still uploading is dropped. Returns the page ids
    * that came back and how many were dropped. The page keeps the same ids, so the folder ticks still point at the files.
    */
-  async restore(entries: readonly RestoreEntry[]): Promise<{ restored: string[]; dropped: number }> {
+  async restore(entries: readonly RestoreEntry[]): Promise<{ restored: string[]; dropped: number; unreachable?: true }> {
     const candidates = entries.filter((e) => e.stored && e.serverId !== undefined);
     const states = new Map<string, { uploaded: boolean; scanStatus: string }>();
     try {
@@ -173,8 +173,9 @@ export class UploadManager {
         for (const s of await this.call(() => this.api.fileStates(chunk.map((e) => e.serverId as string)))) states.set(s.fileId, s);
       }
     } catch {
-      // The server could not be asked: nothing can be shown as ready that was not checked.
-      return { restored: [], dropped: entries.length };
+      // The server could not be asked: nothing can be shown as ready that was not checked. The page keeps the stored batch for
+      // the next reload instead of treating the files as lost (`unreachable`).
+      return { restored: [], dropped: entries.length, unreachable: true };
     }
     // A second call for the same batch (React runs an effect twice in development) finds the first one's files already here: they
     // are not added again, and they count as restored.

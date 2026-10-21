@@ -398,6 +398,24 @@ describe('Distribute', () => {
       expect(saved.mapping.held).toEqual(['k1']);
     });
 
+    it('keeps the stored batch when the server cannot be asked, and says to reload', async () => {
+      const batch = { files: [stored('a.pdf', 'p1')], mapping: { destinations: { k1: dest }, files: { p1: ['k1'] }, held: [] } };
+      keep(batch);
+      const manager = new FakeManager([]);
+      manager.restore.mockResolvedValueOnce({ restored: [], dropped: 1, unreachable: true } as never);
+      screenWith(manager);
+      await waitFor(() => expect(notify).toHaveBeenCalledWith('Your files could not be checked. Reload to try again.', 'error'));
+      expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1); // not wiped by the empty page
+    });
+
+    it('puts the folder ticks back when the screen is drawn again over files that are already here', async () => {
+      keep({ files: [stored('a.pdf', 'p1')], mapping: { destinations: { k1: dest }, files: { p1: ['k1'] }, held: ['k1'] } });
+      const manager = new FakeManager([{ ...pageFile('a.pdf', 'verified'), id: 'p1' }]);
+      screenWith(manager);
+      await waitFor(() => expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).mapping.files).toEqual({ p1: ['k1'] }));
+      expect(manager.restore).not.toHaveBeenCalled();
+    });
+
     it('does not restore over files that are already on the page, and says nothing when nothing is kept', async () => {
       keep({ files: [stored('old.pdf', 'p9')], mapping: { destinations: {}, files: {}, held: [] } });
       const manager = new FakeManager([pageFile('now.pdf', 'verified')]);

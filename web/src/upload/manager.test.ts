@@ -434,7 +434,7 @@ describe('restore after a reload (D-F1-66)', () => {
   it('brings back nothing when the server cannot be asked', async () => {
     api.fileStates.mockRejectedValue(new Error('down'));
     const manager = newManager();
-    expect(await manager.restore([entry('p1', 's1'), entry('p2', 's2')])).toEqual({ restored: [], dropped: 2 });
+    expect(await manager.restore([entry('p1', 's1'), entry('p2', 's2')])).toEqual({ restored: [], dropped: 2, unreachable: true });
     expect(manager.getSnapshot()).toEqual([]);
     manager.dispose();
   });

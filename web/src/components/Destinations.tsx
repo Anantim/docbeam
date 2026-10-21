@@ -416,7 +416,6 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
             {hits.map((hit) => {
               const destination = { binderId: hit.binderId, folderId: hit.id, path: hit.path };
               const tick = stateOf(destination);
-              const parts = hit.path.split(' / ');
               return (
                 <button key={hit.id} type="button" className={`result ${tick !== 'off' ? 'on' : ''}`} data-nav="" aria-label={`Tick ${hit.path} and show it in the tree`} onClick={() => void pick(hit)}>
                   <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`} aria-hidden="true">
@@ -425,7 +424,7 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
                   </span>
                   <span className="result-text">
                     <span className="result-name">{hit.name}</span>
-                    <span className="result-path">{parts.slice(0, -1).join(' / ')}</span>
+                    <span className="result-path">{hit.names.slice(0, -1).join(' / ')}</span>
                   </span>
                 </button>
               );
@@ -447,7 +446,7 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
         ) : (
           roots?.map((r) => row(r, 0))
         )}
-        {roots !== null && rootsNext !== null && !keep && !searching &&<MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
+        {roots !== null && rootsNext !== null && !keep && !searching && <MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
       </div>
       </div>
     </section>

@@ -145,11 +145,12 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
     const items = rows.map((r) => {
       const folderIds: string[] = [];
       for (let id: string | null = r.id; id !== null && folderIds.length <= SEARCH_MAX_DEPTH; id = known.get(id)?.parent ?? null) folderIds.unshift(id);
-      const names = folderIds.map((id) => known.get(id)?.name ?? '');
+      const names = [r.team_name, r.binder_name, ...folderIds.map((id) => known.get(id)?.name ?? '')];
       return {
         id: r.id,
         name: r.name,
-        path: [r.team_name, r.binder_name, ...names].join(' / '),
+        path: names.join(' / '),
+        names, // the same names as an array: a name that holds " / " must not be taken apart again by the page
         teamId: r.team_id,
         binderId: r.binder_id,
         folderIds, // top down, the match last
