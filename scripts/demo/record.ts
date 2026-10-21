@@ -5,11 +5,13 @@
 // DEMO_URL         the address to record (default: the local Vite server, http://localhost:5173)
 // DEMO_PASSWORD    the seed password (default: SEED_USER_PASSWORD from .env, for the local stack)
 // DEMO_FILES       the folder made by scripts/demo-files.sh (default: ~/docbeam-demo-files)
-// DEMO_DEV=1       also run the big send (scripts/demo-send.sh) and the outage (scripts/demo-outage.sh): dev only
+// DEMO_DEV=1       dev on AWS: also the big send (scripts/demo-send.sh) and the outage (scripts/demo-outage.sh)
+//                  Without it the recorder runs on the local stack (docker compose, seeded; `npm run dev -w @docbeam/web`),
+//                  and the outage is `docker compose stop platform` and `start` around a send of its own.
 // DEMO_OUT         where the video goes (default: docs/demo). The checked frames go to a frames folder inside it (git-ignored)
 //                  and replace the ones there.
 //
-// It writes docbeam-demo.webm (VP9, under 25 MB, 3 to 5 minutes on dev) and one frame per step as a PNG, so every step can
+// It writes docbeam-demo.webm (VP9, under 25 MB, 3 to 5 minutes) and one frame per step as a PNG, so every step can
 // be looked at. The video is made from the browser's own screencast frames: stretches of waiting (a scan, a big upload, a
 // drain) are played faster, because the only video encoder on the laptop is the one Playwright brings and it has no
 // editing filters.
@@ -41,6 +43,8 @@ if (!PASSWORD) throw new Error('Set DEMO_PASSWORD (the seed password) or SEED_US
 const ffmpegDir = existsSync(join(homedir(), '.cache/ms-playwright')) ? readdirSync(join(homedir(), '.cache/ms-playwright')).find((d) => d.startsWith('ffmpeg')) : undefined;
 if (!ffmpegDir) throw new Error('Playwright\'s ffmpeg is not installed (run: npx playwright install ffmpeg).');
 if (!existsSync(FILES)) throw new Error(`Run scripts/demo-files.sh first: ${FILES} does not exist.`);
+
+const compose = (...args: string[]): string => execFileSync('docker', ['compose', ...args], { cwd: ROOT, encoding: 'utf8' });
 
 const CARDIO_IRB = 'IRB approvals';
 const CARDIO_PROTOCOL = 'Protocol amendments';
@@ -170,12 +174,17 @@ try {
 
   // 2. Files: add, check, refuse.
   await say('Add the files once. Each is checked in the browser, uploaded, and scanned for malware.', 2000);
-  const pdfs = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !f.startsWith('EICAR')).map((f) => join(FILES, f));
+  const pdfs = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !f.startsWith('EICAR') && !f.startsWith('Renamed')).map((f) => join(FILES, f));
   const extra = readdirSync(FILES).filter((f) => f.endsWith('.png')).map((f) => join(FILES, f));
   await page.getByLabel('Choose files').setInputFiles([...pdfs, ...extra]);
   await page.getByText('Ready', { exact: true }).first().waitFor({ timeout: 120_000 });
   await say('Each file shows its state: Uploading, Scanning, Ready.', 2500);
   await skim(12, () => page.getByText('Ready', { exact: true }).nth(pdfs.length + extra.length - 1).waitFor({ timeout: 180_000 }));
+  // A picture with a .pdf name (scripts/demo-files.sh): the page reads the contents and does not add it.
+  await page.getByLabel('Choose files').setInputFiles(join(FILES, 'Renamed photo.pdf'));
+  await page.locator('.not-added').waitFor();
+  await say('The type comes from the contents, not the name. A picture renamed to .pdf is not added.', 3000);
+  await click(page.locator('.not-added').getByRole('button', { name: 'Close' }));
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.docx')); // a real DOCX with the test string inside (scripts/eicar-docx.ts)
   await skim(12, () => page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 }));
   await say('The standard antivirus test file is refused. It is deleted and can never be sent.', 3500);
@@ -187,7 +196,7 @@ try {
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB);
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_PROTOCOL);
   await tickFolder('Oncology', 'ONC-118 Regulatory', ONC_ETHICS);
-  await say('The words beside Destinations say who a tick is for. The full summary comes in the question before Send.', 3500);
+  await say('The highlighted files show who a tick is for. The full summary comes in the question before Send.', 3500);
 
   // A tick can go to some files only: select one row, tick another folder, and the others show a dash.
   const lab = page.locator('.frow[data-id]', { hasText: 'Lab certification' });
@@ -209,11 +218,22 @@ try {
 
   // 5. Status: the panel.
   await page.locator('.status-chip.big').waitFor();
-  await say('Each delivery is tracked. The numbers move on their own, pushed over a WebSocket.', 3500);
+  await say('Each delivery is tracked. The numbers move on their own, without reloading.', 3500);
   await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed' }).waitFor({ timeout: 300_000 }));
   await say('Every delivery has a status. Preview and Download are on completed rows.', 2500);
-  await say('The list narrows beside the panel. Esc closes the panel and the full list is back.', 4000);
   const address = page.url();
+  // The short ID names a distribution: copy its link, or open any distribution by typing its ID.
+  const shortId = /#\/status\/([0-9a-f]{8})/.exec(address)?.[1] as string;
+  await click(page.locator('.panel-top').getByRole('button', { name: 'Copy link' }));
+  await say('Copy the link to this distribution with one click.', 2500);
+  await click(page.getByRole('button', { name: 'Open by ID' }));
+  await page.getByPlaceholder('Distribution ID or link').pressSequentially(shortId, { delay: 120 });
+  await say(`Or open any distribution by its short ID: ${shortId}.`, 3000);
+  await page.keyboard.press('Enter');
+  await page.locator('.status-chip.big').waitFor();
+  await say('The list narrows beside the panel. Esc closes the panel and the full list is back.', 3000);
+  await page.keyboard.press('Escape');
+  await wait(1500 * PACE);
 
   // 6. Other people see what they should.
   await signOut();
@@ -244,26 +264,66 @@ try {
     await signIn('load.user@example.com');
     if (big) await page.goto(big);
     await page.locator('.status-chip.big').waitFor();
-    await say('Counts, per-delivery status and failures with a reason, live. Only the rows in view are drawn.', 3000);
-    await say('The Document Platform was just stopped. Nothing is lost: the deliveries wait and retry.', 5000);
-    await skim(12, () => wait(40_000)); // the deliveries turn amber and retry
+    await say('The counts and every delivery update live. A failure says why when you hover it.', 3000);
+    await say('The Document Platform was just stopped. Nothing is lost: look for the Retrying chips.', 5000);
+    await skim(12, () => wait(40_000)); // the deliveries turn blue and retry
     await skim(12, async () => execFileSync('scripts/demo-outage.sh', ['start'], { cwd: ROOT }));
     await say('It starts again. The backlog drains by itself.', 8000);
     await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed' }).waitFor({ timeout: 900_000 }));
     await say('All 2,000 delivered, once each.', 3000);
     await signOut();
     await signIn('anantim.patil@example.com');
+  } else {
+    // The local stack: a send of its own, the platform stopped right after it is accepted, one file removed from storage so that
+    // its deliveries fail for good, then the platform started again.
+    await click(page.getByRole('button', { name: 'Distribute' }));
+    await say('Now a send while the Document Platform goes down.', 2500);
+    const more = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !f.startsWith('EICAR') && !f.startsWith('Renamed')).slice(0, 8).map((f) => join(FILES, f));
+    await page.getByLabel('Choose files').setInputFiles(more);
+    await skim(12, () => page.getByText('Ready', { exact: true }).nth(more.length - 1).waitFor({ timeout: 180_000 }));
+    await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB);
+    await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_PROTOCOL);
+    await tickFolder('Oncology', 'ONC-118 Regulatory', ONC_ETHICS);
+    // The workers are held while the send is accepted, so that no delivery starts before the platform is stopped: the same
+    // order every time, however fast the local deliveries are.
+    compose('stop', '-t', '0', 'workers');
+    await click(page.getByRole('button', { name: 'Send', exact: true }));
+    await click(page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }));
+    await page.waitForURL(/#\/status\//);
+    compose('stop', '-t', '0', 'platform');
+    const jobId = /#\/status\/([0-9a-f-]{36})/.exec(page.url())?.[1] as string;
+    const key = compose('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'docbeam_db', '-Atc', `select s3_key from files where job_id = '${jobId}' order by original_name limit 1`).trim();
+    compose('exec', '-T', 'localstack', 'awslocal', 's3', 'rm', `s3://docbeam-local-object-store/${key}`); // this file never "finished uploading"
+    compose('up', '-d', '--no-deps', 'workers'); // the deliveries start now and meet a platform that is not there (`start` would bring the platform back: it is a dependency)
+    await page.locator('.status-chip.big').waitFor();
+    await say('The Document Platform was just stopped. Nothing is lost: look for the Retrying chips.', 5000);
+    // A delivery's second try is not pushed to the page (only its result is), and a reload needs the platform, so once the first
+    // retries have started the Pending tab is clicked: it asks for its deliveries again.
+    await skim(4, () => wait(40_000));
+    await click(page.getByRole('button', { name: /^Pending, \d+ deliver/ }));
+    await page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 60_000 });
+    await say('Deliveries that failed once are Retrying. They wait and try again.', 4000);
+    compose('start', 'platform');
+    await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed with errors' }).waitFor({ timeout: 600_000 }));
+    await say('The platform is back. The backlog drained by itself, each delivery once.', 3500);
+    await click(page.getByRole('button', { name: /^All, \d+ deliver/ }));
+    const why = page.getByRole('button', { name: 'Why this delivery failed' }).first();
+    await why.waitFor();
+    await click(why);
+    await say('A failed delivery says why when you hover or click its info icon.', 4000);
+    await page.keyboard.press('Escape'); // closes the tooltip (and the panel)
   }
 
   // 8. The list, the filters, a preview and a download.
-  await click(page.getByRole('button', { name: 'Status' }));
+  await click(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }));
   await page.locator('.dist-table tbody tr').first().waitFor();
   await say('One list of everything you can see. Filter by status, sender, date and team; the next 20 load as you scroll.', 4000);
   await click(page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Status/ }));
   await click(page.getByRole('menuitemradio', { name: 'Completed', exact: true }));
   await say('A filter shows its value on its button and lives in the address.', 3000);
   await click(page.getByRole('button', { name: 'Clear filters' }));
-  await click(page.locator('.dist-table tbody tr').first());
+  if (await page.locator('.status-chip.big').count()) await page.keyboard.press('Escape'); // a panel left open: close it, the click below opens one
+  await click(page.locator('.dist-table tbody tr .dist-id').first());
   await page.locator('.status-chip.big').waitFor();
   await click(page.getByRole('button', { name: /^Preview / }).first());
   await page.getByRole('dialog', { name: 'File preview' }).waitFor();
@@ -309,4 +369,4 @@ const mb = statSync(final).size / 1024 / 1024;
 const length = outFrames / FPS;
 console.log(`\nwrote ${final}: ${mb.toFixed(1)} MB, ${Math.round(length)} s long (${Math.round(seen())} s recorded, ${fast.length} stretches sped up), ${frame} frames checked in ${FRAMES}`);
 if (mb >= 25) throw new Error('The video is over 25 MB.');
-if (DEV && (length < 180 || length > 300)) throw new Error(`The video is ${Math.round(length)} s: it should be 3 to 5 minutes.`);
+if (length < 180 || length > 300) throw new Error(`The video is ${Math.round(length)} s: it should be 3 to 5 minutes.`);

@@ -251,7 +251,7 @@ Full local run for PR #34 (sections 8.2 to 8.7): lint and typecheck clean; unit 
 | Empty deliveries bug, 3760e26b (D-F1-62): cause, fix, test | YES: the job truly had no deliveries (a stopped test run left a seeded job half written); status of a job with none is now pending; `POST /jobs` cannot make one (422, not 400); "Deliveries could not be loaded · Try again" | `tracking.test.ts`, `task-outcome.test.ts`, `apply.test.ts`, `batch.test.ts`, `TaskTable.test.tsx` |
 | Found while testing | Fixed | the focusable time added a Tab stop to every row (`status-scroll.spec.ts`); the density test had to learn the 1 px row border |
 
-Full local run before the dates change was finished: Playwright 113 passed, 10 skipped, 1 failed (the Tab stop above, fixed and run again: passed). Unit 89 files, 766 tests.
+The totals of the final run, which cover every item in 8.9 and 8.10: lint and typecheck clean; **783 unit tests in 90 files, 205 integration tests in 18 files, 114 Playwright tests plus 10 that run only on dev** (the two specs that failed on the way, the list's Tab stop and the old reason text in `m2.spec.ts`, were fixed and run again: passed).
 
 ### 8.9 Team note on one line, header teams, page spacing (D-F1-53, D-F1-54)
 
@@ -265,4 +265,4 @@ Full local run before the dates change was finished: Playwright 113 passed, 10 s
 | Screenshots with 20 teams | NO (unit test only) | No local account has 20 teams and the header reads its teams from the token; `Shell.test.tsx` and `TeamList.test.tsx` cover 20 |
 | Found while testing | Fixed | Three teams showed as "Cardio +2" in the header (a box as wide as its content shrank with the names); fixed with `room="max-width"`. The first panel version lost the spaces around "·" and after the colon (white space between flex items is dropped) |
 
-Full local run: lint and typecheck clean; unit 88 files, 756 tests passed; Playwright 106 passed, 10 skipped (dev only), 1 failed (the old equal-gaps spacing test, replaced by the 16 / 12 px rule and run again: passed).
+Totals: see the end of 8.10 (783 unit tests in 90 files, 205 integration tests in 18 files, 114 Playwright tests plus 10 dev-only). The old equal-gaps spacing test was replaced by the 16 / 12 px rule.
