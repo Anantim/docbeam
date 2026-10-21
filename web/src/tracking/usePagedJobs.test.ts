@@ -70,6 +70,51 @@ describe('usePagedJobs (cursor, D-F1-21)', () => {
     expect(api.jobs).toHaveBeenCalledTimes(2);
   });
 
+  it('loadUntil reads pages until the job is in the list and stops there (D-F1-74)', async () => {
+    api.jobs
+      .mockResolvedValueOnce(page(many(0, 20), 'c1'))
+      .mockResolvedValueOnce(page(many(20, 20), 'c2'))
+      .mockResolvedValueOnce(page(many(40, 20), 'c3'));
+    const { result } = renderHook(() => usePagedJobs());
+    await act(async () => undefined);
+    let found = false;
+    await act(async () => {
+      found = await result.current.loadUntil('job-45', 5);
+    });
+    expect(found).toBe(true);
+    expect(api.jobs).toHaveBeenCalledTimes(3); // the first page and two more: not the fourth
+    expect(result.current.jobs).toHaveLength(60);
+    expect(result.current.hasMore).toBe(true);
+
+    await act(async () => {
+      found = await result.current.loadUntil('job-3', 5);
+    });
+    expect(found).toBe(true); // already there: no page is read
+    expect(api.jobs).toHaveBeenCalledTimes(3);
+  });
+
+  it('loadUntil gives up after the page limit, and at the end of the list', async () => {
+    api.jobs
+      .mockResolvedValueOnce(page(many(0, 20), 'c1'))
+      .mockResolvedValueOnce(page(many(20, 20), 'c2'))
+      .mockResolvedValueOnce(page(many(40, 20), 'c3'))
+      .mockResolvedValueOnce(page(many(60, 20)));
+    const { result } = renderHook(() => usePagedJobs());
+    await act(async () => undefined);
+    let found = true;
+    await act(async () => {
+      found = await result.current.loadUntil('job-999', 2);
+    });
+    expect(found).toBe(false);
+    expect(api.jobs).toHaveBeenCalledTimes(3); // the first page and the 2 it was allowed
+    await act(async () => {
+      found = await result.current.loadUntil('job-999', 5);
+    });
+    expect(found).toBe(false); // the end of the list: the 4th page has no cursor
+    expect(api.jobs).toHaveBeenCalledTimes(4);
+    expect(result.current.hasMore).toBe(false);
+  });
+
   it('adds the next page on loadMore by the cursor the server gave, only while there is one, and never twice at once', async () => {
     api.jobs.mockResolvedValueOnce(page(many(0, LIST_PAGE), 'c1')).mockResolvedValueOnce(page(many(LIST_PAGE, 5)));
     const { result } = renderHook(() => usePagedJobs());

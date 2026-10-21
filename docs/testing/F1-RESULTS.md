@@ -263,7 +263,7 @@ The totals at the end of that round (history; the latest are in 8.11): lint and 
 | B4. Row click: anywhere on a row opens its panel, except the copy icon and "+N" | YES (not a regression: it could not be reproduced; the test pins it; the recorder workaround is removed) | `row-click.spec.ts` (D-F1-64) |
 | B5. Live retry: a push when a delivery starts its second try or later, so "Retrying" and the counts change live; D-M2-16 and the design docs updated; the recorder's workaround removed | YES | `deliver.test.ts`, `TaskTable.test.tsx`, `retry-live.spec.ts` (D-F1-65) |
 
-Latest totals (2026-10-21): lint and typecheck clean; **829 unit tests in 94 files, 210 integration tests in 18 files, 125 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
+Latest totals (2026-10-21): lint and typecheck clean; **835 unit tests in 94 files, 210 integration tests in 18 files, 126 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
 
 ### 8.12 The final sequence: demo and the user-flow guide (D-F1-69, D-F1-70)
 
@@ -273,6 +273,7 @@ Latest totals (2026-10-21): lint and typecheck clean; **829 unit tests in 94 fil
 | A2. Every demo caption and every DEMO-SCRIPT step checked against the final UI; the three known stale captions fixed | YES (PR #39) | `scripts/demo/record.ts`, `docs/DEMO-SCRIPT.md`, D-F1-63 |
 | A3. Steps for a renamed file, a failed delivery's info icon, copy link and Open by ID; a local target; not recorded yet | YES (PR #39; the recording was also made there, then again in Part C) | D-F1-63 |
 | C1. Demo recorded locally on the current main with the folder search and the reload; webm and mp4 replaced; README says locally, final build, date | YES: 285 s (4:45) | PR #41, D-F1-69 |
+| C3. Open by ID types the 8 characters, the page scrolls the list to the row (the recorder does not), the demo PDFs have a /Title; re-recorded locally | YES: 289 s (4:49); frames 18, 19 and 33 checked | D-F1-74 |
 | C2. Demo fixes: real PDF in the preview, Open by ID on an older distribution, tagline visible, refused row with its reason, no stray tooltip, a bigger local send; under 5 minutes | YES: 292 s (4:52); frames checked: 01 tagline, 05 refused row and tooltip, 18 and 19 IDs `d3cda216` then `175b86ec`, 33 PDF text visible | D-F1-73 |
 | D1. Chapters in order: sign in, add files, choose folders, send, watch it, team member and "not found", preview and download | YES | `docs/USER-FLOW-AND-APIS.md` |
 | D2. Each chapter: what the user does, a sequence diagram, marked screenshots with sources, a network figure from recorded traffic, per call (when, request, answer excerpt, field-to-marker table, returned but not shown, computed in the browser), why with the ADR | YES | the guide: 9 Mermaid diagrams, 39 pictures |

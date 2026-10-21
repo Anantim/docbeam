@@ -257,30 +257,23 @@ try {
   await say('Copy the link to this distribution with one click.', 2500);
   // An older distribution that is in the loaded list but out of view: the 16th row (about ten rows show). Its short ID is read from the row.
   const olderShort = ((await page.locator('.dist-table tbody tr').nth(15).locator('td').first().innerText()).split('\n')[0] ?? '').trim();
-  const olderId = compose('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'docbeam_db', '-Atc', `select id from jobs where id::text like '${olderShort}%'`).trim();
-  if (!/^[0-9a-f-]{36}$/.test(olderId)) throw new Error(`The Open by ID step needs at least 16 distributions in the list (found no job for "${olderShort}").`);
+  if (!/^[0-9a-f]{8}$/.test(olderShort)) throw new Error(`The Open by ID step needs at least 16 distributions in the list (the 16th row says "${olderShort}").`);
   const panelId = (): Promise<string> => page.locator('.panel-top').innerText();
   const before = await panelId();
   await click(page.getByRole('button', { name: 'Open by ID' }));
-  await page.getByPlaceholder('Distribution ID or link').pressSequentially(olderId, { delay: 60 });
-  await say(`Or open any distribution by its ID, here an older one: ${olderShort}.`, 3000);
+  await page.getByPlaceholder('Distribution ID or link').pressSequentially(olderShort, { delay: 120 }); // the 8 characters the list shows
+  await say(`Or open any distribution by the 8 characters of its ID, here an older one: ${olderShort}.`, 3000);
   await page.keyboard.press('Enter');
-  await page.waitForURL(new RegExp(`#/status/${olderId}`));
   await page.locator('.panel-top', { hasText: olderShort }).waitFor();
   console.log(`      panel header before: ${before.replace(/\s+/g, ' ').slice(0, 60)} | after: ${(await panelId()).replace(/\s+/g, ' ').slice(0, 60)}`);
-  // The page does not move the list by itself for another distribution (it only does for the one that is already open), so the
-  // list is scrolled here, over the list, until the highlighted row is in view.
-  await page.mouse.move(260, 420, { steps: 10 });
-  const selectedRow = page.locator('.dist-table tbody tr.on');
-  for (let i = 0; i < 12; i += 1) {
-    const box = await selectedRow.boundingBox();
-    if (box && box.y > 170 && box.y + box.height < 700) break;
-    await page.mouse.wheel(0, 120);
-    await wait(250);
-  }
-  await page.mouse.move(REST.x, REST.y, { steps: 6 }); // the rows moved under the cursor while scrolling: no tooltip of a chip stays
+  // The page scrolls the list to the row by itself and highlights it (D-F1-74): wait until that row is in view.
+  await page.waitForFunction(() => {
+    const row = document.querySelector('.dist-table tbody tr.on')?.getBoundingClientRect();
+    return !!row && row.top > 170 && row.bottom < 700;
+  });
+  await page.mouse.move(REST.x, REST.y, { steps: 6 });
   await page.locator('.tooltip:not(.leaving)').first().waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined);
-  await say(`The panel shows it, and its row is highlighted in the list.`, 3500);
+  await say('The panel shows it, and the list scrolls to its row and highlights it.', 3500);
   await page.keyboard.press('Escape');
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); // Esc gives the focus back to the row's ID, which shows its tooltip: not wanted in the frame
   await wait(1000 * PACE);

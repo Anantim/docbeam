@@ -476,6 +476,7 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .dist-table td { padding: var(--row-pad) var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 200px; }
 .dist-table tbody tr { cursor: pointer; }
 .dist-table tbody tr:hover { background: var(--bg); }
+.dist-table tbody tr.pinned td { border-bottom: 2px solid var(--line-strong); } /* opened by ID, not among the loaded rows (D-F1-74) */
 .dist-table tbody tr.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .dist-table tbody tr:last-child td { border-bottom: 0; }
 /* Every column takes only the room its content needs; Files and Folders are narrow and right-aligned right after Sender,
