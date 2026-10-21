@@ -80,6 +80,8 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
   const status = counts ? statusFromCounts(counts, job.status === 'cancelled') : job.status;
   const chip = jobChip(status);
   const sender = job.submittedBy.userId === meId ? 'You' : job.submittedBy.name;
+  const firstFile = job.fileNames[0] ?? '';
+  const firstFolders = job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ');
   return (
     <tr className={`${selected ? 'on' : ''} ${arrive ? 'arrive' : ''} ${fresh ? 'fresh' : ''}`} onClick={() => onOpen(job.jobId)}>
       <td>
@@ -119,8 +121,8 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
           spare width; the split view hides them (D-F1-40). */}
       <td className="dist-more dist-fill dist-files">
         <div className="cell-line">
-          <Tooltip text={job.fileNames[0]}>
-            <span className="cell-text">{job.fileNames[0] ?? ''}</span>
+          <Tooltip text={firstFile}>
+            <span className="cell-text">{firstFile}</span>
           </Tooltip>
           {job.fileNames.length > 1 && (
             <Popover
@@ -134,8 +136,8 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
       </td>
       <td className="dist-more dist-fill dist-dests">
         <div className="cell-line">
-          <Tooltip text={job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}>
-            <span className="cell-text">{job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}</span>
+          <Tooltip text={firstFolders}>
+            <span className="cell-text">{firstFolders}</span>
           </Tooltip>
           {job.destinations.length > 2 && (
             <Popover

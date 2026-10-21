@@ -188,10 +188,10 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 <StatusChip key={view.text} tone={view.tone} label={view.text} meaning={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
                 {/* A problem that needs action keeps one short line under the chip (cut by an ellipsis); the whole sentence is the
                     tooltip, on hover and on keyboard focus (D-F1-58). */}
-                {view.reason !== undefined && UPLOAD_STATUS_SHORT[f.status] !== undefined ? (
+                {view.reason !== undefined ? (
                   <Tooltip text={view.reason} block>
                     <div className="fmsg short" tabIndex={0} aria-label={view.reason}>
-                      {UPLOAD_STATUS_SHORT[f.status]}
+                      {UPLOAD_STATUS_SHORT[f.status] ?? view.reason}
                     </div>
                   </Tooltip>
                 ) : (
