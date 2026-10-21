@@ -27,7 +27,7 @@ opt [label: connection drops] {
   Web Client > DocBeam API: Reload once to catch up
 }
 
-opt [label: sender presses Retry failed or Cancel distribution] {
+opt [label: sender presses Retry or Cancel (icons)] {
   Web Client > DocBeam API: Retry failed, or cancel waiting deliveries
   DocBeam API --> Web Client: Updated job
   DocBeam API > WebSocket API: Tell every open page

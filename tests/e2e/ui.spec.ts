@@ -50,7 +50,8 @@ test('a disabled button has the disabled attribute and the not-allowed cursor, a
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('disabled', '');
     await expect(button).toHaveCSS('cursor', 'not-allowed');
-    expect(await tooltipOf(page, button)).toBeNull(); // the reason, when there is one, is text beside the buttons
+    // The reason, when there is one, is text beside the buttons: Send has no tooltip. Clear says what it does, even while off (D-F1-72).
+    expect(await tooltipOf(page, button)).toBe(name === 'Clear' ? 'Remove all files and folder ticks' : null);
     await expect(button).toHaveCSS('color', rgb('#98A2B3')); // greyed, not the live colour
   }
   // An enabled button of the same kind does not look like that.
@@ -81,7 +82,7 @@ test('there is no Cancel on a completed distribution', async ({ page }) => {
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
   await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0); // nothing failed
+  await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0); // nothing failed
 });
 
 test('a file state on Distribute and a delivery state on Status are the same chip, in the same colour', async ({ page }) => {

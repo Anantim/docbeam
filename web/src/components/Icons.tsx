@@ -45,6 +45,14 @@ export const RetryIcon = (p: Props) => (
   </Svg>
 );
 
+/** "Stop": a circle with a small filled square in it, for Cancel distribution. */
+export const StopIcon = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="6.2" />
+    <rect x="5.6" y="5.6" width="4.8" height="4.8" rx="0.6" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const FolderIcon = (p: Props) => (
   <Svg {...p}>
     <path d="M2 4.5A1 1 0 0 1 3 3.5h3l1.5 1.5H13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-7.5Z" />

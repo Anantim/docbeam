@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
@@ -10,6 +10,7 @@ import type { JobDetail, JobSummary } from '../tracking/api.js';
 import type { usePagedJobs } from '../tracking/usePagedJobs.js';
 import { tooltipOf } from '../testing/tooltip.js';
 import { formatWhen } from '../tracking/format.js';
+import { DistributionPanel } from './DistributionPanel.js';
 import { StatusPage } from './StatusPage.js';
 
 type StatusProps = Parameters<typeof StatusPage>[0];
@@ -238,11 +239,71 @@ describe('opening a distribution: subscribe first, fetch after', () => {
   });
 });
 
+describe('the status tabs of the panel (D-F1-77)', () => {
+  const group = () => within(screen.getByRole('group', { name: 'Filter deliveries by status' }));
+  const tabNames = () => group().getAllByRole('button').map((b) => /^(.+), \d+ deliver/.exec(b.getAttribute('aria-label') ?? '')?.[1]);
+  const selectedTab = () => group().getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => /^(.+), \d+ deliver/.exec(b.getAttribute('aria-label') ?? '')?.[1]);
+  const show = async (c: Partial<ReturnType<typeof counts>>, status: JobDetail['status'] = 'in_progress') => {
+    api.job.mockResolvedValue(detail({ counts: counts(c), taskCount: Object.values(c).reduce((a, b) => a + b, 0), status }));
+    const page = renderPage();
+    await opened(page);
+    return page;
+  };
+
+  it('running with every status: All, Completed, Failed, In progress, Pending, Cancelled, in that order, All selected', async () => {
+    await show({ completed: 2, failed: 1, in_progress: 1, pending: 3, cancelled: 1 });
+    expect(tabNames()).toEqual(['All', 'Completed', 'Failed', 'In progress', 'Pending', 'Cancelled']);
+    expect(selectedTab()).toEqual(['All']);
+  });
+
+  it('just started, Completed 0: All, Completed (0) and Pending; the rest are not there', async () => {
+    await show({ pending: 10 }, 'pending');
+    expect(tabNames()).toEqual(['All', 'Completed', 'Pending']);
+    expect(filterCounts()).toEqual({ All: 10, Completed: 0, Pending: 10 });
+    expect(selectedTab()).toEqual(['All']);
+  });
+
+  it('finished, all completed: only the Completed tab, selected, and no All', async () => {
+    await show({ completed: 10 }, 'completed');
+    expect(tabNames()).toEqual(['Completed']);
+    expect(selectedTab()).toEqual(['Completed']);
+  });
+
+  it('finished with errors: All, Completed and Failed', async () => {
+    await show({ completed: 7, failed: 3 }, 'completed_with_errors');
+    expect(tabNames()).toEqual(['All', 'Completed', 'Failed']);
+    expect(selectedTab()).toEqual(['All']);
+  });
+
+  it('a tab that is selected stays when its count drops to 0 during live updates, until another is picked', async () => {
+    const user = userEvent.setup();
+    const page = await show({ completed: 4, in_progress: 1, pending: 5 });
+    await user.click(screen.getByRole('button', { name: 'In progress, 1 delivery' }));
+    expect(selectedTab()).toEqual(['In progress']);
+    await page.push({ type: 'task_update', jobId: JOB, taskId: 't1', status: 'completed', updatedAt: '2026-10-16T10:05:10.000Z', counts: counts({ completed: 5, pending: 5 }) });
+    expect(filterCounts()).toEqual({ All: 10, Completed: 5, 'In progress': 0, Pending: 5 }); // still there, showing 0
+    expect(selectedTab()).toEqual(['In progress']);
+    await user.click(screen.getByRole('button', { name: 'Pending, 5 deliveries' }));
+    expect(tabNames()).toEqual(['All', 'Completed', 'Pending']); // now it can go
+  });
+
+  it('a tab asked for by a link that would be hidden is shown, selected, with its count', async () => {
+    const f = fakeLive();
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 7, pending: 3 }), status: 'in_progress' }));
+    render(<DistributionPanel jobId={JOB} live={f.live} notify={notify} onClose={() => undefined} onChanged={() => undefined} initialTab="failed" />);
+    await act(async () => f.release());
+    await screen.findByRole('heading', { name: '3f1c2a9e' });
+    expect(tabNames()).toEqual(['All', 'Completed', 'Failed', 'Pending']);
+    expect(selectedTab()).toEqual(['Failed']);
+    expect(filterCounts()).toMatchObject({ Failed: 0 });
+  });
+});
+
 describe('live counts', () => {
   it('moves the filter numbers, the bar and the chip when a push arrives', async () => {
     const page = renderPage();
     await opened(page);
-    expect(filterCounts()).toEqual({ All: 10, Completed: 4, Failed: 0, 'In progress': 1, Pending: 5 });
+    expect(filterCounts()).toEqual({ All: 10, Completed: 4, 'In progress': 1, Pending: 5 }); // Failed has none: no tab (D-F1-77)
 
     await page.push({
       type: 'task_update',
@@ -252,7 +313,8 @@ describe('live counts', () => {
       updatedAt: '2026-10-16T10:05:10.000Z',
       counts: counts({ completed: 10 }),
     });
-    expect(filterCounts()).toEqual({ All: 10, Completed: 10, Failed: 0, 'In progress': 0, Pending: 0 });
+    expect(filterCounts()).toEqual({ Completed: 10 }); // all completed: only the Completed tab, and it is the selected one
+    expect(screen.getByRole('button', { name: 'Completed, 10 deliveries' }).getAttribute('aria-pressed')).toBe('true');
     expect((screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement).textContent).toBe('Completed');
   });
 
@@ -260,7 +322,7 @@ describe('live counts', () => {
     api.job.mockResolvedValue(detail({ counts: counts({ completed: 3, cancelled: 5 }), taskCount: 8, status: 'cancelled', cancelledAt: '2026-10-16T10:04:00Z', cancel: { open: false, waiting: 0 } }));
     const page = renderPage();
     await opened(page);
-    expect(filterCounts()).toMatchObject({ Completed: 3, Failed: 0, Cancelled: 5 });
+    expect(filterCounts()).toEqual({ All: 8, Completed: 3, Cancelled: 5 }); // no Failed tab: red means failed only
     const segments = [...document.querySelectorAll('.jbar > div')] as HTMLElement[];
     expect(segments.find((s) => s.getAttribute('data-tone') === 'bad')?.style.width).toBe('0%'); // no red
     expect(segments.find((s) => s.getAttribute('data-tone') === 'idle')?.style.width).toBe('62.5%');
@@ -289,7 +351,7 @@ describe('live counts', () => {
       await act(async () => {
         vi.advanceTimersByTime(1_600);
       });
-      await screen.findByRole('button', { name: 'Retry failed' });
+      await screen.findByRole('button', { name: 'Retry failed deliveries' });
     } finally {
       vi.useRealTimers();
     }
@@ -328,21 +390,57 @@ describe('Cancel and Retry', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('explains Cancel and Retry in a tooltip when they are on, on hover and on focus (D-F1-72)', async () => {
+  it('has Cancel and Retry as icons just left of Close, then a divider; the full names are the tooltip and the accessible name (D-F1-77)', async () => {
     api.job.mockResolvedValue(detail({ counts: counts({ completed: 4, failed: 1, pending: 5 }), retry: { open: true, retryable: 1 }, cancel: { open: true, waiting: 5 } }));
     const user = userEvent.setup();
     const page = renderPage();
     await act(async () => page.release());
     const cancel = await screen.findByRole('button', { name: 'Cancel distribution' });
-    const retry = screen.getByRole('button', { name: 'Retry failed' });
-    expect(tooltipOf(cancel)).toBe('Stop the deliveries still waiting. Ones already delivered or running are not affected.');
-    expect(tooltipOf(retry)).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
+    const retry = screen.getByRole('button', { name: 'Retry failed deliveries' });
+    expect(tooltipOf(cancel)).toBe('Cancel distribution');
+    expect(tooltipOf(retry)).toBe('Retry failed deliveries');
+    // On the first row, in the order Cancel, Retry, divider, Close; icons with no text; the old row of text buttons is gone.
+    const tools = document.querySelector('.panel-top .panel-tools') as HTMLElement;
+    const order = [...tools.children].map((el) => el.querySelector('button')?.getAttribute('aria-label') ?? el.className);
+    expect(order).toEqual(['Cancel distribution', 'Retry failed deliveries', 'panel-divider', 'Close']);
+    expect(cancel.textContent).toBe('');
+    expect(cancel.className).toBe('icon');
+    expect(cancel.querySelector('circle')).not.toBeNull(); // the stop icon: a circle with a square in it
+    expect(cancel.querySelector('rect')).not.toBeNull();
+    expect(document.querySelector('.panel-actions')).toBeNull();
+    expect(screen.queryByText('Retry failed')).toBeNull();
     const bar = screen.getByRole('complementary').querySelector('.jbar') as HTMLElement; // the panel's bar is a Tab stop with the tooltip
     expect(bar.getAttribute('tabindex')).toBe('0');
     expect(tooltipOf(bar)).toBe(bar.getAttribute('aria-label'));
     expect(tooltipOf(bar)).toBe('10 deliveries: 1 failed, 4 completed, 5 pending');
     await user.hover(retry);
-    expect((await screen.findByRole('tooltip')).textContent).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Retry failed deliveries');
+  });
+
+  it('hides the divider when neither icon shows, and leaves only Close', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 10 }), status: 'completed', retry: { open: false, retryable: 0, reason: 'NOTHING_TO_RETRY' }, cancel: { open: false, waiting: 0 } }));
+    const page = renderPage();
+    await opened(page);
+    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
+    expect(document.querySelector('.panel-divider')).toBeNull();
+    expect([...(document.querySelector('.panel-top .panel-tools') as HTMLElement).children].map((el) => el.querySelector('button')?.getAttribute('aria-label'))).toEqual(['Close']);
+  });
+
+  it('shows the divider with Retry alone (finished with errors) and with Cancel alone (running, nothing failed)', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 7, failed: 3 }), status: 'completed_with_errors', retry: { open: true, retryable: 2 }, cancel: { open: false, waiting: 0 } }));
+    const page = renderPage();
+    await opened(page);
+    expect(screen.getByRole('button', { name: 'Retry failed deliveries' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
+    expect(document.querySelector('.panel-divider')).not.toBeNull();
+    cleanup();
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 4, in_progress: 1, pending: 5 }), retry: { open: false, retryable: 0, reason: 'NOTHING_TO_RETRY' }, cancel: { open: true, waiting: 5 } }));
+    const second = renderPage();
+    await opened(second);
+    expect(screen.getByRole('button', { name: 'Cancel distribution' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
+    expect(document.querySelector('.panel-divider')).not.toBeNull();
   });
 
   it('offers Retry only to the sender', async () => {
@@ -351,7 +449,7 @@ describe('Cancel and Retry', () => {
     const user = userEvent.setup();
     const page = renderPage();
     await act(async () => page.release());
-    await user.click(await screen.findByRole('button', { name: 'Retry failed' }));
+    await user.click(await screen.findByRole('button', { name: 'Retry failed deliveries' }));
     // The distribution has finished, so there is no Cancel at all.
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
     await waitFor(() => expect(api.retry).toHaveBeenCalledWith(JOB));
@@ -373,47 +471,124 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d · Showing deliveries to your teams\.$/.test(el.textContent ?? ''));
-    expect(lead.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
-    expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed/ })).toBeNull();
+    await waitFor(() => expect(document.querySelector('.panel-lead')?.textContent).toMatch(/^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d$/));
+    expect(document.querySelector('.panel-lead')?.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
+    expect(screen.getByText('Showing only deliveries to Cardio')).toBeTruthy(); // what a screen reader gets
+    expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed deliveries/ })).toBeNull();
+    expect(document.querySelector('.panel-divider')).toBeNull(); // no icons, so no divider
   });
 
   describe('the team note on the "Sent by" line (D-F1-52)', () => {
-    const asMember = () =>
-      api.job.mockResolvedValue(detail({ isSender: false, taskCount: 2, counts: counts({ completed: 2 }), status: 'completed', fileCount: undefined, retry: undefined, cancel: undefined }));
-    const line = () => document.querySelector('.panel-sub')?.textContent ?? '';
-    const sentBy = (name: string) => new RegExp(`^Sent by Priya Shah · 16 Oct( 2026)?, \\d\\d:\\d\\d · ${name}$`);
+    // A team member's view: the folders the distribution lists are the ones they may see, so their teams are the first part of each path.
+    const asMember = (teams: string[]) =>
+      api.job.mockResolvedValue(
+        detail({ isSender: false, taskCount: teams.length, counts: counts({ completed: teams.length }), status: 'completed', destinations: teams.map((t) => `${t} / ${t.slice(0, 5)}-1 / Folder`), fileCount: undefined, retry: undefined, cancel: undefined }),
+      );
+    const chips = () => [...document.querySelectorAll('.panel-sub .team-chip')] as HTMLElement[];
+    const chipOf = (name: string) => chips().find((c) => c.textContent === name) as HTMLElement;
+    const sentence = () => document.querySelector('.panel-sub .panel-note .sr')?.textContent;
 
-    it('is not shown to the sender, who sees every delivery', async () => {
-      api.teams.mockResolvedValue([{ id: 't1', name: 'Cardio' }, { id: 't2', name: 'Oncology' }]);
+    it('is not shown to the sender, who sees every delivery: no label and no chips', async () => {
       const page = renderPage(); // the default distribution is the sender's own
       await act(async () => page.release());
       await screen.findByText(/^Sent by/);
       expect(document.querySelector('.panel-note')).toBeNull();
-      expect(document.querySelector('.panel-sub')?.textContent).not.toMatch(/Showing deliveries/);
+      expect(chips()).toHaveLength(0);
+      expect(document.querySelector('.panel-sub')?.textContent).not.toMatch(/Showing/);
     });
 
-    it('names the one team of a team member in the singular: "Showing deliveries to your team: Cardio."', async () => {
-      asMember();
-      api.teams.mockResolvedValue([{ id: 't1', name: 'Cardio' }]);
+    it('the old sentence is gone, and no separate row holds a note (D-F1-77)', async () => {
+      asMember(['Cardio']);
       const page = renderPage();
       await act(async () => page.release());
-      // A " · " between the time and the note, and a space after the colon: the parts are separate elements, never run together.
-      await waitFor(() => expect(line()).toMatch(sentBy('Showing deliveries to your team: Cardio\\.')));
+      await waitFor(() => expect(chips()).toHaveLength(1));
+      expect(document.body.textContent).not.toMatch(/Showing deliveries to your/);
+      expect(document.querySelectorAll('.panel-head > .panel-top, .panel-head > .panel-sub')).toHaveLength(2); // the id row and the sent-by row, nothing else
     });
 
-    it('lists two teams in the viewer\'s own order, comma-separated: "Showing deliveries to your teams: Oncology, Cardio."', async () => {
-      asMember();
-      api.teams.mockResolvedValue([{ id: 't2', name: 'Oncology' }, { id: 't1', name: 'Cardio' }]); // the order the server gives them
+    it('one team: one chip after " · Showing only deliveries to", on the same line as the time', async () => {
+      asMember(['Cardio']);
       const page = renderPage();
       await act(async () => page.release());
-      await waitFor(() => expect(line()).toMatch(sentBy('Showing deliveries to your teams: Oncology, Cardio\\.')));
-      expect(document.querySelector('.panel-sub .count-link')).toBeNull(); // they fit: no "+N"
+      await waitFor(() => expect(chips().map((c) => c.textContent)).toEqual(['Cardio']));
+      const sub = document.querySelector('.panel-sub') as HTMLElement;
+      expect(sub.querySelector('.panel-lead')?.textContent).toMatch(/^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d$/);
+      expect(sub.querySelector('.panel-sep')?.textContent).toBe(' · ');
+      expect(sub.querySelector('.panel-note-label')?.textContent).toBe('Showing only deliveries to');
+      expect(sentence()).toBe('Showing only deliveries to Cardio');
     });
 
-    it('stays on one line: the sentence is not allowed to wrap (the names that do not fit become "+N")', () => {
+    it('3 teams: 3 chips sorted A to Z, no "+N"', async () => {
+      asMember(['Oncology', 'Cardio', 'Neuro']);
+      const page = renderPage();
+      await act(async () => page.release());
+      await waitFor(() => expect(chips()).toHaveLength(3));
+      expect(chips().map((c) => c.textContent)).toEqual(['Cardio', 'Neuro', 'Oncology']);
+      expect(document.querySelector('.panel-sub .team-chip.more')).toBeNull();
+      expect(sentence()).toBe('Showing only deliveries to Cardio, Neuro and Oncology');
+    });
+
+    it('10 teams: the first 2 chips and "+8", whose tooltip lists all 10 in order; "+8" is a Tab stop', async () => {
+      const ten = ['Oncology', 'Cardio', 'Neuro', 'Hepatology', 'Alpha', 'Zeta', 'Immunology', 'Renal', 'Delta', 'Pulmonary'];
+      asMember(ten);
+      const page = renderPage();
+      await act(async () => page.release());
+      await waitFor(() => expect(chips().length).toBe(3));
+      const sorted = [...ten].sort((a, b) => a.localeCompare(b));
+      expect(chips().map((c) => c.textContent)).toEqual([sorted[0], sorted[1], '+8']);
+      const more = document.querySelector('.panel-sub button.team-chip.more') as HTMLButtonElement;
+      expect(more.tabIndex).toBe(0); // focusable, like the "+N" of the Files column
+      expect(tooltipOf(more)).toBe(sorted.join(', '));
+      expect(sentence()).toBe(`Showing only deliveries to ${sorted.slice(0, -1).join(', ')} and ${sorted[9]}`);
+      await userEvent.setup().hover(more);
+      expect((await screen.findByRole('tooltip')).textContent).toBe(sorted.join(', '));
+    });
+
+    it('the "+N" tooltip is kept inside the panel', async () => {
+      const ten = Array.from({ length: 10 }, (_, i) => `Team ${String(i + 1).padStart(2, '0')}`);
+      asMember(ten);
+      const page = renderPage();
+      await act(async () => page.release());
+      await waitFor(() => expect(document.querySelector('.panel-sub .team-chip.more')).not.toBeNull());
+      const panel = document.querySelector('.panel') as HTMLElement;
+      const rect = (left: number, width: number) => ({ left, right: left + width, top: 100, bottom: 120, width, height: 20, x: left, y: 100, toJSON: () => ({}) }) as DOMRect;
+      const real = Element.prototype.getBoundingClientRect;
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        if (this === panel) return rect(700, 500); // the panel is 700 to 1200
+        if (this.classList.contains('tooltip')) return rect(0, 320);
+        if (this.classList.contains('tip-wrap') && this.querySelector('.team-chip.more')) return rect(1180, 24); // the "+N" is at the panel's right edge
+        return real.call(this);
+      });
+      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1280);
+      act(() => {
+        fireEvent.focusIn(document.querySelector('.panel-sub .team-chip.more') as HTMLElement);
+      });
+      const tip = document.querySelector('[role="tooltip"]') as HTMLElement;
+      expect(Number.parseFloat(tip.style.left) + 320).toBeLessThanOrEqual(1200); // not past the panel's right edge
+      vi.restoreAllMocks();
+    });
+
+    it('stays on one line: the line never wraps, and a chip is at most 100 px wide and cut with an ellipsis', () => {
       const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
-      expect(css).toMatch(/\.panel-sub \{ display: flex; align-items: baseline; min-width: 0; white-space: nowrap;/);
+      expect(css).toMatch(/\.panel-sub \{ display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap;/);
+      expect(css).toMatch(/\.team-chip \{[^}]*height: 24px;[^}]*max-width: 100px;[^}]*border: 1px solid var\(--line-strong\);[^}]*border-radius: 999px;[^}]*font-size: 12\.5px;[^}]*text-overflow: ellipsis/);
+      expect(css).toMatch(/button\.team-chip\.more \{ background: var\(--surface-2\)/);
+    });
+
+    it('a long team name is cut and shows in full on hover; a short one has no tooltip', async () => {
+      const long = 'Cardiovascular Outcomes Research Network';
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+        return (this.textContent ?? '').length > 20 ? 300 : 40;
+      });
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => 98);
+      asMember([long, 'Cardio']);
+      const page = renderPage();
+      await act(async () => page.release());
+      await waitFor(() => expect(chips()).toHaveLength(2));
+      const [short, cut] = [chipOf('Cardio'), chipOf(long)];
+      expect(tooltipOf(cut)).toBe(long);
+      expect(tooltipOf(short)).toBeNull();
+      vi.restoreAllMocks();
     });
   });
 
@@ -451,7 +626,7 @@ describe('Cancel and Retry', () => {
     expect(css).toMatch(/\.panel-head \.jbar \{ height: 3px;/);
   });
 
-  it('puts the title, the status choice and (past 15 deliveries) the "Filter…" box on one row; short lists have no box; the box and "Clear filter" work (D-F1-46)', async () => {
+  it('puts the status tabs and the "Filter…" box on one row; the box and "Clear filter" work (D-F1-46, D-F1-77)', async () => {
     const user = userEvent.setup();
     api.job.mockResolvedValue(detail({ taskCount: 20, counts: counts({ completed: 20 }), status: 'completed' }));
     api.tasks.mockImplementation(async () => ({ page: 1, limit: 100, total: 20, tasks: Array.from({ length: 20 }, (_, i) => ({ taskId: `t${i}`, fileId: `f${i}`, fileName: `File ${String(i).padStart(2, '0')}.pdf`, fileType: 'application/pdf', destinationPath: 'Cardio / A / B', teamId: 'x', status: 'completed', attemptCount: 1, failureCode: null, failureReason: null, updatedAt: '2026-10-16T10:00:00.000Z', fileExpired: false })) }));
@@ -463,7 +638,7 @@ describe('Cancel and Retry', () => {
     const box = await within(row).findByRole('textbox', { name: 'Filter deliveries' });
     expect([...row.children].map((c) => c.className.split(' ')[0])).toEqual(['tfilters', 'searchfield']); // the tabs, then the box, in one row
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
-    expect(css).toMatch(/\.panel-section-head \.deliveries-filter \.field \{ min-height: var\(--strip-h\); height: var\(--strip-h\); \}/); // the box as tall as the strip
+    expect(css).not.toMatch(/\.panel-section-head \.deliveries-filter \.field \{/); // no height of its own: the box is --control tall, like every control
     expect(css).toMatch(/\.tfilters \{[^}]*min-height: var\(--strip-h\)/);
     expect(box.getAttribute('placeholder')).toBe('Filter…');
     expect(document.querySelectorAll('.dfilter')).toHaveLength(0); // no separate filter row
@@ -473,23 +648,28 @@ describe('Cancel and Retry', () => {
     expect(document.activeElement).toBe(box);
   });
 
-  it('has no "Filter…" box for 15 deliveries or fewer', async () => {
-    api.job.mockResolvedValue(detail({ taskCount: 15, counts: counts({ completed: 15 }), status: 'completed' }));
+  it('the "Filter…" box is there with any number of deliveries (no threshold), and off while the selected tab has none (D-F1-77)', async () => {
+    api.job.mockResolvedValue(detail({ taskCount: 3, counts: counts({ completed: 3 }), status: 'completed' }));
     const page = renderPage();
     await act(async () => page.release());
     await screen.findByRole('region', { name: 'Deliveries' });
-    expect(screen.queryByRole('textbox', { name: 'Filter deliveries' })).toBeNull();
+    expect((screen.getByRole('textbox', { name: 'Filter deliveries' }) as HTMLInputElement).disabled).toBe(false);
+    cleanup();
+    api.job.mockResolvedValue(detail({ taskCount: 0, counts: counts(), status: 'pending' }));
+    const empty = renderPage();
+    await act(async () => empty.release());
+    await screen.findByRole('region', { name: 'Deliveries' });
+    expect((screen.getByRole('textbox', { name: 'Filter deliveries' }) as HTMLInputElement).disabled).toBe(true); // nothing to filter: still there, off
   });
 
-  it('turns Retry off for a cancelled distribution and says why in its title', async () => {
+  it('has no Retry for a cancelled distribution: it shows only when a failed delivery can be retried', async () => {
     api.job.mockResolvedValue(
       detail({ counts: counts({ completed: 4, failed: 6 }), status: 'cancelled', cancelledAt: '2026-10-16T10:06:00Z', retry: { open: false, retryable: 0, reason: 'JOB_CANCELLED' }, cancel: { open: false, waiting: 0 } }),
     );
     const page = renderPage();
     await act(async () => page.release());
-    const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
-    expect(retry.disabled).toBe(true);
-    expect(tooltipOf(retry)).toBe('A cancelled distribution cannot be retried');
+    await screen.findByRole('region', { name: 'Deliveries' });
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
     const chip = (screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement);
     expect(chip.textContent).toBe('Cancelled');
     expect(tooltipOf(chip)).toBe('The sender cancelled it and nothing is still running.');
@@ -511,18 +691,17 @@ describe('Cancel and Retry', () => {
     await opened(page);
     expect((screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement).textContent).toBe('Completed');
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Retry failed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
   });
 
-  it('says why Retry is off when the window has closed', async () => {
+  it('has no Retry when the window has closed', async () => {
     api.job.mockResolvedValue(
       detail({ counts: counts({ completed: 7, failed: 3 }), status: 'completed_with_errors', retry: { open: false, retryable: 3, reason: 'RETRY_WINDOW_CLOSED' }, cancel: { open: false, waiting: 0 } }),
     );
     const page = renderPage();
     await act(async () => page.release());
-    const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
-    expect(retry.disabled).toBe(true);
-    expect(tooltipOf(retry)).toContain('The retry window closed');
+    await screen.findByRole('region', { name: 'Deliveries' });
+    expect(screen.queryByRole('button', { name: 'Retry failed deliveries' })).toBeNull();
   });
 
   it('shows the error when the server refuses, and reads the state again', async () => {
@@ -557,6 +736,18 @@ describe('the list and Open by ID', () => {
     await user.click(screen.getByRole('button', { name: 'Open by ID' }));
     return screen.getByLabelText('Distribution ID or link');
   };
+
+  it('the field and the Open button are --control tall (36 px), like every other control (D-F1-77)', async () => {
+    const user = userEvent.setup();
+    renderPage({ jobId: null });
+    const field = await openCard(user);
+    const open = screen.getByRole('button', { name: 'Open' });
+    expect(field.className).toBe('field'); // min-height: var(--control)
+    expect(open.className).toBe('btn'); // min-height: var(--control); not the small .btnsm
+    const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+    expect(css).toMatch(/\.field \{ width: 100%; min-height: var\(--control\)/);
+    expect(css).toMatch(/\.btn \{[^}]*min-height: var\(--control\)/);
+  });
 
   it('Open by ID is a small icon button: no box on the page until it is pressed, then one field in a card', async () => {
     const user = userEvent.setup();

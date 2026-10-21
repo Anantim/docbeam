@@ -18,6 +18,8 @@ interface Props {
   block?: boolean;
   /** A click shows it too (and it stays until Esc, a click elsewhere or the pointer or focus leaving), for a trigger that carries a reason. */
   openOnClick?: boolean;
+  /** A selector for an ancestor the tooltip must stay inside sideways (the panel), instead of the whole window. */
+  within?: string;
 }
 
 interface Place {
@@ -35,7 +37,7 @@ interface Place {
  *
  * The wrapper is a span around the trigger, so a disabled button (which gets no pointer events of its own) still has a tooltip.
  */
-export function Tooltip({ text, children, block = false, openOnClick = false }: Props) {
+export function Tooltip({ text, children, block = false, openOnClick = false, within }: Props) {
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
@@ -67,7 +69,11 @@ export function Tooltip({ text, children, block = false, openOnClick = false }: 
     const r = wrap.current.getBoundingClientRect();
     const t = tip.current.getBoundingClientRect();
     const centre = r.left + r.width / 2 - t.width / 2;
-    const left = Math.max(MARGIN, Math.min(centre, window.innerWidth - t.width - MARGIN));
+    // Inside the window, or inside the ancestor `within` names (the side panel), when there is one.
+    const box = within ? wrap.current.closest(within)?.getBoundingClientRect() : undefined;
+    const from = Math.max(MARGIN, (box?.left ?? 0) + (box ? GAP : 0));
+    const to = Math.min(window.innerWidth - MARGIN, (box?.right ?? window.innerWidth) - (box ? GAP : 0));
+    const left = Math.max(from, Math.min(centre, to - t.width));
     const below = r.top - t.height - GAP < MARGIN;
     setPlace({ top: below ? r.bottom + GAP : r.top - t.height - GAP, left, below });
   }, [mounted, text]);

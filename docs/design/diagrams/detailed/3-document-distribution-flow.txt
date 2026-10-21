@@ -240,7 +240,7 @@ opt [label: a task message fails 5 times (about 17 min)] {
 }
 
 // Sender retries failed deliveries
-opt [label: sender presses Retry failed] {
+opt [label: sender presses Retry (icon)] {
   Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   alt [label: sender, job running or within 24 h of first finish, files under 2 days old] {
@@ -257,7 +257,7 @@ opt [label: sender presses Retry failed] {
 }
 
 // Sender cancels the distribution
-opt [label: sender presses Cancel distribution] {
+opt [label: sender presses Cancel (icon)] {
   Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   alt [label: sender, and some deliveries not started] {

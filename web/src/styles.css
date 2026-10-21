@@ -327,7 +327,7 @@ input[type='checkbox'], input[type='radio'] { width: 16px; height: 16px; min-hei
 .searchfield > svg { position: absolute; left: var(--s-3); top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
 .searchfield .field { padding-left: var(--s-8); }
 .searchfield input[type='search']::-webkit-search-cancel-button { display: none; } /* every box clears the same way: Esc, or "Clear filter" */
-.searchfield.sm .field { min-height: var(--control-sm); font-size: var(--fs-2); }
+.searchfield .field:disabled { background: var(--surface-2); color: var(--text-off); cursor: not-allowed; }
 /* "No matches" with its "Clear filter" link: one line, centred across the whole list, never cut off. */
 .no-matches { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: var(--s-3); width: 100%; box-sizing: border-box; padding: var(--s-5) var(--s-4); color: var(--text-3); font-size: var(--fs-2); white-space: nowrap; }
 /* The folder search results (D-F1-67): the folder's name with its full path under it; picking one ticks it and opens the tree to it. */
@@ -531,26 +531,32 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .panel-head { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2) var(--s-4) 0; position: sticky; top: 0; background: var(--surface); z-index: 2; }
 .panel-top { display: flex; align-items: center; gap: var(--s-3); }
 /* One line: who sent it and when, then (for a team member) the note, whose team names shrink to "+N" when they do not fit. */
-.panel-sub { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; font-size: var(--fs-2); color: var(--text-3); padding-bottom: var(--s-2); }
+.panel-sub { display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; font-size: var(--fs-2); color: var(--text-3); padding-bottom: var(--s-2); }
 .panel-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.panel-note { display: flex; flex: 1 1 0; min-width: 0; white-space: pre; }
+/* The sender's note is the team chips, after the time, on the same line; it never wraps (D-F1-77). */
+.panel-note { display: flex; align-items: center; flex: none; white-space: pre; }
 /* The spaces are inside the two pieces (kept by white-space: pre): white space between flex items would disappear. */
 .panel-sep, .panel-note-label { flex: none; white-space: pre; }
-.panel-note .teamlist { flex: 1 1 0; }
+.team-chips { display: inline-flex; align-items: center; gap: var(--s-1); margin-left: var(--s-2); }
+.team-chip { display: inline-block; box-sizing: border-box; height: 24px; line-height: 22px; max-width: 100px; padding: 0 var(--s-2); border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+button.team-chip.more { background: var(--surface-2); font-family: inherit; font-weight: 500; cursor: default; }
+button.team-chip.more:hover { color: var(--text); }
+button.team-chip.more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Cancel and Retry as icons just left of Close, then a thin divider (D-F1-77). */
+.panel-tools { display: flex; align-items: center; flex: none; }
+.panel-divider { width: 1px; height: 24px; margin: 0 6px; background: var(--line-strong); }
 .panel-head .jbar { height: 3px; margin: 0 calc(-1 * var(--s-4)); width: auto; border-radius: 0; }
 .panel-title { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; }
 .panel-title h2, .panel-head > h2 { font-size: var(--fs-4); font-weight: 600; flex: 1; }
 .panel-title h2 { flex: none; }
 .panel-body { padding: var(--s-3) var(--s-4) var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .panel-alert { margin: var(--s-4); }
-.panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); }
 .panel-section { display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 auto; min-height: 12rem; }
 /* One row: the title, the status choice and, past 15 deliveries, the "Filter…" box. It wraps only when the panel is very narrow. */
 .panel-section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
-/* The tabs on the left, the box on the right, level, and the box exactly as tall as the tab strip (D-F1-50). */
-:root { --strip-h: 32px; }
+/* The tabs on the left, the box on the right, level. The box is --control tall, like every control (D-F1-77). */
+:root { --strip-h: var(--control); }
 .deliveries-filter { flex: 1 1 8rem; min-width: 8rem; max-width: 18rem; margin-left: auto; }
-.panel-section-head .deliveries-filter .field { min-height: var(--strip-h); height: var(--strip-h); }
 .jbar { display: flex; height: 6px; border-radius: var(--radius); overflow: hidden; background: var(--line); }
 .jbar > div { transition: width 0.15s ease; background: var(--tone-dot); }
 .jbar.thin { height: 3px; margin-top: var(--s-1); width: 100%; min-width: 96px; }

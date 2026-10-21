@@ -55,14 +55,16 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, 
             {hint}
           </span>
         )}
-        {!empty && (
-          <span className="files-head-tools">
-            {tools}
-            <button className="btn2 btnsm" type="button" onClick={() => input.current?.click()}>
+        {/* The "Filter…" box is always here, and off while there is no file; "Add files" comes with the first file (the drop
+            area has its own "choose files"). Both are as tall as every other control (D-F1-77). */}
+        <span className="files-head-tools">
+          {tools}
+          {!empty && (
+            <button className="btn2" type="button" onClick={() => input.current?.click()}>
               Add files
             </button>
-          </span>
-        )}
+          )}
+        </span>
       </div>
       <div className={`files-wrap fadewrap ${more ? 'more-below' : ''}`}>
       <div className="files-scroll" ref={scroll}>

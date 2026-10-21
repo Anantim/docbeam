@@ -82,7 +82,7 @@ test('1440 x 900, panel open: 11 or more distributions and 9 or more deliveries 
   }
 });
 
-test('a panel with 2 deliveries still fills the full height, with no box and no empty band under it', async ({ page }) => {
+test('a panel with 2 deliveries still fills the full height, with the box off and no empty band under it', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, PRIYA);
   const small = await seedJob(page, ['One.pdf', 'Two.pdf'], ['Cardio / CARDIO-301 Regulatory / IRB approvals']);
@@ -91,7 +91,7 @@ test('a panel with 2 deliveries still fills the full height, with no box and no 
     await page.locator(`[data-job-id="${small}"]`).click();
     await expect(page.getByRole('table', { name: 'Deliveries, 2' })).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(page.getByRole('textbox', { name: 'Filter deliveries' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Filter deliveries' })).toBeEnabled(); // always there (D-F1-77)
     const panel = (await page.getByRole('complementary').boundingBox())!;
     const list = (await page.locator('.dist').boundingBox())!;
     expect(Math.abs(panel.y + panel.height - (list.y + list.height)), 'the panel is as tall as the list').toBeLessThan(2);

@@ -37,6 +37,26 @@ const openCardio = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(await screen.findByRole('button', { name: 'Expand CARDIO-301 Regulatory' }));
 };
 
+describe('the folder filter (D-F1-77)', () => {
+  it('is always there, with no threshold, and as tall as the other controls', async () => {
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
+    const box = (await screen.findByRole('searchbox', { name: 'Filter folders' })) as HTMLInputElement;
+    expect(box.disabled).toBe(false);
+    expect(box.className).toBe('field'); // min-height: var(--control), 36 px
+    expect(box.parentElement?.className).not.toMatch(/\bsm\b/);
+  });
+
+  it('is off, but still there, when the person has no team', async () => {
+    apiFetch.mockImplementation(async (path: string) => {
+      if (path === '/teams') return { items: [], nextCursor: null };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
+    await screen.findByText('You are not in a team yet');
+    expect((screen.getByRole('searchbox', { name: 'Filter folders' }) as HTMLInputElement).disabled).toBe(true);
+  });
+});
+
 describe('Destinations tree', () => {
   it('starts with the teams only, and loads one level each time a row is opened', async () => {
     const user = userEvent.setup();

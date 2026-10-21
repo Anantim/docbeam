@@ -388,7 +388,8 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
         <h2>Destinations</h2>
       </div>
       <div className="filter">
-        <SearchField type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} />
+        {/* Always here; off only when the person has no team at all (D-F1-77). */}
+        <SearchField type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} disabled={roots?.length === 0 && filter === ''} />
       </div>
       <div className={`tree-wrap fadewrap ${moreBelow ? 'more-below' : ''}`}>
       <div className="tree" ref={treeRef} onKeyDown={onTreeKey}>
