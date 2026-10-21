@@ -28,7 +28,7 @@ const OUT = process.env.DEMO_OUT ?? join(ROOT, 'docs/demo');
 const FRAMES = join(OUT, 'frames'); // one picture per step, to look at; not kept in git (docs/demo/frames/ is ignored)
 const DEV = process.env.DEMO_DEV === '1';
 /** How long each caption stays, as a multiple of the base time: the video is for reading, not for speed. */
-const PACE = Number(process.env.DEMO_PACE ?? '2');
+const PACE = Number(process.env.DEMO_PACE ?? '1.6');
 
 function envFile(name: string): string | undefined {
   try {
@@ -54,7 +54,8 @@ mkdirSync(OUT, { recursive: true });
 mkdirSync(FRAMES, { recursive: true });
 for (const f of readdirSync(FRAMES)) rmSync(join(FRAMES, f));
 
-const browser = await chromium.launch();
+// The new headless mode (channel 'chromium') has the PDF viewer; the default headless shell has none, so the preview was blank (D-F1-73).
+const browser = await chromium.launch({ channel: 'chromium' });
 const context = await browser.newContext({
   viewport: { width: 1280, height: 720 },
   baseURL: URL_BASE,
@@ -82,6 +83,7 @@ await context.addInitScript(`
       style.textContent = '#demo-cursor{position:fixed;z-index:2147483647;width:22px;height:22px;margin:-4px 0 0 -4px;pointer-events:none;transition:transform .05s linear}' +
         '#demo-cursor svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}' +
         '#demo-caption{position:fixed;z-index:2147483646;left:50%;bottom:72px;transform:translateX(-50%);max-width:70%;background:rgba(16,24,40,.92);color:#fff;padding:10px 18px;border-radius:6px;font:500 16px/1.4 system-ui,sans-serif;text-align:center;pointer-events:none;opacity:0;transition:opacity .15s}' +
+        '#demo-caption.top{bottom:auto;top:20px}' +
         '#demo-caption.on{opacity:1}';
       document.head.appendChild(style);
       const c = document.createElement('div');
@@ -116,14 +118,15 @@ async function skim<T>(factor: number, work: () => Promise<T>): Promise<T> {
 const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** A caption for this step, a frame for the check, and a pause long enough to read it. */
-async function say(text: string, hold = 2500): Promise<void> {
-  await page.evaluate((t) => {
+async function say(text: string, hold = 2500, top = false): Promise<void> {
+  await page.evaluate(([t, atTop]) => {
     const cap = document.getElementById('demo-caption');
     if (cap) {
-      cap.textContent = t;
+      cap.textContent = t as string;
+      cap.classList.toggle('top', atTop === true); // at the top of the frame when the bottom has something to show (the sign-in tagline)
       cap.classList.add('on');
     }
-  }, text);
+  }, [text, top]);
   await wait(400);
   frame += 1;
   await page.screenshot({ path: join(FRAMES, `${String(frame).padStart(2, '0')}.png`) });
@@ -133,14 +136,21 @@ async function say(text: string, hold = 2500): Promise<void> {
 
 const quiet = (): Promise<void> => page.evaluate(() => document.getElementById('demo-caption')?.classList.remove('on'));
 
-/** Moves the cursor to the middle of something, slowly enough to follow, then clicks. */
-async function click(target: Locator, pause = 350): Promise<void> {
+/** Where the cursor rests after a click: the empty part of the header, so no tooltip stays open under it (D-F1-73). */
+const REST = { x: 700, y: 28 };
+
+/** Moves the cursor to the middle of something, slowly enough to follow, then clicks, then parks the cursor at rest. */
+async function click(target: Locator, pause = 350, park = true): Promise<void> {
   await target.scrollIntoViewIfNeeded();
   const box = (await target.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 25 });
   await wait(pause);
   await target.click();
+  if (park) await page.mouse.move(REST.x, REST.y, { steps: 6 });
 }
+
+/** The PDFs of the main flow: not the test files, and not the 8 extra ones that only the 200-delivery send uses. */
+const mainPdfs = (): string[] => readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !/^(EICAR|Renamed|Batch)/.test(f)).map((f) => join(FILES, f));
 
 async function signIn(email: string): Promise<void> {
   await page.getByLabel('Work email').fill(email);
@@ -169,12 +179,12 @@ async function tickFolder(team: string, binder: string, folder: string): Promise
 try {
   // 1. Sign in.
   await page.goto('/');
-  await say('DocBeam sends clinical trial documents to many team folders at once, and tracks every delivery.', 3500);
+  await say('DocBeam sends clinical trial documents to many team folders at once, and tracks every delivery.', 3500, true); // at the top: the bottom has the tagline
   await signIn('anantim.patil@example.com');
 
   // 2. Files: add, check, refuse.
   await say('Add the files once. Each is checked in the browser, uploaded, and scanned for malware.', 2000);
-  const pdfs = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !f.startsWith('EICAR') && !f.startsWith('Renamed')).map((f) => join(FILES, f));
+  const pdfs = mainPdfs();
   const extra = readdirSync(FILES).filter((f) => f.endsWith('.png')).map((f) => join(FILES, f));
   await page.getByLabel('Choose files').setInputFiles([...pdfs, ...extra]);
   await page.getByText('Ready', { exact: true }).first().waitFor({ timeout: 120_000 });
@@ -187,7 +197,14 @@ try {
   await click(page.locator('.not-added').getByRole('button', { name: 'Close' }));
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.docx')); // a real DOCX with the test string inside (scripts/eicar-docx.ts)
   await skim(12, () => page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 }));
-  await say('The standard antivirus test file is refused. It is deleted and can never be sent.', 3500);
+  // The refused row is brought into view and its red chip is hovered, so the reason shows while the caption does.
+  const refusedRow = page.locator('.frow', { hasText: 'EICAR test file.docx' });
+  await refusedRow.scrollIntoViewIfNeeded();
+  const refusedChip = refusedRow.locator('.status-chip', { hasText: 'Refused' });
+  const refusedBox = (await refusedChip.boundingBox())!;
+  await page.mouse.move(refusedBox.x + refusedBox.width / 2, refusedBox.y + refusedBox.height / 2, { steps: 25 });
+  await page.getByRole('tooltip').waitFor();
+  await say('The standard antivirus test file is refused, and the chip says why. It is deleted and can never be sent.', 3500, true); // at the top: the bottom would cover the row
   await click(page.getByRole('button', { name: 'Remove EICAR test file.docx' }));
 
   // A reload keeps the files that are already uploaded and scanned (D-F1-66).
@@ -236,15 +253,38 @@ try {
   await say('Every delivery has a status. Preview and Download are on completed rows.', 2500);
   const address = page.url();
   // The short ID names a distribution: copy its link, or open any distribution by typing its ID.
-  const shortId = /#\/status\/([0-9a-f]{8})/.exec(address)?.[1] as string;
   await click(page.locator('.panel-top').getByRole('button', { name: 'Copy link' }));
   await say('Copy the link to this distribution with one click.', 2500);
+  // An older distribution that is in the loaded list but out of view: the 16th row (about ten rows show). Its short ID is read from the row.
+  const olderShort = ((await page.locator('.dist-table tbody tr').nth(15).locator('td').first().innerText()).split('\n')[0] ?? '').trim();
+  const olderId = compose('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'docbeam_db', '-Atc', `select id from jobs where id::text like '${olderShort}%'`).trim();
+  if (!/^[0-9a-f-]{36}$/.test(olderId)) throw new Error(`The Open by ID step needs at least 16 distributions in the list (found no job for "${olderShort}").`);
+  const panelId = (): Promise<string> => page.locator('.panel-top').innerText();
+  const before = await panelId();
   await click(page.getByRole('button', { name: 'Open by ID' }));
-  await page.getByPlaceholder('Distribution ID or link').pressSequentially(shortId, { delay: 120 });
-  await say(`Or open any distribution by its short ID: ${shortId}.`, 3000);
+  await page.getByPlaceholder('Distribution ID or link').pressSequentially(olderId, { delay: 60 });
+  await say(`Or open any distribution by its ID, here an older one: ${olderShort}.`, 3000);
   await page.keyboard.press('Enter');
-  await page.locator('.status-chip.big').waitFor();
-  await say('The list narrows beside the panel. Esc closes the panel and the full list is back.', 3000);
+  await page.waitForURL(new RegExp(`#/status/${olderId}`));
+  await page.locator('.panel-top', { hasText: olderShort }).waitFor();
+  console.log(`      panel header before: ${before.replace(/\s+/g, ' ').slice(0, 60)} | after: ${(await panelId()).replace(/\s+/g, ' ').slice(0, 60)}`);
+  // The page does not move the list by itself for another distribution (it only does for the one that is already open), so the
+  // list is scrolled here, over the list, until the highlighted row is in view.
+  await page.mouse.move(260, 420, { steps: 10 });
+  const selectedRow = page.locator('.dist-table tbody tr.on');
+  for (let i = 0; i < 12; i += 1) {
+    const box = await selectedRow.boundingBox();
+    if (box && box.y > 170 && box.y + box.height < 700) break;
+    await page.mouse.wheel(0, 120);
+    await wait(250);
+  }
+  await page.mouse.move(REST.x, REST.y, { steps: 6 }); // the rows moved under the cursor while scrolling: no tooltip of a chip stays
+  await page.locator('.tooltip:not(.leaving)').first().waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined);
+  await say(`The panel shows it, and its row is highlighted in the list.`, 3500);
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); // Esc gives the focus back to the row's ID, which shows its tooltip: not wanted in the frame
+  await wait(1000 * PACE);
+  await say('Esc closes the panel and the full list is back.', 2000);
   await page.keyboard.press('Escape');
   await wait(1500 * PACE);
 
@@ -287,11 +327,32 @@ try {
     await signOut();
     await signIn('anantim.patil@example.com');
   } else {
-    // The local stack: a send of its own, the platform stopped right after it is accepted, one file removed from storage so that
-    // its deliveries fail for good, then the platform started again.
+    // The local stack. First a bigger send: 20 files to every folder this person can reach (8 on the local seed), 160 deliveries.
+    await click(page.getByRole('button', { name: 'Distribute' }));
+    const scaleFiles = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !/^(EICAR|Renamed)/.test(f)).map((f) => join(FILES, f));
+    const scaleFolders = [
+      ['Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB], ['Cardio', 'CARDIO-301 Regulatory', CARDIO_PROTOCOL],
+      ['Cardio', 'CARDIO-301 Site files', 'Delegation logs'], ['Cardio', 'CARDIO-301 Site files', 'Training records'],
+      ['Oncology', 'ONC-118 Regulatory', ONC_ETHICS], ['Oncology', 'ONC-118 Regulatory', 'Investigator CVs'], ['Oncology', 'ONC-118 Pharmacy', 'Temperature logs'],
+    ] as const;
+    const scaleCount = scaleFiles.length * scaleFolders.length;
+    await say(`A bigger one: ${scaleFiles.length} files to ${scaleFolders.length} folders, ${scaleCount} deliveries, in one action.`, 2500);
+    await page.getByLabel('Choose files').setInputFiles(scaleFiles);
+    await skim(12, () => page.getByText('Ready', { exact: true }).nth(scaleFiles.length - 1).waitFor({ timeout: 240_000 }));
+    for (const [team, binder, folder] of scaleFolders) await tickFolder(team, binder, folder);
+    await click(page.getByRole('button', { name: 'Send', exact: true }));
+    await click(page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }));
+    await page.waitForURL(/#\/status\//);
+    await page.locator('.status-chip.big').waitFor();
+    await say(`${scaleCount} deliveries, each tracked on its own. The numbers move by themselves.`, 3000);
+    await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed' }).waitFor({ timeout: 600_000 }));
+    await say(`All ${scaleCount} delivered.`, 2500);
+
+    // Then a send while the Document Platform goes down: the platform is stopped right after it is accepted, one file is removed
+    // from storage so that its deliveries fail for good, then the platform is started again.
     await click(page.getByRole('button', { name: 'Distribute' }));
     await say('Now a send while the Document Platform goes down.', 2500);
-    const more = readdirSync(FILES).filter((f) => f.endsWith('.pdf') && !f.startsWith('EICAR') && !f.startsWith('Renamed')).slice(0, 8).map((f) => join(FILES, f));
+    const more = mainPdfs().slice(0, 8);
     await page.getByLabel('Choose files').setInputFiles(more);
     await skim(12, () => page.getByText('Ready', { exact: true }).nth(more.length - 1).waitFor({ timeout: 180_000 }));
     await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB);
@@ -311,7 +372,7 @@ try {
     await page.locator('.status-chip.big').waitFor();
     await say('The Document Platform was just stopped. Nothing is lost: look for the Retrying chips.', 5000);
     // The second try of each delivery is pushed to the page, so the chips change by themselves (D-F1-65).
-    await skim(6, () => page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 120_000 }));
+    await skim(12, () => page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 120_000 }));
     await say('Deliveries that failed once are Retrying. They wait and try again.', 4000);
     compose('start', 'platform');
     await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed with errors' }).waitFor({ timeout: 600_000 }));
@@ -319,7 +380,7 @@ try {
     await click(page.getByRole('button', { name: /^All, \d+ deliver/ }));
     const why = page.getByRole('button', { name: 'Why this delivery failed' }).first();
     await why.waitFor();
-    await click(why);
+    await click(why, 350, false); // the cursor stays: the reason is the point of this step
     await say('A failed delivery says why when you hover or click its info icon.', 4000);
     await page.keyboard.press('Escape'); // closes the tooltip (and the panel)
   }
@@ -337,8 +398,17 @@ try {
   await page.locator('.status-chip.big').waitFor();
   await click(page.getByRole('button', { name: /^Preview / }).first());
   await page.getByRole('dialog', { name: 'File preview' }).waitFor();
+  // The tooltip of the Preview button stays open under the dialog, and the Close button shows its own because it has the focus.
+  // Both are cleared, so the frame shows the file (D-F1-73).
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    const wrap = [...document.querySelectorAll('button')].find((b) => /^Preview /.test(b.getAttribute('aria-label') ?? ''))?.closest('.tip-wrap');
+    wrap?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+  });
+  await page.locator('.tooltip:not(.leaving)').first().waitFor({ state: 'detached' });
+  await wait(1500); // the PDF viewer needs a moment to draw the page
   await say('Anyone in a destination team can preview a file. The link lasts two minutes.', 4000);
-  await page.keyboard.press('Escape');
+  await click(page.getByRole('dialog', { name: 'File preview' }).getByRole('button', { name: 'Close preview' }));
   await quiet();
   await say('Built with Terraform and checked end to end. The code and the design are on GitHub.', 3500);
 } finally {
@@ -377,6 +447,6 @@ encoder.stdin.end();
 await done;
 const mb = statSync(final).size / 1024 / 1024;
 const length = outFrames / FPS;
-console.log(`\nwrote ${final}: ${mb.toFixed(1)} MB, ${Math.round(length)} s long (${Math.round(seen())} s recorded, ${fast.length} stretches sped up), ${frame} frames checked in ${FRAMES}`);
+console.log(`\nwrote ${final}: ${mb.toFixed(1)} MB, ${Math.round(length)} s long (${Math.round(seen())} s recorded, ${fast.length} stretches sped up: ${fast.map((f) => `${Math.round(f.from)}-${Math.round(f.to)} s x${f.factor}`).join(', ')}), ${frame} frames checked in ${FRAMES}`);
 if (mb >= 25) throw new Error('The video is over 25 MB.');
 if (length < 180 || length > 300) throw new Error(`The video is ${Math.round(length)} s: it should be 3 to 5 minutes.`);
