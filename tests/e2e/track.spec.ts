@@ -132,7 +132,7 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
 
     await page.getByRole('button', { name: 'Cancel distribution' }).click();
     const dialog = page.getByRole('dialog', { name: 'Cancel this distribution?' });
-    await expect(dialog).toContainText('The 6 deliveries still waiting will stop');
+    await expect(dialog).toContainText('The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.');
     await dialog.getByRole('button', { name: 'Keep it going' }).click();
     await expect(dialog).toHaveCount(0);
     expect(await readCounts(page)).toEqual([0, 0, 0, 6]);

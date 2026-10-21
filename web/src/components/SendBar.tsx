@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { Tooltip } from './Tooltip.js';
 
 interface Props {
   ready: boolean;
@@ -31,9 +32,11 @@ export function SendBar({ ready, reason, sending, error, canClear, onClear, onSe
           <div className="send-reason" id={reasonId} role="status">
             {why}
           </div>
-          <button className="link plain-action" type="button" disabled={!canClear} onClick={onClear}>
-            Clear
-          </button>
+          <Tooltip text="Remove all files and folder ticks">
+            <button className="link plain-action" type="button" disabled={!canClear} onClick={onClear}>
+              Clear
+            </button>
+          </Tooltip>
           <button className="btn" type="button" disabled={!ready || sending} aria-describedby={why ? reasonId : undefined} onClick={onSend}>
             {sending ? 'Sending…' : 'Send'}
           </button>

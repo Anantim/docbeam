@@ -92,7 +92,9 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
       {node.kind === 'team' ? (
         <span className="name team">{node.name}</span>
       ) : node.kind === 'binder' ? (
-        <span className="name binder">{node.name}</span>
+        <Tooltip text="Binders hold folders. Open it to choose a folder.">
+          <span className="name binder">{node.name}</span>
+        </Tooltip>
       ) : (
         <>
           <button

@@ -263,7 +263,7 @@ The totals at the end of that round (history; the latest are in 8.11): lint and 
 | B4. Row click: anywhere on a row opens its panel, except the copy icon and "+N" | YES (not a regression: it could not be reproduced; the test pins it; the recorder workaround is removed) | `row-click.spec.ts` (D-F1-64) |
 | B5. Live retry: a push when a delivery starts its second try or later, so "Retrying" and the counts change live; D-M2-16 and the design docs updated; the recorder's workaround removed | YES | `deliver.test.ts`, `TaskTable.test.tsx`, `retry-live.spec.ts` (D-F1-65) |
 
-Latest totals (2026-10-21): lint and typecheck clean; **820 unit tests in 93 files, 210 integration tests in 18 files, 124 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
+Latest totals (2026-10-21): lint and typecheck clean; **829 unit tests in 94 files, 210 integration tests in 18 files, 125 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
 
 ### 8.12 The final sequence: demo and the user-flow guide (D-F1-69, D-F1-70)
 

@@ -348,7 +348,7 @@ describe('Distribute', () => {
     await tickTop(user, 'all 1 file');
     await waitFor(() => expect(reason()).toBe(''));
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false);
-    expect(document.querySelector('.sendbar [title], .sendbar .tip-wrap')).toBeNull(); // no tooltip in the bar carries a reason
+    expect(document.querySelector('.sendbar [title]')).toBeNull(); // no title attribute; the only tooltip is the Clear button's, not a reason (D-F1-72)
   });
 
   it('asks before the page is closed only when a reload would lose a file: one still uploading or one that failed, not one that is stored (D-F1-66)', async () => {

@@ -255,7 +255,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             </span>
           )}
         </div>
-        <JobBar counts={c} total={total} />
+        <JobBar counts={c} total={total} focusable />
       </div>
 
       <div className="panel-body">
@@ -267,14 +267,14 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
         {detail.isSender && (showCancel || canRetry || c.failed > 0) && (
           <div className="panel-actions">
             {showCancel && (
-              <Tooltip text={canCancel ? undefined : cancelReason(detail, c)}>
+              <Tooltip text={canCancel ? 'Stop the deliveries still waiting. Ones already delivered or running are not affected.' : cancelReason(detail, c)}>
                 <button className="btn2" type="button" disabled={!canCancel} onClick={() => setConfirmCancel(true)}>
                   Cancel distribution
                 </button>
               </Tooltip>
             )}
             {(canRetry || c.failed > 0) && (
-              <Tooltip text={canRetry ? undefined : retryReason(detail)}>
+              <Tooltip text={canRetry ? "Send the failed deliveries again. Ones that can't succeed on a retry are left as they are." : retryReason(detail)}>
                 <button className="btn" type="button" disabled={!canRetry || busy} onClick={() => void act('retry')}>
                   Retry failed
                 </button>
@@ -357,9 +357,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           onConfirm={() => void act('cancel')}
           onCancel={() => setConfirmCancel(false)}
         >
-          <p>
-            The {plural(c.pending, 'delivery', 'deliveries')} still waiting will stop and show CANCELLED. Deliveries already running finish. This cannot be undone.
-          </p>
+          <p>The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.</p>
         </ConfirmDialog>
       )}
     </PanelFrame>

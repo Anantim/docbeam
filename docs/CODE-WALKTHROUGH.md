@@ -1,6 +1,6 @@
 # DocBeam Code Walkthrough
 
-Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 21 October 2026 (branch `g3-user-flow`, after the open items, the demo and the user-flow guide; every file added in this round is listed above: `batch-store.ts`, `search.ts`, `PasswordField`, `When`, `TeamList`, the new migration, the new specs, `scripts/user-flow/` and `scripts/check-api-map.ts`, and `docs/user-flow/`).
+Read this top to bottom: it follows the order the code depends on itself, from shared rules to services, workers, the web app, then the machinery that runs and checks them. Every file in the repository is accounted for, either by name or as part of a named group. Last checked against the code on 21 October 2026 (branch `g4-tooltips`, after the tooltips round, D-F1-72, which adds `web/src/components/Tooltips.test.tsx`; before that the open items, the demo and the user-flow guide; every file added in this round is listed above: `batch-store.ts`, `search.ts`, `PasswordField`, `When`, `TeamList`, the new migration, the new specs, `scripts/user-flow/` and `scripts/check-api-map.ts`, and `docs/user-flow/`).
 
 ## 0. The map
 
@@ -227,7 +227,7 @@ A single-page app with two tabs: Distribute, and Status (one list of distributio
 - Distribute: `Distribute` (the screen), `AddFiles` (the Files card and its drop area), `FileTable`, `Destinations` (the tree, with a memoised row), `SendBar`, `SendDialog` (the question before Send: the title, one line, Cancel and Send), `TypeBadge`, `FileActions`, `Preview`, `useMoreBelow` (tells a scrolling area whether more is below, for the fade and shadow of the file list and the tree; from 1024 px up the Distribute page does not scroll and these two areas scroll inside their cards, D-F1-39).
 - Status: `StatusPage` (filter row, list and panel; the list narrows beside the open panel), `FilterBar` and `FilterMenu` (the one row of filter buttons and their short menus), `OpenById` (the icon button and its one-field card; takes a link, a full id or the 8 characters of the list, D-F1-32), `DistributionList` (the list card with its own scroll area, a sticky header and one Tab stop, D-F1-29), `DistributionPanel` (the dense header, one Deliveries row with the status choice and the "Filter…" box, Retry failed, Cancel distribution, deliveries, D-F1-46; takes the focus after a send), `TaskTable` (the deliveries, with the fade and shadow), `useWide` (true from 1024 px, where Status is a fixed screen).
 
-The `*.test.ts(x)` files beside them are the unit tests, run with jsdom; `Destinations.perf.test.tsx` and `DistributionList.perf.test.tsx` count renders (ticking one of 40 folders draws one row, a refresh with nothing changed draws none).
+The `*.test.ts(x)` files beside them are the unit tests, run with jsdom (`Tooltips.test.tsx` covers the progress bar text, the Status tab badge and the file type tag, D-F1-72); `Destinations.perf.test.tsx` and `DistributionList.perf.test.tsx` count renders (ticking one of 40 folders draws one row, a refresh with nothing changed draws none).
 
 ## 9. Running it locally: docker-compose and docker/
 
