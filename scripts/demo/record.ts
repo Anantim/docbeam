@@ -190,12 +190,25 @@ try {
   await say('The standard antivirus test file is refused. It is deleted and can never be sent.', 3500);
   await click(page.getByRole('button', { name: 'Remove EICAR test file.docx' }));
 
+  // A reload keeps the files that are already uploaded and scanned (D-F1-66).
+  await say('Reload the page: the files that are already uploaded and scanned are still here.', 2500);
+  await page.reload();
+  await page.getByText('Ready', { exact: true }).nth(pdfs.length + extra.length - 1).waitFor({ timeout: 60_000 });
+  await say('They come back Ready, so nothing is uploaded again.', 3000);
+
   // 3. Folders: tick, then the summary.
   await say('Select the files, or leave none selected for all of them, then tick folders. I only see my own teams.', 2500);
   await click(page.getByLabel('Select all to choose their folders'));
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_IRB);
   await tickFolder('Cardio', 'CARDIO-301 Regulatory', CARDIO_PROTOCOL);
-  await tickFolder('Oncology', 'ONC-118 Regulatory', ONC_ETHICS);
+  // The folder search looks in every folder of my teams, not only the ones already open (D-F1-67).
+  await click(page.getByRole('searchbox', { name: 'Filter folders' }));
+  await page.keyboard.type('ethics', { delay: 150 });
+  const found = page.getByRole('button', { name: /Ethics committee and show it in the tree$/ });
+  await found.waitFor();
+  await say('Search finds a folder anywhere in my teams, with its full path.', 3000);
+  await click(found);
+  await say('Picking it ticks it and opens the tree down to it.', 3000);
   await say('The highlighted files show who a tick is for. The full summary comes in the question before Send.', 3500);
 
   // A tick can go to some files only: select one row, tick another folder, and the others show a dash.
@@ -298,7 +311,7 @@ try {
     await page.locator('.status-chip.big').waitFor();
     await say('The Document Platform was just stopped. Nothing is lost: look for the Retrying chips.', 5000);
     // The second try of each delivery is pushed to the page, so the chips change by themselves (D-F1-65).
-    await page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 120_000 });
+    await skim(6, () => page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 120_000 }));
     await say('Deliveries that failed once are Retrying. They wait and try again.', 4000);
     compose('start', 'platform');
     await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed with errors' }).waitFor({ timeout: 600_000 }));
@@ -320,7 +333,7 @@ try {
   await say('A filter shows its value on its button and lives in the address.', 3000);
   await click(page.getByRole('button', { name: 'Clear filters' }));
   if (await page.locator('.status-chip.big').count()) await page.keyboard.press('Escape'); // a panel left open: close it, the click below opens one
-  await click(page.locator('.dist-table tbody tr').first());
+  await click(page.locator('.dist-table tbody tr').first().locator('td').nth(2)); // the Sent cell: plain text (the middle of the row can be a "+N", which opens its own list)
   await page.locator('.status-chip.big').waitFor();
   await click(page.getByRole('button', { name: /^Preview / }).first());
   await page.getByRole('dialog', { name: 'File preview' }).waitFor();
