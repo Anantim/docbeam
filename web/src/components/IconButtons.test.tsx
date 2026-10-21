@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageFile } from '../upload/manager.js';
 import { iconButtonProblems, iconOnlyButtons } from '../testing/icon-buttons.js';
+import { tooltipOf } from '../testing/tooltip.js';
 
 const apiFetch = vi.fn();
 vi.mock('../auth/session.js', () => ({ apiFetch: (path: string) => apiFetch(path), logout: vi.fn(), ApiFailure: class extends Error {} }));
@@ -53,7 +54,7 @@ function expectClean(root: ParentNode, minimum: number): void {
   expect(iconButtonProblems(root)).toEqual([]);
 }
 
-describe('every icon-only button has an aria-label and a title with the same text (D-M3-10)', () => {
+describe('every icon-only button has an aria-label and a tooltip with the same text (D-M3-10, D-F1-47)', () => {
   it('in the shell (Sign out)', () => {
     const { container } = render(
       <Shell claims={claims} teams={['Cardio']} view="status" onView={noop} running={2}>
@@ -79,7 +80,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
     );
     expectClean(container, 10);
     // The Retry button says what it retries.
-    expect(screen.getByRole('button', { name: 'Retry upload of bad.pdf' }).getAttribute('title')).toBe('Retry upload of bad.pdf');
+    expect(tooltipOf(screen.getByRole('button', { name: 'Retry upload of bad.pdf' }))).toBe('Retry upload of bad.pdf');
   });
 
   it('in the Not added list', () => {
@@ -105,7 +106,7 @@ describe('every icon-only button has an aria-label and a title with the same tex
     const { container } = render(
       <div>
         <button type="button">✕</button>
-        <button type="button" aria-label="Remove a.pdf" title="Remove">
+        <button type="button" aria-label="Remove a.pdf">
           ✕
         </button>
       </div>,

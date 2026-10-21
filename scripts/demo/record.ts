@@ -176,10 +176,10 @@ try {
   await page.getByText('Ready', { exact: true }).first().waitFor({ timeout: 120_000 });
   await say('Each file shows its state: Uploading, Scanning, Ready.', 2500);
   await skim(12, () => page.getByText('Ready', { exact: true }).nth(pdfs.length + extra.length - 1).waitFor({ timeout: 180_000 }));
-  await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.pdf'));
+  await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.docx')); // a real DOCX with the test string inside (scripts/eicar-docx.ts)
   await skim(12, () => page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 }));
   await say('The standard antivirus test file is refused. It is deleted and can never be sent.', 3500);
-  await click(page.getByRole('button', { name: 'Remove EICAR test file.pdf' }));
+  await click(page.getByRole('button', { name: 'Remove EICAR test file.docx' }));
 
   // 3. Folders: tick, then the summary.
   await say('Select the files, or leave none selected for all of them, then tick folders. I only see my own teams.', 2500);
@@ -258,7 +258,7 @@ try {
   // 8. The list, the filters, a preview and a download.
   await click(page.getByRole('button', { name: 'Status' }));
   await page.locator('.dist-table tbody tr').first().waitFor();
-  await say('One list of everything you can see. Filter by status, sender, date and team; Show more loads the next 20.', 4000);
+  await say('One list of everything you can see. Filter by status, sender, date and team; the next 20 load as you scroll.', 4000);
   await click(page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Status/ }));
   await click(page.getByRole('menuitemradio', { name: 'Completed', exact: true }));
   await say('A filter shows its value on its button and lives in the address.', 3000);

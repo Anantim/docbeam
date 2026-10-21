@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +8,7 @@ import type { LiveClient, LiveMessage } from '../live/socket.js';
 import type * as ApiModule from '../tracking/api.js';
 import type { JobDetail, JobSummary } from '../tracking/api.js';
 import type { usePagedJobs } from '../tracking/usePagedJobs.js';
+import { tooltipOf } from '../testing/tooltip.js';
 import { StatusPage } from './StatusPage.js';
 
 type StatusProps = Parameters<typeof StatusPage>[0];
@@ -186,13 +189,48 @@ describe('opening a distribution: subscribe first, fetch after', () => {
     expect(onOpen).toHaveBeenCalledWith(null);
   });
 
+  it('slides in when it opens and out when it closes: the same panel stays 200 ms with a leaving class, then goes; with reduced motion it goes at once (D-F1-47)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    try {
+      const f = fakeLive();
+      const props = { meId: 'u', filters: {}, onFilters: vi.fn(), onOpen: vi.fn(), all: mine(), notify, live: f.live };
+      const view = render(<StatusPage {...props} jobId={null} />);
+      expect(document.querySelector('.panel-slot')).toBeNull();
+      view.rerender(<StatusPage {...props} jobId={JOB} />);
+      const slot = document.querySelector('.panel-slot') as HTMLElement;
+      expect(slot.classList.contains('entering')).toBe(true); // it slides in from the right
+      const panel = slot.querySelector('.panel');
+      await act(async () => void (await vi.advanceTimersByTimeAsync(300)));
+      expect(document.querySelector('.panel-slot')?.classList.contains('entering')).toBe(false);
+
+      view.rerender(<StatusPage {...props} jobId={null} />);
+      expect(document.querySelector('.panel-slot.leaving .panel')).toBe(panel); // still there, the same element, sliding out
+      expect(document.querySelector('.status-layout')?.classList.contains('open')).toBe(true);
+      await act(async () => void (await vi.advanceTimersByTimeAsync(250)));
+      expect(document.querySelector('.panel-slot')).toBeNull();
+      expect(document.querySelector('.status-layout')?.classList.contains('open')).toBe(false);
+
+      // Reduced motion: no waiting.
+      vi.stubGlobal('matchMedia', (q: string) => ({ matches: true, media: q, addEventListener: () => undefined, removeEventListener: () => undefined }));
+      view.rerender(<StatusPage {...props} jobId={JOB} />);
+      expect(document.querySelector('.panel-slot')?.classList.contains('entering')).toBe(false);
+      view.rerender(<StatusPage {...props} jobId={null} />);
+      expect(document.querySelector('.panel-slot')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
   it('closes with Escape when the focus is still on the list, where the click left it', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
     const page = renderPage({ onOpen, mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
     await opened(page);
     screen.getByRole('button', { name: `Open distribution ${JOB.slice(0, 8)}` }).focus();
-    await user.keyboard('{Escape}');
+    await user.keyboard('{Escape}'); // closes the tooltip the focus brought and the panel (D-F1-47)
+    expect(screen.queryByRole('tooltip')).toBeNull();
     expect(onOpen).toHaveBeenCalledWith(null);
   });
 });
@@ -314,28 +352,112 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    const lead = await screen.findByText((_, el) => el?.classList.contains('lead') === true && /^Sent by Priya Shah · 16 Oct .*Only the deliveries to your teams are shown/.test(el.textContent ?? ''));
+    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah · 16 Oct \d\d:\d\d · Showing deliveries to your teams\.$/.test(el.textContent ?? ''));
     expect(lead.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
     expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed/ })).toBeNull();
   });
 
-  it('shows the shape of the panel while it loads: the sent-by line, the progress bar and the deliveries under their real header', () => {
+  describe('the team note on the "Sent by" line (D-F1-52)', () => {
+    const asMember = () =>
+      api.job.mockResolvedValue(detail({ isSender: false, taskCount: 2, counts: counts({ completed: 2 }), status: 'completed', fileCount: undefined, retry: undefined, cancel: undefined }));
+    const line = () => document.querySelector('.panel-sub')?.textContent ?? '';
+    const sentBy = (name: string) => new RegExp(`^Sent by Priya Shah · 16 Oct \\d\\d:\\d\\d · ${name}$`);
+
+    it('is not shown to the sender, who sees every delivery', async () => {
+      api.teams.mockResolvedValue([{ id: 't1', name: 'Cardio' }, { id: 't2', name: 'Oncology' }]);
+      const page = renderPage(); // the default distribution is the sender's own
+      await act(async () => page.release());
+      await screen.findByText(/^Sent by/);
+      expect(document.querySelector('.panel-note')).toBeNull();
+      expect(document.querySelector('.panel-sub')?.textContent).not.toMatch(/Showing deliveries/);
+    });
+
+    it('names the one team of a team member in the singular: "Showing deliveries to your team: Cardio."', async () => {
+      asMember();
+      api.teams.mockResolvedValue([{ id: 't1', name: 'Cardio' }]);
+      const page = renderPage();
+      await act(async () => page.release());
+      // A " · " between the time and the note, and a space after the colon: the parts are separate elements, never run together.
+      await waitFor(() => expect(line()).toMatch(sentBy('Showing deliveries to your team: Cardio\\.')));
+    });
+
+    it('lists two teams in the viewer\'s own order, comma-separated: "Showing deliveries to your teams: Oncology, Cardio."', async () => {
+      asMember();
+      api.teams.mockResolvedValue([{ id: 't2', name: 'Oncology' }, { id: 't1', name: 'Cardio' }]); // the order the server gives them
+      const page = renderPage();
+      await act(async () => page.release());
+      await waitFor(() => expect(line()).toMatch(sentBy('Showing deliveries to your teams: Oncology, Cardio\\.')));
+      expect(document.querySelector('.panel-sub .count-link')).toBeNull(); // they fit: no "+N"
+    });
+
+    it('stays on one line: the sentence is not allowed to wrap (the names that do not fit become "+N")', () => {
+      const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+      expect(css).toMatch(/\.panel-sub \{ display: flex; align-items: baseline; min-width: 0; white-space: nowrap;/);
+    });
+  });
+
+  it('shows the shape of the panel while it loads: the sent-by line and the deliveries under their real header', () => {
     api.job.mockReturnValue(new Promise(() => undefined)); // never answers
     renderPage();
     const busy = screen.getByLabelText('Loading the distribution');
     expect(busy.getAttribute('aria-busy')).toBe('true');
-    expect(busy.querySelector('.lead .sk')).not.toBeNull();
-    expect(busy.querySelector('.sk-bar')).not.toBeNull();
-    expect(within(busy).getAllByText(/File and folder|Status|Attempts|Details/).length).toBe(4);
+    expect(document.querySelector('.panel-sub .sk')).not.toBeNull();
+    expect(within(busy).getAllByText(/^(Deliveries|Status|Details)$/).length).toBe(3);
     expect(busy.querySelectorAll('.ttable .trow:not(.thead)').length).toBe(4);
   });
 
   it('says "Sent by <full name> (you) · date" under the header of my own distribution: a muted label, the name in normal weight (D-F1-22)', async () => {
     const page = renderPage();
     await act(async () => page.release());
-    const lead = await screen.findByText((_, el) => el?.classList.contains('lead') === true && /^Sent by Priya Shah \(you\) · 16 Oct \d\d:\d\d$/.test(el.textContent ?? ''));
+    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah \(you\) · 16 Oct \d\d:\d\d$/.test(el.textContent ?? ''));
     expect(lead.querySelector('.sentby')?.textContent).toBe('Sent by');
     expect(lead.querySelector('.sender-name')?.textContent).toBe('Priya Shah (you)');
+  });
+
+  it('is dense (D-F1-46): the id, copy icon, status and Close on one line, the sent-by line under it, a 3 px progress line, and no folder chips', async () => {
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByText(/^Sent by/);
+    const head = document.querySelector('.panel-head') as HTMLElement;
+    const top = head.querySelector('.panel-top') as HTMLElement;
+    expect(top.querySelector('h2')?.textContent).toBe(JOB.slice(0, 8));
+    expect(top.querySelector('.copy-link')).not.toBeNull();
+    expect(top.querySelector('.status-chip')).not.toBeNull();
+    expect(within(top).getByRole('button', { name: 'Close' })).toBeTruthy();
+    expect([...head.children].map((c) => c.className.split(' ')[0])).toEqual(['panel-top', 'panel-sub', 'jbar']); // the bar is the last line of the header, under the sent-by line
+    expect(document.querySelector('.jdest, .chip')).toBeNull(); // the folders are in the deliveries table, not here
+    const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+    expect(css).toMatch(/\.panel-head \.jbar \{ height: 3px;/);
+  });
+
+  it('puts the title, the status choice and (past 15 deliveries) the "Filter…" box on one row; short lists have no box; the box and "Clear filter" work (D-F1-46)', async () => {
+    const user = userEvent.setup();
+    api.job.mockResolvedValue(detail({ taskCount: 20, counts: counts({ completed: 20 }), status: 'completed' }));
+    api.tasks.mockImplementation(async () => ({ page: 1, limit: 100, total: 20, tasks: Array.from({ length: 20 }, (_, i) => ({ taskId: `t${i}`, fileId: `f${i}`, fileName: `File ${String(i).padStart(2, '0')}.pdf`, fileType: 'application/pdf', destinationPath: 'Cardio / A / B', teamId: 'x', status: 'completed', attemptCount: 1, failureCode: null, failureReason: null, updatedAt: '2026-10-16T10:00:00.000Z', fileExpired: false })) }));
+    const page = renderPage();
+    await act(async () => page.release());
+    const section = await screen.findByRole('region', { name: 'Deliveries' });
+    expect(within(section).queryByRole('heading', { name: 'Deliveries' })).toBeNull(); // no title above the table (D-F1-50)
+    const row = section.querySelector('.panel-section-head') as HTMLElement;
+    const box = await within(row).findByRole('textbox', { name: 'Filter deliveries' });
+    expect([...row.children].map((c) => c.className.split(' ')[0])).toEqual(['tfilters', 'searchfield']); // the tabs, then the box, in one row
+    const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+    expect(css).toMatch(/\.panel-section-head \.deliveries-filter \.field \{ min-height: var\(--strip-h\); height: var\(--strip-h\); \}/); // the box as tall as the strip
+    expect(css).toMatch(/\.tfilters \{[^}]*min-height: var\(--strip-h\)/);
+    expect(box.getAttribute('placeholder')).toBe('Filter…');
+    expect(document.querySelectorAll('.dfilter')).toHaveLength(0); // no separate filter row
+    await user.type(box, 'zzz');
+    await user.click(await screen.findByRole('button', { name: 'Clear filter' }));
+    expect((box as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(box);
+  });
+
+  it('has no "Filter…" box for 15 deliveries or fewer', async () => {
+    api.job.mockResolvedValue(detail({ taskCount: 15, counts: counts({ completed: 15 }), status: 'completed' }));
+    const page = renderPage();
+    await act(async () => page.release());
+    await screen.findByRole('region', { name: 'Deliveries' });
+    expect(screen.queryByRole('textbox', { name: 'Filter deliveries' })).toBeNull();
   });
 
   it('turns Retry off for a cancelled distribution and says why in its title', async () => {
@@ -346,10 +468,10 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
-    expect(retry.title).toBe('A cancelled distribution cannot be retried');
+    expect(tooltipOf(retry)).toBe('A cancelled distribution cannot be retried');
     const chip = (screen.getByRole('complementary').querySelector('.status-chip.big') as HTMLElement);
     expect(chip.textContent).toBe('Cancelled');
-    expect(chip.getAttribute('title')).toBe('The sender cancelled it and nothing is still running.');
+    expect(tooltipOf(chip)).toBe('The sender cancelled it and nothing is still running.');
     expect(screen.queryByRole('button', { name: 'Cancel distribution' })).toBeNull(); // a cancelled one has no Cancel
   });
 
@@ -359,7 +481,7 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     const cancel = (await screen.findByRole('button', { name: 'Cancel distribution' })) as HTMLButtonElement;
     expect(cancel.disabled).toBe(true);
-    expect(cancel.title).toBe('Nothing is waiting to be delivered');
+    expect(tooltipOf(cancel)).toBe('Nothing is waiting to be delivered');
   });
 
   it('has no Cancel button on a completed distribution, and no Retry when nothing failed', async () => {
@@ -379,7 +501,7 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     const retry = (await screen.findByRole('button', { name: 'Retry failed' })) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
-    expect(retry.title).toContain('The retry window closed');
+    expect(tooltipOf(retry)).toContain('The retry window closed');
   });
 
   it('shows the error when the server refuses, and reads the state again', async () => {
@@ -402,6 +524,8 @@ const summary = (jobId: string, name = 'Priya Shah', over: Partial<JobSummary> =
   taskCount: 3,
   fileCount: 3,
   destinationCount: 1,
+  fileNames: ['Consent form.pdf', 'Lab results.pdf', 'Visit notes.pdf'],
+  destinations: ['Cardio / CARDIO-301 Regulatory / IRB approvals'],
   counts: counts({ completed: 3 }),
   status: 'completed',
   ...over,
@@ -455,6 +579,22 @@ describe('the list and Open by ID', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it('Open by ID on the distribution that is already open closes the card, brings its row into view and highlights it for a second (D-F1-51)', async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    renderPage({ jobId: JOB, onOpen, mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
+    const field = await openCard(user);
+    await user.type(field, `${JOB}{Enter}`);
+    expect(onOpen).not.toHaveBeenCalled(); // nothing to open: it is open
+    expect(screen.queryByRole('form', { name: 'Open a distribution by ID' })).toBeNull(); // the card is closed
+    const row = screen.getByRole('button', { name: `Open distribution ${JOB.slice(0, 8)}` }).closest('tr') as HTMLElement;
+    await vi.waitFor(() => expect(row.classList.contains('fresh')).toBe(true)); // the same highlight as a just-sent row
+    expect(scrolled).toHaveBeenCalledWith({ block: 'nearest' }); // and the row is brought into view
+    await vi.waitFor(() => expect(row.classList.contains('fresh')).toBe(false), { timeout: 2500 }); // it fades out after a second
+  });
+
   it('takes the 8 characters the list shows: one match opens it, several are listed to choose from, none says so, bad input says what to enter (D-F1-32)', async () => {
     const onOpen = vi.fn();
     const user = userEvent.setup();
@@ -495,7 +635,7 @@ describe('the list and Open by ID', () => {
     const field = await openCard(user);
     const open = screen.getByRole('button', { name: 'Open' }) as HTMLButtonElement;
     expect(open.disabled).toBe(true);
-    expect(open.title).toBe('Enter a distribution ID or link first');
+    expect(tooltipOf(open)).toBe('Enter a distribution ID or link first');
     await user.type(field, '   ');
     expect(open.disabled).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
@@ -512,15 +652,41 @@ describe('the list and Open by ID', () => {
     expect(onOpen).toHaveBeenCalledWith(JOB);
   });
 
-  it('lists my distributions as a table: id, status, sent, and (when there is room) sender, files, folders', async () => {
-    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 7, destinationCount: 4 })]) });
+  it('lists my distributions as a table: id (sender below), status, sent, and (when there is room) the first file and the first two folders with "+N" (D-F1-40)', async () => {
+    const paths = ['Cardio / CARDIO-301 Regulatory / IRB approvals', 'Cardio / CARDIO-301 Regulatory / Protocol amendments', 'Oncology / ONC-118 / Imaging', 'Neuro / NEU-207 / Site approvals'];
+    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileCount: 3, destinationCount: 4, fileNames: ['Consent form.pdf', 'Lab results.pdf', 'Visit notes.pdf'], destinations: paths })]) });
     const table = screen.getByRole('table', { name: 'Distributions' });
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // no Sender column (D-F1-33)
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']); // no Sender column (D-F1-33)
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
     const sent = '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5));
     // The sender is on every row, small and muted under the ID, in every state of the list.
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, '7', '4']);
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, 'Consent form.pdf+2', 'IRB approvals, Protocol amendments+2']);
     expect(row.querySelector('.dist-sender')?.textContent).toBe('You');
+    // Each is one line with an ellipsis (the text part is cut, the "+N" is not), and the count links list the rest.
+    expect(row.querySelectorAll('.cell-text')).toHaveLength(2);
+    const more = within(row).getAllByRole('button', { name: /^Show \d+ more/ });
+    expect(more.map((b) => b.textContent)).toEqual(['+2', '+2']);
+    expect(more.every((b) => b.classList.contains('count-link'))).toBe(true);
+  });
+
+  it('lists the other files and folders in the popover of the "+N", with full paths, and a click on it does not open the row', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const paths = ['Cardio / A / One', 'Cardio / A / Two', 'Oncology / B / Three', 'Neuro / C / Four'];
+    renderPage({ jobId: null, onOpen, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileNames: ['a.pdf', 'b.pdf', 'c.pdf'], destinations: paths })]) });
+    await user.click(screen.getByRole('button', { name: /^Show 2 more folders of/ }));
+    const panel = screen.getByRole('dialog', { name: /^More folders of/ });
+    expect([...panel.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['Oncology / B / Three', 'Neuro / C / Four']);
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /^Show 2 more files of/ }));
+    expect([...screen.getByRole('dialog', { name: /^More files of/ }).querySelectorAll('li')].map((li) => li.textContent)).toEqual(['b.pdf', 'c.pdf']);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('a distribution with one file and two folders shows no "+N"', () => {
+    renderPage({ jobId: null, mine: mine([summary('bbbbbbbb-0000-4000-8000-000000000000', 'Priya Shah', { fileNames: ['only.pdf'], destinations: ['Cardio / A / One', 'Cardio / A / Two'] })]) });
+    const row = within(screen.getByRole('table', { name: 'Distributions' })).getAllByRole('row')[1] as HTMLElement;
+    expect(within(row).queryByRole('button', { name: /^Show \d+ more/ })).toBeNull();
   });
 
   it('shows the sender\'s name on a row somebody else sent, and a click on the row opens it (everything I can see, D-F1-21)', async () => {
@@ -558,7 +724,7 @@ describe('the list and Open by ID', () => {
     const busy = screen.getByLabelText('Loading distributions');
     expect(busy.getAttribute('aria-busy')).toBe('true');
     // The real header row, and in each placeholder row grey bars shaped like the ID, the sender line, the chip and the date (D-F1-22).
-    expect(within(busy).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent).filter(Boolean)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Folders']); // the last, empty column holds the spare width
+    expect(within(busy).getAllByRole('columnheader', { hidden: true }).map((h) => h.textContent).filter(Boolean)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']);
     const rows = busy.querySelectorAll('tbody tr');
     expect(rows.length).toBe(5);
     for (const cls of ['.sk-id', '.sk-sender', '.sk-chip', '.sk-date']) expect(rows[0]?.querySelector(cls)).not.toBeNull();
@@ -570,32 +736,91 @@ describe('the list and Open by ID', () => {
     expect(m.refresh).toHaveBeenCalled();
   });
 
-  it('loads the next page only when Show more is pressed (no infinite scroll), says "Showing N", and says so while it loads (D-F1-18)', async () => {
-    let watched = 0;
-    class FakeObserver {
-      constructor() {
-        watched += 1;
-      }
-      observe() {}
-      disconnect() {}
+  // The list loads on scroll (D-F1-49, which replaces "Show more" of D-F1-18): a sentinel at the end of its scroll area is watched.
+  const stubObserver = () => {
+    const watchers: Array<{ options: { rootMargin?: string }; fire: () => void; disconnected: boolean }> = [];
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        entry: { fire: () => void; options: { rootMargin?: string }; disconnected: boolean };
+        constructor(cb: (e: Array<{ isIntersecting: boolean }>) => void, options: { rootMargin?: string }) {
+          this.entry = { options, fire: () => cb([{ isIntersecting: true }]), disconnected: false };
+          watchers.push(this.entry);
+        }
+        observe() {}
+        disconnect() {
+          this.entry.disconnected = true;
+        }
+      },
+    );
+    return watchers;
+  };
+  const two = [summary('bbbbbbbb-0000-4000-8000-000000000000'), summary('cccccccc-0000-4000-8000-000000000000')];
+  const again = (rerender: (ui: React.ReactElement) => void, all: ReturnType<typeof mine>) =>
+    rerender(<StatusPage meId="u" jobId={null} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={all} notify={notify} />);
+
+  it('has no "Show more" and no "Showing N": the next page is asked for when the end of the scroll area comes within about five rows, once', async () => {
+    const watchers = stubObserver();
+    try {
+      const m = mine(two, { hasMore: true });
+      renderPage({ jobId: null, mine: m });
+      expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+      expect(screen.queryByText(/^Showing \d+/)).toBeNull();
+      expect(watchers).toHaveLength(1);
+      expect(watchers[0]?.options.rootMargin).toBe('0px 0px 280px 0px'); // 5 rows of 56 px
+      expect(m.loadMore).not.toHaveBeenCalled();
+      watchers[0]?.fire(); // the sentinel is within reach
+      expect(m.loadMore).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
     }
-    vi.stubGlobal('IntersectionObserver', FakeObserver);
+  });
+
+  it('says "Loading more…" in a polite live region while it loads, does not watch while it does (no second fetch), and ends with "That\'s everything"', () => {
+    const watchers = stubObserver();
+    try {
+      const m = mine(two, { hasMore: true });
+      const { rerender } = renderPage({ jobId: null, mine: m });
+      again(rerender, mine(two, { hasMore: true, loadingMore: true }));
+      const loading = screen.getByText('Loading more…');
+      expect(loading.getAttribute('role')).toBe('status');
+      expect(loading.getAttribute('aria-live')).toBe('polite');
+      expect(watchers.at(-1)?.disconnected).toBe(true); // nothing watches the end while a page is on its way
+      again(rerender, mine(two, { hasMore: false }));
+      expect(screen.getByText("That's everything")).toBeTruthy();
+      expect(screen.queryByText('Loading more…')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows "Couldn\'t load more · Try again" in the last row on a failure, and Try again asks again', async () => {
+    const watchers = stubObserver();
     try {
       const user = userEvent.setup();
-      const m = mine([summary('bbbbbbbb-0000-4000-8000-000000000000'), summary('cccccccc-0000-4000-8000-000000000000')], { hasMore: true });
-      const { rerender } = renderPage({ jobId: null, mine: m });
-      expect(screen.getByText('Showing 2')).toBeTruthy();
-      expect(watched).toBe(0); // nothing watches the end of the list
-      expect(m.loadMore).not.toHaveBeenCalled();
-      await user.click(screen.getByRole('button', { name: 'Show more' }));
+      const m = mine(two, { hasMore: true, moreFailed: true });
+      renderPage({ jobId: null, mine: m });
+      expect(screen.getByText("Couldn't load more")).toBeTruthy();
+      expect(watchers.every((w) => w.disconnected) || watchers.length === 0).toBe(true); // a failed page is not asked for again by scrolling
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
       expect(m.loadMore).toHaveBeenCalledTimes(1);
-      const loading = mine(m.jobs, { hasMore: true, loadingMore: true });
-      rerender(<StatusPage meId="u" jobId={null} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={loading} notify={notify} />);
-      expect(screen.getByText('Loading more…')).toBeTruthy();
-      const last = mine(m.jobs, { hasMore: false });
-      rerender(<StatusPage meId="u" jobId={null} filters={{}} onFilters={vi.fn()} onOpen={vi.fn()} all={last} notify={notify} />);
-      expect(screen.getByText('Showing 2')).toBeTruthy(); // the count stays at the end, with no button
-      expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('asks for the next page when Down (or End) is pressed on the last row, and not on a row above it', async () => {
+    stubObserver();
+    try {
+      const user = userEvent.setup();
+      const m = mine(two, { hasMore: true });
+      renderPage({ jobId: null, mine: m });
+      const first = screen.getByRole('button', { name: 'Open distribution bbbbbbbb' });
+      first.focus();
+      await user.keyboard('{ArrowDown}'); // from the first row to the last: not the last yet
+      expect(m.loadMore).not.toHaveBeenCalled();
+      await user.keyboard('{ArrowDown}'); // Down on the last row
+      expect(m.loadMore).toHaveBeenCalledTimes(1);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -611,7 +836,7 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     await opened(page);
     const icons = screen.getAllByRole('button', { name: 'Copy link' });
     expect(icons).toHaveLength(2); // the row and the panel header
-    for (const icon of icons) expect(icon.getAttribute('title')).toBe('Copy link');
+    for (const icon of icons) expect(tooltipOf(icon)).toBe('Copy link');
     expect(icons.every((i) => i.textContent === '')).toBe(true); // an icon, not a text button
     onOpen.mockClear();
     await user.click(icons[0] as HTMLElement); // the row's icon
@@ -619,7 +844,30 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     expect(onOpen).not.toHaveBeenCalled(); // a click on it does not open or close the panel
     await user.click(icons[1] as HTMLElement); // the panel's
     expect(onOpen).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('Link copied.'));
+    // No toast for a good copy (D-F1-43) and no visible label (D-F1-51): the icon cross-fades to a green tick for 2 seconds, and
+    // a polite live region says "Link copied" for a screen reader; then it goes back.
+    expect(notify).not.toHaveBeenCalled();
+    const first = icons[0] as HTMLElement;
+    const wrap = first.closest('.copy-wrap') as HTMLElement;
+    expect(first.classList.contains('copied')).toBe(true);
+    expect(wrap.querySelector('.copy-icons')?.classList.contains('on')).toBe(true);
+    expect(wrap.querySelector('.copied-label')).toBeNull();
+    expect(wrap.textContent).toBe('Link copied'); // only the hidden announcement: nothing else is written there
+    const live = wrap.querySelector('[role="status"]') as HTMLElement;
+    expect(live.getAttribute('aria-live')).toBe('polite');
+    expect(live.textContent).toBe('Link copied');
+    await vi.waitFor(() => expect(first.classList.contains('copied')).toBe(false), { timeout: 3500 });
+    expect(wrap.querySelector('.copy-icons')?.classList.contains('on')).toBe(false);
+    expect(live.textContent).toBe('');
+  });
+
+  it('says so in a toast only when the copy fails', async () => {
+    const user = userEvent.setup();
+    const page = renderPage({ onOpen: vi.fn(), mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
+    await opened(page);
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
+    await user.click(screen.getAllByRole('button', { name: 'Copy link' })[0] as HTMLElement);
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('The link could not be copied.', 'error'));
   });
 });
 

@@ -1,0 +1,8 @@
+PASS  the load user is in 50 teams and the first call returns all of them (no next page): 50 teams, next page: null
+[18:02:33] client side: GET /teams (50 teams in one call) p50 281 ms, p99 832 ms; teams + first binders p99 1632 ms
+PASS  all 50 teams in one call, usable under 1 s at p99, measured from this machine over the internet, 100 runs: p50 281 ms, p99 832 ms, max 834 ms
+[18:02:33] second level (teams, then the first team's binders, two calls in a row): p99 1632 ms from this machine
+PASS  server side GET /teams p99 under 1 s: n 105, p50 9 ms, p99 49 ms, max 51 ms
+PASS  server side GET /teams/{teamId}/binders p99 under 1 s: n 101, p50 10 ms, p99 68 ms, max 75 ms
+
+PASS browse (4/4 lines)

@@ -229,3 +229,17 @@ Tests: lint and typecheck clean; unit 81 files, 660 tests; integration `auth`, `
 | Badge of 63: list what it counts; stuck or wrong? | The count was right. 63 distributions with an open delivery, all rows left by integration tests; no queue message for any of them | D-F1-39; `deleteJobs` in the five test files; the count is 0 after a re-run |
 
 Full local run for PR #34 (sections 8.2 to 8.7): lint and typecheck clean; unit 82 files, 678 tests passed; integration 18 files, 198 tests passed; Playwright 76 passed, 10 skipped (dev only). 108 screenshots in `after/`.
+
+### 8.9 Team note on one line, header teams, page spacing (D-F1-53, D-F1-54)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| Panel line: "Sent by Priya Shah · 21 Oct 04:09 · Showing deliveries to your teams: Cardio, Neuro, Oncology." with " · " and spaces always present | YES | `StatusPage.test.tsx` (whole `.panel-sub` text for one team, two teams, no names); `panel-teams.spec.ts` |
+| The note stays on one line; names that do not fit become "+N" (accent link) with the shared popover; over 15 teams the "Filter…" box; no ellipsis | YES | `TeamList.test.tsx` (`fitCount`, narrow widths, popover list, 20 teams with "Filter…"), `panel-teams.spec.ts` (`scrollWidth <= clientWidth`, popover lists Cardio, Neuro, Oncology) |
+| Header teams on one line, 220 px at most, "+N" popover right-aligned inside the window; long name ends in an ellipsis with a tooltip | YES | `Shell.test.tsx` (1, 3 and 20 teams), `page-spacing.spec.ts` (Raj: Cardio; Anantim: three teams, width <= 221, height < 20) |
+| Page spacing: Status title to filter row 16 px, filter row to table 12 px, space above the title 16 px; Distribute title to cards 16 px; named tokens | YES | `page-spacing.spec.ts`, `status-layout.spec.ts` ("spacing:"), `Shell.test.tsx` (`--gap-section`, `--gap-controls`) |
+| Screenshots at 1440, 1280, 1024 with 1 and 3 teams (header and panel) | YES | `after/header-teams-{1,3}-*.png`, `after/panel-teams-{1,3}-*.png`, taken as anantim.patil@example.com for the screens |
+| Screenshots with 20 teams | NO (unit test only) | No local account has 20 teams and the header reads its teams from the token; `Shell.test.tsx` and `TeamList.test.tsx` cover 20 |
+| Found while testing | Fixed | Three teams showed as "Cardio +2" in the header (a box as wide as its content shrank with the names); fixed with `room="max-width"`. The first panel version lost the spaces around "·" and after the colon (white space between flex items is dropped) |
+
+Full local run: lint and typecheck clean; unit 88 files, 756 tests passed; Playwright 106 passed, 10 skipped (dev only), 1 failed (the old equal-gaps spacing test, replaced by the 16 / 12 px rule and run again: passed).

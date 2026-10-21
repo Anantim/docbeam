@@ -56,16 +56,26 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
    * The files and the folders a distribution reaches, for the list. Counted over the deliveries the caller may see,
    * the same rows as the counts: the sender sees all of them, anyone else only the ones to their own teams.
    */
-  async function reachFor(jobIds: string[], userId: string, teams: string[]): Promise<Map<string, { files: number; destinations: number }>> {
-    const out = new Map<string, { files: number; destinations: number }>();
+  async function reachFor(jobIds: string[], userId: string, teams: string[]): Promise<Map<string, { fileNames: string[]; destinations: string[] }>> {
+    const out = new Map<string, { fileNames: string[]; destinations: string[] }>();
     if (jobIds.length === 0) return out;
-    const result = await db.execute<{ job_id: string; files: number; destinations: number }>(sql`
-      SELECT j.id AS job_id, count(DISTINCT t.file_id)::int AS files, count(DISTINCT t.destination_path)::int AS destinations
-        FROM jobs j JOIN tasks t ON t.job_id = j.id
-       WHERE j.id = ANY(${pgArray(jobIds, 'uuid')})
-         AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))
-       GROUP BY 1`);
-    for (const r of result.rows) out.set(r.job_id, { files: r.files, destinations: r.destinations });
+    // The names, not only the counts: the list shows the first file and the first two folders and lists the rest in a
+    // popover (D-F1-40). A distribution has at most 100 files and 20 folders, so the lists are small. Files are in the
+    // order they were added; folders by path.
+    const result = await db.execute<{ job_id: string; file_names: string[]; destinations: string[] }>(sql`
+      SELECT v.job_id,
+             array_agg(v.name ORDER BY v.added, v.name) FILTER (WHERE v.name IS NOT NULL) AS file_names,
+             (SELECT array_agg(DISTINCT t2.destination_path ORDER BY t2.destination_path)
+                FROM tasks t2 JOIN jobs j2 ON j2.id = t2.job_id
+               WHERE t2.job_id = v.job_id AND (j2.submitted_by_user_id = ${userId} OR t2.team_id = ANY(${pgArray(teams, 'uuid')}))) AS destinations
+        FROM (
+          SELECT DISTINCT j.id AS job_id, f.id AS file_id, f.original_name AS name, f.created_at AS added
+            FROM jobs j JOIN tasks t ON t.job_id = j.id JOIN files f ON f.id = t.file_id
+           WHERE j.id = ANY(${pgArray(jobIds, 'uuid')})
+             AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))
+        ) v
+       GROUP BY v.job_id`);
+    for (const r of result.rows) out.set(r.job_id, { fileNames: r.file_names ?? [], destinations: r.destinations ?? [] });
     return out;
   }
 
@@ -109,8 +119,9 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
       const p = query.idPrefix.toLowerCase();
       where = sql`${where} AND id >= ${`${p}-0000-0000-0000-000000000000`}::uuid AND id <= ${`${p}-ffff-ffff-ffff-ffffffffffff`}::uuid`;
     }
-    // The page after the cursor: newest first, then id, so the position is (created_at DESC, id ASC).
-    const afterCursor = after ? sql`(created_at < ${after.createdAt}::timestamptz OR (created_at = ${after.createdAt}::timestamptz AND id > ${after.id}::uuid))` : sql`true`;
+    // The page after the cursor: newest first, ties broken by id, so the position is (created_at DESC, id DESC) and the
+    // cursor carries both. Many distributions can share one sent time; the id keeps them in one fixed order (D-F1-40).
+    const afterCursor = after ? sql`(created_at < ${after.createdAt}::timestamptz OR (created_at = ${after.createdAt}::timestamptz AND id < ${after.id}::uuid))` : sql`true`;
     const pageFields = sql`id, submitted_by_user_id, submitted_by_name, created_at, cancelled_at,
                            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at`;
 
@@ -121,7 +132,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
         await db.execute<Row>(sql`
           SELECT ${pageFields} FROM jobs
            WHERE ${where} AND ${afterCursor}
-           ORDER BY created_at DESC, id LIMIT ${limit + 1}`)
+           ORDER BY created_at DESC, id DESC LIMIT ${limit + 1}`)
       ).rows;
     } else {
       // A status filter needs the counts first: the status is derived from the deliveries the caller may see, with the
@@ -146,7 +157,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
                   FROM tasks t
                  WHERE t.job_id = j.id AND (j.submitted_by_user_id = ${userId} OR t.team_id = ANY(${pgArray(teams, 'uuid')}))) c) x
            WHERE status = ${query.status}
-           ORDER BY created_at DESC, id LIMIT ${limit + 1}`)
+           ORDER BY created_at DESC, id DESC LIMIT ${limit + 1}`)
       ).rows;
     }
 
@@ -159,8 +170,10 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const items = rows.map((r) => {
       const c = counts.get(r.id) ?? emptyCounts();
       return {
-        fileCount: reach.get(r.id)?.files ?? 0,
-        destinationCount: reach.get(r.id)?.destinations ?? 0,
+        fileCount: reach.get(r.id)?.fileNames.length ?? 0,
+        destinationCount: reach.get(r.id)?.destinations.length ?? 0,
+        fileNames: reach.get(r.id)?.fileNames ?? [],
+        destinations: reach.get(r.id)?.destinations ?? [],
         jobId: r.id,
         submittedBy: { userId: r.submitted_by_user_id, name: r.submitted_by_name },
         createdAt: new Date(r.created_at).toISOString(),
@@ -264,10 +277,11 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
        WHERE job_id = ${jobId} AND (${sender}::boolean OR team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR ${KIND} = ${status})`);
     const rows = await db.execute<{
       id: string; file_id: string; original_name: string; destination_path: string; team_id: string; status: string;
-      attempt_count: number; failure_code: string | null; failure_reason: string | null; updated_at: Date; file_at: Date;
+      attempt_count: number; failure_code: string | null; failure_reason: string | null; updated_at: Date; file_at: Date; file_type: string;
     }>(sql`
       SELECT t.id, t.file_id, f.original_name, t.destination_path, t.team_id, t.status, t.attempt_count,
-             t.failure_code, t.failure_reason, t.updated_at, COALESCE(f.uploaded_at, f.created_at) AS file_at
+             t.failure_code, t.failure_reason, t.updated_at, COALESCE(f.uploaded_at, f.created_at) AS file_at,
+             COALESCE(f.detected_type, f.content_type) AS file_type
         FROM tasks t JOIN files f ON f.id = t.file_id
        WHERE t.job_id = ${jobId} AND (${sender}::boolean OR t.team_id = ANY(${teamIds})) AND (${status}::text IS NULL OR ${KIND_OF_TASK} = ${status})
        ORDER BY f.original_name, t.destination_path, t.id
@@ -290,6 +304,8 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
         failureReason: r.failure_reason,
         updatedAt: new Date(r.updated_at).toISOString(),
         fileExpired: fileExpired(new Date(r.file_at), now),
+        // The type the file's own bytes showed (D-F1-44); the declared type for a file that was checked before this existed.
+        fileType: r.file_type,
       })),
     };
   });

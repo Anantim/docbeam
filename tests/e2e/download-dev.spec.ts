@@ -55,7 +55,7 @@ test('Raj previews a Cardio file; the Oncology-only file and its distribution ar
   await expect(rowOf(page, BOTH)).toHaveCount(1); // only the Cardio delivery
   await rowOf(page, BOTH).getByRole('button', { name: `Preview ${BOTH}` }).click();
   await expect(dialog(page)).toBeVisible();
-  await expect(page.getByTitle(`Preview of ${BOTH}`)).toBeVisible();
+  await expect(page.getByLabel(`Preview of ${BOTH}`)).toBeVisible();
   await page.screenshot({ path: evidence('raj-preview-cardio-file') });
   await page.keyboard.press('Escape');
 

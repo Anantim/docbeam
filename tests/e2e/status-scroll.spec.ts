@@ -53,19 +53,38 @@ test('1024 px and up: the page does not scroll; the title and filters stay; the 
   }
 });
 
-test('"Showing N · Show more" is at the end of the list area, and Show more adds rows inside it', async ({ page }) => {
+test('the list loads the next page by itself when its scroll area nears the end: no "Show more", no "Showing N" (D-F1-49)', async ({ page }) => {
   await openStatus(page, 1280);
-  const foot = page.locator('.dist-scroll .list-foot');
-  await expect(foot).toBeAttached(); // inside the scroll area, not under it
+  await expect(page.getByRole('button', { name: 'Show more' })).toHaveCount(0);
+  await expect(page.getByText(/^Showing \d+/)).toHaveCount(0);
   const before = await distRow(page).count();
   expect(before).toBe(20);
-  await expect(foot).not.toBeInViewport(); // below the fold of the area until it is scrolled to
-  await scrollList(page, 99999);
-  await expect(foot).toBeInViewport();
-  await expect(foot).toContainText(`Showing ${before}`);
-  await foot.getByRole('button', { name: 'Show more' }).click();
-  await expect.poll(() => distRow(page).count()).toBeGreaterThan(before);
+  await scrollList(page, 99999); // the end of the 20 rows: the sentinel comes within reach
+  await expect.poll(() => distRow(page).count(), { timeout: 10_000 }).toBeGreaterThan(before);
   expect((await pageScroll(page)).top).toBe(0); // still the page does not move
+  // No row twice.
+  const ids = (await page.locator('.dist-table [data-job-id]').evaluateAll((els: unknown[]) => (els as Array<{ getAttribute(n: string): string }>).map((e) => e.getAttribute('data-job-id')))) as string[];
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+test('scrolling to the very end ends with "That\'s everything"; Down on the last row asks for the next page too', async ({ page }) => {
+  test.setTimeout(280_000); // the local database holds a thousand distributions: about 50 pages of 20
+  await openStatus(page, 1280);
+  for (let i = 0; i < 200 && (await page.getByText("That's everything").count()) === 0; i += 1) {
+    await scrollList(page, 999999);
+    await page.waitForTimeout(250);
+  }
+  await expect(page.getByText("That's everything")).toBeVisible();
+  const ids = (await page.locator('.dist-table [data-job-id]').evaluateAll((els: unknown[]) => (els as Array<{ getAttribute(n: string): string }>).map((e) => e.getAttribute('data-job-id')))) as string[];
+  expect(new Set(ids).size, 'every distribution once').toBe(ids.length);
+});
+
+test('Down on the last loaded row asks for the next page', async ({ page }) => {
+  await openStatus(page, 1280);
+  const before = await distRow(page).count();
+  await page.locator('.dist-table [data-job-id]').nth(before - 1).focus();
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => distRow(page).count(), { timeout: 10_000 }).toBeGreaterThan(before);
 });
 
 test('opening and closing a distribution keeps the list position; the selected row is brought into view; the panel fills the same height', async ({ page }) => {
@@ -115,8 +134,9 @@ test('keyboard: Up and Down move through the rows and keep the focused row in vi
   await expect(ids.nth(13)).toBeFocused();
   await page.keyboard.press('Home');
   await expect(ids.first()).toBeFocused();
-  await page.keyboard.press('End');
-  await expect(ids.last()).toBeFocused();
+  const loaded = await ids.count(); // 20, or 40 once the way down has brought the next page
+  await page.keyboard.press('End'); // the last loaded row: End there also asks for the next page (D-F1-49)
+  await expect(ids.nth(loaded - 1)).toBeFocused();
 
   // Tab goes filters, then the list (one stop), then the panel.
   await page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Status/ }).focus();

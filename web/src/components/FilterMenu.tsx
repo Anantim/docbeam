@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { CheckIcon, ChevronIcon } from './Icons.js';
+import { ListFilter, matchesFilter, NoMatches } from './ListFilter.js';
 
 interface Choice {
   value: string;
@@ -17,24 +18,36 @@ interface Props {
   anyLabel: string;
   choices: Choice[];
   onChange: (value: string | undefined) => void;
+  /** A "Filter…" box shows above the choices when there are more than this many (the Sender menu: 10 people, D-F1-41). Never set on Status, Sent or Team. */
+  filterAfter?: number;
+  /** What the box is called for a screen reader: "Filter senders". */
+  filterLabel?: string;
 }
 
 /**
  * One filter: a small button that opens a short menu (D-F1-21). A set filter shows its value on the button, in the
  * accent style. Up and Down move, Enter or Space chooses, Esc closes and gives the focus back, a click outside closes.
  */
-export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChange }: Props) {
+export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChange, filterAfter, filterLabel = `Filter ${label.toLowerCase()}` }: Props) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const box = useRef<HTMLInputElement>(null);
   const menuId = useId();
-  const items: Array<{ value: string | undefined; label: string }> = [{ value: undefined, label: anyLabel }, ...choices];
+  const filterable = filterAfter !== undefined && choices.length > filterAfter;
+  // "Anyone" stays whatever is typed: it is how the filter is cleared. The box narrows the people already loaded.
+  const items: Array<{ value: string | undefined; label: string }> = [{ value: undefined, label: anyLabel }, ...choices.filter((c) => !filterable || matchesFilter(c.label, query))];
 
   useEffect(() => {
     if (!open) return;
-    const checked = items.findIndex((i) => i.value === value);
-    const rows = wrap.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]');
-    rows?.[checked >= 0 ? checked : 0]?.focus();
+    if (filterable) {
+      box.current?.focus(); // many people: the box takes the focus, the arrow keys go on into the list
+    } else {
+      const checked = items.findIndex((i) => i.value === value);
+      const rows = wrap.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]');
+      rows?.[checked >= 0 ? checked : 0]?.focus();
+    }
     const onPointer = (event: MouseEvent): void => {
       if (!wrap.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -44,6 +57,7 @@ export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChan
 
   const close = (): void => {
     setOpen(false);
+    setQuery('');
     button.current?.focus();
   };
 
@@ -51,13 +65,16 @@ export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChan
     if (!open) return;
     const rows = [...(wrap.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
     const at = rows.indexOf(document.activeElement as HTMLElement);
+    const typing = event.target === box.current;
+    if (typing && (event.key === 'Home' || event.key === 'End')) return; // they move the cursor in the box
     if (event.key === 'Escape') {
       event.preventDefault(); // the side panel's Escape leaves a key that is already taken
       event.stopPropagation();
       close();
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      rows[Math.min(rows.length - 1, at + 1)]?.focus();
+      // From the box with something typed, Down goes to the first match, not to "Anyone" above it.
+      rows[typing && query !== '' ? Math.min(rows.length - 1, 1) : Math.min(rows.length - 1, at + 1)]?.focus();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       rows[Math.max(0, at - 1)]?.focus();
@@ -87,6 +104,19 @@ export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChan
       </button>
       {open && (
         <div id={menuId} className="fmenu card" role="menu" aria-label={label}>
+          {filterable && (
+            <div className="fmenu-filter" role="none">
+              <ListFilter ref={box} value={query} onChange={setQuery} label={filterLabel} />
+            </div>
+          )}
+          {filterable && items.length === 1 && (
+            <NoMatches
+              onClear={() => {
+                setQuery('');
+                box.current?.focus();
+              }}
+            />
+          )}
           {items.map((item) => {
             const chosen = item.value === value;
             return (

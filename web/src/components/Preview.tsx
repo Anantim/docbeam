@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from './useFocusTrap.js';
 import { CloseIcon, LockIcon } from './Icons.js';
+import { Tooltip } from './Tooltip.js';
 import { TypeBadge } from './TypeBadge.js';
 import { docxSrcdoc, xlsxSheets } from '../preview/office.js';
 import { sheetHtml, type SheetModel } from '../preview/render.js';
@@ -99,9 +100,9 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
         <div className="preview-head">
           <TypeBadge contentType={contentType} big />
           <div className="grow">
-            <div className="pv-name" title={name}>
-              {name}
-            </div>
+            <Tooltip text={name} block>
+              <div className="pv-name">{name}</div>
+            </Tooltip>
             <div className="pv-meta">{meta}</div>
           </div>
           {sheets.length > 1 && (
@@ -113,17 +114,19 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
               ))}
             </select>
           )}
-          <button ref={closeButton} className="icon" type="button" aria-label="Close preview" title="Close preview" onClick={onClose}>
-            <CloseIcon />
-          </button>
+          <Tooltip text="Close preview">
+            <button ref={closeButton} className="icon" type="button" aria-label="Close preview" onClick={onClose}>
+              <CloseIcon />
+            </button>
+          </Tooltip>
         </div>
         <div className="preview-body">
           {view.kind === 'loading' && <div className="pv-message">Opening the file…</div>}
           {view.kind === 'message' && <div className="pv-message">{view.text}</div>}
-          {view.kind === 'pdf' && <iframe className="pv-frame" title={`Preview of ${name}`} src={view.url} />}
+          {view.kind === 'pdf' && <iframe className="pv-frame" aria-label={`Preview of ${name}`} src={view.url} />}
           {view.kind === 'image' && <img className="pv-image" alt={name} src={view.url} />}
-          {view.kind === 'docx' && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={view.srcdoc} />}
-          {view.kind === 'xlsx' && current && <iframe className="pv-frame" title={`Preview of ${name}`} sandbox="" srcDoc={sheetHtml(current)} />}
+          {view.kind === 'docx' && <iframe className="pv-frame" aria-label={`Preview of ${name}`} sandbox="" srcDoc={view.srcdoc} />}
+          {view.kind === 'xlsx' && current && <iframe className="pv-frame" aria-label={`Preview of ${name}`} sandbox="" srcDoc={sheetHtml(current)} />}
         </div>
         {note && (
           <div className="preview-note">

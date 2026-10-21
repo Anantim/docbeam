@@ -1,11 +1,38 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { newAccount, pickFilter, PRIYA, signIn } from './helpers.js';
+import { newAccount, pickFilter, PRIYA, removeSeeded, seedJob, signIn, tooltipOf } from './helpers.js';
 
 // "Open by ID": a small icon button on the Status page that opens a card with one field (D-F1-15), and the
 // empty state of the Status page (found on dev, M3 browser check 13).
 
 const NOTE = 'Enter the 8-character ID from the list, the full ID, or a link.';
+
+test('Open by ID on the distribution that is already open closes the card, scrolls its row into view and highlights it for a second (D-F1-51)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PRIYA);
+  const jobId = await seedJob(page, ['One.pdf'], ['Cardio / CARDIO-301 Regulatory / IRB approvals']);
+  try {
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
+    const rowId = page.locator(`[data-job-id="${jobId}"]`);
+    await rowId.click(); // open it: the newest distribution, at the top of the list
+    await expect(page.getByRole('complementary')).toBeVisible();
+    await page.evaluate(`document.querySelector('.dist-scroll').scrollTop = 1500`); // the row is now above the visible part of the list
+    await expect(rowId).not.toBeInViewport();
+
+    await trigger(page).click();
+    await box(page).fill(jobId);
+    await box(page).press('Enter');
+    await expect(card(page)).toHaveCount(0); // the popover is closed
+    await expect(rowId).toBeInViewport(); // its row is scrolled into view
+    const tr = page.locator('tr', { has: rowId });
+    await expect(tr).toHaveClass(/\bfresh\b/); // and highlighted, as a just-sent row is
+    await expect(tr).not.toHaveClass(/\bfresh\b/, { timeout: 3000 }); // the highlight fades out after a second
+    await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`)); // nothing else changed: the same distribution is open
+    await expect(page.getByRole('complementary')).toBeVisible();
+  } finally {
+    await removeSeeded(jobId);
+  }
+});
 
 const trigger = (page: Page) => page.getByRole('button', { name: 'Open by ID' });
 const card = (page: Page) => page.getByRole('form', { name: 'Open a distribution by ID' });
@@ -44,7 +71,7 @@ test('Open is off while the field is empty or only spaces, and says why', async 
   await openCard(page);
   await expect(openButton(page)).toBeDisabled();
   await expect(openButton(page)).toHaveCSS('cursor', 'not-allowed');
-  await expect(openButton(page)).toHaveAttribute('title', 'Enter a distribution ID or link first');
+  expect(await tooltipOf(page, openButton(page))).toBe('Enter a distribution ID or link first');
   await box(page).fill('   ');
   await expect(openButton(page)).toBeDisabled();
   // Enter in an empty field does nothing either: no note, nothing opened.

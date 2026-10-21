@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, PRIYA, signIn } from './helpers.js';
+import { addPdfs, PRIYA, signIn, tooltipOf } from './helpers.js';
 
-// The tooltip rules (D-M3-10) on the Distribute screen, in a real browser. The popover of folders is in m2.spec.ts and popover.spec.ts.
+// The tooltip rules (D-M3-10, D-F1-47) on the Distribute screen, in a real browser: one Tooltip component, no `title` attribute.
+// The popover of folders is in m2.spec.ts and popover.spec.ts.
 
-test('a button that is off says why, and a button with only an icon says what it does', async ({ page }) => {
+test('a button that is off says why in text beside it, and a button with only an icon says what it does in a tooltip', async ({ page }) => {
   await signIn(page, PRIYA);
 
   // Nothing added yet.
@@ -11,11 +12,10 @@ test('a button that is off says why, and a button with only an icon says what it
   await expect(send).toBeDisabled();
   // No hover-only tooltip says why Send is off any more (D-F1-20): on the empty page there is no reason text either, the
   // drop area says what to do.
-  await expect(send).toBeDisabled();
-  await expect(send).not.toHaveAttribute('title', /.+/);
+  expect(await tooltipOf(page, send)).toBeNull();
   await expect(page.locator('.send-reason')).toHaveText('');
   await expect(page.getByRole('button', { name: 'Clear' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Clear' })).not.toHaveAttribute('title', /.+/);
+  expect(await tooltipOf(page, page.getByRole('button', { name: 'Clear' }))).toBeNull();
   await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
   const tickBox = page.getByRole('checkbox', { name: /IRB approvals$/ });
@@ -25,20 +25,20 @@ test('a button that is off says why, and a button with only an icon says what it
   const [name] = await addPdfs(page, 1, 'tips');
   await expect(send).toBeDisabled();
   await expect(page.locator('.send-reason')).toHaveText('Choose folders for 1 file');
-  await expect(send).not.toHaveAttribute('title', /.+/);
+  expect(await tooltipOf(page, send)).toBeNull();
   await expect(tickBox).toBeEnabled();
-  await expect(tickBox).not.toHaveAttribute('title', /.+/);
+  expect(await tooltipOf(page, tickBox)).toBeNull();
 
-  // Icon-only buttons: the same text in the title and in the name a screen reader gets.
+  // Icon-only buttons: the same text in the tooltip and in the name a screen reader gets.
   for (const label of [`Remove ${name}`, `Preview ${name}`, 'Sign out']) {
     const button = page.getByRole('button', { name: label, exact: true });
-    await expect(button).toHaveAttribute('title', label);
+    expect(await tooltipOf(page, button), label).toBe(label);
   }
   // A file name that is cut short shows in full; the status explains itself.
-  await expect(page.locator('.fname-text', { hasText: name as string })).toHaveAttribute('title', name as string);
-  await expect(page.locator('.frow .status-chip', { hasText: 'Ready' })).toHaveAttribute('title', 'Stored, intact and scanned clean.');
+  expect(await tooltipOf(page, page.locator('.fname-text', { hasText: name as string }))).toBe(name);
+  expect(await tooltipOf(page, page.locator('.frow .status-chip', { hasText: 'Ready' }))).toBe('Stored, intact and scanned clean.');
 
-  // Every button on the page that shows only a symbol has an aria-label and a matching title.
+  // Every button on the page that shows only a symbol has an aria-label and a tooltip (the Tooltip wrapper), and no title attribute.
   // (This script runs in the browser.)
   const broken = await page.evaluate(`(() => {
     const bad = [];
@@ -46,11 +46,32 @@ test('a button that is off says why, and a button with only an icon says what it
       if (/[\\p{L}\\p{N}]/u.test(b.textContent ?? '')) continue;
       const label = b.getAttribute('aria-label') ?? '';
       if (!label) bad.push('no aria-label: ' + b.outerHTML.slice(0, 80));
-      else if (b.getAttribute('role') !== 'checkbox' && b.getAttribute('title') !== label) bad.push('title differs: ' + label);
+      else if (b.getAttribute('role') !== 'checkbox' && !b.closest('.tip-wrap')) bad.push('no tooltip: ' + label);
     }
+    for (const el of document.querySelectorAll('[title]')) bad.push('a title attribute: ' + el.outerHTML.slice(0, 80));
     return bad;
   })()`);
   expect(broken).toEqual([]);
 
+  await page.getByRole('button', { name: 'Clear' }).click();
+});
+
+test('a tooltip comes after 300 ms of resting, at once on keyboard focus, closes on Esc, and the Esc does not close the panel under it', async ({ page }) => {
+  await signIn(page, PRIYA);
+  const [name] = await addPdfs(page, 1, 'tipkeys');
+  const remove = page.getByRole('button', { name: `Remove ${name}`, exact: true });
+  await remove.hover();
+  await page.waitForTimeout(120);
+  await expect(page.getByRole('tooltip')).toHaveCount(0); // not before 300 ms
+  await expect(page.getByRole('tooltip')).toHaveText(`Remove ${name}`);
+  expect(await page.getByRole('tooltip').getAttribute('id')).toBeTruthy();
+  await expect(remove.locator('xpath=ancestor::span[contains(@class,"tip-wrap")]')).toHaveAttribute('aria-describedby', /.+/);
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+
+  await remove.focus(); // keyboard focus: at once
+  await expect(page.getByRole('tooltip')).toHaveText(`Remove ${name}`, { timeout: 500 });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear' }).click();
 });

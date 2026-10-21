@@ -26,10 +26,10 @@ const sha = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 const pdf = (text: string): Buffer => Buffer.from(`%PDF-1.7\n${text}\n%%EOF\n`);
 
 /** Declares `declared`, uploads `actual` through the form (so they can differ), and returns the file id. */
-async function upload(declared: Buffer, actual: Buffer = declared, name = 'doc.pdf'): Promise<string> {
+async function upload(declared: Buffer, actual: Buffer = declared, name = 'doc.pdf', contentType = 'application/pdf'): Promise<string> {
   const reply = await call(DOCBEAM_URL, '/uploads', {
     token: user.token,
-    json: { files: [{ name, sizeBytes: declared.length, contentType: 'application/pdf', sha256: sha(declared) }] },
+    json: { files: [{ name, sizeBytes: declared.length, contentType, sha256: sha(declared) }] },
   });
   expect(reply.status).toBe(201);
   const { fileId, post } = reply.body.uploads[0];
@@ -114,6 +114,35 @@ describe('upload-events: confirmation and scanning', () => {
     expect(again.uploaded_at).toEqual(r.uploaded_at);
     expect(again.scan_status).toBe('clean');
     expect(await refusals(id)).toHaveLength(0);
+  }, 90_000);
+
+  it('stores the type found in the contents: a PDF is a PDF, and a real DOCX (a ZIP) is told from an XLSX by its file list (D-F1-44)', async () => {
+    const pdfId = await upload(pdf('typed document'));
+    expect((await settled(pdfId)).detected_type).toBe('application/pdf');
+
+    const { default: JSZip } = await import('jszip');
+    const z = new JSZip();
+    z.file('[Content_Types].xml', '<Types/>');
+    z.file('word/document.xml', `<w:document>${randomUUID()}</w:document>`);
+    const docx = Buffer.from(await z.generateAsync({ type: 'uint8array' }));
+    const docxType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const docxId = await upload(docx, docx, 'letter.docx', docxType);
+    const r = await settled(docxId);
+    expect(r.scan_status).toBe('clean');
+    expect(r.detected_type).toBe(docxType);
+  }, 120_000);
+
+  it('refuses a file whose contents are not the type it was declared as, found by the Lambda: failed, audited as CONTENT_TYPE, object deleted', async () => {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(randomUUID())]);
+    const id = await upload(png, png, 'photo.pdf'); // declared a PDF; the bytes are a PNG
+    const r = await settled(id);
+    expect(r.scan_status).toBe('failed');
+    expect(r.detected_type).toBeNull();
+    const events = await refusals(id);
+    expect(events).toHaveLength(1);
+    expect(events[0].detail).toMatchObject({ reason: 'CONTENT_TYPE', fileName: 'photo.pdf' });
+    expect(events[0].detail.detail).toContain('image/png');
+    await expect(s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: r.s3_key }))).rejects.toMatchObject({ name: 'NotFound' });
   }, 90_000);
 
   it('refuses a file whose stored size is smaller than declared', async () => {

@@ -4,11 +4,12 @@ import type { Destination } from '../destinations/selection.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { plural } from '../text.js';
-import { FolderList } from './DestinationChips.js';
 import { MoreRow } from './MoreRow.js';
 import { Popover } from './Popover.js';
 import { useMoreBelow } from './useMoreBelow.js';
-import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon, SearchIcon } from './Icons.js';
+import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
+import { SearchField } from './SearchField.js';
+import { Tooltip } from './Tooltip.js';
 
 interface Props {
   onToggle: (destination: Destination) => void;
@@ -19,8 +20,6 @@ interface Props {
   filesOf?: (destination: Destination) => { names: string[]; total: number };
   /** What a tick sends, for example "all 3 files" or "the 1 selected file": the words of each folder's tick label. */
   scopeTitle?: string;
-  /** Quiet words beside the title: "for 2 selected files" while files are ticked, nothing when none are: a tick then goes to all files, the default (D-F1-24). */
-  hint?: string;
 }
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
@@ -71,17 +70,18 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
   return (
     <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
       {canExpand ? (
-        <button
-          type="button"
-          className="exp"
-          data-nav={node.kind === 'folder' ? undefined : ''}
-          aria-expanded={isOpen}
-          aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-          title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-          onClick={() => onExpand(node)}
-        >
-          <ChevronIcon open={isOpen} size={14} />
-        </button>
+        <Tooltip text={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}>
+          <button
+            type="button"
+            className="exp"
+            data-nav={node.kind === 'folder' ? undefined : ''}
+            aria-expanded={isOpen}
+            aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
+            onClick={() => onExpand(node)}
+          >
+            <ChevronIcon open={isOpen} size={14} />
+          </button>
+        </Tooltip>
       ) : (
         <span className="spc" />
       )}
@@ -112,9 +112,7 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
           {names.length > 0 && (
             // A muted count beside a ticked folder; hover, focus or a click lists the files in a small popover, the same
             // component and scrollbar as the "N folders" of a file row (D-F1-37).
-            <Popover label={count} ariaLabel={`Show the files that go to ${node.name}: ${count}`} panelLabel={`Files for ${destination?.path ?? node.name}`} className="link folder-files">
-              <FolderList paths={names} />
-            </Popover>
+            <Popover label={count} ariaLabel={`Show the files that go to ${node.name}: ${count}`} panelLabel={`Files for ${destination?.path ?? node.name}`} items={names} />
           )}
         </>
       )}
@@ -133,7 +131,7 @@ function Skeleton({ rows = 3, label }: { rows?: number; label: string }) {
   );
 }
 
-export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle = 'your files', hint }: Props) {
+export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle = 'your files' }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [rootsNext, setRootsNext] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
@@ -299,21 +297,9 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     <section aria-label="Destinations" className="card dest">
       <div className="card-head">
         <h2>Destinations</h2>
-        {hint && <span className="card-hint">{hint}</span>}
       </div>
-      <div className="filter search">
-        <SearchIcon size={14} />
-        <label className="sr" htmlFor="dq">
-          Filter destinations
-        </label>
-        <input
-          id="dq"
-          className="field"
-          type="search"
-          placeholder="Search folders"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+      <div className="filter">
+        <SearchField type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} />
       </div>
       <div className={`tree-wrap fadewrap ${moreBelow ? 'more-below' : ''}`}>
       <div className="tree" ref={treeRef} onKeyDown={onTreeKey}>

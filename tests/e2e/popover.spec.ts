@@ -1,10 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { addPdfs, CARDIO_DELEGATION, CARDIO_IRB, CARDIO_PROTOCOL, chip, ONC_ETHICS, PRIYA, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_DELEGATION, CARDIO_IRB, CARDIO_PROTOCOL, ONC_ETHICS, PRIYA, removeSeeded, seedJob, signIn, tick } from './helpers.js';
 
-// Every "+N" popover behaves the same (D-M3-2, D-M3-17): open on hover and stay open while the pointer is on the
-// chip or the panel, with no gap between them; scroll inside without closing; a click pins it; Esc and a click
-// outside close it; the keyboard opens it. Tried on the Documents table of Distribute and on the "Sent to" header
-// of Status, with a list long enough to scroll.
+// The count link and its popover (D-F1-42, D-F1-41), tried in a real browser on Distribute and on Status: hover opens it
+// after 300 ms and it stays while the pointer is on the link or the panel; it is drawn on the page body and kept inside
+// the window; a click or Enter pins it; Esc, a click outside, or the link scrolling out of view closes it; a list of more
+// than 15 has a "Filter…" box that pins it.
 
 const CARDIO_TRAINING = 'Cardio / CARDIO-301 Site files / Training records';
 const ONC_CVS = 'Oncology / ONC-118 Regulatory / Investigator CVs';
@@ -16,75 +16,130 @@ const centre = async (locator: Locator): Promise<{ x: number; y: number }> => {
   const box = (await locator.boundingBox())!;
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
+const inside = async (page: Page, panel: Locator): Promise<void> => {
+  const box = (await panel.boundingBox())!;
+  const view = page.viewportSize()!;
+  expect(box.x, 'inside on the left').toBeGreaterThanOrEqual(7);
+  expect(box.y, 'inside at the top').toBeGreaterThanOrEqual(-1);
+  expect(box.x + box.width, 'inside on the right').toBeLessThanOrEqual(view.width - 7);
+  expect(box.y + box.height, 'inside at the bottom').toBeLessThanOrEqual(view.height + 1);
+};
 
-async function exercise(page: Page, more: Locator, where: string, panelName: RegExp = /more folders$/): Promise<void> {
-  const panel = page.getByRole('dialog', { name: panelName });
-  const list = panel.locator('.popover-list');
-  await expect(more).toBeVisible();
+test('the count link on Distribute: opens after 300 ms, stays for the link and the panel, pinned by a click, closed by Esc or a click outside', async ({ page }) => {
+  await signIn(page, PRIYA);
+  const [name] = await addPdfs(page, 1, 'popscroll');
+  for (const path of FOLDERS) await tick(page, path);
+  const more = page.locator('.frow', { hasText: name as string }).getByRole('button', { name: /^Show the \d+ folders of/ });
+  const panel = page.getByRole('dialog', { name: /^Folders of/ });
   await more.scrollIntoViewIfNeeded();
 
-  // 1. Hover opens it, with no gap between the chip and the panel.
+  // Hover: nothing before 300 ms, open after it.
   await more.hover();
+  await page.waitForTimeout(120);
+  await expect(panel, 'it should not open before 300 ms').toHaveCount(0);
   await expect(panel).toBeVisible();
-  const chipBox = (await more.boundingBox())!;
-  const panelBox = (await panel.boundingBox())!;
-  expect(panelBox.y - (chipBox.y + chipBox.height), `${where}: a gap between the chip and the panel`).toBeLessThanOrEqual(1);
+  // It is on the page body, below the link with no gap, and inside the window.
+  expect(await panel.evaluate((el: unknown) => (el as { parentElement: { id: string } }).parentElement.id)).toBe('overlay-root'); // the one overlay on the page body
+  const link = (await more.boundingBox())!;
+  const open = (await panel.boundingBox())!;
+  expect(Math.abs(open.y - (link.y + link.height)) < 2 || Math.abs(open.y + open.height - link.y) < 2, 'next to the link, below or above it').toBe(true);
+  await inside(page, panel);
 
-  // 2. The pointer moves down into the panel, slowly. It stays open, past the close delay.
-  const target = await centre(list);
+  // The pointer moves into the panel, slowly, and it stays open past the close delay.
+  const target = await centre(panel.locator('.popover-list'));
   await page.mouse.move(target.x, target.y, { steps: 25 });
-  await page.waitForTimeout(700);
-  await expect(panel, `${where}: closed while the pointer was in the panel`).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(panel, 'closed while the pointer was in it').toBeVisible();
+  expect(await panel.locator('.popover-filter').count(), 'eight folders: no filter box').toBe(0);
 
-  // 3. The list scrolls inside the panel (wheel) and the panel stays open.
-  const scrollable = await list.evaluate((el: unknown) => (el as { scrollHeight: number; clientHeight: number }).scrollHeight > (el as { clientHeight: number }).clientHeight);
-  expect(scrollable, `${where}: the list should be long enough to scroll`).toBe(true);
-  await page.mouse.wheel(0, 120);
-  await page.waitForTimeout(300);
-  expect(await list.evaluate((el: unknown) => (el as { scrollTop: number }).scrollTop), `${where}: the list did not scroll`).toBeGreaterThan(0);
-  await expect(panel, `${where}: closed while scrolling inside`).toBeVisible();
-
-  // 4. Leaving both closes a hover.
+  // Leaving both closes a hover after 200 ms.
   await page.mouse.move(5, 5, { steps: 5 });
   await expect(panel).toHaveCount(0);
 
-  // 5. A click pins it. The pointer can go anywhere and it stays.
+  // A click pins it; the pointer can go anywhere. Esc closes it and the focus is back on the link.
   await more.click();
   await page.mouse.move(5, 5, { steps: 5 });
-  await page.waitForTimeout(700);
-  await expect(panel, `${where}: a click did not pin it`).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(panel, 'a click did not pin it').toBeVisible();
   await expect(more).toHaveAttribute('aria-expanded', 'true');
-  // 6. Esc closes it and the focus is back on the chip.
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
   await expect(more).toBeFocused();
 
-  // 7. A click outside closes a pinned one.
+  // A click outside closes a pinned one.
   await more.click();
   await expect(panel).toBeVisible();
   await page.mouse.click(5, 5);
   await expect(panel).toHaveCount(0);
 
-  // 8. The keyboard: focus the chip, Enter opens, Esc closes.
+  // The keyboard: Tab onto the link opens it, Enter pins it, Esc closes it.
   await more.focus();
+  await expect(panel).toBeVisible();
   await page.keyboard.press('Enter');
+  await page.waitForTimeout(500);
   await expect(panel).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
   await expect(more).toBeFocused();
-}
+});
 
-test('the +N popover stays open for the chip and the panel, scrolls inside, is pinned by a click, on Distribute and on Status', async ({ page }) => {
+test('on Status: a long "+N" has a Filter… box that pins it, scrolls inside, stays inside the window near the right edge, and closes when its link scrolls out of view', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await signIn(page, PRIYA);
-  const [name] = await addPdfs(page, 1, 'popscroll');
-  for (const path of FOLDERS) await tick(page, path);
+  const names = Array.from({ length: 40 }, (_, i) => `${i % 2 === 0 ? 'Consent' : 'Lab results'} ${String(i + 1).padStart(2, '0')}.pdf`);
+  const folders = Array.from({ length: 5 }, (_, i) => `Cardio / CARDIO-301 Regulatory / Binder with a long name ${i + 1} / Folder ${i + 1}`);
+  const jobId = await seedJob(page, names, folders);
+  try {
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
+    const row = page.locator('tr', { has: page.locator(`[data-job-id="${jobId}"]`) });
+    await expect(row).toBeVisible();
 
-  // Distribute: the Files table shows "8 folders" for the file, and the button opens the list.
-  const row = page.locator('.frow', { hasText: name as string });
-  await exercise(page, row.getByRole('button', { name: /^Show the \d+ folders of/ }), 'Distribute', /^Folders of/);
+    // Files: "+39". Hover, then the box above 15 items, then filtering in any case.
+    const files = row.getByRole('button', { name: /^Show 39 more files/ });
+    await expect(files).toHaveText('+39');
+    await files.hover();
+    const panel = page.getByRole('dialog', { name: /^More files of/ });
+    await expect(panel).toBeVisible();
+    const box = panel.getByRole('textbox');
+    await expect(box).toBeVisible();
+    await box.click(); // clicking the box pins it
+    await page.mouse.move(5, 5, { steps: 5 });
+    await page.waitForTimeout(500);
+    await expect(panel, 'the box did not pin it').toBeVisible();
+    await box.fill('LAB RESULTS 1');
+    const listed = await panel.locator('li').allTextContents();
+    expect(listed.length).toBeGreaterThan(0);
+    expect(listed.every((t) => t.toLowerCase().includes('lab results 1'))).toBe(true);
+    await box.fill('zzz');
+    await expect(panel.getByText('No matches')).toBeVisible();
+    await page.keyboard.press('Escape'); // empties the box
+    await expect(box).toHaveValue('');
+    await expect(panel).toBeVisible();
+    await inside(page, panel);
+    // The list scrolls inside the panel and the panel stays.
+    await panel.locator('.popover-list').evaluate((el: unknown) => ((el as { scrollTop: number }).scrollTop = 200));
+    await expect(panel).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
 
-  // Status: the "Sent to" header shows three chips and the rest.
-  await send(page);
-  await expect(chip(page)).toBeVisible();
-  await exercise(page, page.locator('.jdest').getByRole('button', { name: /^Show \d+ more folders$/ }), 'Status');
+    // Destinations: the first two names and "+3", with full paths in the popover, near the right edge of the card.
+    const dest = row.getByRole('button', { name: /^Show 3 more folders/ });
+    await expect(dest).toHaveText('+3');
+    await dest.click();
+    const folderPanel = page.getByRole('dialog', { name: /^More folders of/ });
+    await expect(folderPanel).toBeVisible();
+    expect(await folderPanel.locator('li').allTextContents()).toEqual(folders.slice(2));
+    expect(await folderPanel.getByRole('textbox').count(), '3 folders: no box').toBe(0);
+    await inside(page, folderPanel);
+    await page.keyboard.press('Escape');
+
+    // The link scrolls out of the list's scroll area: the panel closes.
+    await files.hover();
+    await expect(panel).toBeVisible();
+    await page.evaluate("document.querySelector('.dist-scroll').scrollTop = 100000");
+    await expect(panel).toHaveCount(0);
+  } finally {
+    await removeSeeded(jobId);
+  }
 });

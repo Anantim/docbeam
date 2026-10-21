@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
 import { AlertIcon, CloseIcon, UploadIcon } from './Icons.js';
+import { Tooltip } from './Tooltip.js';
 import { useMoreBelow } from './useMoreBelow.js';
 
 const ACCEPT = ALLOWED_FILE_TYPES.flatMap((t) => t.extensions).join(',');
@@ -15,13 +16,17 @@ interface Props {
   empty: boolean;
   /** The documents table, shown when there are files. */
   children?: ReactNode;
+  /** The "Filter…" box, in the card header beside "Add files". */
+  tools?: ReactNode;
+  /** Quiet words beside the title: "Showing 3 of 40" while the list is filtered. */
+  hint?: string;
 }
 
 /**
  * The Files card: the one place to add files. Drop them anywhere on the card, or choose them. With no file it is a
  * drop area (the empty state); with files it holds the table and an "Add files" button in its header.
  */
-export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props) {
+export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, hint }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const { ref: scroll, more } = useMoreBelow<HTMLDivElement>();
@@ -45,10 +50,18 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props
     >
       <div className="card-head">
         <h2>Files</h2>
+        {hint && (
+          <span className="card-hint" role="status">
+            {hint}
+          </span>
+        )}
         {!empty && (
-          <button className="btn2 btnsm" type="button" onClick={() => input.current?.click()}>
-            Add files
-          </button>
+          <span className="files-head-tools">
+            {tools}
+            <button className="btn2 btnsm" type="button" onClick={() => input.current?.click()}>
+              Add files
+            </button>
+          </span>
         )}
       </div>
       <div className={`files-wrap fadewrap ${more ? 'more-below' : ''}`}>
@@ -72,9 +85,11 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children }: Props
               ))}
             </ul>
           </div>
-          <button className="icon small" type="button" aria-label="Close" title="Close" onClick={onDismiss}>
-            <CloseIcon />
-          </button>
+          <Tooltip text="Close">
+            <button className="icon small" type="button" aria-label="Close" onClick={onDismiss}>
+              <CloseIcon />
+            </button>
+          </Tooltip>
         </div>
       )}
       {empty ? (

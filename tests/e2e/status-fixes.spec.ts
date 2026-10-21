@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, jobIdOf, pickFilter, PRIYA, readCounts, rgb, sendFiles, signIn, sql, withWorkersStopped } from './helpers.js';
+import { CARDIO_IRB, CARDIO_PROTOCOL, chip, counts, distRow, jobIdOf, pickFilter, PRIYA, readCounts, rgb, sendFiles, signIn, sql, tooltipOf, withWorkersStopped } from './helpers.js';
 
 // Found on dev in the person's browser checks (D-M3-17): an old sign-in error that stayed after signing in again,
 // and the counts of a distribution that was cancelled part way.
@@ -15,7 +15,7 @@ test('while the sign-in is over the page behind the dialog shows no error, and a
   await page.getByRole('button', { name: 'Status' }).click();
   const first = distRow(page).first();
   await expect(first).toBeVisible();
-  const jobId = (await first.locator('.dist-id').getAttribute('title')) as string;
+  const jobId = (await first.locator('.dist-id').getAttribute('data-job-id')) as string;
 
   // The server stops accepting the token and the refresh, as after 12 hours.
   await page.route('**/api/jobs**', (route) => route.fulfill(unauthorised));
@@ -108,7 +108,7 @@ test('a distribution cancelled part way: filter numbers, the bar, chips and rows
     const rowChips = page.locator('.ttable .tscroll .status-chip');
     await expect(rowChips).toHaveCount(5);
     for (const text of await rowChips.allTextContents()) expect(text).toBe('Cancelled');
-    await expect(rowChips.first()).toHaveAttribute('title', /Nothing was delivered/);
+    expect(await tooltipOf(page, rowChips.first())).toMatch(/Nothing was delivered/);
 
     // A reload and the workers starting change nothing.
     await page.reload();

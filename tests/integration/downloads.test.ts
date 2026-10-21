@@ -84,6 +84,16 @@ const auditCount = async (fileId: string) =>
   (await db.query(`SELECT count(*)::int AS n FROM audit_events WHERE action = 'download.issued' AND detail->>'fileId' = $1`, [fileId])).rows[0].n as number;
 
 describe('POST /files/:fileId/downloads', () => {
+  it('answers with the type found in the file\'s contents when it is stored, else the declared one (D-F1-44)', async () => {
+    const f = await makeFile({ deliveries: [{ team: cardio, status: 'completed' }] });
+    expect((await ask(priya, f.fileId)).body.contentType).toBe('application/pdf'); // nothing stored: the declared type
+    await db.query(`UPDATE files SET detected_type = 'image/png' WHERE id = $1`, [f.fileId]);
+    const reply = await ask(priya, f.fileId, { mode: 'preview' });
+    expect(reply.status).toBe(201);
+    expect(reply.body.contentType).toBe('image/png'); // the stored type drives it
+    expect(new URL(reply.body.url).searchParams.get('response-content-type')).toBe('image/png'); // and the preview link's content type
+  });
+
   it('gives the sender a link that saves the exact bytes under the original name', async () => {
     const f = await makeFile({ deliveries: [{ team: cardio, status: 'completed' }] });
     const reply = await ask(priya, f.fileId);

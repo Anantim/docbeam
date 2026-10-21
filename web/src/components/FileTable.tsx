@@ -3,11 +3,12 @@ import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
 import { isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
-import { FolderList } from './DestinationChips.js';
 import { PreviewButton } from './FileActions.js';
 import { CheckIcon, CloseIcon, MinusIcon, RetryIcon } from './Icons.js';
+import { NoMatches } from './ListFilter.js';
 import { Popover } from './Popover.js';
 import { StatusChip, type Tone } from './StatusChip.js';
+import { Tooltip } from './Tooltip.js';
 import { TypeBadge } from './TypeBadge.js';
 
 interface StatusView {
@@ -51,7 +52,12 @@ export function statusView(f: PageFile): StatusView {
 const percent = (f: PageFile): number => Math.round(f.progress * 100);
 
 interface Props {
+  /** Every file: the header box, "Select all" and the selection are about all of them, whatever is listed. */
   files: readonly PageFile[];
+  /** The files that are listed (the filter box narrows this); all of them when it is empty. */
+  listed?: readonly PageFile[];
+  /** "Clear filter" under "No matches": empties the box and puts the focus back in it. */
+  onClearFilter?: () => void;
   mapping: Mapping;
   selected: ReadonlySet<string>;
   /** A click on a row, with the keys held, selects it (Shift for a range, Ctrl or Cmd to add). */
@@ -67,7 +73,7 @@ interface Props {
  * it goes to. A click selects a row; the Destinations tree then ticks folders for the selected files (D-F1-8).
  * It is a grid so a screen reader announces which rows are selected; Enter or Space on a row selects it too.
  */
-export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPreview, onRetry, onRemove }: Props) {
+export function FileTable({ files, listed = files, onClearFilter, mapping, selected, onPick, onToggleAll, onPreview, onRetry, onRemove }: Props) {
   const usable = files.filter(isUsable);
   const allOn = usable.length > 0 && usable.every((f) => selected.has(f.id));
   const someOn = !allOn && usable.some((f) => selected.has(f.id));
@@ -89,17 +95,18 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
       <div ref={rows} className="ftable" role="grid" aria-label="Files" aria-multiselectable="true">
         <div className="frow thead" role="row">
           <div role="columnheader">
-            <button
-              className="ck"
-              type="button"
-              role="checkbox"
-              aria-checked={someOn ? 'mixed' : allOn}
-              aria-label="Select all to choose their folders"
-              title="Select all to choose their folders"
-              onClick={onToggleAll}
-            >
-              <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? <CheckIcon size={12} /> : someOn ? <MinusIcon size={12} /> : null}</span>
-            </button>
+            <Tooltip text="Select all to choose their folders">
+              <button
+                className="ck"
+                type="button"
+                role="checkbox"
+                aria-checked={someOn ? 'mixed' : allOn}
+                aria-label="Select all to choose their folders"
+                onClick={onToggleAll}
+              >
+                <span className={`box ${someOn ? 'mixed' : ''}`}>{allOn ? <CheckIcon size={12} /> : someOn ? <MinusIcon size={12} /> : null}</span>
+              </button>
+            </Tooltip>
           </div>
           <div className="hcell" role="columnheader">
             File
@@ -115,7 +122,8 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
           </div>
         </div>
 
-        {files.map((f) => {
+        {listed.length === 0 && files.length > 0 && onClearFilter && <NoMatches onClear={onClearFilter} />}
+        {listed.map((f) => {
           const view = statusView(f);
           const keys = isUsable(f) ? (mapping.files[f.id] ?? []) : [];
           const paths = keys.map((k) => mapping.destinations[k]?.path ?? '');
@@ -145,31 +153,29 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
             >
               <div role="gridcell">
                 {infected ? (
-                  <span className="ck locked" role="img" aria-label={`${f.name} was refused for malware and cannot be selected or sent`} title={`${f.name} was refused for malware and cannot be selected or sent`}>
-                    <CloseIcon size={14} />
-                  </span>
+                  <Tooltip text={`${f.name} was refused for malware and cannot be selected or sent`}>
+                    <span className="ck locked" role="img" aria-label={`${f.name} was refused for malware and cannot be selected or sent`}>
+                      <CloseIcon size={14} />
+                    </span>
+                  </Tooltip>
                 ) : (
                   // The row itself selects on a click or Enter; this box says what the selection is for, and is a click target
                   // like the rest of the row (D-F1-23).
-                  <span
-                    className={`box ${on ? 'on' : ''}`}
-                    role="checkbox"
-                    aria-checked={on}
-                    aria-label="Select to choose folders for this file"
-                    title="Select to choose folders for this file"
-                  >
-                    {on ? <CheckIcon size={12} /> : null}
-                  </span>
+                  <Tooltip text="Select to choose folders for this file">
+                    <span className={`box ${on ? 'on' : ''}`} role="checkbox" aria-checked={on} aria-label="Select to choose folders for this file">
+                      {on ? <CheckIcon size={12} /> : null}
+                    </span>
+                  </Tooltip>
                 )}
               </div>
               <div className="fname" role="gridcell">
                 <TypeBadge contentType={f.contentType} />
-                <span className={infected ? 'struck' : 'ellipsis fname-text'} title={f.name}>
-                  {f.name}
-                </span>
-                <span className="size" title={`${f.sizeBytes.toLocaleString('en-US')} bytes`}>
-                  {formatSize(f.sizeBytes)}
-                </span>
+                <Tooltip text={f.name}>
+                  <span className={infected ? 'struck' : 'ellipsis fname-text'}>{f.name}</span>
+                </Tooltip>
+                <Tooltip text={`${f.sizeBytes.toLocaleString('en-US')} bytes`}>
+                  <span className="size">{formatSize(f.sizeBytes)}</span>
+                </Tooltip>
               </div>
               <div className="fstatus" role="gridcell">
                 {view.bar && (
@@ -177,8 +183,9 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
                     <div style={{ width: `${percent(f)}%` }} />
                   </div>
                 )}
-                {/* The tooltip and the screen-reader name of a state that has a reason are that reason (the line under the chip). */}
-                <StatusChip tone={view.tone} label={view.text} title={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
+                {/* The tooltip and the screen-reader name of a state that has a reason are that reason (the line under the chip).
+                    A new state is a new chip (the key), which fades in (D-F1-47). */}
+                <StatusChip key={view.text} tone={view.tone} label={view.text} meaning={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
                 {(view.reason ?? view.detail) && <div className="fmsg">{view.reason ?? view.detail}</div>}
               </div>
               <div className="chips" role="gridcell">
@@ -191,22 +198,24 @@ export function FileTable({ files, mapping, selected, onPick, onToggleAll, onPre
                     label={paths.length === 1 ? '1 folder' : `${paths.length} folders`}
                     ariaLabel={`Show the ${paths.length === 1 ? 'folder' : `${paths.length} folders`} of ${f.name}`}
                     panelLabel={`Folders of ${f.name}`}
-                    className="link folder-count"
-                  >
-                    <FolderList paths={paths} />
-                  </Popover>
+                    items={paths}
+                  />
                 )}
               </div>
               <div className="actions" role="gridcell">
                 {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} />}
                 {canRetry && (
-                  <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} title={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
-                    <RetryIcon />
-                  </button>
+                  <Tooltip text={`Retry upload of ${f.name}`}>
+                    <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
+                      <RetryIcon />
+                    </button>
+                  </Tooltip>
                 )}
-                <button className="icon" type="button" aria-label={`Remove ${f.name}`} title={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
-                  <CloseIcon />
-                </button>
+                <Tooltip text={`Remove ${f.name}`}>
+                  <button className="icon" type="button" aria-label={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
+                    <CloseIcon />
+                  </button>
+                </Tooltip>
               </div>
             </div>
           );

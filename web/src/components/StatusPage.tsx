@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
+import { PANEL_OUT_MS, prefersReducedMotion } from '../motion.js';
 import type { Counts } from '../tracking/api.js';
 import { isUnfiltered, type Filters } from '../tracking/filters.js';
 import { useFilterChoices } from '../tracking/useFilterChoices.js';
@@ -82,16 +83,68 @@ export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLiv
     onOpenRef.current(id);
   }, []);
 
+  // The panel slides in from the right when it opens and out again when it closes (D-F1-47). While it leaves it stays mounted for
+  // 200 ms, as the same element, so it does not load again, and the list widens when it has gone. Input is never held back: a
+  // click or a key works at once, whatever is moving.
+  const [entering, setEntering] = useState(false);
+  const [leavingId, setLeavingId] = useState<string | null>(null);
+  const [, setClosed] = useState(0);
+  const lastJob = useRef<string | null>(jobId);
+  useLayoutEffect(() => {
+    const before = lastJob.current;
+    lastJob.current = jobId;
+    if (jobId !== null && before === null) {
+      setLeavingId(null);
+      if (prefersReducedMotion()) return;
+      setEntering(true);
+      const t = setTimeout(() => setEntering(false), PANEL_OUT_MS + 50);
+      return () => clearTimeout(t);
+    }
+    if (jobId === null && before !== null) {
+      if (prefersReducedMotion()) {
+        setClosed((n) => n + 1); // draw again without the panel, at once
+        return;
+      }
+      setLeavingId(before);
+      const t = setTimeout(() => setLeavingId(null), PANEL_OUT_MS);
+      return () => clearTimeout(t);
+    }
+  }, [jobId]);
+  // On the render where the distribution closes, `lastJob` still holds it (the layout effect above moves it on), so the panel is
+  // not unmounted and mounted again to slide out: it is the same element throughout.
+  const panelId = jobId ?? leavingId ?? lastJob.current;
+
+  // Open by ID on the distribution that is already open changes nothing in the address, so it is shown instead: its row is
+  // brought into view in the list and highlighted for a second, with the same fade as a just-sent row (D-F1-51). The card
+  // closes itself.
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+  const jobIdNow = useRef(jobId);
+  jobIdNow.current = jobId;
+  const openById = useCallback(
+    (id: string): void => {
+      if (id !== jobIdNow.current) return open(id);
+      clearTimeout(flashTimer.current);
+      setFlashId(null); // off and on again, so a second look restarts the highlight
+      requestAnimationFrame(() => {
+        setFlashId(id);
+        flashTimer.current = setTimeout(() => setFlashId(null), 1000);
+      });
+    },
+    [open],
+  );
+
   return (
     // From 1024 px up the page itself does not scroll (D-F1-29); the list and the panel scroll in their own areas.
     <div className="page page-fixed">
       <div className="page-head">
         <h1>Distributions</h1>
-        <OpenById onOpen={open} meId={meId} />
+        <OpenById onOpen={openById} meId={meId} />
       </div>
       <FilterBar filters={filters} onChange={onFilters} meId={meId} members={choices.members} teams={choices.teams} />
 
-      <div className={`status-layout ${jobId ? 'open' : ''}`}>
+      <div className={`status-layout ${panelId ? 'open' : ''}`}>
         <DistributionList
           meId={meId}
           filtered={!unfiltered}
@@ -107,26 +160,31 @@ export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLiv
           onOpen={open}
           notify={notify}
           live={jobId ? liveCounts : null}
+          freshId={focusJobId ?? null}
+          flashId={flashId}
         />
-        {jobId && (
-          <DistributionPanel
-            key={jobId}
-            jobId={jobId}
-            live={live}
-            notify={notify}
-            onClose={() => {
-              onOpen(null);
-              // Focus goes back to the row that opened the panel, not to the page.
-              requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-job-id="${jobId}"]`)?.focus());
-            }}
-            onCounts={followCounts}
-            signedInAgain={signedInAgain}
-            focusHeading={focusJobId === jobId}
-            onChanged={() => {
-              void all.refresh();
-              if (!unfiltered) void other.refresh();
-            }}
-          />
+        {panelId && (
+          <div className={`panel-slot ${entering ? 'entering' : ''} ${jobId === null ? 'leaving' : ''}`}>
+            <DistributionPanel
+              key={panelId}
+              jobId={panelId}
+              live={live}
+              notify={notify}
+              onClose={() => {
+                onOpen(null);
+                // Focus goes back to the row that opened the panel, not to the page.
+                requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-job-id="${panelId}"]`)?.focus());
+              }}
+              onCounts={followCounts}
+              signedInAgain={signedInAgain}
+              focusHeading={focusJobId === panelId}
+              teamNames={choices.teams.map((t) => t.name)}
+              onChanged={() => {
+                void all.refresh();
+                if (!unfiltered) void other.refresh();
+              }}
+            />
+          </div>
         )}
       </div>
     </div>

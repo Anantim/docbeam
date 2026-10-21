@@ -9,7 +9,7 @@ if (!baseURL) throw new Error('Set DEV_APP_URL to the CloudFront address of dev.
 
 export default defineConfig({
   testDir: 'tests/e2e',
-  testMatch: ['download.spec.ts', 'download-dev.spec.ts', 'm5-browser-dev.spec.ts', 'browse-paging.spec.ts', 'status-dev.spec.ts'],
+  testMatch: ['download.spec.ts', 'download-dev.spec.ts', 'm5-browser-dev.spec.ts', 'browse-paging.spec.ts', 'status-dev.spec.ts', 'session-dev.spec.ts'],
   fullyParallel: false,
   workers: 1,
   retries: 0,

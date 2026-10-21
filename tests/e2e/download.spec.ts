@@ -50,25 +50,25 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   // Preview: the PDF opens in the page from a short link on the Object Store, not from our servers.
   await rowOf(page, PDF).getByRole('button', { name: `Preview ${PDF}` }).click();
   await expect(dialog(page)).toBeVisible();
-  expect(await page.getByTitle(`Preview of ${PDF}`).getAttribute('src')).toMatch(/^https?:\/\/[^/]+\/.*X-Amz-Expires=120/);
+  expect(await page.getByLabel(`Preview of ${PDF}`).getAttribute('src')).toMatch(/^https?:\/\/[^/]+\/.*X-Amz-Expires=120/);
   await shot(page, 'priya-preview-pdf');
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
 
   // The DOCX becomes a read-only page in a sandboxed frame.
   await rowOf(page, DOCX).getByRole('button', { name: `Preview ${DOCX}` }).click();
-  const docxFrame = page.getByTitle(`Preview of ${DOCX}`);
+  const docxFrame = page.getByLabel(`Preview of ${DOCX}`);
   await expect(docxFrame).toBeVisible();
   expect(await docxFrame.getAttribute('sandbox')).toBe('');
-  await expect(page.frameLocator(`iframe[title="Preview of ${DOCX}"]`).locator('body')).toContainText('Protocol amendment text');
+  await expect(page.frameLocator(`iframe[aria-label="Preview of ${DOCX}"]`).locator('body')).toContainText('Protocol amendment text');
   await shot(page, 'priya-preview-docx');
   await page.keyboard.press('Escape');
 
   await rowOf(page, XLSX).getByRole('button', { name: `Preview ${XLSX}` }).click();
-  const sheetFrame = page.getByTitle(`Preview of ${XLSX}`);
+  const sheetFrame = page.getByLabel(`Preview of ${XLSX}`);
   await expect(sheetFrame).toBeVisible();
   expect(await sheetFrame.getAttribute('sandbox')).toBe('');
-  await expect(page.frameLocator(`iframe[title="Preview of ${XLSX}"]`).locator('body')).toContainText('Mumbai site');
+  await expect(page.frameLocator(`iframe[aria-label="Preview of ${XLSX}"]`).locator('body')).toContainText('Mumbai site');
   await shot(page, 'priya-preview-xlsx');
   await page.keyboard.press('Escape');
 

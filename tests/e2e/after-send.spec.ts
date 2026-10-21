@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, CARDIO_IRB, jobIdOf, pickFilter, PRIYA, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, jobIdOf, pickFilter, PRIYA, rgb, send, signIn, tick } from './helpers.js';
 
 // What happens after Send (D-F1-31): success opens the new distribution on Status, failure keeps everything on Distribute,
 // and Back returns to the empty Distribute page.
@@ -19,6 +19,14 @@ test('after a successful Send: Status opens on the new distribution, filters cle
 
   await expect(page).toHaveURL(new RegExp(`#/status/${jobId}$`)); // no filters in the address
   await expect(page.locator('.toast', { hasText: /^Sent$/ })).toBeVisible(); // the toast says just "Sent"
+  // Toasts are dark, at the bottom left of the window, above everything, and never take a click (D-F1-43).
+  const toast = (await page.locator('.toast', { hasText: /^Sent$/ }).boundingBox())!;
+  const view = page.viewportSize()!;
+  expect(toast.x, 'at the left').toBeLessThan(60);
+  expect(toast.y + toast.height, 'at the bottom').toBeGreaterThan(view.height - 60);
+  await expect(page.locator('.toast').first()).toHaveCSS('background-color', rgb('#101828'));
+  expect(await page.evaluate(`getComputedStyle(document.querySelector('.toasts')).pointerEvents`)).toBe('none');
+  expect(Number(await page.evaluate(`getComputedStyle(document.querySelector('.toasts')).zIndex`))).toBeGreaterThan(81); // above dialogs too
   const row = page.locator('.dist-table tbody tr').first();
   await expect(row).toHaveClass(/\bon\b/); // selected, at the top
   await expect(row.locator('.dist-id')).toHaveAttribute('data-job-id', jobId);

@@ -1,20 +1,28 @@
-import { memo, useCallback, useEffect, useRef, useState, type FocusEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import type { LiveClient } from '../live/socket.js';
 import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
+import { matchesFilter, NoMatches } from './ListFilter.js';
 import { StatusChip } from './StatusChip.js';
+import { Tooltip } from './Tooltip.js';
+import { TypeBadge } from './TypeBadge.js';
 import { plural, taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
-export const ROW_HEIGHT = 64;
+/** One delivery row: the file name with the folder path in small text under it (D-F1-46). The list of distributions uses the same density (`--row-job`). */
+export const ROW_HEIGHT = 48;
 const MAX_ATTEMPTS = 5;
 
 interface Props {
   jobId: string;
   status: TaskKind | 'all';
+  /** The "Filter…" box above (in the panel's Deliveries row) narrows the rows loaded so far by file name or folder path (D-F1-41). */
+  query?: string;
+  /** "Clear filter" under "No matches": the panel empties its box and puts the focus back in it. */
+  onClearFilter?: () => void;
   /** Changes when the page must load the tasks again (after a reconnect, a cancel or a retry). */
   reloadKey: number;
   live: LiveClient;
@@ -34,7 +42,7 @@ const FOCUS_PAD = 24;
  * The deliveries of one distribution, up to 2,000 rows, 100 loaded at a time. Only the rows in view are drawn
  * (TDD Step 3.4). Live pushes change a row in place; a reload keeps the old rows on screen until the new page arrives.
  */
-export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownload, viewportHeight: fixedHeight = 480, fill = false }: Props) {
+export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey, live, onPreview, onDownload, viewportHeight: fixedHeight = 480, fill = false }: Props) {
   const [pages, setPages] = useState<Map<number, TaskRow[]>>(new Map());
   // The height of the rows' box as the page lays it out (only when it fills); the number given is used until it is known.
   const [measured, setMeasured] = useState(0);
@@ -115,13 +123,28 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
     setScrollTop(box.scrollTop);
   };
 
-  // Scrolling to rows that are not loaded yet loads their pages.
-  const range = visibleRange({ scrollTop, viewport: viewportHeight, rowHeight: ROW_HEIGHT, total });
+  // With text in the filter box only the rows loaded so far that match are listed; without it, all rows, loaded as they scroll in.
+  const matching = useMemo(() => {
+    if (query.trim() === '') return null;
+    return [...pages.keys()]
+      .sort((a, b) => a - b)
+      .flatMap((p) => pages.get(p) ?? [])
+      .filter((t) => matchesFilter(t.fileName, query) || matchesFilter(t.destinationPath, query));
+  }, [pages, query]);
+  const shownTotal = matching ? matching.length : total;
   useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [query]);
+
+  // Scrolling to rows that are not loaded yet loads their pages.
+  const range = visibleRange({ scrollTop, viewport: viewportHeight, rowHeight: ROW_HEIGHT, total: shownTotal });
+  useEffect(() => {
+    if (matching) return; // a filtered list is made of rows that are already here
     for (const p of pagesFor(range, TASK_PAGE)) {
       if (!pagesRef.current.has(p)) void load(p, generation.current);
     }
-  }, [range.start, range.end, total, load]);
+  }, [range.start, range.end, total, load, matching === null]);
 
   // Live pushes. With every status shown, a row is changed in place. With a filter on, the row may leave the
   // list, so the visible pages are loaded again instead.
@@ -157,20 +180,17 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
 
   const rows: Array<{ index: number; task: TaskRow | undefined }> = [];
   for (let i = range.start; i < range.end; i++) {
-    rows.push({ index: i, task: pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
+    rows.push({ index: i, task: matching ? matching[i] : pages.get(Math.floor(i / TASK_PAGE) + 1)?.[i % TASK_PAGE] });
   }
 
   // More rows below the box: a soft fade at its bottom edge says so.
-  const moreBelow = total * ROW_HEIGHT > scrollTop + viewportHeight + 2;
+  const moreBelow = shownTotal * ROW_HEIGHT > scrollTop + viewportHeight + 2;
 
   return (
-    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={total + 1}>
+    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={shownTotal + 1}>
       <div className="trow thead" role="row">
-        <div role="columnheader">File and folder</div>
+        <div role="columnheader">Deliveries</div>
         <div role="columnheader">Status</div>
-        <div role="columnheader" className="tattempts">
-          Attempts
-        </div>
         <div role="columnheader">Details</div>
       </div>
       {error && (
@@ -191,9 +211,6 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
               <div>
                 <span className="sk sk-chip" />
               </div>
-              <div className="tattempts">
-                <span className="sk sk-num" />
-              </div>
               <div>
                 <span className="sk sk-date" />
               </div>
@@ -202,13 +219,14 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
         </div>
       )}
       {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
+      {!error && firstLoaded && total > 0 && matching?.length === 0 && onClearFilter && <NoMatches onClear={onClearFilter} />}
       <div className={`tbody-wrap fadewrap ${fill ? 'fill' : ''} ${moreBelow ? 'more-below' : ''}`}>
         <div
           ref={scroller}
           className={`tscroll ${fill ? 'fill' : ''}`}
-          // With `fill` the height asked for is all the rows; the CSS (flex-shrink, and `min-height: 0` on every parent up to the
-          // panel) shrinks it to the room that is left. A parent that loses its `min-height: 0` makes the box as tall as every row.
-          style={{ height: fill ? Math.max(ROW_HEIGHT, total * ROW_HEIGHT) :Math.min(viewportHeight, Math.max(ROW_HEIGHT, total * ROW_HEIGHT)) }}
+          // With `fill` the box takes all the height that is left in the panel (CSS: flex 1, and `min-height: 0` on every parent up to the
+          // panel), however many rows there are (D-F1-46); a parent that loses its `min-height: 0` makes it as tall as every row.
+          style={fill ? undefined : { height: Math.min(viewportHeight, Math.max(ROW_HEIGHT, shownTotal * ROW_HEIGHT)) }}
           onFocus={onFocusRow}
           onKeyDownCapture={() => (byKeyboard.current = true)}
           onPointerDownCapture={() => (byKeyboard.current = false)}
@@ -217,7 +235,7 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
           role="region"
           aria-label="Delivery rows, scrolls"
         >
-          <div style={{ height: total * ROW_HEIGHT, position: 'relative' }}>
+          <div style={{ height: shownTotal * ROW_HEIGHT, position: 'relative' }}>
             {rows.map(({ index, task }) => (
               <div key={task?.taskId ?? `empty-${index}`} className="trow" role="row" aria-rowindex={index + 2} style={{ position: 'absolute', top: index * ROW_HEIGHT, left: 0, right: 0, height: ROW_HEIGHT }}>
                 {task ? <TaskCells task={task} onPreview={onPreview} onDownload={onDownload} /> : <div className="skeleton" role="cell" aria-label="Loading" />}
@@ -230,42 +248,58 @@ export function TaskTable({ jobId, status, reloadKey, live, onPreview, onDownloa
   );
 }
 
+/**
+ * The small muted line under a delivery's status chip: "Attempt N of 5" while it is pending or running again after a failed
+ * try (N > 1), "Failed after N attempts" on a real failure, and nothing for a delivery that succeeded the first time, has not
+ * started, or was cancelled.
+ */
+export function attemptNote(task: Pick<TaskRow, 'attemptCount'>, kind: TaskKind): string | null {
+  const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
+  if (kind === 'failed') return used > 0 ? `Failed after ${plural(used, 'attempt', 'attempts')}` : null;
+  if ((kind === 'pending' || kind === 'in_progress') && used > 1) return `Attempt ${used} of ${MAX_ATTEMPTS}`;
+  return null;
+}
+
 /** One row's cells. Memoised: a scroll or a push for another row does not draw it again. */
 const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
   const look = taskLook(kind);
-  const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
+  const note = attemptNote(task, kind);
   return (
     <>
       <div role="cell" className="tfile-cell">
-        <div className="ellipsis tfile" title={task.fileName}>
-          {task.fileName}
+        <div className="tfile-line">
+          {/* The type found in the file's contents when it was uploaded, never one worked out from the name (D-F1-44). */}
+          <TypeBadge contentType={task.fileType} />
+          <Tooltip text={task.fileName}>
+            <span className="ellipsis tfile">{task.fileName}</span>
+          </Tooltip>
         </div>
-        <div className="ellipsis lead dest-text" title={task.destinationPath}>
-          {task.destinationPath}
-        </div>
+        <Tooltip text={task.destinationPath} block>
+          <div className="ellipsis lead dest-text">{task.destinationPath}</div>
+        </Tooltip>
       </div>
-      <div role="cell">
-        <StatusChip tone={look.tone} label={look.label} title={TASK_STATUS_MEANING[kind]} />
-      </div>
-      <div role="cell" className="size tattempts" title={used === 0 ? 'Not attempted yet' : `${plural(used, 'attempt', 'attempts')} of the ${MAX_ATTEMPTS} allowed`}>
-        {used} of {MAX_ATTEMPTS}
+      <div role="cell" className="tstatus">
+        <StatusChip tone={look.tone} label={look.label} meaning={TASK_STATUS_MEANING[kind]} />
+        {/* The number of attempts is only said when it matters (D-F1-50): "Attempt 3 of 5" while a delivery is trying again,
+            "Failed after 5 attempts" on a failure, and nothing for one that went through the first time. */}
+        {note && <div className="tattempt-note">{note}</div>}
       </div>
       <div role="cell" className="tdetail">
         {task.status === 'failed' && (
           <>
-            <div className="code" title={failureMeaning(task.failureCode)}>
-              {task.failureCode}
-            </div>
-            <div className="reason" title={task.failureReason ?? undefined}>
-              {task.failureReason}
-            </div>
+            <Tooltip text={failureMeaning(task.failureCode)} block>
+              <div className="code">{task.failureCode}</div>
+            </Tooltip>
+            <Tooltip text={task.failureReason ?? undefined} block>
+              <div className="reason">{task.failureReason}</div>
+            </Tooltip>
           </>
         )}
         {task.status === 'completed' && (task.fileExpired ? (
-          <span className="muted" title="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.">
-            File expired
-          </span>
+          <Tooltip text="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.">
+            <span className="muted">File expired</span>
+          </Tooltip>
         ) : (
           <div className="tbuttons">
             <PreviewButton name={task.fileName} onClick={() => onPreview(task)} />

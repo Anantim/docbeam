@@ -19,7 +19,7 @@ const n = plural;
 export function SendDialog({ files, folders, busy, onSend, onCancel }: Props) {
   return (
     <ConfirmDialog
-      title={`Send ${n(files, 'file', 'files')} to ${n(folders, 'folder', 'folders')}?`}
+      heading={`Send ${n(files, 'file', 'files')} to ${n(folders, 'folder', 'folders')}?`}
       confirmLabel="Send"
       cancelLabel="Cancel"
       tone="primary"

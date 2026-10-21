@@ -22,6 +22,8 @@ const job = (n: number, completed = 0): JobSummary => ({
   taskCount: 10,
   fileCount: 2,
   destinationCount: 1,
+  fileNames: ['a.pdf', 'b.pdf'],
+  destinations: ['Cardio / Regulatory / IRB approvals'],
   counts: { pending: 10 - completed, in_progress: 0, completed, failed: 0, cancelled: 0 },
   status: completed === 10 ? 'completed' : 'in_progress',
 });

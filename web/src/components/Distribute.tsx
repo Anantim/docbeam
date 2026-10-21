@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { keepSelected, pickRow, type Pick } from '../distribute/rows.js';
-import { plural } from '../text.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
 import {
   applyHeld,
@@ -23,6 +22,7 @@ import type { UploadManager } from '../upload/manager.js';
 import { AddFiles } from './AddFiles.js';
 import { Destinations } from './Destinations.js';
 import { FileTable } from './FileTable.js';
+import { FILTER_AFTER, ListFilter, matchesFilter } from './ListFilter.js';
 import { Preview } from './Preview.js';
 import { SendBar } from './SendBar.js';
 import { SendDialog } from './SendDialog.js';
@@ -46,6 +46,11 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const selected = pick.selected;
   const [rejected, setRejected] = useState<Rejected[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  // The "Filter…" box over the file list (D-F1-41): it only narrows what is listed. Selection, Select all, the folders and
+  // Send always act on every file.
+  const [fileFilter, setFileFilter] = useState('');
+  const fileFilterBox = useRef<HTMLInputElement>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
   const [asking, setAsking] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -73,12 +78,16 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const pickFiles = useCallback(
     (picked: File[]) => {
       if (picked.length === 0) return;
-      const { accepted, rejected: refused } = acceptFiles(manager.getSnapshot().length, picked);
-      if (refused.length > 0) setRejected((r) => [...r, ...refused]);
-      if (accepted.length > 0) {
-        manager.add(accepted);
-        setSendError(null);
-      }
+      // Each file's first bytes are read before it is added (D-F1-44), so this answers a moment later. Picks are handled one
+      // after the other, so two quick drops each count the files the first one added and cannot go over the cap together.
+      queue.current = queue.current.then(async () => {
+        const { accepted, rejected: refused } = await acceptFiles(manager.getSnapshot().length, picked);
+        if (refused.length > 0) setRejected((r) => [...r, ...refused]);
+        if (accepted.length > 0) {
+          manager.add(accepted);
+          setSendError(null);
+        }
+      });
     },
     [manager],
   );
@@ -115,6 +124,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     setPick({ selected: new Set(), anchor: null });
     setRejected([]);
     setSendError(null);
+    setFileFilter('');
   };
 
   const send = async () => {
@@ -138,7 +148,10 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   };
 
   const previewing = previewId ? files.find((f) => f.id === previewId) : undefined;
-  const order = files.map((f) => f.id);
+  const listed = files.filter((f) => matchesFilter(f.name, fileFilter));
+  // A Shift click selects the files between two clicks as they are listed.
+  const order = listed.map((f) => f.id);
+  const filterShown = files.length > FILTER_AFTER.files || fileFilter !== '';
 
   return (
     <>
@@ -153,9 +166,20 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onPick={pickFiles}
             rejected={rejected}
             onDismiss={() => setRejected([])}
+            tools={
+              filterShown ? (
+                <ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files" className="files-filter" size="sm" />
+              ) : undefined
+            }
+            hint={fileFilter.trim() !== '' ? `Showing ${listed.length} of ${files.length}` : undefined}
           >
             <FileTable
               files={files}
+              listed={listed}
+              onClearFilter={() => {
+                setFileFilter('');
+                fileFilterBox.current?.focus();
+              }}
               mapping={mapping}
               selected={selected}
               onPick={(id, mods) => setPick((p) => pickRow(p, order, id, mods))}
@@ -170,7 +194,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}
-            hint={selectedUsable.length > 0 ? `for ${plural(selectedUsable.length, 'selected file', 'selected files')}` : undefined}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
             filesOf={(d) => {
               // The files in scope (the selected ones, or all) that go to this folder.

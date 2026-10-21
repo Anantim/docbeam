@@ -49,7 +49,7 @@ interface TaskSpec {
 /** A job by Priya with one file per task. `fileAgeHours` and `firstCompletedHoursAgo` set the retry window. */
 async function insertJob(
   specs: TaskSpec[],
-  options: { fileAgeHours?: number; firstCompletedHoursAgo?: number; completed?: boolean; sender?: { email: string; name: string }; sentHoursAgo?: number; id?: string } = {},
+  options: { fileAgeHours?: number; firstCompletedHoursAgo?: number; completed?: boolean; sender?: { email: string; name: string }; sentHoursAgo?: number; id?: string; sentAt?: Date } = {},
 ): Promise<{ jobId: string; taskIds: string[]; fileIds: string[] }> {
   const jobId = options.id ?? randomUUID();
   madeJobs.push(jobId);
@@ -57,8 +57,8 @@ async function insertJob(
   const sender = options.sender ?? { email: priya, name: 'Priya Shah' };
   await db.query(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
-     VALUES ($1, $2, $6, $3, $4, now(), $5, $5, now() - ($7::float * interval '1 hour'))`,
-    [jobId, ids[sender.email], specs.length, randomUUID(), done ? new Date(Date.now() - (options.firstCompletedHoursAgo as number) * 3_600_000) : null, sender.name, options.sentHoursAgo ?? 0],
+     VALUES ($1, $2, $6, $3, $4, now(), $5, $5, COALESCE($8::timestamptz, now() - ($7::float * interval '1 hour')))`,
+    [jobId, ids[sender.email], specs.length, randomUUID(), done ? new Date(Date.now() - (options.firstCompletedHoursAgo as number) * 3_600_000) : null, sender.name, options.sentHoursAgo ?? 0, options.sentAt ?? null],
   );
   const taskIds: string[] = [];
   const fileIds: string[] = [];
@@ -174,6 +174,18 @@ describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
     const list = await get(sam, '/jobs?scope=team');
     expect(list.body.items.map((j: { jobId: string }) => j.jobId)).not.toContain(job.jobId);
     expect((await get(sam, '/jobs/not-a-uuid')).status).toBe(404);
+  });
+
+  it('gives each delivery the type found in the file\'s contents, else the declared one (D-F1-44)', async () => {
+    const typed = await insertJob([{ team: cardio, status: 'completed' }, { team: cardio, status: 'completed' }]);
+    // The first file's bytes were a DOCX although it was declared a PDF; the second has no stored type yet (an older file).
+    await db.query(`UPDATE files SET detected_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' WHERE id = $1`, [typed.fileIds[0]]);
+    const reply = await get(priya, `/jobs/${typed.jobId}/tasks`);
+    expect(reply.status).toBe(200);
+    expect(reply.body.tasks.map((t: { fileName: string; fileType: string }) => [t.fileName, t.fileType])).toEqual([
+      ['file-0.pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      ['file-1.pdf', 'application/pdf'],
+    ]);
   });
 
   it('returns tasks with reasons, filters by status and pages', async () => {
@@ -316,6 +328,36 @@ describe('GET /jobs filters and the cursor (D-F1-21)', () => {
     const second = (await get(priya, `/jobs?scope=all&limit=1&sender=me&${window}&cursor=${encodeURIComponent(first.nextCursor)}`)).body;
     expect(second.items[0].submittedBy.userId).toBe(ids[priya]);
     expect(second.items[0].jobId).not.toBe(first.items[0].jobId);
+  });
+
+  it('45 distributions sent at the same instant: walked with a cursor, 45 different rows, none missing, in id order (D-F1-40)', async () => {
+    const sentAt = new Date(Date.now() - 400 * 24 * 3_600_000); // a year ago: alone in its own window
+    const made: string[] = [];
+    for (let i = 0; i < 45; i += 1) made.push((await insertJob([{ team: cardio, status: 'completed' }], { sentAt })).jobId);
+    const window = `sentSince=${encodeURIComponent(new Date(sentAt.getTime() - 1000).toISOString())}`;
+    const seen: Item[] = [];
+    let cursor: string | null = null;
+    do {
+      const url: string = `/jobs?scope=all&limit=20&${window}&sender=me${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+      const page: { status: number; body: { items: Item[]; nextCursor: string | null } } = await get(priya, url);
+      expect(page.status).toBe(200);
+      seen.push(...page.body.items);
+      cursor = page.body.nextCursor;
+    } while (cursor);
+    const ours = idsOf(seen).filter((id) => made.includes(id));
+    expect(new Set(idsOf(seen)).size, 'no row twice').toBe(seen.length);
+    expect(ours.length, 'no row missing').toBe(45);
+    expect(ours, 'newest first, ties by id from the highest').toEqual([...made].sort().reverse());
+  });
+
+  it('gives the file names and the folders the caller may see, for the list (D-F1-40)', async () => {
+    const job = await insertJob([{ team: cardio, status: 'completed' }, { team: oncology, status: 'completed' }]);
+    const asSender = (await get(priya, `/jobs?scope=all&limit=100&idPrefix=${job.jobId.slice(0, 8)}`)).body.items[0];
+    expect(asSender.fileNames).toEqual(['file-0.pdf', 'file-1.pdf']);
+    expect(asSender.destinations).toEqual(['Cardio / Regulatory', 'Oncology / Imaging']);
+    const asRaj = (await get(raj, `/jobs?scope=all&idPrefix=${job.jobId.slice(0, 8)}`)).body.items[0];
+    expect(asRaj.fileNames).toEqual(['file-0.pdf']); // only what Raj may see
+    expect(asRaj.destinations).toEqual(['Cardio / Regulatory']);
   });
 
   it('only narrows: scope=mine and team still answer as before, and no filter shows a job the scope does not allow', async () => {

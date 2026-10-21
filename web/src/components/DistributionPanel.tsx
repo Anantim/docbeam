@@ -13,13 +13,15 @@ import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { CopyLinkButton } from './CopyLinkButton.js';
-import { DestinationChips } from './DestinationChips.js';
 import { CloseIcon } from './Icons.js';
 import { JobBar } from './JobBar.js';
+import { FILTER_AFTER, ListFilter } from './ListFilter.js';
 import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
 import { StatusChip } from './StatusChip.js';
-import { TaskTable } from './TaskTable.js';
+import { TeamList } from './TeamList.js';
+import { ROW_HEIGHT, TaskTable } from './TaskTable.js';
+import { Tooltip } from './Tooltip.js';
 
 interface Props {
   jobId: string;
@@ -34,6 +36,14 @@ interface Props {
   signedInAgain?: number;
   /** Move the focus to the heading when the panel opens (after a send). */
   focusHeading?: boolean;
+  /** The viewer's teams, by name, in their own order: for the note a team member sees (D-F1-52). */
+  teamNames?: readonly string[];
+}
+
+/** "Showing deliveries to your team:" or "… your teams:" (D-F1-52); with no names read yet, "Showing deliveries to your teams" and the full stop after it. */
+export function teamNoteLabel(count: number): string {
+  if (count === 0) return 'Showing deliveries to your teams';
+  return `Showing deliveries to your ${count === 1 ? 'team' : 'teams'}:`;
 }
 
 const FILTERS: Array<{ id: TaskKind | 'all'; label: string; key: keyof Counts | 'total' }> = [
@@ -57,7 +67,7 @@ const TASKS_VIEWPORT = 640;
  * sender, and the deliveries with their statuses. The progress bar and the filter numbers are the only counts; the
  * numbers move live. There is no history of audit events: the web app shows job history only (D-F1-13).
  */
-export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0, focusHeading = false }: Props) {
+export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0, focusHeading = false, teamNames = [] }: Props) {
   const { state, counts, reloadKey, reloadAll } = useJob(jobId, live);
   // Under 1024 px the page scrolls and the panel is under the list: the deliveries box is a fixed height there.
   const wide = useWide();
@@ -82,6 +92,10 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     if (counts) onCounts?.(jobId, counts);
   }, [counts, jobId, onCounts]);
   const [filter, setFilter] = useState<TaskKind | 'all'>('all');
+  // The "Filter…" box on the Deliveries row (D-F1-41, D-F1-46): it stays when the status choice changes, and goes with the distribution.
+  const [query, setQuery] = useState('');
+  const queryBox = useRef<HTMLInputElement>(null);
+  useEffect(() => setQuery(''), [jobId]);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
   const files = useFileLink();
@@ -93,48 +107,43 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const announced = useThrottled(announcement, 5_000);
 
   const close = (
-    <button className="icon" type="button" aria-label="Close" title="Close" onClick={onClose}>
-      <CloseIcon />
-    </button>
+    <Tooltip text="Close">
+      <button className="icon" type="button" aria-label="Close" onClick={onClose}>
+        <CloseIcon />
+      </button>
+    </Tooltip>
   );
 
   if (state.status === 'loading') {
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
         <div className="panel-head">
-          <h2 className="mono" tabIndex={-1} ref={headingRef}>
-            {shortId(jobId)}
-          </h2>
-          {close}
-        </div>
-        {/* The shape of the panel: the sent-by line, the folders, the progress bar, and the deliveries under their real header (D-F1-22). */}
-        <div className="panel-body" role="status" aria-busy="true" aria-label="Loading the distribution">
-          <div className="lead">
+          <div className="panel-top">
+            <h2 className="mono" tabIndex={-1} ref={headingRef}>
+              {shortId(jobId)}
+            </h2>
+            {close}
+          </div>
+          <div className="panel-sub">
             <span className="sk sk-lead" />
           </div>
-          <div className="chips jdest" aria-hidden="true">
-            <span className="sk sk-name" />
-            <span className="sk sk-name" />
-          </div>
-          <span className="sk sk-bar" />
+        </div>
+        {/* The shape of the panel: the header with its sent-by line, and the deliveries under their real header (D-F1-22, D-F1-46). */}
+        <div className="panel-body" role="status" aria-busy="true" aria-label="Loading the distribution">
           <div className="ttable" aria-hidden="true">
             <div className="trow thead">
-              <div>File and folder</div>
+              <div>Deliveries</div>
               <div>Status</div>
-              <div className="tattempts">Attempts</div>
               <div>Details</div>
             </div>
             {Array.from({ length: 4 }, (_, i) => (
-              <div className="trow" key={i} style={{ height: 64 }}>
+              <div className="trow" key={i} style={{ height: ROW_HEIGHT }}>
                 <div>
                   <span className="sk sk-file" />
                   <span className="sk sk-path" />
                 </div>
                 <div>
                   <span className="sk sk-chip" />
-                </div>
-                <div className="tattempts">
-                  <span className="sk sk-num" />
                 </div>
                 <div>
                   <span className="sk sk-date" />
@@ -180,6 +189,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const total = c.pending + c.in_progress + c.completed + c.failed + c.cancelled;
   const status = statusFromCounts(c, detail.cancelledAt !== null);
   const chip = jobChip(status);
+  // How many deliveries the status choice shows: the box is there when there are more than 15 of them.
+  const chosen = FILTERS.find((f) => f.id === filter);
+  const deliveriesShown = chosen ? (chosen.key === 'total' ? total : c[chosen.key]) : total;
 
   // Cancel is for a distribution that is still running: hidden once it has finished or was cancelled (D-M3-10).
   const running = status === 'pending' || status === 'in_progress';
@@ -210,49 +222,70 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
 
   return (
     <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
+      {/* The header is dense (D-F1-46): the id, the copy icon, the status and Close on one line; who sent it and when (and, for a
+          team member, the note) in one small line under it; then the progress as a 3 px line. The folders are not repeated here:
+          the deliveries table shows every one. */}
       <div className="panel-head">
-        <div className="panel-title">
-          <h2 className="mono" title={jobId} tabIndex={-1} ref={headingRef}>
-            {shortId(jobId)}
-          </h2>
-          <CopyLinkButton jobId={jobId} notify={notify} show="always" />
-          <StatusChip tone={chip.tone} label={chip.label} title={JOB_STATUS_MEANING[status]} big />
+        <div className="panel-top">
+          <div className="panel-title">
+            <Tooltip text={jobId}>
+              <h2 className="mono" tabIndex={-1} ref={headingRef}>
+                {shortId(jobId)}
+              </h2>
+            </Tooltip>
+            <CopyLinkButton jobId={jobId} notify={notify} show="always" />
+            <StatusChip tone={chip.tone} label={chip.label} meaning={JOB_STATUS_MEANING[status]} big />
+          </div>
+          {close}
         </div>
-        {close}
+        <div className="panel-sub">
+          <span className="panel-lead">
+            <span className="sentby">Sent by</span> <span className="sender-name">{detail.submittedBy.name}{detail.isSender ? ' (you)' : ''}</span>
+            {' · '}
+            {formatWhen(detail.createdAt)}
+          </span>
+          {/* Never for the sender, who sees every delivery; a team member is told whose deliveries these are, after a " · ". It
+              stays on this one line: the team names that do not fit are "+N", with every team in the shared popover (D-F1-52, D-F1-53). */}
+          {!detail.isSender && (
+            <span className="panel-note">
+              <span className="panel-sep">{' · '}</span>
+              <span className="panel-note-label">{teamNoteLabel(teamNames.length) + (teamNames.length > 0 ? ' ' : '')}</span>
+              {teamNames.length > 0 ? <TeamList names={teamNames} panelLabel="Your teams" end="." /> : '.'}
+            </span>
+          )}
+        </div>
+        <JobBar counts={c} total={total} />
       </div>
 
       <div className="panel-body">
         <div className="sr" role="status" aria-live="polite">
           {announced}
         </div>
-        <div className="lead">
-          <span className="sentby">Sent by</span> <span className="sender-name">{detail.submittedBy.name}{detail.isSender ? ' (you)' : ''}</span> · {formatWhen(detail.createdAt)}
-          {detail.isSender ? '' : '. Only the deliveries to your teams are shown.'}
-        </div>
-        <div className="chips jdest">
-          <DestinationChips paths={detail.destinations} visible={3} />
-        </div>
-        <JobBar counts={c} total={total} />
 
-        {/* The sender always sees the buttons; one that is off says why in its title (D-M3-10). */}
+        {/* The sender always sees the buttons; one that is off says why in its tooltip (D-M3-10, D-F1-47). */}
         {detail.isSender && (showCancel || canRetry || c.failed > 0) && (
           <div className="panel-actions">
             {showCancel && (
-              <button className="btn2" type="button" disabled={!canCancel} title={canCancel ? undefined : cancelReason(detail, c)} onClick={() => setConfirmCancel(true)}>
-                Cancel distribution
-              </button>
+              <Tooltip text={canCancel ? undefined : cancelReason(detail, c)}>
+                <button className="btn2" type="button" disabled={!canCancel} onClick={() => setConfirmCancel(true)}>
+                  Cancel distribution
+                </button>
+              </Tooltip>
             )}
             {(canRetry || c.failed > 0) && (
-              <button className="btn" type="button" disabled={!canRetry || busy} title={canRetry ? undefined : retryReason(detail)} onClick={() => void act('retry')}>
-                Retry failed
-              </button>
+              <Tooltip text={canRetry ? undefined : retryReason(detail)}>
+                <button className="btn" type="button" disabled={!canRetry || busy} onClick={() => void act('retry')}>
+                  Retry failed
+                </button>
+              </Tooltip>
             )}
           </div>
         )}
 
         <section className="panel-section" aria-label="Deliveries">
+          {/* One row, no title above it (the table's header says "Deliveries", D-F1-50): the status tabs on the left and, past 15
+              deliveries, the "Filter…" box on the right, the same height as the tab strip. */}
           <div className="panel-section-head">
-            <h3>Deliveries</h3>
             <div className="tfilters" role="group" aria-label="Filter deliveries by status">
               {FILTERS.filter((f) => f.id !== 'cancelled' || c.cancelled > 0 || filter === 'cancelled').map((f) => {
                 const n = f.key === 'total' ? total : c[f.key];
@@ -272,6 +305,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
                 );
               })}
             </div>
+            {(deliveriesShown > FILTER_AFTER.deliveries || query !== '') && (
+              <ListFilter ref={queryBox} value={query} onChange={setQuery} label="Filter deliveries" size="sm" className="deliveries-filter" />
+            )}
           </div>
           {files.banner && (
             <div role="status" className={`banner ${isLive(files.banner, files.now) ? '' : 'bad'}`}>
@@ -284,6 +320,11 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           <TaskTable
             jobId={jobId}
             status={filter}
+            query={query}
+            onClearFilter={() => {
+              setQuery('');
+              queryBox.current?.focus();
+            }}
             reloadKey={reloadKey}
             live={live}
             viewportHeight={TASKS_VIEWPORT}
@@ -308,7 +349,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
 
       {confirmCancel && (
         <ConfirmDialog
-          title="Cancel this distribution?"
+          heading="Cancel this distribution?"
           confirmLabel="Cancel distribution"
           cancelLabel="Keep it going"
           busy={busy}

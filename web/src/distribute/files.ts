@@ -1,4 +1,4 @@
-import { ALLOWED_FILE_TYPES, contentTypeForFileName, LIMITS } from '@docbeam/shared/browser';
+import { ALLOWED_FILE_TYPES, contentTypeForFileName, detectFileType, LIMITS, type ByteSource } from '@docbeam/shared/browser';
 
 export interface Rejected {
   name: string;
@@ -15,11 +15,20 @@ export interface PickResult {
   rejected: Rejected[];
 }
 
+/** The bytes of a file the way the type detector asks for them: a range at a time, never the whole file (D-F1-44). */
+export function fileSource(file: Blob): ByteSource {
+  return { size: file.size, read: async (start, end) => new Uint8Array(await file.slice(start, end).arrayBuffer()) };
+}
+
+const withArticle = (label: string): string => `${label === 'XLSX' ? 'an' : 'a'} ${label}`;
+
 /**
- * Applies the client-side rules of Step 2.6 to what the user picked: an allowed type (by extension, since the
- * browser's own `type` can be empty), 1 byte to 1 GiB, and room left under the 100-file cap.
+ * Applies the client-side rules of Step 2.6 to what the user picked: an allowed type by extension (the browser's own `type`
+ * can be empty), 1 byte to 1 GiB, and room left under the 100-file cap. Then the file's first bytes (and, for a DOCX or an
+ * XLSX, the file list at the end of the ZIP) must show the type its name says (D-F1-44): a renamed program, a PDF named
+ * .docx or a cut-off file is not added, and the reason says which.
  */
-export function acceptFiles(existingCount: number, picked: File[]): PickResult {
+export async function acceptFiles(existingCount: number, picked: File[]): Promise<PickResult> {
   const accepted: Accepted[] = [];
   const rejected: Rejected[] = [];
   let room = LIMITS.maxFilesPerJob - existingCount;
@@ -34,8 +43,16 @@ export function acceptFiles(existingCount: number, picked: File[]): PickResult {
     } else if (room <= 0) {
       rejected.push({ name: file.name, reason: `A distribution can have at most ${LIMITS.maxFilesPerJob} files.` });
     } else {
-      accepted.push({ file, contentType });
-      room -= 1;
+      const found = await detectFileType(fileSource(file)).catch(() => null);
+      if (found === contentType) {
+        accepted.push({ file, contentType });
+        room -= 1;
+      } else if (found === null) {
+        rejected.push({ name: file.name, reason: `This isn't a real ${typeLabel(contentType)} file.` });
+      } else {
+        const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        rejected.push({ name: file.name, reason: `The contents are ${withArticle(typeLabel(found))}, but the name says ${extension}.` });
+      }
     }
   }
   return { accepted, rejected };

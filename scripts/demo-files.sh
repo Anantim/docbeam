@@ -24,7 +24,8 @@ done
 # A 1x1 PNG
 printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x9a\xa0\xa0\x00\x00\x00\x00IEND\xaeB`\x82' >"$DIR/Site photo.png"
 
-# The standard EICAR test string. It is not a virus; every scanner refuses it on purpose.
-printf '%s' 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' >"$DIR/EICAR test file.pdf"
+# The standard EICAR test string, inside a real DOCX (the page no longer adds the bare text named .pdf: it is not a PDF).
+# It is not a virus; every scanner refuses it on purpose.
+node --no-warnings "$(dirname "$0")/eicar-docx.ts" "$DIR/EICAR test file.docx" >/dev/null
 
 echo "Wrote $(ls "$DIR" | wc -l) files in $DIR"

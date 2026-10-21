@@ -1,6 +1,8 @@
-// A test helper for the tooltip rule (D-M3-10): a button that shows only a symbol (a cross, an eye, an arrow)
-// has an aria-label, and a title with the same text. A checkbox drawn as a button needs the aria-label only,
-// because its title may instead say why it is off ("Add a file first").
+import { tooltipOf } from './tooltip.js';
+
+// A test helper for the tooltip rule (D-M3-10, D-F1-47): a button that shows only a symbol (a cross, an eye, an arrow)
+// has an aria-label, and a tooltip (the one Tooltip component, not a `title` attribute) with the same text. A checkbox
+// drawn as a button needs the aria-label only, because its tooltip may instead say why it is off ("Add a file first").
 
 const HAS_WORDS = /[\p{L}\p{N}]/u;
 
@@ -20,7 +22,8 @@ export function iconButtonProblems(root: ParentNode): string[] {
       continue;
     }
     if (b.getAttribute('role') === 'checkbox') continue;
-    if (b.getAttribute('title') !== label) out.push(`button "${label}" needs a title with the same text (title is ${JSON.stringify(b.getAttribute('title'))})`);
+    const tip = tooltipOf(b);
+    if (tip !== label) out.push(`button "${label}" needs a tooltip with the same text (the tooltip is ${JSON.stringify(tip)})`);
   }
   return out;
 }

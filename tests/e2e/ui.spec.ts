@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import JSZip from 'jszip';
 import { expect, test } from '@playwright/test';
 import {
   addPdfs,
@@ -6,6 +7,8 @@ import {
   CARDIO_PROTOCOL,
   chip,
   columnReport,
+  docx,
+  makePdf,
   PRIYA,
   RAJ,
   readCounts,
@@ -14,6 +17,7 @@ import {
   sendFiles,
   signIn,
   tick,
+  tooltipOf,
 } from './helpers.js';
 import { env } from '../integration/helpers.js';
 
@@ -46,7 +50,7 @@ test('a disabled button has the disabled attribute and the not-allowed cursor, a
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('disabled', '');
     await expect(button).toHaveCSS('cursor', 'not-allowed');
-    await expect(button).not.toHaveAttribute('title', /.+/); // the reason, when there is one, is text beside the buttons
+    expect(await tooltipOf(page, button)).toBeNull(); // the reason, when there is one, is text beside the buttons
     await expect(button).toHaveCSS('color', rgb('#98A2B3')); // greyed, not the live colour
   }
   // An enabled button of the same kind does not look like that.
@@ -65,7 +69,7 @@ test('on Status, a delivered file has live Preview and Download icon buttons', a
     const label = `${kind} ${name}`;
     const button = page.getByRole('button', { name: label, exact: true });
     await expect(button).toBeEnabled();
-    await expect(button).toHaveAttribute('title', label);
+    expect(await tooltipOf(page, button)).toBe(label);
     await expect(button).toHaveCSS('cursor', 'pointer');
     await expect(button).toHaveClass(/\bicon\b/); // the same form as on Distribute
   }
@@ -117,16 +121,21 @@ test('a file state on Distribute and a delivery state on Status are the same chi
 
 test('file type badges show the type as text, in one neutral style: colour is kept for status (D-F1-5)', async ({ page }) => {
   await signIn(page, PRIYA);
-  const bytes = Buffer.from('x');
+  // Real contents of each type: the page reads the bytes and adds only a file that is what its name says (D-F1-44).
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+  const xlsx = new JSZip();
+  xlsx.file('[Content_Types].xml', '<Types/>');
+  xlsx.file('xl/workbook.xml', '<workbook/>');
   const files = [
-    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF' },
-    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX' },
-    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX' },
-    { name: 'd.png', mimeType: 'image/png', type: 'PNG' },
-    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG' },
+    { name: 'a.pdf', mimeType: 'application/pdf', type: 'PDF', bytes: makePdf('badge') },
+    { name: 'b.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', type: 'DOCX', bytes: await docx('badge') },
+    { name: 'c.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', type: 'XLSX', bytes: await xlsx.generateAsync({ type: 'nodebuffer' }) },
+    { name: 'd.png', mimeType: 'image/png', type: 'PNG', bytes: png },
+    { name: 'e.jpg', mimeType: 'image/jpeg', type: 'JPG', bytes: jpg },
   ];
   const unique = files.map((f) => ({ ...f, name: `${randomUUID().slice(0, 6)}-${f.name}` }));
-  await page.getByLabel('Choose files').setInputFiles(unique.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: bytes })));
+  await page.getByLabel('Choose files').setInputFiles(unique.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: f.bytes })));
   for (const f of unique) await expect(page.locator('.frow', { hasText: f.name }).locator('.typetile')).toHaveText(f.type);
   const colours = await page.locator('.frow .typetile').evaluateAll((els: BrowserElement[]) => els.map((e) => getComputedStyle(e).color + getComputedStyle(e).backgroundColor));
   expect(new Set(colours).size).toBe(1);
@@ -190,7 +199,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
       // A long name ends with an ellipsis and its full text is in the title.
       const cell = page.locator(nameCell).first();
       await expect(cell).toHaveCSS('text-overflow', 'ellipsis');
-      expect(await cell.getAttribute('title'), `${label} at ${width}`).toContain(longName);
+      expect(await tooltipOf(page, cell), `${label} at ${width}`).toContain(longName);
       if (width === 1280) expect(await cell.evaluate((el: BrowserElement) => el.scrollWidth > el.clientWidth), `${label} at 1280 should be cut short`).toBe(true);
     }
   };
@@ -206,7 +215,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
     await page.waitForTimeout(300);
     const cell = page.locator('.ttable .tfile').first();
     await expect(cell).toHaveCSS('text-overflow', 'ellipsis');
-    expect(await cell.getAttribute('title'), `Deliveries at ${width}`).toContain(longName);
+    expect(await tooltipOf(page, cell), `Deliveries at ${width}`).toContain(longName);
     expect(await page.locator('.panel').evaluate((el: BrowserElement) => el.scrollWidth <= el.clientWidth + 1), `the panel scrolls sideways at ${width}`).toBe(true);
   }
 });

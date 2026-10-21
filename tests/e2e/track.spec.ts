@@ -19,6 +19,7 @@ import {
   startLive,
   startWorkers,
   stopLive,
+  tooltipOf,
   withWorkersStopped,
 } from './helpers.js';
 
@@ -64,8 +65,8 @@ test('counts and rows change live, and a reload mid-run loses nothing', async ({
     expect(await stillThere(page)).toBe(true);
 
     // The chip explains itself.
-    await expect(chip(page)).toHaveAttribute('title', 'Every delivery arrived.');
-    await expect(page.locator('.ttable .status-chip').first()).toHaveAttribute('title', /^Delivered to the folder in the platform\./);
+    expect(await tooltipOf(page, chip(page))).toBe('Every delivery arrived.');
+    expect(await tooltipOf(page, page.locator('.ttable .status-chip').first())).toMatch(/^Delivered to the folder in the platform\./);
   });
 });
 
@@ -85,7 +86,7 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       // Raj: Status shows everything he can see, so the distribution is there; open it.
       await raj.getByRole('button', { name: 'Status' }).click();
       await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
-      await expect(raj.getByText(/Sent by Priya Shah · .*Only the deliveries to your teams are shown/)).toBeVisible();
+      await expect(raj.getByText(/Sent by Priya Shah · .*Showing deliveries to your team: Cardio\./)).toBeVisible();
       await expect(raj.locator('.ttable .status-chip')).toHaveCount(2);
       await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
@@ -142,7 +143,7 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     await expect(chip(page)).toHaveText('Cancelled');
     expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Completed, Failed, In progress, Pending, Cancelled
     await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
-    await expect(page.locator('.ttable .code').first()).toHaveAttribute('title', /sender cancelled/);
+    expect(await tooltipOf(page, page.locator('.ttable .code').first())).toMatch(/sender cancelled/);
 
     // A cancelled distribution has no Cancel button (D-M3-10). Nothing failed, so there is no Retry button either.
     await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
@@ -169,7 +170,7 @@ test('a failure shows its reason in the row, with what the code means', async ({
     expect(await readCounts(page)).toEqual([0, 2, 0, 0]);
     const codes = page.locator('.ttable .code', { hasText: 'FILE_NOT_UPLOADED' });
     await expect(codes).toHaveCount(2);
-    await expect(codes.first()).toHaveAttribute('title', 'The file was not in storage when the delivery started.');
+    expect(await tooltipOf(page, codes.first())).toBe('The file was not in storage when the delivery started.');
     // The reason names the file and the destination.
     // (Rows sort by file name, and the names have a random part, so look each one up.)
     for (const fileName of names) {
@@ -189,7 +190,7 @@ test('a failure shows its reason in the row, with what the code means', async ({
     // A permanent failure cannot be retried, and Retry says so.
     const retry = page.getByRole('button', { name: 'Retry failed' });
     await expect(retry).toBeDisabled();
-    await expect(retry).toHaveAttribute('title', /No failed delivery can be retried/);
+    expect(await tooltipOf(page, retry)).toMatch(/No failed delivery can be retried/);
   });
 });
 
@@ -209,7 +210,7 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Retry failed' })).toBeEnabled();
   const code = page.locator('.ttable .code');
   await expect(code).toHaveText('RETRIES_EXHAUSTED');
-  await expect(code).toHaveAttribute('title', 'Tried 5 times over about 17 minutes; the platform did not accept it.');
+  expect(await tooltipOf(page, code)).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
 
   await noReload(page);
   await page.getByRole('button', { name: 'Retry failed' }).click();
@@ -250,7 +251,7 @@ test('the list shows everything I can see with their counts, and no Mine / My te
   await page.getByRole('button', { name: 'Status' }).click();
   const cards = page.locator('.dist-table tbody tr');
   await expect(cards.first()).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'Folders' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Destinations' })).toBeVisible();
   for (const gone of ['Mine', 'My teams', 'All I can see']) await expect(page.getByRole('button', { name: gone })).toHaveCount(0);
   await expect(page.getByRole('combobox')).toHaveCount(0); // and no status dropdown
   await expect(page.locator('.dist-sender').first()).toHaveText(/\S/); // the sender is on every row
@@ -260,7 +261,7 @@ test('the list shows everything I can see with their counts, and no Mine / My te
   await idField.fill('3f1c2a');
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('8-character ID');
-  const firstTitle = (await cards.first().locator('.dist-id').getAttribute('title')) as string;
+  const firstTitle = (await cards.first().locator('.dist-id').getAttribute('data-job-id')) as string;
   await idField.fill(`http://localhost:5173/#/status/${firstTitle.toUpperCase()}`);
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#/status/${firstTitle}$`));
@@ -316,7 +317,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
     const jobId = jobIdOf(page);
 
     await page.getByRole('complementary').getByRole('button', { name: 'Copy link' }).click();
-    await expect(page.getByText('Link copied.')).toBeVisible();
+    await expect(page.getByRole('complementary').locator('.copy-icons.on')).toHaveCount(1); // the green tick, in the panel header too
     expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
 
     // Back on Distribute the file is still there: it was hidden, not closed.
