@@ -1,0 +1,284 @@
+{
+  "01-sign-in": [
+    {
+      "n": 1,
+      "label": "typed by you · sent in POST /auth/login → email"
+    },
+    {
+      "n": 2,
+      "label": "typed by you · sent in POST /auth/login → password"
+    },
+    {
+      "n": 3,
+      "label": "press → POST /auth/login"
+    },
+    {
+      "n": 4,
+      "label": "fixed text in the page · no call"
+    }
+  ],
+  "01b-sign-in-error": [
+    {
+      "n": 1,
+      "label": "POST /auth/login 401 → error.message"
+    },
+    {
+      "n": 2,
+      "label": "computed in the browser · shows or hides the typed password"
+    }
+  ],
+  "01c-session-dialog": [
+    {
+      "n": 1,
+      "label": "opened when GET /jobs answered 401 and POST /auth/refresh was refused (401)"
+    },
+    {
+      "n": 2,
+      "label": "typed by you · sent in POST /auth/login (the email is the signed-in one)"
+    },
+    {
+      "n": 3,
+      "label": "press → POST /auth/logout"
+    }
+  ],
+  "02-files": [
+    {
+      "n": 1,
+      "label": "computed in the browser · first bytes read before the file is added; no request"
+    },
+    {
+      "n": 2,
+      "label": "chosen on your disk · name, size and type read in the browser (no call)"
+    },
+    {
+      "n": 3,
+      "label": "POST /uploads, then S3 POST, then GET /files → scanStatus (Ready = clean)"
+    },
+    {
+      "n": 4,
+      "label": "computed in the browser · off until every file is Ready and has a folder"
+    }
+  ],
+  "02b-refused": [
+    {
+      "n": 1,
+      "label": "GET /files → scanStatus \"infected\"; the reason is the chip tooltip (computed in the browser)"
+    },
+    {
+      "n": 2,
+      "label": "press → removes it from the page · no call (the server already deleted the object)"
+    }
+  ],
+  "03-destinations": [
+    {
+      "n": 1,
+      "label": "two letters or more → GET /folders/search?q="
+    },
+    {
+      "n": 2,
+      "label": "GET /teams → items[].name (teams are headings)"
+    },
+    {
+      "n": 3,
+      "label": "GET /teams/{teamId}/binders → items[].name"
+    },
+    {
+      "n": 4,
+      "label": "GET /binders/{binderId}/contents → folders[] · ticked in the browser (no call)"
+    }
+  ],
+  "03b-search": [
+    {
+      "n": 1,
+      "label": "typed by you · GET /folders/search?q=2026 (after a 300 ms pause)"
+    },
+    {
+      "n": 2,
+      "label": "GET /folders/search → items[].name and items[].names (the path above it)"
+    }
+  ],
+  "04-send-question": [
+    {
+      "n": 1,
+      "label": "computed in the browser · counts from the ticks: files, folders"
+    },
+    {
+      "n": 2,
+      "label": "press → POST /jobs (files[].fileId and sha256, mappings[].destinations)"
+    }
+  ],
+  "04b-status-after-send": [
+    {
+      "n": 1,
+      "label": "POST /jobs → jobId (the first 8 characters, computed in the browser)"
+    },
+    {
+      "n": 2,
+      "label": "GET /jobs/{jobId} → counts, turned into a word in the browser"
+    },
+    {
+      "n": 3,
+      "label": "GET /jobs/{jobId} → submittedBy.name and createdAt (the date is formatted in the browser)"
+    },
+    {
+      "n": 4,
+      "label": "GET /jobs/{jobId} → counts (each tab) · the list below is GET /jobs/{jobId}/tasks"
+    }
+  ],
+  "05-status-list": [
+    {
+      "n": 1,
+      "label": "GET /jobs/running → running (the badge counts distributions that are not finished)"
+    },
+    {
+      "n": 2,
+      "label": "chosen by you · sent as GET /jobs?status= (also kept in the address)"
+    },
+    {
+      "n": 3,
+      "label": "GET /teams/members → items[].name (the people in your teams)"
+    },
+    {
+      "n": 4,
+      "label": "GET /teams?limit=100 → items[].name"
+    },
+    {
+      "n": 5,
+      "label": "GET /jobs → items[].jobId (first 8 characters, computed in the browser)"
+    },
+    {
+      "n": 6,
+      "label": "GET /jobs → items[].status (a word and a colour chosen in the browser)"
+    },
+    {
+      "n": 7,
+      "label": "GET /jobs → items[].createdAt (written as \"Today, 12:41\" in the browser)"
+    },
+    {
+      "n": 8,
+      "label": "GET /jobs → items[].fileNames[0] (the first file; the rest are the +N)"
+    },
+    {
+      "n": 9,
+      "label": "GET /jobs → items[].destinations (the first two folder names)"
+    }
+  ],
+  "05b-panel": [
+    {
+      "n": 1,
+      "label": "GET /jobs/{jobId} → counts → status word (computed in the browser)"
+    },
+    {
+      "n": 2,
+      "label": "GET /jobs/{jobId} → submittedBy.name, createdAt · the team note: GET /teams (your team names)"
+    },
+    {
+      "n": 3,
+      "label": "GET /jobs/{jobId} → counts · updated by WS task_update → counts"
+    },
+    {
+      "n": 4,
+      "label": "GET /jobs/{jobId}/tasks → tasks[].fileName"
+    },
+    {
+      "n": 5,
+      "label": "press → POST /files/{fileId}/downloads, then S3 GET (chapter 7)"
+    },
+    {
+      "n": 6,
+      "label": "GET /jobs/{jobId}/tasks → tasks[].status · changed live by WS task_update"
+    },
+    {
+      "n": 7,
+      "label": "GET /jobs/{jobId}/tasks → tasks[].destinationPath"
+    }
+  ],
+  "05c-cancel-question": [
+    {
+      "n": 1,
+      "label": "computed in the browser · from GET /jobs/{jobId} → counts"
+    },
+    {
+      "n": 2,
+      "label": "press → POST /jobs/{jobId}/cancel"
+    }
+  ],
+  "05d-failed-and-retry": [
+    {
+      "n": 1,
+      "label": "GET /jobs/{jobId} → counts → \"Completed with errors\""
+    },
+    {
+      "n": 2,
+      "label": "GET /jobs/{jobId} → retry.open and retry.retryable · press → POST /jobs/{jobId}/retry"
+    },
+    {
+      "n": 3,
+      "label": "GET /jobs/{jobId}/tasks → status \"failed\""
+    },
+    {
+      "n": 4,
+      "label": "GET /jobs/{jobId}/tasks → failureCode, turned into a sentence in the browser"
+    }
+  ],
+  "05e-list-error": [
+    {
+      "n": 1,
+      "label": "GET /jobs 503 → the page says it in its own words (never the server text)"
+    },
+    {
+      "n": 2,
+      "label": "press → GET /jobs again"
+    }
+  ],
+  "06-team-member": [
+    {
+      "n": 1,
+      "label": "GET /jobs/running → running (his own view)"
+    },
+    {
+      "n": 2,
+      "label": "GET /jobs/{jobId} → isSender false, submittedBy.name · the note names Raj's teams (GET /teams)"
+    },
+    {
+      "n": 3,
+      "label": "GET /jobs/{jobId} → counts: only the deliveries to Raj's teams"
+    },
+    {
+      "n": 4,
+      "label": "GET /jobs/{jobId}/tasks → only Cardio rows"
+    }
+  ],
+  "06b-not-found": [
+    {
+      "n": 1,
+      "label": "the list below is Sam's own: GET /jobs"
+    },
+    {
+      "n": 2,
+      "label": "GET /jobs/{jobId} 404 → the page says \"not found\" in its own words"
+    }
+  ],
+  "07-preview": [
+    {
+      "n": 1,
+      "label": "S3 GET (the link from POST /files/{fileId}/downloads → url) · drawn in the browser"
+    }
+  ],
+  "07b-download": [
+    {
+      "n": 1,
+      "label": "computed in the browser · the link's expiry from POST /files/{fileId}/downloads → expiresAt"
+    },
+    {
+      "n": 2,
+      "label": "press → POST /files/{fileId}/downloads (mode download) → S3 GET"
+    }
+  ],
+  "07c-expired": [
+    {
+      "n": 1,
+      "label": "GET /jobs/{jobId}/tasks → fileExpired true · POST /files/{fileId}/downloads would answer 410"
+    }
+  ]
+}

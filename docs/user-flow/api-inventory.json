@@ -1,0 +1,56 @@
+{
+  "_note": "Every call the web app can make, found by reading the code (web/src), plus the public gateway routes it does not call. scripts/check-api-map.ts checks this list against the code, the gateway routes (infra/envs/dev/services.tf), the recorded traffic and docs/USER-FLOW-AND-APIS.md. A call that is added to the code and not listed here, or listed here and not explained in the guide, fails the check.",
+  "entries": [
+    { "label": "POST /auth/login", "kind": "api", "chapter": 1, "sources": ["web/src/auth/session.ts"] },
+    { "label": "POST /auth/refresh", "kind": "api", "chapter": 1, "sources": ["web/src/auth/session.ts"] },
+    { "label": "POST /auth/logout", "kind": "api", "chapter": 1, "sources": ["web/src/auth/session.ts"] },
+
+    { "label": "POST /uploads", "kind": "api", "chapter": 2, "sources": ["web/src/upload/api.ts"] },
+    { "label": "POST /files/{fileId}/multipart-uploads", "kind": "api", "chapter": 2, "sources": ["web/src/upload/api.ts"] },
+    { "label": "POST /files/{fileId}/multipart-uploads/{uploadId}/parts", "kind": "api", "chapter": 2, "sources": ["web/src/upload/api.ts"] },
+    { "label": "POST /files/{fileId}/multipart-uploads/{uploadId}/complete", "kind": "api", "chapter": 2, "sources": ["web/src/upload/api.ts"] },
+    { "label": "GET /files", "kind": "api", "chapter": 2, "sources": ["web/src/upload/api.ts"] },
+    { "label": "S3 POST (presigned form)", "kind": "s3", "chapter": 2, "sources": ["web/src/upload/browser-transport.ts"] },
+    { "label": "S3 PUT (presigned part)", "kind": "s3", "chapter": 2, "sources": ["web/src/upload/browser-transport.ts"] },
+    { "label": "S3 DELETE (multipart abort link)", "kind": "s3", "chapter": 2, "sources": ["web/src/upload/browser-transport.ts"] },
+
+    { "label": "GET /teams", "kind": "api", "chapter": 3, "sources": ["web/src/components/Destinations.tsx", "web/src/tracking/api.ts"] },
+    { "label": "GET /teams/{teamId}/binders", "kind": "api", "chapter": 3, "sources": ["web/src/components/Destinations.tsx"] },
+    { "label": "GET /binders/{binderId}/contents", "kind": "api", "chapter": 3, "sources": ["web/src/components/Destinations.tsx"] },
+    { "label": "GET /folders/{folderId}/contents", "kind": "api", "chapter": 3, "sources": ["web/src/components/Destinations.tsx"] },
+    { "label": "GET /folders/search", "kind": "api", "chapter": 3, "sources": ["web/src/destinations/search.ts"] },
+
+    { "label": "POST /jobs", "kind": "api", "chapter": 4, "sources": ["web/src/upload/api.ts"] },
+
+    { "label": "GET /jobs", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "GET /jobs/running", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "GET /jobs/{jobId}", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "GET /jobs/{jobId}/tasks", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "POST /jobs/{jobId}/retry", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "POST /jobs/{jobId}/cancel", "kind": "api", "chapter": 5, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "WS connect", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+    { "label": "WS send subscribe", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+    { "label": "WS receive subscribed", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+    { "label": "WS receive subscribe_error", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+    { "label": "WS receive task_update", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+    { "label": "WS receive job_update", "kind": "ws", "chapter": 5, "sources": ["web/src/live/socket.ts"] },
+
+    { "label": "GET /teams/members", "kind": "api", "chapter": 6, "sources": ["web/src/tracking/api.ts"] },
+
+    { "label": "POST /files/{fileId}/downloads", "kind": "api", "chapter": 7, "sources": ["web/src/tracking/api.ts"] },
+    { "label": "S3 GET (presigned download or preview link)", "kind": "s3", "chapter": 7, "sources": ["web/src/components/Preview.tsx", "web/src/tracking/useFileLink.ts"] },
+
+    { "label": "POST /auth/register", "kind": "unused", "chapter": 0, "sources": [] },
+    { "label": "GET /.well-known/jwks.json", "kind": "unused", "chapter": 0, "sources": [] },
+    { "label": "GET /.well-known/openid-configuration", "kind": "unused", "chapter": 0, "sources": [] },
+    { "label": "GET /audit", "kind": "unused", "chapter": 0, "sources": [] }
+  ],
+  "networkSites": {
+    "_note": "Every file in web/src that opens a network connection (fetch, XMLHttpRequest or WebSocket) outside its tests, and what for. A new file in this list's place fails the check.",
+    "web/src/auth/session.ts": "fetch: the three auth calls and every API call (apiFetch)",
+    "web/src/components/Preview.tsx": "fetch: the presigned link of a file being previewed",
+    "web/src/upload/browser-transport.ts": "XMLHttpRequest: the uploads to S3 (progress); fetch: the multipart abort",
+    "web/src/live/socket.ts": "WebSocket: the live connection",
+    "web/src/tracking/useFileLink.ts": "an anchor click: the browser downloads the presigned link (a navigation, not a script request)"
+  }
+}

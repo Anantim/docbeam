@@ -263,7 +263,23 @@ The totals at the end of that round (history; the latest are in 8.11): lint and 
 | B4. Row click: anywhere on a row opens its panel, except the copy icon and "+N" | YES (not a regression: it could not be reproduced; the test pins it; the recorder workaround is removed) | `row-click.spec.ts` (D-F1-64) |
 | B5. Live retry: a push when a delivery starts its second try or later, so "Retrying" and the counts change live; D-M2-16 and the design docs updated; the recorder's workaround removed | YES | `deliver.test.ts`, `TaskTable.test.tsx`, `retry-live.spec.ts` (D-F1-65) |
 
-Latest totals (2026-10-21): lint and typecheck clean; **810 unit tests in 92 files, 210 integration tests in 18 files, 124 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
+Latest totals (2026-10-21): lint and typecheck clean; **820 unit tests in 93 files, 210 integration tests in 18 files, 124 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
+
+### 8.12 The final sequence: demo and the user-flow guide (D-F1-69, D-F1-70)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| A1. Test totals agree everywhere with the latest full run (README "At a glance", README Tests, STATUS, F1-RESULTS) | YES (done in PR #39, and re-done at the end of each later part) | the "Latest totals" line of this section |
+| A2. Every demo caption and every DEMO-SCRIPT step checked against the final UI; the three known stale captions fixed | YES (PR #39) | `scripts/demo/record.ts`, `docs/DEMO-SCRIPT.md`, D-F1-63 |
+| A3. Steps for a renamed file, a failed delivery's info icon, copy link and Open by ID; a local target; not recorded yet | YES (PR #39; the recording was also made there, then again in Part C) | D-F1-63 |
+| C1. Demo recorded locally on the current main with the folder search and the reload; webm and mp4 replaced; README says locally, final build, date | YES: 285 s (4:45) | PR #41, D-F1-69 |
+| D1. Chapters in order: sign in, add files, choose folders, send, watch it, team member and "not found", preview and download | YES | `docs/USER-FLOW-AND-APIS.md` |
+| D2. Each chapter: what the user does, a sequence diagram, marked screenshots with sources, a network figure from recorded traffic, per call (when, request, answer excerpt, field-to-marker table, returned but not shown, computed in the browser), why with the ADR | YES | the guide: 9 Mermaid diagrams, 39 pictures |
+| D3. Presigned links chapter before chapter 2: analogy, what is inside (real masked example), what S3 checks, the real 403, why the API never carries bytes, why upload first, reviewer questions | YES, with one limit: the real `403` is from AWS dev (M5), because LocalStack does not validate signatures (an altered link answered `200` locally); an altered signature on AWS is not separately measured | the guide; D-F1-70 |
+| D4. Capture with Playwright on the local stack as Priya, Raj and Sam; every request, response and WebSocket frame, masked; error and empty states from responses (401 and the session dialog, 404, 410, validation errors, a failed list load with Try again) | YES (the 401s and the list's 503 are mocked by the capture, the 422, 400, 404, 410 are requests the capture sent; each is marked) | `docs/user-flow/capture/traffic.json` (331 records) |
+| D5. Inventory of every call from the code; `scripts/check-api-map.ts` fails on any gap; run in the unit tests with its output | YES: 36 calls (22 API, 4 S3, 6 WebSocket) and 4 public routes not called by the web app | `tests/scripts/check-api-map.test.ts`; output: `check-api-map: PASS (nothing missing)` |
+| D6. Public repo checks; images PNG, 1280 wide, under 10 MB | YES: `check-public.sh` PASS, no secret in the guide or `docs/user-flow/`, 39 images all 1280 px wide, 2.48 MB | D-F1-70 |
+| D7. Linked from README "Documents" and CODE-WALKTHROUGH; every new file accounted for | YES | `README.md`, `docs/CODE-WALKTHROUGH.md` |
 
 ### 8.9 Team note on one line, header teams, page spacing (D-F1-53, D-F1-54)
 

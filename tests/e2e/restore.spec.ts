@@ -39,8 +39,7 @@ test('a file that was still uploading is not restored, and the page says how man
   await page.getByLabel('Choose files').setInputFiles([pdf('midway-upload.pdf')]);
   await expect(page.locator('.frow', { hasText: 'midway-upload.pdf' })).toBeVisible();
   page.on('dialog', (d) => void d.accept()); // the browser asks before leaving: a file would be lost
-  await page.unroute(/localhost:4566/);
-  await page.reload();
+  await page.reload(); // the held request goes with the page (taking the route off first lets it through)
   await expect(page.getByRole('alert').filter({ hasText: '1 file could not be restored' })).toBeVisible();
   await expect(page.locator('.frow', { hasText: 'midway-upload.pdf' })).toHaveCount(0);
   await expect(page.locator('.frow', { hasText: 'kept-' })).toBeVisible();
