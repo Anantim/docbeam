@@ -15,7 +15,7 @@ test('a button that is off says why in text beside it, and a button with only an
   expect(await tooltipOf(page, send)).toBeNull();
   await expect(page.locator('.send-reason')).toHaveText('');
   await expect(page.getByRole('button', { name: 'Clear' })).toBeDisabled();
-  expect(await tooltipOf(page, page.getByRole('button', { name: 'Clear' }))).toBeNull();
+  expect(await tooltipOf(page, page.getByRole('button', { name: 'Clear' }))).toBe('Remove all files and folder ticks'); // says what it does even while off (D-F1-72)
   await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
   const tickBox = page.getByRole('checkbox', { name: /IRB approvals$/ });
@@ -73,5 +73,15 @@ test('a tooltip comes after 300 ms of resting, at once on keyboard focus, closes
   await expect(page.getByRole('tooltip')).toHaveText(`Remove ${name}`, { timeout: 500 });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear' }).click();
+});
+
+test('Clear, the file type tag and a binder heading explain themselves in a tooltip (D-F1-72)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await addPdfs(page, 1, 'tipdist');
+  expect(await tooltipOf(page, page.getByRole('button', { name: 'Clear' }))).toBe('Remove all files and folder ticks');
+  expect(await tooltipOf(page, page.locator('.typetile').first())).toBe("Type read from the file's contents");
+  await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
+  expect(await tooltipOf(page, page.locator('.name.binder').first())).toBe('Binders hold folders. Open it to choose a folder.');
   await page.getByRole('button', { name: 'Clear' }).click();
 });

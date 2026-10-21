@@ -22,6 +22,9 @@ interface Props {
   children: ReactNode;
 }
 
+/** "1 distribution still running", "3 distributions still running": the badge's tooltip and its accessible name (D-F1-71). */
+export const runningText = (n: number): string => `${n} ${n === 1 ? 'distribution' : 'distributions'} still running`;
+
 /** The app shell: the two tabs, the person, and sign out. */
 export function Shell({ claims, teams, view, onView, running = 0, children }: Props) {
   return (
@@ -36,9 +39,11 @@ export function Shell({ claims, teams, view, onView, running = 0, children }: Pr
             <button key={id} className="tab" type="button" aria-current={view === id ? 'page' : undefined} onClick={() => onView(id)}>
               {label}
               {id === 'status' && running > 0 && (
-                <span className="tab-badge" aria-label={`${running} running`}>
-                  {running}
-                </span>
+                <Tooltip text={runningText(running)}>
+                  <span className="tab-badge" role="img" aria-label={runningText(running)}>
+                    {running}
+                  </span>
+                </Tooltip>
               )}
             </button>
           ))}

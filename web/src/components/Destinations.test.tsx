@@ -2,6 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tooltipOf } from '../testing/tooltip.js';
 
 const apiFetch = vi.fn();
 vi.mock('../auth/session.js', () => ({ apiFetch: (path: string) => apiFetch(path) }));
@@ -55,6 +56,16 @@ describe('Destinations tree', () => {
     await screen.findByText('IRB approvals');
     expect(apiFetch).toHaveBeenCalledWith('/binders/b-reg/contents');
     expect(screen.queryByText('ignored.pdf')).toBeNull();
+  });
+
+  it('explains a binder heading in a tooltip, on hover and on focus (D-F1-72)', async () => {
+    const user = userEvent.setup();
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
+    const heading = (await screen.findByText('CARDIO-301 Regulatory')).closest('.binder') as HTMLElement;
+    expect(tooltipOf(heading)).toBe('Binders hold folders. Open it to choose a folder.');
+    await user.hover(heading);
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Binders hold folders. Open it to choose a folder.');
   });
 
   it('reports the team names for the header', async () => {

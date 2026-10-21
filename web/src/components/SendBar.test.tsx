@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import { tooltipOf } from '../testing/tooltip.js';
 import { SendBar } from './SendBar.js';
 
 afterEach(cleanup);
@@ -28,6 +30,14 @@ describe('SendBar (D-F1-20)', () => {
     const order = [...(reason.parentElement as HTMLElement).children];
     expect(order.indexOf(reason)).toBe(0);
     expect(order[1]?.textContent).toBe('Clear');
+  });
+
+  it('explains Clear in a tooltip, on hover and on focus (D-F1-72)', async () => {
+    render(<SendBar {...base} ready reason={null} sending={false} canClear />);
+    const clear = screen.getByRole('button', { name: 'Clear' });
+    expect(tooltipOf(clear)).toBe('Remove all files and folder ticks');
+    await userEvent.setup().hover(clear);
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Remove all files and folder ticks');
   });
 
   it('shows nothing when there is no reason (the empty page) and once Send is on', () => {

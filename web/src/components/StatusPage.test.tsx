@@ -302,7 +302,8 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     await user.click(await screen.findByRole('button', { name: 'Cancel distribution' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel this distribution?' });
-    expect(dialog.textContent).toContain('5 deliveries still waiting');
+    expect(dialog.textContent).toContain('The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.');
+    expect(dialog.textContent).not.toMatch(/CANCELLED|\d deliveries/); // no raw code, no count (D-F1-71)
     expect(api.cancel).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel distribution' }));
     await waitFor(() => expect(api.cancel).toHaveBeenCalledWith(JOB));
@@ -323,6 +324,19 @@ describe('Cancel and Retry', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(api.cancel).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('explains Cancel and Retry in a tooltip when they are on, on hover and on focus (D-F1-72)', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 4, failed: 1, pending: 5 }), retry: { open: true, retryable: 1 }, cancel: { open: true, waiting: 5 } }));
+    const user = userEvent.setup();
+    const page = renderPage();
+    await act(async () => page.release());
+    const cancel = await screen.findByRole('button', { name: 'Cancel distribution' });
+    const retry = screen.getByRole('button', { name: 'Retry failed' });
+    expect(tooltipOf(cancel)).toBe('Stop the deliveries still waiting. Ones already delivered or running are not affected.');
+    expect(tooltipOf(retry)).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
+    await user.hover(retry);
+    expect((await screen.findByRole('tooltip')).textContent).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
   });
 
   it('offers Retry only to the sender', async () => {
@@ -425,7 +439,7 @@ describe('Cancel and Retry', () => {
     expect(top.querySelector('.copy-link')).not.toBeNull();
     expect(top.querySelector('.status-chip')).not.toBeNull();
     expect(within(top).getByRole('button', { name: 'Close' })).toBeTruthy();
-    expect([...head.children].map((c) => c.className.split(' ')[0])).toEqual(['panel-top', 'panel-sub', 'jbar']); // the bar is the last line of the header, under the sent-by line
+    expect([...head.children].map((c) => c.className.split(' ')[0])).toEqual(['panel-top', 'panel-sub', 'tip-wrap']); // (the bar is wrapped by its tooltip, D-F1-71) the bar is the last line of the header, under the sent-by line
     expect(document.querySelector('.jdest, .chip')).toBeNull(); // the folders are in the deliveries table, not here
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
     expect(css).toMatch(/\.panel-head \.jbar \{ height: 3px;/);
