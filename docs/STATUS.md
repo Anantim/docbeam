@@ -27,6 +27,13 @@ Decisions D-F1-13 to D-F1-17 (`docs/DECISIONS.md`); every point with YES or NO i
 
 Decisions D-F1-18 to D-F1-21; YES/NO in `docs/testing/F1-RESULTS.md` section 8. Part 1 is merged (PR #33). The Distribute and Status changes are in the pull request that follows it: the bar says why Send is off in text, Destinations says "for N selected files" (only while files are ticked, D-F1-24), Status has no switch and one filter row (Status, Sender, Sent, Team) kept in the address, `GET /jobs` has a cursor and the new filters, `GET /teams/members` lists the people in your teams. **New infrastructure code:** a gateway route `GET /teams/members` in `infra/envs/dev` and `infra/envs/prod` (prod not applied). **The platform seed must run again** on any database that existed before (the deploy step does it) so that members get their names. **Not yet done:** Part 2 (dev bring-up, dev specs, the 20-minute session check, the browse timing, the new demo video, teardown). There is no `dev-up` workflow: dev is brought up from the laptop with `docs/RUNBOOK-first-bring-up.md`.
 
+### F1 dev round and the last UI batch (2026-10-21), branch `f6-dev-round`
+
+Decisions D-F1-39 to D-F1-54; YES/NO in `docs/testing/F1-RESULTS.md` sections 8.8 and 8.9. In this branch: the fixed-height Distribute screen, the dense panel, one "Filter…" box and one count popover, motion tokens and tooltips, 16 px tick boxes, the list loading on scroll, no Attempts column (attempt notes under the status), Open by ID highlight, file types from contents (browser and Upload Events Lambda; `files.detected_type`, migration 0004), a keyset order `(created_at, id)` (migration 0003), the team note and header teams on one line with "+N", and one page rhythm (`--gap-section` 16 px, `--gap-controls` 12 px).
+- **Tests (2026-10-21, local):** lint and typecheck clean; unit 88 files, 756 tests; integration 18 files, 204 tests (last run before the final UI edits, which touch only `web/`); Playwright 106 passed, 10 skipped (dev only) plus the one changed spacing test run again.
+- **Not done yet (Part 2, dev):** the end-to-end distribution timing, the new demo video, teardown, the README metrics table and the README F1 section rewrite. Dev AWS state: see the line at the top of this file when those are done.
+- **Known issues:** no 20-team screenshot (unit tests cover 20 teams); a few working-rule slips (shell edits) listed in D-F1-40, D-F1-47, D-F1-49 and D-F1-54.
+
 Earlier text of this file (before F1) follows.
 
 ## M5 (Hardening and end-to-end checks): release summary
