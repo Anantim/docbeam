@@ -41,7 +41,7 @@ export function useFileLink() {
     } catch (e) {
       if (e instanceof ApiFailure && e.status === 410) setBanner({ kind: 'gone', file });
       else if (e instanceof ApiFailure && e.status === 404) setBanner({ kind: 'denied', file });
-      else setBanner({ kind: 'failed', file, message: e instanceof ApiFailure ? e.message : 'The link could not be made. Try again.' });
+      else setBanner({ kind: 'failed', file, message: e instanceof ApiFailure ? e.message : "The link couldn't be made. Try again." });
       return null;
     }
   }, []);

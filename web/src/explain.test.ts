@@ -1,13 +1,13 @@
 import { FAILURE_CODES, JOB_STATUSES, TASK_STATUSES } from '@docbeam/shared/browser';
 import { describe, expect, it } from 'vitest';
-import { failureMeaning, FAILURE_MEANING, JOB_STATUS_MEANING, TASK_STATUS_MEANING, UPLOAD_STATUS_MEANING } from './explain.js';
+import { failureMeaning, FAILURE_MEANING, INFECTED_REASON, JOB_STATUS_MEANING, TASK_STATUS_MEANING, UPLOAD_STATUS_MEANING } from './explain.js';
 
 describe('the shared meanings', () => {
   it('has one line for every failure code, task status, job status and upload status', () => {
     expect(Object.keys(FAILURE_MEANING).sort()).toEqual([...FAILURE_CODES].sort());
     expect(Object.keys(TASK_STATUS_MEANING).sort()).toEqual([...TASK_STATUSES, 'cancelled'].sort());
     expect(Object.keys(JOB_STATUS_MEANING).sort()).toEqual([...JOB_STATUSES].sort());
-    expect(Object.keys(UPLOAD_STATUS_MEANING)).toHaveLength(9);
+    expect(Object.keys(UPLOAD_STATUS_MEANING)).toHaveLength(8); // malware is not a state: the file leaves the list (D-F1-78)
   });
 
   it('keeps each one short and on one line', () => {
@@ -29,17 +29,17 @@ describe('the shared meanings', () => {
       expect(sentence, code).not.toMatch(/\.(pdf|docx|xlsx|png|jpg)\b/i); // no file name
       expect(sentence, code).not.toContain(' / '); // no folder path
     }
-    for (const status of ['refused', 'interrupted', 'unchecked', 'infected'] as const) expect(UPLOAD_STATUS_MEANING[status], status).toBeTruthy();
+    for (const status of ['refused', 'interrupted', 'unchecked'] as const) expect(UPLOAD_STATUS_MEANING[status], status).toBeTruthy();
   });
 
   it('says it the way the person asked', () => {
-    expect(FAILURE_MEANING.FILE_NOT_UPLOADED).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(FAILURE_MEANING.FILE_NOT_UPLOADED).toBe("The file never finished uploading, so it couldn't be delivered.");
     expect(FAILURE_MEANING.CANCELLED).toBe('Cancelled by the sender before it was delivered.');
     expect(FAILURE_MEANING.DESTINATION_NOT_FOUND).toBe('The folder no longer exists.');
     expect(FAILURE_MEANING.NOT_AUTHORIZED_AT_DELIVERY).toBe('The sender is no longer in this team.');
-    expect(FAILURE_MEANING.RETRIES_EXHAUSTED).toBe('The platform did not respond after 5 attempts.');
-    expect(UPLOAD_STATUS_MEANING.infected).toBe('Malware was found. The file was deleted and cannot be sent.');
-    expect(UPLOAD_STATUS_MEANING.unchecked).toBe('The scan could not run.');
+    expect(FAILURE_MEANING.RETRIES_EXHAUSTED).toBe("The platform didn't respond after 5 attempts.");
+    expect(INFECTED_REASON).toBe('Malware was found. The file was deleted.');
+    expect(UPLOAD_STATUS_MEANING.unchecked).toBe("The scan couldn't run.");
     expect(UPLOAD_STATUS_MEANING.refused).toBe('Storage did not accept the upload.');
   });
 

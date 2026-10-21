@@ -242,7 +242,7 @@ try {
 
   // 4. Send, with a question first.
   await click(page.getByRole('button', { name: 'Send', exact: true }));
-  await say('Sending asks first. Delivered files can not be recalled, and Cancel is the default.', 3500);
+  await say("Sending asks first. Delivered files can't be recalled, and Cancel is the default.", 3500);
   await click(page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }));
   await page.waitForURL(/#\/status\//);
 

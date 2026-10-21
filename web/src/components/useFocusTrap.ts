@@ -32,7 +32,19 @@ export function useFocusTrap(box: RefObject<HTMLElement | null>, initial?: RefOb
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = overflow;
-      if (before && document.contains(before)) before.focus();
+      // Back to what opened it; if that is gone (the dialog was the question before Send, which clears the page), the page heading.
+      // A button that is off now (Send, after the page was cleared) cannot take the focus either.
+      const usable = before && document.contains(before) && before !== document.body && !(before as HTMLButtonElement).disabled;
+      if (usable) before.focus();
+      else focusPageHeading();
     };
   }, [box, initial]);
+}
+
+/** The first heading that is not hidden, which is the screen that shows, where the focus goes when what had it has left the page (D-F1-78). */
+export function focusPageHeading(): void {
+  const heading = [...document.querySelectorAll<HTMLElement>('h1')].find((h) => !h.closest('[hidden]'));
+  if (!heading) return;
+  heading.tabIndex = -1;
+  heading.focus();
 }

@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Popover } from './Popover.js';
 import { Tooltip } from './Tooltip.js';
 
-/** Up to this many teams are all shown as chips; with more, the first SHOWN_WHEN_MORE are and the rest are one "+N" chip. */
+/** Up to this many teams are all shown as chips; with more, the first SHOWN_WHEN_MORE are and the rest are one "+N" link. */
 export const CHIPS_ALL = 3;
 export const SHOWN_WHEN_MORE = 2;
 
@@ -16,7 +17,7 @@ export function sortedTeams(names: readonly string[]): string[] {
   return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }
 
-/** One team: a pill at most 100 px wide, cut with an ellipsis, with the full name on hover when it was cut. */
+/** One team: the same chip as a folder chip, at most 100 px wide and cut with an ellipsis, with the full name on hover when it was cut. */
 function Chip({ name }: { name: string }) {
   const box = useRef<HTMLSpanElement>(null);
   const [cut, setCut] = useState(false);
@@ -26,7 +27,7 @@ function Chip({ name }: { name: string }) {
   }, [name]);
   return (
     <Tooltip text={cut ? name : undefined} within=".panel">
-      <span ref={box} className="team-chip">
+      <span ref={box} className="chip">
         {name}
       </span>
     </Tooltip>
@@ -34,9 +35,9 @@ function Chip({ name }: { name: string }) {
 }
 
 /**
- * For a viewer who is not the sender (D-F1-77): " · Showing only deliveries to" and the teams as pills, on the one line
- * with the time. Up to 3 teams are all shown; with more, the first 2 and a "+N" chip, which is a Tab stop and whose tooltip
- * lists every team. A screen reader gets the whole sentence once, and not the pieces.
+ * For a viewer who is not the sender (D-F1-77): " · Showing only deliveries to" and the teams as chips, on the one line with
+ * the time. Up to 3 teams are all shown; with more, the first 2 and a "+N" link, which opens the shared popover with every
+ * team (a list of names is a popover, never a dark tooltip, D-F1-78). A screen reader gets the whole sentence once.
  */
 export function TeamChips({ teams }: { teams: readonly string[] }) {
   const names = sortedTeams(teams);
@@ -59,13 +60,7 @@ export function TeamChips({ teams }: { teams: readonly string[] }) {
             <Chip name={n} />
           </span>
         ))}
-        {hidden > 0 && (
-          <Tooltip text={names.join(', ')} within=".panel">
-            <button type="button" className="team-chip more" aria-label={`${hidden} more teams`}>
-              +{hidden}
-            </button>
-          </Tooltip>
-        )}
+        {hidden > 0 && <Popover label={`+${hidden}`} ariaLabel={`Show all ${names.length} teams`} panelLabel="Teams" items={names} align="end" />}
       </span>
     </span>
   );

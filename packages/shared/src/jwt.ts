@@ -118,7 +118,7 @@ export function createTokenVerifier(options: VerifierOptions): TokenVerifier {
       ({ payload } = await jwtVerify(token, getKey, { issuer: options.issuer, audience, algorithms: ['RS256'] }));
     } catch (err) {
       if (err instanceof ApiError) throw err;
-      if (err instanceof KeysUnavailable) throw new ApiError(503, 'INTERNAL_ERROR', 'Your sign-in could not be checked just now. Try again in a moment.');
+      if (err instanceof KeysUnavailable) throw new ApiError(503, 'INTERNAL_ERROR', "Your sign-in couldn't be checked just now. Try again in a moment.");
       if (err instanceof errors.JOSEError || err instanceof TypeError || err instanceof SyntaxError) throw unauthorized;
       throw err;
     }

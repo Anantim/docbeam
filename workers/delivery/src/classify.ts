@@ -1,4 +1,4 @@
-import type { FailureCode } from '@docbeam/shared';
+import { FAILURE_REASON, type FailureCode } from '@docbeam/shared';
 
 export type PlatformOutcome =
   | { kind: 'completed'; documentId: string }
@@ -14,17 +14,18 @@ export function classifyPlatformAnswer(status: number, errorCode: string | undef
     if (documentId) return { kind: 'completed', documentId };
     return { kind: 'temporary', detail: `The platform answered ${status} without a document id.` };
   }
+  // The reason of a permanent failure is the one sentence of its code (D-F1-78), the same one the web app shows.
   if (status === 403 && errorCode === 'NOT_A_MEMBER') {
-    return { kind: 'permanent', code: 'NOT_AUTHORIZED_AT_DELIVERY', detail: 'The sender is no longer a member of the destination team.' };
+    return { kind: 'permanent', code: 'NOT_AUTHORIZED_AT_DELIVERY', detail: FAILURE_REASON.NOT_AUTHORIZED_AT_DELIVERY };
   }
   if (status === 404 && errorCode === 'DESTINATION_NOT_FOUND') {
-    return { kind: 'permanent', code: 'DESTINATION_NOT_FOUND', detail: 'The destination no longer exists.' };
+    return { kind: 'permanent', code: 'DESTINATION_NOT_FOUND', detail: FAILURE_REASON.DESTINATION_NOT_FOUND };
   }
   if (status === 422 && errorCode === 'CHECKSUM_MISMATCH') {
-    return { kind: 'permanent', code: 'CHECKSUM_MISMATCH', detail: 'The platform received bytes that do not match the declared SHA-256.' };
+    return { kind: 'permanent', code: 'CHECKSUM_MISMATCH', detail: FAILURE_REASON.CHECKSUM_MISMATCH };
   }
   if (status === 422 && errorCode === 'UNSUPPORTED_TYPE') {
-    return { kind: 'permanent', code: 'UNSUPPORTED_TYPE', detail: 'The file does not match its declared type.' };
+    return { kind: 'permanent', code: 'UNSUPPORTED_TYPE', detail: FAILURE_REASON.UNSUPPORTED_TYPE };
   }
   return { kind: 'temporary', detail: `The platform answered ${status}${errorCode ? ` ${errorCode}` : ''}.` };
 }

@@ -22,11 +22,11 @@ export function registerAuditRoutes(app: FastifyInstance, db: Db, { platform }: 
     const userId = p.userId;
     const query = request.query as { jobId?: string; action?: string; page?: string; limit?: string };
 
-    if (query.jobId !== undefined && !UUID_PATTERN.test(query.jobId)) throw new ApiError(400, 'VALIDATION_ERROR', 'jobId is not valid.');
+    if (query.jobId !== undefined && !UUID_PATTERN.test(query.jobId)) throw new ApiError(400, 'VALIDATION_ERROR', 'The jobId is not valid.');
     // `action` takes one action or several separated by commas (the page's "Deliveries" filter is two).
     const actions = query.action ? query.action.split(',').map((a) => a.trim()).filter(Boolean) : [];
     if (actions.some((a) => !(AUDIT_ACTIONS as readonly string[]).includes(a))) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `action must be among ${AUDIT_ACTIONS.join(', ')}.`);
+      throw new ApiError(400, 'VALIDATION_ERROR', `The action must be among ${AUDIT_ACTIONS.join(', ')}.`);
     }
     const { page, limit, offset } = pageOf(query, LIMITS.auditPageDefault, LIMITS.auditPageMax);
     const teams = pgArray(await platform.userTeams(userId), 'uuid');

@@ -5,6 +5,7 @@ import { shortId } from '../tracking/format.js';
 import { When } from './When.js';
 import { extractJobId } from '../tracking/route.js';
 import { SearchIcon } from './Icons.js';
+import { Notice } from './Notice.js';
 import { Tooltip } from './Tooltip.js';
 
 interface Props {
@@ -61,6 +62,7 @@ export function OpenById({ onOpen, meId }: Props) {
     setMatches([]);
     setNote('');
     setOpen(false);
+    button.current?.focus(); // the card closes: the focus goes back to the icon that opened it (D-F1-78)
     onOpen(id);
   };
 
@@ -86,7 +88,7 @@ export function OpenById({ onOpen, meId }: Props) {
       else setMatches(found);
     } catch (e) {
       if (mine !== ticket.current) return;
-      setNote(e instanceof ApiFailure ? e.message : 'The ID could not be looked up. Try again.');
+      setNote(e instanceof ApiFailure ? e.message : "The ID couldn't be looked up. Try again.");
     } finally {
       if (mine === ticket.current) setBusy(false);
     }
@@ -134,11 +136,7 @@ export function OpenById({ onOpen, meId }: Props) {
               setMatches([]);
             }}
           />
-          {note && (
-            <div role="alert" className="openid-note">
-              {note}
-            </div>
-          )}
+          {note && <Notice heading={note} />}
           {matches.length > 0 && (
             <ul className="openid-matches" aria-label="Distributions with that ID">
               {matches.map((m) => (

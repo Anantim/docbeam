@@ -17,6 +17,6 @@ self.onmessage = (event: MessageEvent<HashRequest>) => {
   hashFile(file, multipart, (fraction) => self.postMessage({ id, type: 'progress', fraction } satisfies HashMessage))
     .then((result) => self.postMessage({ id, type: 'done', ...result } satisfies HashMessage))
     .catch((error: unknown) =>
-      self.postMessage({ id, type: 'error', message: error instanceof Error ? error.message : 'Could not read the file.' } satisfies HashMessage),
+      self.postMessage({ id, type: 'error', message: error instanceof Error ? error.message : "Couldn't read the file." } satisfies HashMessage),
     );
 };

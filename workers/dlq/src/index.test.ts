@@ -1,3 +1,4 @@
+import { FAILURE_REASON, FILE_REASON } from '@docbeam/shared';
 import type { SQSEvent, SQSRecord } from 'aws-lambda';
 import { describe, expect, it, vi } from 'vitest';
 import { createHandler } from './index.js';
@@ -43,21 +44,21 @@ describe('kindOf', () => {
 });
 
 describe('dlq handler', () => {
-  it('fails a task from the Task DLQ with RETRIES_EXHAUSTED and the last error', async () => {
+  it("fails a task from the Task DLQ with RETRIES_EXHAUSTED, and the stored reason ends with the one sentence the web app shows (D-F1-78)", async () => {
     const s = setup({
-      'FROM tasks t JOIN files': () => ({ rows: [{ job_id: JOB, last_error: 'The platform answered 503.', destination_path: 'Cardio / Reg', original_name: 'a.pdf' }], rowCount: 1 }),
+      'FROM tasks t JOIN files': () => ({ rows: [{ job_id: JOB, destination_path: 'Cardio / Reg', original_name: 'a.pdf' }], rowCount: 1 }),
       'RETURNING updated_at': () => ({ rows: [{ updated_at: new Date(), team_id: 't', file_id: 'f', destination_path: 'p' }], rowCount: 1 }),
     });
     const out = await s.handler({ Records: [record('docbeam-dev-task-dlq', { taskId: TASK })] } satisfies SQSEvent);
     expect(out).toEqual({ batchItemFailures: [] });
     const write = s.calls.find((c) => c.text.includes('RETURNING updated_at'));
-    expect(write?.values.slice(0, 4)).toEqual([TASK, 'failed', 'RETRIES_EXHAUSTED', expect.stringContaining('Last error: The platform answered 503.')]);
+    expect(write?.values.slice(0, 4)).toEqual([TASK, 'failed', 'RETRIES_EXHAUSTED', `a.pdf to Cardio / Reg: ${FAILURE_REASON.RETRIES_EXHAUSTED}`]);
     expect(s.calls.some((c) => c.text.includes('INSERT INTO audit_events'))).toBe(true);
   });
 
   it('does nothing more for a task that is already final', async () => {
     const s = setup({
-      'FROM tasks t JOIN files': () => ({ rows: [{ job_id: JOB, last_error: null, destination_path: null, original_name: 'a.pdf' }], rowCount: 1 }),
+      'FROM tasks t JOIN files': () => ({ rows: [{ job_id: JOB, destination_path: null, original_name: 'a.pdf' }], rowCount: 1 }),
     });
     const out = await s.handler({ Records: [record('docbeam-dev-task-dlq', { taskId: TASK })] } satisfies SQSEvent);
     expect(out).toEqual({ batchItemFailures: [] });
@@ -93,7 +94,7 @@ describe('dlq handler', () => {
     expect(out).toEqual({ batchItemFailures: [] });
     const write = s.calls.find((c) => c.text.includes("scan_status = 'failed'"));
     expect(write?.text).toContain("scan_status = 'pending'");
-    expect(write?.values).toEqual([FILE, `staging/${OWNER}/${FILE}`]);
+    expect(write?.values).toEqual([FILE, `staging/${OWNER}/${FILE}`, FILE_REASON.SCAN_FAILED]); // the reason is the sentence the web app shows
   });
 
   it('reports a message as failed when the database is down, so it stays in the DLQ', async () => {

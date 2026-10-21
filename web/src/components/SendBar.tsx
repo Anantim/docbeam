@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { Notice } from './Notice.js';
 import { Tooltip } from './Tooltip.js';
 
 interface Props {
@@ -23,11 +24,7 @@ export function SendBar({ ready, reason, sending, error, canClear, onClear, onSe
   return (
     <div className="sendbar">
       <div className="sendbar-inner">
-        {error && (
-          <div className="alert" role="alert">
-            {error}
-          </div>
-        )}
+        {error && <Notice heading={error} />}
         <div className="sendbar-row">
           <div className="send-reason" id={reasonId} role="status">
             {why}

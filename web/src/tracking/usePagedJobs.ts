@@ -60,7 +60,7 @@ export function usePagedJobs(filters: Filters = NO_FILTERS, enabled = true, inte
       next.current = cursor;
       setState((s) => ({ ...s, jobs, error: '', hasMore: cursor !== null, loadingMore: false, moreFailed: false }));
     } catch (e) {
-      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false }));
+      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : "The list couldn't be loaded.", loadingMore: false }));
     }
   }, [chosen]);
 
@@ -85,7 +85,7 @@ export function usePagedJobs(filters: Filters = NO_FILTERS, enabled = true, inte
       setState((s) => ({ ...s, jobs: [...(s.jobs ?? []), ...unseen(s.jobs ?? [], got.items)], hasMore: got.nextCursor !== null, loadingMore: false, moreFailed: false }));
       return added;
     } catch (e) {
-      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : 'The list could not be loaded.', loadingMore: false, moreFailed: true }));
+      if (ticket === latest.current) setState((s) => ({ ...s, error: e instanceof ApiFailure ? e.message : "The list couldn't be loaded.", loadingMore: false, moreFailed: true }));
       return null;
     } finally {
       moreInFlight.current = false;

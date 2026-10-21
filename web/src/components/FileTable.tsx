@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
-import { isUsable, type Mapping } from '../distribute/mapping.js';
+import type { Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
 import { PreviewButton } from './FileActions.js';
 import { CheckIcon, CloseIcon, MinusIcon, RetryIcon } from './Icons.js';
@@ -12,11 +12,11 @@ import { Tooltip } from './Tooltip.js';
 import { TypeBadge } from './TypeBadge.js';
 
 interface StatusView {
-  /** The state of the upload, in one word: Uploading, Scanning, Ready, Failed, Interrupted or Refused (malware only). */
+  /** The state of the upload, in one word: Uploading, Scanning, Ready, Failed or Interrupted. */
   text: string;
   tone: Tone;
   bar: boolean;
-  /** Why a file failed, was refused or stopped, in one line. */
+  /** Why a file failed or stopped, in one line. */
   reason?: string;
   /** The tooltip and screen-reader name of a state with no reason, for example "Scanning for malware". */
   tip?: string;
@@ -32,11 +32,11 @@ export function statusView(f: PageFile): StatusView {
     case 'uploading':
       return { text: 'Uploading', tone: 'busy', bar: true, detail: f.partCount > 0 ? `Part ${f.partsDone} of ${f.partCount}` : `${percent(f)}%` };
     case 'checking':
-      return { text: 'Scanning', tone: 'warn', bar: false, tip: 'Scanning for malware' };
+      return { text: 'Scanning', tone: 'busy', bar: false, tip: 'Scanning for malware' }; // working, like Uploading: blue (D-F1-78)
     case 'verified':
       return { text: 'Ready', tone: 'ok', bar: false };
     // "Failed" is a problem that can be tried again (Retry): storage did not accept the upload, or the scan could not run.
-    // "Refused" is only for malware: final, no Retry, the tick box locked (D-F1-38).
+    // A file with malware is not a row at all: the page takes it out and says why in the "not added" box (D-F1-78).
     // The reason is the tooltip of the chip, from the one reason map; nothing is written under the chip (D-F1-60).
     case 'refused':
       return { text: 'Failed', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.refused };
@@ -44,8 +44,6 @@ export function statusView(f: PageFile): StatusView {
       return { text: 'Interrupted', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.interrupted };
     case 'unchecked':
       return { text: 'Failed', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.unchecked };
-    case 'infected':
-      return { text: 'Refused', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.infected };
   }
 }
 
@@ -75,9 +73,8 @@ interface Props {
  * It is a grid so a screen reader announces which rows are selected; Enter or Space on a row selects it too.
  */
 export function FileTable({ files, listed = files, onClearFilter, mapping, selected, onPick, onToggleAll, onPreview, onRetry, onRemove }: Props) {
-  const usable = files.filter(isUsable);
-  const allOn = usable.length > 0 && usable.every((f) => selected.has(f.id));
-  const someOn = !allOn && usable.some((f) => selected.has(f.id));
+  const allOn = files.length > 0 && files.every((f) => selected.has(f.id));
+  const someOn = !allOn && files.some((f) => selected.has(f.id));
   const rows = useRef<HTMLDivElement>(null);
 
   // Up and Down move between rows; the rows are the tab stops of the grid (one Tab goes into it, arrows move in it).
@@ -126,53 +123,44 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
         {listed.length === 0 && files.length > 0 && onClearFilter && <NoMatches onClear={onClearFilter} />}
         {listed.map((f) => {
           const view = statusView(f);
-          const keys = isUsable(f) ? (mapping.files[f.id] ?? []) : [];
+          const keys = mapping.files[f.id] ?? [];
           const paths = keys.map((k) => mapping.destinations[k]?.path ?? '');
           const on = selected.has(f.id);
-          const infected = f.status === 'infected';
           const canRetry = f.status === 'refused' || f.status === 'interrupted' || f.status === 'unchecked';
           return (
             <div
               className={`frow ${on ? 'sel' : ''}`}
               role="row"
               data-id={f.id}
-              aria-selected={infected ? undefined : on}
-              tabIndex={infected ? undefined : 0}
+              aria-selected={on}
+              tabIndex={0}
               key={f.id}
               onKeyDown={(e) => {
                 onKeyDown(e);
                 // Enter or Space selects the focused row; Space must not also scroll the page.
-                if (!infected && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                   e.preventDefault();
                   onPick(f.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
                 }
               }}
               onClick={(e) => {
-                if (infected || (e.target as HTMLElement).closest('button, a, input')) return;
+                if ((e.target as HTMLElement).closest('button, a, input')) return;
                 onPick(f.id, { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
               }}
             >
               <div role="gridcell">
-                {infected ? (
-                  <Tooltip text={`${f.name} was refused for malware and cannot be selected or sent`}>
-                    <span className="ck locked" role="img" aria-label={`${f.name} was refused for malware and cannot be selected or sent`}>
-                      <CloseIcon size={14} />
-                    </span>
-                  </Tooltip>
-                ) : (
-                  // The row itself selects on a click or Enter; this box says what the selection is for, and is a click target
-                  // like the rest of the row (D-F1-23).
-                  <Tooltip text="Select to choose folders for this file">
-                    <span className={`box ${on ? 'on' : ''}`} role="checkbox" aria-checked={on} aria-label="Select to choose folders for this file">
-                      {on ? <CheckIcon size={12} /> : null}
-                    </span>
-                  </Tooltip>
-                )}
+                {/* The row itself selects on a click or Enter; this box says what the selection is for, and is a click target
+                    like the rest of the row (D-F1-23). */}
+                <Tooltip text="Select to choose folders for this file">
+                  <span className={`box ${on ? 'on' : ''}`} role="checkbox" aria-checked={on} aria-label="Select to choose folders for this file">
+                    {on ? <CheckIcon size={12} /> : null}
+                  </span>
+                </Tooltip>
               </div>
               <div className="fname" role="gridcell">
                 <TypeBadge contentType={f.contentType} />
                 <Tooltip text={f.name}>
-                  <span className={infected ? 'struck' : 'ellipsis fname-text'}>{f.name}</span>
+                  <span className="ellipsis fname-text">{f.name}</span>
                 </Tooltip>
                 <Tooltip text={`${f.sizeBytes.toLocaleString('en-US')} bytes`}>
                   <span className="size">{formatSize(f.sizeBytes)}</span>
@@ -197,9 +185,7 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 {view.detail !== undefined && <div className="fmsg">{view.detail}</div>}
               </div>
               <div className="chips" role="gridcell">
-                {infected ? (
-                  <span className="dot-text bad">Will not be sent</span>
-                ) : paths.length === 0 ? (
+                {paths.length === 0 ? (
                   <span className="dot-text warn">None yet</span>
                 ) : (
                   <Popover
@@ -211,10 +197,10 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 )}
               </div>
               <div className="actions" role="gridcell">
-                {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} {...(f.restored ? { offBecause: 'It is not available after a reload.' } : {})} />}
+                <PreviewButton name={f.name} onClick={() => onPreview(f.id)} {...(f.restored ? { offBecause: 'It is not available after a reload.' } : {})} />
                 {canRetry && (
                   <Tooltip text={`Retry upload of ${f.name}`}>
-                    <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
+                    <button className="icon" type="button" aria-label={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
                       <RetryIcon />
                     </button>
                   </Tooltip>

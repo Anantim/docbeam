@@ -41,7 +41,7 @@ export function registerInternalRoutes(app: FastifyInstance, db: Db): void {
 
   app.post('/destinations/check', memberships, async (request, reply) => {
     const parsed = checkBody.safeParse(request.body);
-    if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'userId and destinations are required.');
+    if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'The userId and destinations are required.');
     const { userId, destinations } = parsed.data;
 
     // A malformed id cannot exist, so it is "not found" like any other bad destination.

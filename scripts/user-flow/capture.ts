@@ -608,9 +608,9 @@ try {
   await page.keyboard.press('Escape');
   await page.route('**/api/jobs?**', mockJson(503, { error: { code: 'PLATFORM_UNAVAILABLE', message: 'The platform is not answering. Try again in a moment.' } }, 'provoked: the capture made this answer a 503, as when the platform is not answering'));
   await page.reload();
-  await page.getByText('The list could not be loaded').waitFor();
+  await page.getByText("The list couldn't be loaded.").waitFor();
   await shot(page, '05e-list-error', [
-    { n: 1, target: page.getByText('The list could not be loaded'), label: 'GET /jobs 503 → the page says it in its own words (never the server text)' },
+    { n: 1, target: page.getByText("The list couldn't be loaded."), label: 'GET /jobs 503 → the page says it in its own words (never the server text)' },
     { n: 2, target: page.getByRole('button', { name: 'Try again' }), label: 'press → GET /jobs again' },
   ]);
   await page.unroute('**/api/jobs?**');
@@ -687,10 +687,10 @@ try {
   await page.reload();
   await page.locator(ROWS).first().waitFor();
   from = lastId();
-  await page.locator(ROWS).first().getByRole('button', { name: /^Download|^Preview|Why this file cannot be opened/ }).first().click().catch(() => undefined);
+  await page.locator(ROWS).first().getByRole('button', { name: /^Download|^Preview|Why this file can't be opened/ }).first().click().catch(() => undefined);
   await page.waitForTimeout(1200);
   await shot(page, '07c-expired', [
-    { n: 1, target: page.getByRole('button', { name: 'Why this file cannot be opened' }).first(), label: 'GET /jobs/{jobId}/tasks → fileExpired true · POST /files/{fileId}/downloads would answer 410' },
+    { n: 1, target: page.getByRole('button', { name: "Why this file can't be opened" }).first(), label: 'GET /jobs/{jobId}/tasks → fileExpired true · POST /files/{fileId}/downloads would answer 410' },
   ]);
   const expiredFile = (await db('docbeam_db', "SELECT id FROM files WHERE job_id = $1 AND uploaded_at < now() - interval '33 days' LIMIT 1", [jobId]))[0]?.id as string | undefined;
   if (expiredFile) await rawApi(context, page, 'POST', `/files/${expiredFile}/downloads`, { mode: 'download' }, 'sent by the capture script: the file is older than 33 days (made so in the database), the page shows the info icon instead');

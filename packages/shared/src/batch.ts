@@ -44,7 +44,7 @@ export function validateBatch(batch: BatchInput): BatchResult {
     const own = new Set<string>();
     for (const destination of mapping.destinations) {
       // Only a folder can receive files. A binder is a heading in the tree (D-F1-3).
-      if (!destination.folderId) return fail('Choose a folder. Files cannot go to a binder.');
+      if (!destination.folderId) return fail("Choose a folder. Files can't go to a binder.");
       const key = destinationKey(destination);
       if (own.has(key)) return fail('A file is sent to the same destination twice.');
       own.add(key);

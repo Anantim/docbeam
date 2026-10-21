@@ -35,7 +35,7 @@ export function registerInternalRoutes(app: FastifyInstance, db: Db, issuer: Tok
   // Internal only: the gateway does not list this route (ADR-001).
   app.post('/auth/token', async (request, reply) => {
     const parsed = tokenBody.safeParse(request.body);
-    if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'clientId, clientSecret and scope are required.');
+    if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'The clientId, clientSecret and scope are required.');
     const { clientId, clientSecret, scope } = parsed.data;
 
     const [client] = await db.select().from(serviceClients).where(eq(serviceClients.clientId, clientId));
@@ -55,7 +55,7 @@ export function registerInternalRoutes(app: FastifyInstance, db: Db, issuer: Tok
     { preHandler: app.requireAuth({ use: 'service', scope: 'users:read' }) },
     async (request) => {
       const parsed = z.object({ email: z.string().min(1).max(254) }).safeParse(request.query);
-      if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'email is required.');
+      if (!parsed.success) throw new ApiError(400, 'VALIDATION_ERROR', 'The email is required.');
       const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, parsed.data.email));
       if (!user) throw new ApiError(404, 'NOT_FOUND', 'Not found.');
       return { id: user.id };

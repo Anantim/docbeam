@@ -156,7 +156,6 @@ button { font: inherit; cursor: pointer; }
 .btn2:hover { background: var(--surface-2); }
 .btn.danger { background: var(--error); border-color: var(--error); }
 .btn.danger:hover { background: var(--error); filter: brightness(0.9); }
-.btnsm { min-height: var(--control-sm); padding: 0 var(--s-3); font-size: var(--fs-2); }
 /* One disabled look for every button (D-M3-12): greyed, not-allowed cursor, still showing its title. */
 button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .btn:disabled, .btn2:disabled, .btn.danger:disabled { background: var(--surface-2); color: var(--text-off); border-color: var(--line); filter: none; }
@@ -169,7 +168,6 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .icon { width: var(--icon); height: var(--icon); border: 0; border-radius: var(--radius); background: none; color: var(--text-3); display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .icon:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .icon.small { width: var(--control-sm); height: var(--control-sm); }
-.icon.retry { color: var(--error); }
 .field { width: 100%; min-height: var(--control); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 0 var(--s-3); font: inherit; background: var(--surface); color: var(--text); }
 .field::placeholder { color: var(--text-3); }
 /* The password field has its own eye button inside its right end (PasswordField, D-F1-61); the browser's own reveal and clear
@@ -179,8 +177,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .pw-toggle-slot { position: absolute; top: 50%; right: var(--s-1); transform: translateY(-50%); display: inline-flex; }
 input::-ms-reveal, input::-ms-clear { display: none; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-4); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); min-height: 52px; }
-.alert { background: var(--error-bg); color: var(--error); border: 1px solid var(--error-dot); border-radius: var(--radius); padding: var(--s-3); font-weight: 500; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-4); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); min-height: calc(var(--control) + 2 * var(--s-3)); } /* as tall as a header that holds a --control box, so the Files and Destinations headers line up (D-F1-78) */
 .muted, .lead { color: var(--text-3); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .grow { flex: 1; min-width: 0; }
@@ -223,7 +220,6 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 .auth-form label { display: block; font-weight: 600; }
 .auth-form .btn { min-height: 44px; }
 .auth-foot { color: var(--text-3); font-size: var(--fs-2); text-align: center; }
-.pause-note { margin-top: var(--s-2); font-size: var(--fs-1); font-weight: 400; }
 
 /* shell: the top bar lines up with the page grid */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-8); padding: 0 max(var(--s-6), calc((100% - var(--page)) / 2 + var(--s-6))); background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; }
@@ -268,13 +264,19 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 .files-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .table-scroll { overflow-x: auto; }
 /* The "files not added" box: light, an error-coloured edge and icon, the name in normal text, the reason muted. */
-.not-added { display: flex; align-items: flex-start; gap: var(--s-3); margin: var(--s-3) var(--s-4); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); background: var(--surface-2); border-left: 3px solid var(--error-dot); border-radius: var(--radius); font-size: var(--fs-2); }
-.not-added-icon { display: inline-flex; color: var(--error); margin-top: var(--s-0); }
-.not-added-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
-.not-added-body strong { font-weight: 600; color: var(--text); }
-.not-added-body ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
-.not-added-name { color: var(--text); overflow-wrap: anywhere; }
-.not-added-reason { color: var(--text-3); }
+/* The one in-page note (D-F1-78): an icon, a short bold first line, a muted detail, a 3 px coloured edge, a --surface-2 ground. */
+.notice { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4); background: var(--surface-2); border-left: 3px solid var(--error-dot); border-radius: var(--radius); font-size: var(--fs-2); text-align: left; }
+.notice.info { border-left-color: var(--info-dot); }
+.notice-icon { display: inline-flex; color: var(--error); margin-top: var(--s-0); }
+.notice.info .notice-icon { color: var(--info); }
+.notice-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.notice-body strong { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.notice-detail { color: var(--text-3); }
+.notice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.notice-name { color: var(--text); overflow-wrap: anywhere; }
+.notice-retry { align-self: flex-start; font-size: var(--fs-2); }
+.notice.in-card { margin: var(--s-3) var(--s-4); }
+.notice.in-tree { margin: var(--s-2) var(--s-3); }
 /* The Documents table is one grid, so its columns size to their content: the name takes the spare room (D-M3-12). */
 .ftable { display: grid; grid-template-columns: 32px minmax(160px, 1fr) minmax(112px, 220px) max-content max-content; column-gap: var(--s-3); min-width: 0; }
 .ftable .chips { flex-wrap: nowrap; align-items: center; }
@@ -351,7 +353,6 @@ input[type='checkbox'], input[type='radio'] { width: 16px; height: 16px; min-hei
 .row .name.team { font-weight: 600; }
 .row .name.binder { color: var(--text-2); font-weight: 500; }
 .status-line { padding: var(--s-2) var(--s-4); color: var(--text-3); font-size: var(--fs-2); }
-.status-line.err { color: var(--error); }
 .status-line.nested { padding-left: calc(var(--s-8) + var(--level, 0) * var(--s-6)); }
 
 /* distribute: send bar */
@@ -404,7 +405,7 @@ html:has(.overlay) { background-color: var(--scrim-solid); }
 body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(--s-4)); }
 .toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-3); max-width: 360px; box-shadow: var(--shadow); }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--success-dot); flex: none; }
-.toast.error i { background: var(--warning-dot); }
+.toast.error i { background: var(--error-dot); }
 .preview-overlay { z-index: 90; }
 .preview { position: fixed; top: var(--s-8); bottom: var(--s-8); left: var(--s-4); right: var(--s-4); margin: 0 auto; max-width: 980px; display: flex; flex-direction: column; background: var(--surface); border-radius: var(--radius); z-index: 91; box-shadow: var(--shadow); overflow: hidden; }
 .preview-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-6); border-bottom: 1px solid var(--line); }
@@ -434,7 +435,6 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .openid { position: relative; }
 .openid-card { position: absolute; right: 0; top: calc(100% + var(--s-2)); z-index: 40; width: 320px; padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); box-shadow: var(--shadow); }
 .openid-card label { font-size: var(--fs-2); font-weight: 600; }
-.openid-note { color: var(--error); font-size: var(--fs-2); }
 .openid-matches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); }
 .openid-match { width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: var(--s-4); align-items: baseline; white-space: nowrap; min-height: var(--control); padding: 0 var(--s-3); border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; font-size: var(--fs-2); }
 .openid-matches li:last-child .openid-match { border-bottom: 0; }
@@ -519,7 +519,6 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 /* The invisible end of a list that has more: watched, so the next page loads before the end is reached. */
 .list-sentinel { height: 1px; }
 .dist-table td, .dist-table th { white-space: nowrap; }
-.dist-error { margin: var(--s-3) var(--s-4); }
 /* With the panel open the list is narrow: the file and destination counts go, the panel shows the folders. */
 @container (max-width: 640px) { .dist-more { display: none; } }
 @container (max-width: 460px) { .dist-table th, .dist-table td { padding-inline: var(--s-3); } }
@@ -538,10 +537,16 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 /* The spaces are inside the two pieces (kept by white-space: pre): white space between flex items would disappear. */
 .panel-sep, .panel-note-label { flex: none; white-space: pre; }
 .team-chips { display: inline-flex; align-items: center; gap: var(--s-1); margin-left: var(--s-2); }
-.team-chip { display: inline-block; box-sizing: border-box; height: 24px; line-height: 22px; max-width: 100px; padding: 0 var(--s-2); border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-button.team-chip.more { background: var(--surface-2); font-family: inherit; font-weight: 500; cursor: default; }
-button.team-chip.more:hover { color: var(--text); }
-button.team-chip.more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Below 640 px the note ("Showing only deliveries to" and the chips) is one unit on a line of its own, under the time (D-F1-78). */
+@media (max-width: 639px) {
+  .panel-sub { flex-wrap: wrap; row-gap: var(--s-1); }
+  .panel-sub .panel-lead { flex: 1 1 100%; }
+  .panel-note { flex: 1 1 100%; min-width: 0; overflow: hidden; }
+  .panel-note .panel-sep { display: none; }
+  .panel-note .panel-note-label { margin-right: 0; }
+}
+.team-chips .chip { max-width: 100px; } /* the same chip as the folder chips of the Files column, with a 100 px cap (D-F1-78) */
+.team-chips .count-link { margin-left: var(--s-1); }
 /* Cancel and Retry as icons just left of Close, then a thin divider (D-F1-77). */
 .panel-tools { display: flex; align-items: center; flex: none; }
 .panel-divider { width: 1px; height: 24px; margin: 0 6px; background: var(--line-strong); }
@@ -550,7 +555,6 @@ button.team-chip.more:focus-visible { outline: 2px solid var(--accent); outline-
 .panel-title h2, .panel-head > h2 { font-size: var(--fs-4); font-weight: 600; flex: 1; }
 .panel-title h2 { flex: none; }
 .panel-body { padding: var(--s-3) var(--s-4) var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-.panel-alert { margin: var(--s-4); }
 .panel-section { display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 auto; min-height: 12rem; }
 /* One row: the title, the status choice and, past 15 deliveries, the "Filter…" box. It wraps only when the panel is very narrow. */
 .panel-section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
@@ -560,8 +564,6 @@ button.team-chip.more:focus-visible { outline: 2px solid var(--accent); outline-
 .jbar { display: flex; height: 6px; border-radius: var(--radius); overflow: hidden; background: var(--line); }
 .jbar > div { transition: width 0.15s ease; background: var(--tone-dot); }
 .jbar.thin { height: 3px; margin-top: var(--s-1); width: 100%; min-width: 96px; }
-.banner { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-2) var(--s-3); background: var(--info-bg); color: var(--info); font-size: var(--fs-2); border-radius: var(--radius); }
-.banner.bad { background: var(--error-bg); color: var(--error); }
 .tfilters { display: flex; flex-wrap: wrap; align-items: center; box-sizing: border-box; min-height: var(--strip-h); gap: var(--s-0); padding: var(--s-0); background: var(--surface-2); border-radius: var(--radius); }
 .tfilter { min-height: var(--control-sm); padding: 0 var(--s-2); border: 0; border-radius: var(--radius); background: none; display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-1); font-weight: 500; color: var(--text-3); }
 .tfilter:disabled { color: var(--text-off); }
@@ -584,10 +586,10 @@ button.team-chip.more:focus-visible { outline: 2px solid var(--accent); outline-
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: var(--surface); }
 .tskel .trow { height: var(--row-h); background: var(--surface); }
-.tmargin { margin: var(--s-3); }
 .tfile-cell { min-width: 0; }
 .tfile-line { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
 /* The compact type tag of a delivery row: smaller than the one on Distribute. */
+.tfile-line > .tip-wrap:has(.typetile), .fname > .tip-wrap:has(.typetile), .preview-head > .tip-wrap:has(.typetile) { flex: none; } /* the tooltip around the type tag must not shrink the tag onto the name (D-F1-78) */
 .tfile-line .typetile { min-width: 0; padding: 0 var(--s-1); font-size: 10px; line-height: 16px; flex: none; }
 .tfile { font-weight: 500; }
 .tdetail { font-size: var(--fs-1); line-height: 1.4; min-width: 0; }
@@ -643,7 +645,7 @@ button, .btn, .btn2, .icon, .link, .tab, .count-link, .fbtn, .fitem, .tfilter, .
 .dist-table tbody tr.arrive.fresh { animation: fade-in var(--t-150) var(--ease-out), fresh-fade 1s var(--ease-out); }
 .frow[data-id] { animation: fade-in var(--t-150) var(--ease-out); }
 /* Boxes that appear, and a file's new state. */
-.not-added, .no-matches, .fstatus .status-chip, .fmsg { animation: fade-in var(--t-150) var(--ease-out); }
+.notice, .no-matches, .fstatus .status-chip, .fmsg { animation: fade-in var(--t-150) var(--ease-out); }
 /* The copy icon and its tick cross-fade over 120 ms. */
 .copy-icons { position: relative; display: inline-flex; width: 14px; height: 14px; }
 .copy-icons svg { position: absolute; inset: 0; transition: opacity var(--t-120) var(--ease-out); }

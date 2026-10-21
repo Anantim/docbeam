@@ -6,8 +6,6 @@ export const PAUSE_NOTE = 'After 5 wrong passwords in a row, sign-in pauses for 
 
 export function PauseNote() {
   return (
-    <p className="pause-note" data-testid="pause-note">
-      {PAUSE_NOTE}
-    </p>
+    <span data-testid="pause-note">{PAUSE_NOTE}</span>
   );
 }

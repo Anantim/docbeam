@@ -175,7 +175,7 @@ describe('usePagedJobs (cursor, D-F1-21)', () => {
     api.jobs.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(page([job('a', 'completed', 10)]));
     const { result } = renderHook(() => usePagedJobs());
     await act(async () => undefined);
-    expect(result.current.error).toBe('The list could not be loaded.');
+    expect(result.current.error).toBe("The list couldn't be loaded.");
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });

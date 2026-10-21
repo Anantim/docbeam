@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
@@ -167,7 +167,14 @@ describe('opening a distribution: subscribe first, fetch after', () => {
     api.job.mockRejectedValue(new ApiFailure(404, 'That distribution was not found.', 'NOT_FOUND'));
     const page = renderPage();
     await act(async () => page.release());
-    await screen.findByText('Distribution not found');
+    // The same header as the panel's other states (the short ID as the heading, and Close), with the answer as a note under it (D-F1-78).
+    const note = await screen.findByRole('alert');
+    expect(within(note).getByText('Distribution not found.')).toBeTruthy();
+    expect(note.textContent).toContain('You can see a distribution if you sent it');
+    expect(note.classList.contains('notice')).toBe(true);
+    const heading = screen.getByRole('heading', { name: '3f1c2a9e' });
+    expect(heading.tabIndex).toBe(-1); // focusable like the others
+    expect(within(screen.getByRole('complementary')).getByRole('button', { name: 'Close' })).toBeTruthy();
   });
 
   it('shows the summary and the deliveries in the panel, and no audit history anywhere (D-F1-13)', async () => {
@@ -366,13 +373,26 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     await user.click(await screen.findByRole('button', { name: 'Cancel distribution' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel this distribution?' });
-    expect(dialog.textContent).toContain('The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.');
+    expect(dialog.textContent).toContain('The deliveries still waiting will stop. Deliveries already running finish. This can\'t be undone.');
     expect(dialog.textContent).not.toMatch(/CANCELLED|\d deliveries/); // no raw code, no count (D-F1-72)
     expect(api.cancel).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel distribution' }));
     await waitFor(() => expect(api.cancel).toHaveBeenCalledWith(JOB));
     expect(notify).toHaveBeenCalledWith('3f1c2a9e: 5 deliveries cancelled.');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('gives the focus back to the Cancel icon when its question closes, however it is answered (D-F1-78)', async () => {
+    const user = userEvent.setup();
+    const page = renderPage();
+    await act(async () => page.release());
+    const cancel = await screen.findByRole('button', { name: 'Cancel distribution' });
+    await user.click(cancel);
+    await user.click(screen.getByRole('button', { name: 'Keep it going' }));
+    expect(document.activeElement).toBe(cancel);
+    await user.click(cancel);
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(cancel);
   });
 
   it('keeps the distribution going when the dialog is answered no or closed with Esc, and Esc does not close the panel', async () => {
@@ -484,7 +504,7 @@ describe('Cancel and Retry', () => {
       api.job.mockResolvedValue(
         detail({ isSender: false, taskCount: teams.length, counts: counts({ completed: teams.length }), status: 'completed', destinations: teams.map((t) => `${t} / ${t.slice(0, 5)}-1 / Folder`), fileCount: undefined, retry: undefined, cancel: undefined }),
       );
-    const chips = () => [...document.querySelectorAll('.panel-sub .team-chip')] as HTMLElement[];
+    const chips = () => [...document.querySelectorAll('.panel-sub .team-chips .chip')] as HTMLElement[];
     const chipOf = (name: string) => chips().find((c) => c.textContent === name) as HTMLElement;
     const sentence = () => document.querySelector('.panel-sub .panel-note .sr')?.textContent;
 
@@ -524,55 +544,40 @@ describe('Cancel and Retry', () => {
       await act(async () => page.release());
       await waitFor(() => expect(chips()).toHaveLength(3));
       expect(chips().map((c) => c.textContent)).toEqual(['Cardio', 'Neuro', 'Oncology']);
-      expect(document.querySelector('.panel-sub .team-chip.more')).toBeNull();
+      expect(document.querySelector('.panel-sub .team-chips .count-link')).toBeNull();
       expect(sentence()).toBe('Showing only deliveries to Cardio, Neuro and Oncology');
     });
 
-    it('10 teams: the first 2 chips and "+8", whose tooltip lists all 10 in order; "+8" is a Tab stop', async () => {
+    it('10 teams: the first 2 chips and "+8", which opens the shared popover listing all 10 in order; "+8" is a Tab stop (D-F1-78)', async () => {
       const ten = ['Oncology', 'Cardio', 'Neuro', 'Hepatology', 'Alpha', 'Zeta', 'Immunology', 'Renal', 'Delta', 'Pulmonary'];
       asMember(ten);
+      const user = userEvent.setup();
       const page = renderPage();
       await act(async () => page.release());
-      await waitFor(() => expect(chips().length).toBe(3));
       const sorted = [...ten].sort((a, b) => a.localeCompare(b));
-      expect(chips().map((c) => c.textContent)).toEqual([sorted[0], sorted[1], '+8']);
-      const more = document.querySelector('.panel-sub button.team-chip.more') as HTMLButtonElement;
-      expect(more.tabIndex).toBe(0); // focusable, like the "+N" of the Files column
-      expect(tooltipOf(more)).toBe(sorted.join(', '));
+      const more = (await screen.findByRole('button', { name: 'Show all 10 teams' })) as HTMLButtonElement;
+      expect(chips().map((c) => c.textContent)).toEqual([sorted[0], sorted[1]]);
+      expect(more.textContent).toBe('+8');
+      expect(more.classList.contains('count-link')).toBe(true); // the same link as the "+N" of the Files column
+      expect(more.tabIndex).toBe(0); // focusable
       expect(sentence()).toBe(`Showing only deliveries to ${sorted.slice(0, -1).join(', ')} and ${sorted[9]}`);
-      await userEvent.setup().hover(more);
-      expect((await screen.findByRole('tooltip')).textContent).toBe(sorted.join(', '));
+      // A list of names is the light popover, never a dark tooltip.
+      await user.click(more);
+      const popover = await screen.findByRole('dialog', { name: 'Teams' });
+      expect([...popover.querySelectorAll('li')].map((li) => li.textContent)).toEqual(sorted);
+      expect(screen.queryByRole('tooltip')).toBeNull();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog', { name: 'Teams' })).toBeNull();
+      expect(document.activeElement).toBe(more); // the focus goes back to the link
     });
 
-    it('the "+N" tooltip is kept inside the panel', async () => {
-      const ten = Array.from({ length: 10 }, (_, i) => `Team ${String(i + 1).padStart(2, '0')}`);
-      asMember(ten);
-      const page = renderPage();
-      await act(async () => page.release());
-      await waitFor(() => expect(document.querySelector('.panel-sub .team-chip.more')).not.toBeNull());
-      const panel = document.querySelector('.panel') as HTMLElement;
-      const rect = (left: number, width: number) => ({ left, right: left + width, top: 100, bottom: 120, width, height: 20, x: left, y: 100, toJSON: () => ({}) }) as DOMRect;
-      const real = Element.prototype.getBoundingClientRect;
-      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-        if (this === panel) return rect(700, 500); // the panel is 700 to 1200
-        if (this.classList.contains('tooltip')) return rect(0, 320);
-        if (this.classList.contains('tip-wrap') && this.querySelector('.team-chip.more')) return rect(1180, 24); // the "+N" is at the panel's right edge
-        return real.call(this);
-      });
-      vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1280);
-      act(() => {
-        fireEvent.focusIn(document.querySelector('.panel-sub .team-chip.more') as HTMLElement);
-      });
-      const tip = document.querySelector('[role="tooltip"]') as HTMLElement;
-      expect(Number.parseFloat(tip.style.left) + 320).toBeLessThanOrEqual(1200); // not past the panel's right edge
-      vi.restoreAllMocks();
-    });
-
-    it('stays on one line: the line never wraps, and a chip is at most 100 px wide and cut with an ellipsis', () => {
+    it('stays on one line: the line never wraps, and a team chip is the folder chip with a 100 px cap (D-F1-78)', () => {
       const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
       expect(css).toMatch(/\.panel-sub \{ display: flex; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap;/);
-      expect(css).toMatch(/\.team-chip \{[^}]*height: 24px;[^}]*max-width: 100px;[^}]*border: 1px solid var\(--line-strong\);[^}]*border-radius: 999px;[^}]*font-size: 12\.5px;[^}]*text-overflow: ellipsis/);
-      expect(css).toMatch(/button\.team-chip\.more \{ background: var\(--surface-2\)/);
+      expect(css).toMatch(/\.team-chips \.chip \{ max-width: 100px; \}/);
+      const chip = /^\.chip \{([^}]*)\}/m.exec(css)?.[1] ?? ''; // the one chip, the same as the folder chips of the Files column
+      for (const part of ['background: var(--surface-2)', 'border-radius: var(--radius)', 'font-size: var(--fs-1)', 'text-overflow: ellipsis']) expect(chip).toContain(part);
+      expect(css).not.toMatch(/\.team-chip\b/); // no pill and no outline of its own
     });
 
     it('a long team name is cut and shows in full on hover; a short one has no tooltip', async () => {
@@ -743,10 +748,35 @@ describe('the list and Open by ID', () => {
     const field = await openCard(user);
     const open = screen.getByRole('button', { name: 'Open' });
     expect(field.className).toBe('field'); // min-height: var(--control)
-    expect(open.className).toBe('btn'); // min-height: var(--control); not the small .btnsm
+    expect(open.className).toBe('btn'); // min-height: var(--control); there is no small button class any more
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
     expect(css).toMatch(/\.field \{ width: 100%; min-height: var\(--control\)/);
     expect(css).toMatch(/\.btn \{[^}]*min-height: var\(--control\)/);
+  });
+
+  it('the Open by ID card gives the focus back to its icon when it closes: after Esc, after a click outside, and after it opens a distribution (D-F1-78)', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    renderPage({ jobId: null, onOpen });
+    const button = screen.getByRole('button', { name: 'Open by ID' });
+    await openCard(user);
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(button);
+    const field = await openCard(user);
+    await user.type(field, `${JOB}{Enter}`);
+    expect(onOpen).toHaveBeenCalledWith(JOB);
+    expect(screen.queryByRole('form', { name: 'Open a distribution by ID' })).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closing the panel with Close gives the focus back to the row that opened it', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const page = renderPage({ onOpen, mine: mine([summary(JOB)]) });
+    await opened(page);
+    await user.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Close' }));
+    expect(onOpen).toHaveBeenCalledWith(null);
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('data-job-id')).toBe(JOB));
   });
 
   it('Open by ID is a small icon button: no box on the page until it is pressed, then one field in a card', async () => {
@@ -1002,9 +1032,9 @@ describe('the list and Open by ID', () => {
     expect(rows.length).toBe(5);
     for (const cls of ['.sk-id', '.sk-sender', '.sk-chip', '.sk-date']) expect(rows[0]?.querySelector(cls)).not.toBeNull();
     loading.unmount();
-    const m = mine(null, { error: 'The list could not be loaded.' });
+    const m = mine(null, { error: "The list couldn't be loaded." });
     renderPage({ jobId: null, mine: m });
-    expect(screen.getByRole('alert').textContent).toContain('The list could not be loaded.');
+    expect(screen.getByRole('alert').textContent).toContain("The list couldn't be loaded.");
     await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }));
     expect(m.refresh).toHaveBeenCalled();
   });
@@ -1073,7 +1103,7 @@ describe('the list and Open by ID', () => {
       const user = userEvent.setup();
       const m = mine(two, { hasMore: true, moreFailed: true });
       renderPage({ jobId: null, mine: m });
-      expect(screen.getByText("Couldn't load more")).toBeTruthy();
+      expect(screen.getByText("Couldn't load more.")).toBeTruthy();
       expect(watchers.every((w) => w.disconnected) || watchers.length === 0).toBe(true); // a failed page is not asked for again by scrolling
       await user.click(screen.getByRole('button', { name: 'Try again' }));
       expect(m.loadMore).toHaveBeenCalledTimes(1);
@@ -1140,7 +1170,7 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     await opened(page);
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
     await user.click(screen.getAllByRole('button', { name: 'Copy link' })[0] as HTMLElement);
-    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith('The link could not be copied.', 'error'));
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("The link couldn't be copied.", 'error'));
   });
 });
 
@@ -1247,7 +1277,7 @@ describe('the filter row (D-F1-21)', () => {
     const onFilters = vi.fn();
     api.jobs.mockResolvedValue({ items: [], nextCursor: null });
     renderPage({ jobId: null, onFilters, filters: { status: 'cancelled' } });
-    await screen.findByText('No distribution matches these filters');
+    await screen.findByText('No matches'); // one wording for every filter result, with a "Clear filters" link (D-F1-78)
     await user.click(within(document.querySelector('.state') as HTMLElement).getByRole('button', { name: 'Clear filters' }));
     expect(onFilters).toHaveBeenCalledWith({});
   });

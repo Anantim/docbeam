@@ -1,20 +1,12 @@
 // One plain-English line for each status chip and failure code, shown as the chip's title (D-M3-10).
 // The words live here, in one place, so a screen never invents its own wording. Short, one line each.
-import type { FAILURE_CODES, JOB_STATUSES, TASK_STATUSES } from '@docbeam/shared/browser';
+import { FAILURE_REASON, FILE_REASON, type JOB_STATUSES, type TASK_STATUSES } from '@docbeam/shared/browser';
 import type { FileStatus } from './upload/manager.js';
 
-// The one reason map (D-F1-60): a plain sentence for every failure code and for every problem a file can have on Distribute. Both
-// screens read it, nothing shows a raw code, and none of the sentences repeats the file name or the folder (the row has them).
-export const FAILURE_MEANING: Record<(typeof FAILURE_CODES)[number], string> = {
-  FILE_NOT_UPLOADED: 'The file never finished uploading, so it could not be delivered.',
-  CHECKSUM_MISMATCH: 'The file in storage does not match what was uploaded.',
-  UNSUPPORTED_TYPE: "The file's contents are not the type its name says.",
-  NOT_AUTHORIZED_AT_DELIVERY: 'The sender is no longer in this team.',
-  DESTINATION_NOT_FOUND: 'The folder no longer exists.',
-  RETRIES_EXHAUSTED: 'The platform did not respond after 5 attempts.',
-  FANOUT_FAILED: 'The distribution could not be split into deliveries.',
-  CANCELLED: 'Cancelled by the sender before it was delivered.',
-};
+// The one reason map (D-F1-60, D-F1-78): a plain sentence for every failure code and for every problem a file can have on Distribute.
+// Both screens read it, nothing shows a raw code, and none of the sentences repeats the file name or the folder (the row has them).
+// The sentences for the failure codes are the ones the workers and the API store as the reason of the task (`@docbeam/shared`).
+export const FAILURE_MEANING = FAILURE_REASON;
 
 export const TASK_STATUS_MEANING: Record<(typeof TASK_STATUSES)[number] | 'cancelled', string> = {
   pending: 'Queued. It has not started yet.',
@@ -40,9 +32,11 @@ export const UPLOAD_STATUS_MEANING: Record<FileStatus, string> = {
   verified: 'Stored, intact and scanned clean.',
   refused: 'Storage did not accept the upload.',
   interrupted: 'The connection broke. Retry carries on where it stopped.',
-  unchecked: 'The scan could not run.',
-  infected: 'Malware was found. The file was deleted and cannot be sent.',
+  unchecked: FILE_REASON.SCAN_FAILED,
 };
+
+/** Why a file left the Files list on its own: the scan found malware and the stored file was deleted (D-F1-78). It goes in the "not added" box. */
+export const INFECTED_REASON = FILE_REASON.MALWARE;
 
 /**
  * The reason for a delivery that did not arrive, from the one reason map (D-F1-60): the sentence for its code, and a plain

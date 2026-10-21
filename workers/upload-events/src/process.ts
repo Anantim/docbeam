@@ -7,7 +7,7 @@ import {
   PutObjectTaggingCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
-import { detectFileType, type ByteSource, type Logger, type UploadedObject } from '@docbeam/shared';
+import { detectFileType, FILE_REASON, type ByteSource, type Logger, type UploadedObject } from '@docbeam/shared';
 import type pg from 'pg';
 import type { Scanner } from './scanner.js';
 
@@ -118,12 +118,12 @@ export async function processUpload(deps: Deps, object: UploadedObject): Promise
   const result = await deps.scanner.scan(measure);
 
   if (result.status === 'infected') {
-    await refuse(deps, row, object, 'infected', { reason: 'MALWARE', signature: result.signature });
+    await refuse(deps, row, object, 'infected', { reason: 'MALWARE', detail: FILE_REASON.MALWARE, signature: result.signature });
     return 'done';
   }
   const sha256 = measure.hash.digest('hex');
   if (measure.bytes !== row.sizeBytes || sha256 !== row.checksumSha256) {
-    await refuse(deps, row, object, 'failed', { reason: 'MISMATCH', detail: 'The stored bytes do not match the declared SHA-256.' });
+    await refuse(deps, row, object, 'failed', { reason: 'MISMATCH', detail: FILE_REASON.MISMATCH });
     return 'done';
   }
 

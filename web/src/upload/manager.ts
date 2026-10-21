@@ -1,4 +1,4 @@
-import { hexToBase64, isMultipart, LIMITS, partCount } from '@docbeam/shared/browser';
+import { FILE_REASON, hexToBase64, isMultipart, LIMITS, partCount } from '@docbeam/shared/browser';
 import { ApiFailure } from '../auth/errors.js';
 import type { Accepted } from '../distribute/files.js';
 import type { UploadApi, UploadGrant } from './api-types.js';
@@ -17,8 +17,7 @@ export type FileStatus =
   /** The connection broke. Retry carries on from the parts that are already stored. */
   | 'interrupted'
   /** The Upload Events Lambda could not check the file (size or fingerprint, or its retries ran out). */
-  | 'unchecked'
-  | 'infected';
+  | 'unchecked';
 
 export interface PageFile {
   /** The page's own id. It stays the same when a new upload link (and so a new server id) is needed. */
@@ -134,6 +133,17 @@ export class UploadManager {
   };
 
   getSnapshot = (): readonly PageFile[] => this.files;
+
+  private readonly infectedListeners = new Set<(file: { id: string; name: string }) => void>();
+
+  /**
+   * Told when the scan finds malware in a file. The file has already been taken out of the list (the server deleted the stored
+   * object), so the page only has to forget its folder ticks and say why (D-F1-78).
+   */
+  onInfected = (listener: (file: { id: string; name: string }) => void): (() => void) => {
+    this.infectedListeners.add(listener);
+    return () => this.infectedListeners.delete(listener);
+  };
 
   /** True while a file is being read, waiting for a slot or uploading: the page asks before it is closed. */
   isRunning(): boolean {
@@ -288,7 +298,7 @@ export class UploadManager {
       this.partHashes.set(id, result.parts);
       this.pump();
     } catch {
-      if (this.internal.get(id)?.removed === false) this.patch(id, { status: 'refused', message: 'The file could not be read. Remove it and add it again.' });
+      if (this.internal.get(id)?.removed === false) this.patch(id, { status: 'refused', message: "The file couldn't be read. Remove it and add it again." });
     }
   }
 
@@ -340,7 +350,7 @@ export class UploadManager {
         this.patch(f.id, { serverId: grant.fileId });
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not get upload links.';
+      const message = error instanceof Error ? error.message : "Couldn't get upload links.";
       for (const f of wave) {
         const state = this.internal.get(f.id);
         if (!state || state.removed) continue;
@@ -544,9 +554,10 @@ export class UploadManager {
           if (!file || this.get(file.id)?.status !== 'checking') continue;
           if (s.scanStatus === 'clean' && s.uploaded) this.patch(file.id, { status: 'verified' });
           else if (s.scanStatus === 'infected') {
-            this.patch(file.id, { status: 'infected', message: 'Malware was found. The file was deleted and cannot be sent.' });
+            this.remove(file.id); // out of the list at once; the page is told below
+            for (const l of this.infectedListeners) l({ id: file.id, name: file.name });
           } else if (s.scanStatus === 'failed') {
-            this.patch(file.id, { status: 'unchecked', message: 'The file could not be checked. Retry to upload it again.' });
+            this.patch(file.id, { status: 'unchecked', message: FILE_REASON.SCAN_FAILED });
           }
         }
       }

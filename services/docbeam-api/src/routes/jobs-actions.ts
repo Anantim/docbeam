@@ -1,6 +1,6 @@
 // POST /jobs/:jobId/cancel and /retry (TDD Step 3.1). Both are for the sender only: someone who cannot see the
 // job gets 404, someone who can see it but did not send it gets 403 NOT_SENDER. Both lock the job row first.
-import { ApiError, failPendingTasks, pushJobUpdate, type Logger, type Poster, type Queryable } from '@docbeam/shared';
+import { ApiError, FAILURE_REASON, failPendingTasks, pushJobUpdate, type Logger, type Poster, type Queryable } from '@docbeam/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db.js';
@@ -57,7 +57,7 @@ export function registerJobActionRoutes(app: FastifyInstance, db: Db, { platform
     const result = await failPendingTasks(pool, {
       jobId,
       failureCode: 'CANCELLED',
-      detail: 'cancelled by the sender before it started.',
+      detail: FAILURE_REASON.CANCELLED,
       cancelledBy: { userId: principal.userId, name: principal.name, email: principal.email },
     });
     if (result.tasks.length === 0) throw new ApiError(409, 'NOTHING_TO_CANCEL', 'No delivery is waiting, so there is nothing to cancel.');

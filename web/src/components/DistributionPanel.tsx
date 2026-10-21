@@ -11,7 +11,7 @@ import { statusFromCounts } from '../tracking/apply.js';
 import { jobChip, plural, shortId, taskLook } from '../tracking/format.js';
 import { TAB_LABEL, tabCount, tabsFor, total, type TabId } from '../tracking/panelTabs.js';
 import { When } from './When.js';
-import { bannerText, isLive } from '../tracking/links.js';
+import { bannerParts, isLive } from '../tracking/links.js';
 import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
@@ -19,6 +19,7 @@ import { CopyLinkButton } from './CopyLinkButton.js';
 import { CloseIcon, RetryIcon, StopIcon } from './Icons.js';
 import { JobBar } from './JobBar.js';
 import { ListFilter } from './ListFilter.js';
+import { Notice } from './Notice.js';
 import { PanelFrame } from './PanelFrame.js';
 import { Preview } from './Preview.js';
 import { StatusChip } from './StatusChip.js';
@@ -102,6 +103,18 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
     </Tooltip>
   );
 
+  // The header of every state without a distribution to show yet: the short ID as the heading, and Close (D-F1-78).
+  const stateHeader = (
+    <div className="panel-head">
+      <div className="panel-top">
+        <h2 className="mono" tabIndex={-1} ref={headingRef}>
+          {shortId(jobId)}
+        </h2>
+        {close}
+      </div>
+    </div>
+  );
+
   if (state.status === 'loading') {
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
@@ -146,28 +159,16 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   if (state.status === 'notFound') {
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
-        <div className="panel-head">
-          <h2>Distribution not found</h2>
-          {close}
-        </div>
-        <div className="state">
-          <span>You can see a distribution if you sent it, or if it has deliveries to a team you are in.</span>
-        </div>
+        {stateHeader}
+        <Notice className="in-card" heading="Distribution not found." detail="You can see a distribution if you sent it, or if it has deliveries to a team you are in." />
       </PanelFrame>
     );
   }
   if (state.status === 'error') {
     return (
       <PanelFrame label={`Distribution ${shortId(jobId)}`} onClose={onClose}>
-        <div className="panel-head">
-          <h2 className="mono" tabIndex={-1} ref={headingRef}>
-            {shortId(jobId)}
-          </h2>
-          {close}
-        </div>
-        <div role="alert" className="alert panel-alert">
-          {state.message}
-        </div>
+        {stateHeader}
+        <Notice className="in-card" heading={state.message} onRetry={reloadAll} />
       </PanelFrame>
     );
   }
@@ -290,14 +291,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
             </div>
             <ListFilter ref={queryBox} value={query} onChange={setQuery} label="Filter deliveries" className="deliveries-filter" disabled={deliveriesShown === 0 && query === ''} />
           </div>
-          {files.banner && (
-            <div role="status" className={`banner ${isLive(files.banner, files.now) ? '' : 'bad'}`}>
-              <span>{bannerText(files.banner, files.now)}</span>
-              <button className="btn2 btnsm" type="button" onClick={files.dismiss}>
-                Dismiss
-              </button>
-            </div>
-          )}
+          {files.banner && <Notice tone={isLive(files.banner, files.now) ? 'info' : 'error'} {...bannerParts(files.banner, files.now)} onClose={files.dismiss} />}
           <TaskTable
             jobId={jobId}
             status={filter}
@@ -337,7 +331,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           onConfirm={() => void act('cancel')}
           onCancel={() => setConfirmCancel(false)}
         >
-          <p>The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.</p>
+          <p>The deliveries still waiting will stop. Deliveries already running finish. This can't be undone.</p>
         </ConfirmDialog>
       )}
     </PanelFrame>

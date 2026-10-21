@@ -83,31 +83,31 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const userId = caller(request);
     const query = request.query as { scope?: string; cursor?: string; limit?: string; status?: string; sender?: string; sentSince?: string; team?: string; idPrefix?: string };
     const scope = query.scope ?? 'mine';
-    if (scope !== 'mine' && scope !== 'team' && scope !== 'all') throw new ApiError(400, 'VALIDATION_ERROR', 'scope must be mine, team or all.');
+    if (scope !== 'mine' && scope !== 'team' && scope !== 'all') throw new ApiError(400, 'VALIDATION_ERROR', 'The scope must be mine, team or all.');
     if (query.status !== undefined && !(JOB_STATUSES as readonly string[]).includes(query.status)) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${JOB_STATUSES.join(', ')}.`);
+      throw new ApiError(400, 'VALIDATION_ERROR', `The status must be one of ${JOB_STATUSES.join(', ')}.`);
     }
     if (query.sender !== undefined && query.sender !== 'me' && !UUID_PATTERN.test(query.sender)) {
-      throw new ApiError(400, 'VALIDATION_ERROR', 'sender must be me or a user id.');
+      throw new ApiError(400, 'VALIDATION_ERROR', 'The sender must be me or a user id.');
     }
     // An ISO 8601 date or a date-time with a zone (2026-10-20 or 2026-10-20T10:00:00Z); a repeated parameter is not one.
     const ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2}))?$/;
     const sentSince = query.sentSince === undefined ? null : typeof query.sentSince === 'string' && ISO.test(query.sentSince) ? new Date(query.sentSince) : new Date(NaN);
-    if (sentSince !== null && Number.isNaN(sentSince.getTime())) throw new ApiError(400, 'VALIDATION_ERROR', 'sentSince must be an ISO date.');
-    if (query.team !== undefined && !UUID_PATTERN.test(query.team)) throw new ApiError(400, 'VALIDATION_ERROR', 'team must be a team id.');
+    if (sentSince !== null && Number.isNaN(sentSince.getTime())) throw new ApiError(400, 'VALIDATION_ERROR', 'The sentSince must be an ISO date.');
+    if (query.team !== undefined && !UUID_PATTERN.test(query.team)) throw new ApiError(400, 'VALIDATION_ERROR', 'The team must be a team id.');
     // The first 8 characters of an id, as the list shows them (D-F1-32). Looked up by a range on the primary key, so it uses the index.
     if (query.idPrefix !== undefined && !(typeof query.idPrefix === 'string' && /^[0-9a-f]{8}$/i.test(query.idPrefix))) {
-      throw new ApiError(400, 'VALIDATION_ERROR', 'idPrefix must be the first 8 characters of an id.');
+      throw new ApiError(400, 'VALIDATION_ERROR', 'The idPrefix must be the first 8 characters of an id.');
     }
     const after = query.cursor === undefined ? null : decodeJobCursor(query.cursor);
-    if (query.cursor !== undefined && after === null) throw new ApiError(400, 'VALIDATION_ERROR', 'cursor is not valid.');
+    if (query.cursor !== undefined && after === null) throw new ApiError(400, 'VALIDATION_ERROR', 'The cursor is not valid.');
     const limitRaw = Math.floor(Number(query.limit));
     const limit = query.idPrefix !== undefined ? ID_PREFIX_MATCHES : Math.min(LIMITS.jobsPageMax, limitRaw > 0 ? limitRaw : LIMITS.jobsPageDefault);
 
     // `mine` is what I sent, `team` is what others sent to my teams, `all` is both (D-F1-9).
     const teams = scope === 'mine' ? [] : await platform.userTeams(userId);
     // Filters only narrow what the scope already allows. A team that is not the caller's is refused, not shown empty.
-    if (query.team !== undefined && !teams.includes(query.team.toLowerCase())) throw new ApiError(400, 'VALIDATION_ERROR', 'team must be one of your teams.');
+    if (query.team !== undefined && !teams.includes(query.team.toLowerCase())) throw new ApiError(400, 'VALIDATION_ERROR', 'The team must be one of your teams.');
     const sharedWithMe = sql`id IN (SELECT job_id FROM tasks WHERE team_id = ANY(${pgArray(teams, 'uuid')}))`;
     let where = sql`submitted_by_user_id = ${userId}`;
     if (scope === 'team') where = teams.length === 0 ? sql`false` : sql`submitted_by_user_id <> ${userId} AND ${sharedWithMe}`;
@@ -264,7 +264,7 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const { jobId } = request.params as { jobId: string };
     const query = request.query as { status?: string; page?: string; limit?: string };
     if (query.status !== undefined && !(TASK_FILTERS as readonly string[]).includes(query.status)) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `status must be one of ${TASK_FILTERS.join(', ')}.`);
+      throw new ApiError(400, 'VALIDATION_ERROR', `The status must be one of ${TASK_FILTERS.join(', ')}.`);
     }
     const page = pageOf(query, LIMITS.tasksPage, LIMITS.tasksPage);
     const access = await loadAccess(db, platform, jobId, userId);

@@ -54,7 +54,7 @@ export function registerAccountRoutes(app: FastifyInstance, db: Db, issuer: Toke
       .values({ email, passwordHash, name })
       .onConflictDoNothing({ target: users.email })
       .returning({ id: users.id, email: users.email, name: users.name });
-    if (!created) throw new ApiError(409, 'REGISTRATION_FAILED', 'This account could not be created.');
+    if (!created) throw new ApiError(409, 'REGISTRATION_FAILED', "This account couldn't be created.");
     return reply.status(201).send(created);
   });
 

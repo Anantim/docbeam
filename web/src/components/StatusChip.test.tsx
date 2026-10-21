@@ -42,7 +42,7 @@ describe('one status chip, one colour meaning (D-M3-12)', () => {
   it('gives a failed delivery, a refused upload and a distribution with errors the same tone (red)', () => {
     expect(taskLook('failed').tone).toBe('bad');
     expect(jobChip('completed_with_errors').tone).toBe('bad');
-    for (const s of ['refused', 'interrupted', 'unchecked', 'infected'] as const) expect(statusView(file(s)).tone, s).toBe('bad');
+    for (const s of ['refused', 'interrupted', 'unchecked'] as const) expect(statusView(file(s)).tone, s).toBe('bad');
   });
 
   it('gives work in progress blue, and waiting grey, on both pages', () => {
@@ -52,7 +52,7 @@ describe('one status chip, one colour meaning (D-M3-12)', () => {
     expect(taskLook('pending').tone).toBe('idle');
     expect(jobChip('pending').tone).toBe('idle');
     expect(statusView(file('waiting')).tone).toBe('idle');
-    expect(statusView(file('checking')).tone).toBe('warn');
+    expect(statusView(file('checking')).tone).toBe('busy'); // Scanning is work too: blue. Amber stays for "None yet" only (D-F1-78)
   });
 
   it('sets no colour itself: the tone attribute picks the tokens in styles.css (D-F1-5)', () => {

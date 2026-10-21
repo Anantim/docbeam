@@ -225,7 +225,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
       if (!created) {
         const winner = await findJob(principal.userId, key);
         if (winner) return reply.code(200).send(winner);
-        throw new ApiError(500, 'INTERNAL_ERROR', 'The distribution could not be saved.');
+        throw new ApiError(500, 'INTERNAL_ERROR', "The distribution couldn't be saved.");
       }
 
       // After the commit. If this fails the job still exists, and the sweeper sends the message again (ADR-014).

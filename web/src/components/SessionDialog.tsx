@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { AuthError, login, logout } from '../auth/session.js';
 import { PasswordField } from './PasswordField.js';
+import { Notice } from './Notice.js';
 import { PauseNote } from './PauseNote.js';
 import { useFocusTrap } from './useFocusTrap.js';
 
@@ -35,12 +36,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
           <h2>Your sign-in has ended</h2>
           <p>Enter your password to carry on. Nothing on this page is lost.</p>
         </div>
-        {error && (
-          <div role="alert" className="alert">
-            {error}
-            <PauseNote />
-          </div>
-        )}
+        {error && <Notice heading={error} detail={<PauseNote />} />}
         <div className="dialog-field">
           <label htmlFor="again">Password for {email}</label>
           <PasswordField id="again" ariaLabel="Password" autoFocus value={password} onChange={setPassword} resetKey={attempts} />

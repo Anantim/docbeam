@@ -8,6 +8,7 @@ import { When } from './When.js';
 import { CopyLinkButton, type Notify } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
 import { ListFoot } from './ListFoot.js';
+import { Notice } from './Notice.js';
 import { Popover } from './Popover.js';
 import { StatusChip } from './StatusChip.js';
 import { Tooltip } from './Tooltip.js';
@@ -224,21 +225,17 @@ export function DistributionList({ meId, filtered = false, onClearFilters, jobs,
   }
   if (jobs === null) {
     return (
-      <div className="card state" role="alert">
-        <strong>The list could not be loaded</strong>
-        <span>{error}</span>
-        <button className="btn2" type="button" onClick={onRetry}>
-          Try again
-        </button>
+      <div className="card">
+        <Notice className="in-card" heading={error || "The list couldn't be loaded."} onRetry={onRetry} />
       </div>
     );
   }
   if (jobs.length === 0 && !pinned) {
     return (
       <div className="card state">
-        <strong>{filtered ? 'No distribution matches these filters' : 'No distributions yet'}</strong>
+        <strong>{filtered ? 'No matches' : 'No distributions yet'}</strong>
         {filtered ? (
-          <button className="btn2" type="button" onClick={onClearFilters}>
+          <button className="link" type="button" onClick={onClearFilters}>
             Clear filters
           </button>
         ) : (
@@ -316,11 +313,7 @@ function LoadedList({ meId, jobs, pinnedId, error, hasMore, loadingMore, moreFai
 
   return (
     <div className="card dist">
-      {error && !(hasMore && moreFailed) && (
-        <div className="alert dist-error" role="alert">
-          {error}
-        </div>
-      )}
+      {error && !(hasMore && moreFailed) && <Notice className="in-card" heading={error} />}
       <div className={`dist-fade fadewrap ${moreBelow ? 'more-below' : ''}`}>
       <div className="dist-scroll" ref={scroller} onScroll={measure}>
         <table className="dist-table" aria-label="Distributions">

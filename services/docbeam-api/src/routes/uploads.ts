@@ -98,7 +98,7 @@ export function registerUploadRoutes(app: FastifyInstance, db: Db, store: Object
     const body = parse(startBody, request.body);
 
     if (!isMultipart(file.sizeBytes) || file.multipartUploadId !== null || file.jobId !== null) {
-      throw new ApiError(400, 'VALIDATION_ERROR', 'This file cannot start a multipart upload.');
+      throw new ApiError(400, 'VALIDATION_ERROR', "This file can't start a multipart upload.");
     }
     const expected = partCount(file.sizeBytes);
     if (body.parts.length !== expected) throw new ApiError(400, 'VALIDATION_ERROR', `This file has ${expected} parts.`);

@@ -5,7 +5,9 @@ import { chainOf, MIN_SEARCH, searchUrl, type FolderHit, type SearchPage } from 
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { plural } from '../text.js';
+import { NoMatches } from './ListFilter.js';
 import { MoreRow } from './MoreRow.js';
+import { Notice } from './Notice.js';
 import { Popover } from './Popover.js';
 import { useMoreBelow } from './useMoreBelow.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
@@ -145,6 +147,12 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [failed, setFailed] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
+  const filterBox = useRef<HTMLInputElement>(null);
+  // "Clear filter" under "No matches" (D-F1-45, D-F1-78): empties the box and puts the focus back in it.
+  const clearFilter = (): void => {
+    setFilter('');
+    filterBox.current?.focus();
+  };
   const [rootError, setRootError] = useState(false);
   // A level that is loading its next page, so the same page is never asked for twice.
   const inFlight = useRef(new Set<string>());
@@ -347,11 +355,8 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
           </div>
         )}
         {isOpen && failed.has(node.id) && children === undefined && (
-          <div className="status-line err nested" style={{ ['--level' as string]: level }} role="alert">
-            Could not load this level.{' '}
-            <button className="link" type="button" onClick={() => void load(node, null)}>
-              Try again
-            </button>
+          <div className="nested" style={{ ['--level' as string]: level }}>
+            <Notice className="in-tree" heading="Couldn't load this level." onRetry={() => void load(node, null)} />
           </div>
         )}
         {isOpen && children?.map((c) => row(c, level + 1))}
@@ -389,24 +394,19 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
       </div>
       <div className="filter">
         {/* Always here; off only when the person has no team at all (D-F1-77). */}
-        <SearchField type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} disabled={roots?.length === 0 && filter === ''} />
+        <SearchField ref={filterBox} type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} disabled={roots?.length === 0 && filter === ''} />
       </div>
       <div className={`tree-wrap fadewrap ${moreBelow ? 'more-below' : ''}`}>
       <div className="tree" ref={treeRef} onKeyDown={onTreeKey}>
         {rootError && (
-          <div className="state small" role="alert">
-            <strong>Could not load your teams</strong>
-            <button
-              className="btn2 btnsm"
-              type="button"
-              onClick={() => {
-                setRootError(false);
-                void loadTeams(null);
-              }}
-            >
-              Try again
-            </button>
-          </div>
+          <Notice
+            className="in-tree"
+            heading="Couldn't load your teams."
+            onRetry={() => {
+              setRootError(false);
+              void loadTeams(null);
+            }}
+          />
         )}
         {!rootError && roots === null && <Skeleton rows={4} label="Loading your teams" />}
         {roots?.length === 0 && (
@@ -433,19 +433,12 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
               );
             })}
             {searchBusy && hits.length === 0 && <Skeleton rows={3} label="Searching folders" />}
-            {!searchBusy && !searchFailed && hits.length === 0 && <div className="status-line">No folders match.</div>}
-            {searchFailed && (
-              <div className="status-line err" role="alert">
-                Could not search.{' '}
-                <button className="link" type="button" onClick={() => void runSearch(filter, null)}>
-                  Try again
-                </button>
-              </div>
-            )}
+            {!searchBusy && !searchFailed && hits.length === 0 && <NoMatches onClear={clearFilter} />}
+            {searchFailed && <Notice className="in-tree" heading="Couldn't search." onRetry={() => void runSearch(filter, null)} />}
             {hitsNext !== null && <MoreRow className="status-line" busy={searchBusy} failed={false} onMore={() => void runSearch(filter, hitsNext)} />}
           </div>
         ) : nothingMatches ? (
-          <div className="status-line">No binders or folders match.</div>
+          <NoMatches onClear={clearFilter} />
         ) : (
           roots?.map((r) => row(r, 0))
         )}
