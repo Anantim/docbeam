@@ -277,7 +277,8 @@ export function deliveryTip(task: Pick<TaskRow, 'attemptCount' | 'failureCode'>,
   const note = attemptNote(task, kind);
   if (kind === 'failed' || kind === 'cancelled') {
     const reason = failureMeaning(kind === 'cancelled' ? 'CANCELLED' : task.failureCode);
-    return note && !reason.includes('attempts') ? `${reason} ${note}.` : reason;
+    // The sentence for RETRIES_EXHAUSTED already says "after 5 attempts"; every other retried failure gets the note.
+    return note && task.failureCode !== 'RETRIES_EXHAUSTED' ? `${reason} ${note}.` : reason;
   }
   return isRetrying(task, kind) && note ? `Trying again. ${note}.` : TASK_STATUS_MEANING[kind];
 }

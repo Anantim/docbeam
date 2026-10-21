@@ -321,33 +321,33 @@ export async function seedJob(page: Page, files: string[], folders: string[], ty
   // distribution with no deliveries, which the page shows as "Completed" with no rows.
   const db = new pg.Client({ connectionString: conn('docbeam_db') });
   await db.connect();
-  const sql = (text: string, values: unknown[]) => db.query(text, values);
+  const tx = (text: string, values: unknown[]) => db.query(text, values);
   try {
-  await sql('BEGIN', []);
-  await sql(
+  await tx('BEGIN', []);
+  await tx(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
      VALUES ($1, $2, $6, $3, $4, now(), now(), now(), $5)`,
     [jobId, userId, files.length * folders.length, randomUUID(), now, claims.name ?? 'Priya Shah'],
   );
   for (const [i, name] of files.entries()) {
     const fileId = randomUUID();
-    await sql(
+    await tx(
       `INSERT INTO files (id, owner_user_id, job_id, original_name, size_bytes, content_type, detected_type, checksum_sha256, s3_key, uploaded_at, scan_status, created_at)
        VALUES ($1, $2, $3, $4, 10, $7, $7, repeat('a', 64), $5, now(), 'clean', $6)`,
       [fileId, userId, jobId, name, `staging/${userId}/${fileId}`, new Date(now.getTime() + i), typeOf(name)],
     );
     for (const path of folders) {
       const state = states?.(i) ?? { status: 'completed', attempts: 1 };
-      await sql(
+      await tx(
         `INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, destination_path, status, attempt_count, failure_code, failure_reason)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [randomUUID(), jobId, fileId, teamIds.get(path.split(' / ')[0] as string) ?? randomUUID(), randomUUID(), path, state.status, state.attempts, state.status === 'failed' ? (state.code ?? 'RETRIES_EXHAUSTED') : null, state.status === 'failed' ? 'The platform did not answer.' : null],
       );
     }
   }
-  await sql('COMMIT', []);
+  await tx('COMMIT', []);
   } catch (error) {
-    await sql('ROLLBACK', []).catch(() => undefined);
+    await tx('ROLLBACK', []).catch(() => undefined);
     throw error;
   } finally {
     await db.end();
