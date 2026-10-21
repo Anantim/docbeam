@@ -1330,9 +1330,12 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Tests:** `StatusPage.test.tsx` (another distribution in the list; not loaded and pinned; reached by reading pages and not pinned; a link; a click does not reveal), `usePagedJobs.test.ts` (`loadUntil` stops at the job, gives up at the page limit and at the end), `tests/e2e/openid.spec.ts` (the 16th row by its 8 characters, then a link). The pinned row has no browser test: it needs more than 120 distributions.
 - **Centre, not nearest:** the row is scrolled to the middle of the list (`block: 'center'`). With `nearest` the row of a different distribution stopped at the bottom edge, 25 px of it under the fade, in the 720 px recording.
 - **Slip:** I changed one assertion in `StatusPage.test.tsx` with `sed -i` instead of the Edit tool.
-- **Known:** in the full browser run `openid.spec.ts` "signing out leaves the open distribution" timed out once when the specs ran together, and passed alone. Fixed in D-F1-75.
+- **Known:** in the full browser run `openid.spec.ts` "signing out leaves the open distribution" timed out once when the specs ran together, and passed alone. Fixed in D-F1-76.
 
-## D-F1-75. The list-row click in the browser tests no longer lands on the "+N" link
+## D-F1-75. D-F1-72 to D-F1-74 folded into the design documents
+- **Date:** 2026-10-21. **Decided by:** the person ("complete the fold"); written by the design assistant. `03-user-flows.md` Flow 3 (Open by ID and links scroll to the row, D-F1-74; the panel tooltips, D-F1-72) and the technical design's F1 section (the decision range and one Status line). D-F1-73 (the demo video) changes no design text. No diagram changes.
+
+## D-F1-76. The list-row click in the browser tests no longer lands on the "+N" link
 - **Date:** 2026-10-21. **Decided by:** the person ("Flaky test").
 - **Cause (confirmed, not a guess):** "signing out leaves the open distribution" clicked the middle of the first list row. Priya's newest distribution then had a Files cell with "Show 7 more files" (D-F1-64), and the middle of the row landed on that button, which opens a list and does not open the distribution. The URL stayed `#/status`. The failure context of the trace shows the row with those buttons. It failed 20 of 20 at 6 workers, so it depended on which distribution was newest, not on load. A grey placeholder row (`sk-row`) in the same table could also be clicked; that was not seen, but is closed too.
 - **Fix:** `openListedDistribution` in `tests/e2e/helpers.ts` waits for the first real row and clicks its ID button (`.dist-id`). `distRow` leaves out placeholder rows. Used in `openid.spec.ts`, `track.spec.ts` (2 places) and `screens.spec.ts` (1 place); these were all the centre clicks on list rows (the other specs already click `.dist-id`).
