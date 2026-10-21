@@ -1331,3 +1331,6 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Centre, not nearest:** the row is scrolled to the middle of the list (`block: 'center'`). With `nearest` the row of a different distribution stopped at the bottom edge, 25 px of it under the fade, in the 720 px recording.
 - **Slip:** I changed one assertion in `StatusPage.test.tsx` with `sed -i` instead of the Edit tool.
 - **Known:** in the full browser run `openid.spec.ts` "signing out leaves the open distribution" timed out once when the specs ran together, and passed alone.
+
+## D-F1-75. D-F1-72 to D-F1-74 folded into the design documents
+- **Date:** 2026-10-21. **Decided by:** the person ("complete the fold"); written by the design assistant. `03-user-flows.md` Flow 3 (Open by ID and links scroll to the row, D-F1-74; the panel tooltips, D-F1-72) and the technical design's F1 section (the decision range and one Status line). D-F1-73 (the demo video) changes no design text. No diagram changes.
