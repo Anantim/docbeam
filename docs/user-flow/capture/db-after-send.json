@@ -1,0 +1,15 @@
+{
+  "job": [
+    {
+      "id": "259fa215-d57e-41b7-9467-e8325efac871",
+      "task_count": 6,
+      "fanned_out": false
+    }
+  ],
+  "tasksByStatus": [
+    {
+      "status": "pending",
+      "n": 6
+    }
+  ]
+}
