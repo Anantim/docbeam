@@ -50,7 +50,7 @@ Document Platform > Platform File Store: store delivered files
 // Upload checks
 Object Store > Upload Checks: file stored
 Upload Checks > Object Store: check and scan, tag clean, or delete a file that does not match or is infected
-Upload Checks > Databases: mark file verified or refused
+Upload Checks > Databases: mark file clean (with its detected type), failed or refused
 
 // Sending
 DocBeam API > Job Queue: one message per job

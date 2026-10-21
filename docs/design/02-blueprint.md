@@ -69,7 +69,7 @@ A user sees and acts only on teams they belong to, and everything inside them. v
 | **Team** | The access boundary. Which teams a user belongs to decides everything they can see. |
 | **Binder** | A document collection inside a team. |
 | **Folder** | An optional grouping inside a binder. Folders can be nested. |
-| **Destination** | A binder or a folder that a file can be delivered to. Always belongs to a team. |
+| **Destination** | A folder (or nested folder) that a file can be delivered to. Always belongs to a team. Teams and binders are headings in the tree, not destinations (D-F1-3). |
 | **Job** | One batch submission: a set of files and the destinations each one goes to. |
 | **Task** | One file going to one destination. 100 files and 20 destinations make up to 2,000 tasks. |
 | **Task status** | `pending` (created, no worker has it yet), `in_progress` (a worker owns it), then **completed** or **failed**. |
@@ -82,7 +82,7 @@ A user sees and acts only on teams they belong to, and everything inside them. v
 
 #### Assumptions
 
-- The Auth Service is a basic build: register, log in, issue user, refresh and service tokens, pause sign-in after repeated wrong passwords, publish its public signing keys.
+- The Auth Service is a basic build: log in, issue user, refresh and service tokens, pause sign-in after repeated wrong passwords, publish its public signing keys. Accounts are set up by the study administrator (the seed script); the service's register route exists but is switched off at the gateway, and the web app has no sign-up page (D-F1-17).
 - The Document Platform is a basic build: list the teams, binders and folders a user belongs to, answer membership checks, and accept delivered files.
 - Teams, binders, folders and memberships are loaded by a seed script. v1 has no screens or APIs to create or edit them.
 - A file is uploaded once and delivered many times. 100 files can produce up to 2,000 deliveries.
@@ -124,7 +124,7 @@ Checked on dev means the test is in the dev acceptance list in the Technical Des
 | **Batch size** | 100 files, 20 destinations, up to 2,000 tasks per job | The API enforces the limits. Two queues absorb the spike of one large job (ADR-008). Checked on dev with a 100 x 20 job. |
 | **Daily volume** | 90,000 tasks a day | That is about one task a second on average. Up to 50 deliveries run at once (ADR-011), well above that. The real platform's capacity is an open question. |
 | **File size** | 2 MB average, 1 GB maximum | Files over 100 MB upload in parts and can resume. Checked on dev with a 1 GB upload and delivery. |
-| **File types** | PDF, DOCX, XLSX, PNG, JPG only | Checked in the browser, by the S3 upload policy and again by the platform, where the first bytes must match the type. Every file is also scanned for malware (ADR-016). |
+| **File types** | PDF, DOCX, XLSX, PNG, JPG only | The type is read from the file's contents, never its name: in the browser before upload, by the Upload Events Lambda after upload (it stores the detected type), and again by the platform on delivery (D-F1-44). The S3 upload policy also holds the declared type. Every file is also scanned for malware (ADR-016). |
 | **Availability** | 99.9% uptime | Met by the prod design: two availability zones, a Multi-AZ database, two copies of each service. Dev runs in one zone to save credits. A failover drill on dev checks that nothing is lost. |
 | **Submit speed** | Under 500 ms at p99 in normal operation; under 1 s at p99 under peak delivery load. Changed after measurement from a single 500 ms target (D-M5-17) | Submit only writes rows and one queue message; no file work. Checked on dev with 2,000-task jobs: 225 ms with deliveries paused (one run), and a worst p99 of 992 ms over seven runs at full delivery load, a margin of 8 ms. Under that load the small dev database queues work, with up to 49 deliveries waiting on one job's row lock; a larger dev database and closing the job without that lock are planned. The client should confirm the two targets. |
 | **Browse speed** | Under 1 second for a user in 50 teams | Folders load one level at a time. Checked on dev. |
@@ -161,7 +161,7 @@ The full diagrams are in the [Eraser workspace](https://app.eraser.io/workspace/
 |---|---|---|
 | Client | **Web Client (React SPA)** | Browse destinations, pick, preview and map files, submit jobs, watch status, preview and download. Sends and receives file bytes directly to and from storage. |
 | Edge | **CloudFront** | Serves the web app, and forwards /api/* to API Gateway, so the app and the API are one site. |
-| Edge | **API Gateway (HTTP)** | The single public entry for API calls. Checks the JWT on every request except login, register, token refresh, sign-out and the public-key routes, then routes into the private network. Every route is listed; there is no catch-all. |
+| Edge | **API Gateway (HTTP)** | The single public entry for API calls. Checks the JWT on every request except login, token refresh, sign-out and the public-key routes (and register, which is switched off by default, D-F1-17), then routes into the private network. Every route is listed; there is no catch-all. |
 | Edge | **WebSocket API** | Keeps live connections open so status changes can be pushed to the browser. |
 | Private network | **Internal ALB** | Routes API traffic to the right service. Not reachable from the internet. |
 | Private network | **Auth Service** | Accounts, login, user, refresh and service tokens, and the pause after repeated wrong passwords. The only part that handles passwords. |
@@ -179,7 +179,7 @@ The full diagrams are in the [Eraser workspace](https://app.eraser.io/workspace/
 | Async | **Scheduler and Sweeper Lambda** | Runs on a schedule. Every minute it re-sends any job that was saved but not split into tasks after 1 minute. Once a day it deletes uploaded files still not submitted 24 hours after upload (ADR-014). |
 | Async | **WS Handlers** | Run when a browser connects, subscribes to a job, or disconnects. Keep track of who is watching which job. |
 | Async | **Upload Events Queue and Upload DLQ** | One message each time a file lands in the Object Store. |
-| Async | **Upload Events Lambda** | Confirms each uploaded file (size and fingerprint), scans it for malware with ClamAV and tags it clean. Deletes infected files and files that do not match. Only confirmed, clean files can be sent (ADR-016). |
+| Async | **Upload Events Lambda** | Confirms each uploaded file (size and fingerprint), scans it for malware with ClamAV, reads its first bytes to confirm its type (and records the detected type), and tags it clean. Deletes infected files and files that do not match. Only confirmed, clean files can be sent (ADR-016). |
 | Async | **Malware scanner (ClamAV)** | Open source virus scanner packed into the Upload Events Lambda. A daily rebuild keeps its virus definitions current. |
 
 Components and responsibilities only. Schemas, endpoints and internals are in the Technical Design tab.
@@ -190,19 +190,19 @@ Components and responsibilities only. Schemas, endpoints and internals are in th
 
 #### Flow 1: Browse and select destinations
 
-1. The user logs in. The Auth Service checks the password against Auth DB and returns a 15-minute access token, plus a refresh token in a secure cookie that keeps the sign-in going for 12 hours. Five wrong passwords in a row pause sign-in for that account for 15 minutes, and the page says so after any failed attempt.
-2. The browser asks for the user's teams. API Gateway checks the token and passes the call to the Document Platform, which reads the user's teams from Platform DB.
-3. The user expands a team, then binders and folders, one level at a time. The platform checks membership at every level and returns 404 for anything outside the user's teams.
-4. The user selects up to 20 destinations.
+1. The user logs in with an account the study administrator set up. The Auth Service checks the password against Auth DB and returns a 15-minute access token, plus a refresh token in a secure cookie that keeps the sign-in going for 12 hours. Five wrong passwords in a row pause sign-in for that account for 15 minutes, and the page says so after any failed attempt.
+2. The browser asks for the user's teams. API Gateway checks the token and passes the call to the Document Platform, which reads the user's teams from Platform DB, a page at a time.
+3. The user expands a team, then binders and folders, one level at a time, or searches for a folder by name. The platform checks membership at every level and in every search, and returns 404 for anything outside the user's teams.
+4. The user ticks up to 20 folders, before or after adding files.
 
-> **Outcome.** A set of access-checked destinations, with each level loading in under 1 second.
+> **Outcome.** A set of access-checked folders, with each level loading in under 1 second.
 
 #### Flow 2: Upload and distribute documents
 
-1. The user picks up to 100 files and maps each to one or more destinations. The browser computes a SHA-256 fingerprint for each file.
+1. The user picks up to 100 files and maps each to one or more folders. The browser checks that each file's contents match its type and computes a SHA-256 fingerprint for each file.
 2. The browser asks DocBeam API for upload URLs, 20 files at a time. DocBeam API records each file and signs one presigned upload per file.
-3. The browser uploads each file straight to the Object Store. S3 checks the size, type and fingerprint, and rejects any file that does not match. The Upload Events Lambda then confirms each stored file and scans it for malware with ClamAV; only confirmed, clean files can be submitted.
-4. The user submits the job: file IDs, fingerprints and destinations. DocBeam API checks the files belong to the user and asks the Document Platform to confirm that every destination exists and is in one of the user's teams.
+3. The browser uploads each file straight to the Object Store. S3 checks the size, type and fingerprint, and rejects any file that does not match. The Upload Events Lambda then confirms each stored file, scans it for malware with ClamAV and checks its contents match its type; only confirmed, clean files can be submitted.
+4. The user presses Send and confirms once ("Send 3 files to 2 folders?"). The browser submits the job: file IDs, fingerprints and destinations. DocBeam API checks the files belong to the user and asks the Document Platform to confirm that every destination exists and is in one of the user's teams.
 5. In one database transaction DocBeam API creates the job and one pending task per file and destination pair (up to 2,000). It sends one message to the Job Queue and replies in under 500 ms (under 1 s at peak delivery load).
 6. The Fan-out Lambda sends one message per task to the Task Queue.
 7. For each task, the Delivery Lambda marks it in progress, checks the file in the Object Store, and delivers it to the Document Platform. The platform checks the user is still a member, checks the fingerprint again, and stores the document once per task.
@@ -212,8 +212,8 @@ Components and responsibilities only. Schemas, endpoints and internals are in th
 
 #### Flow 3: Track a job
 
-1. The user opens the job list. The browser connects to the WebSocket API, and the list shows each job with its overall status, refreshed every 30 seconds.
-2. The user opens a job. The browser subscribes to that job first, waits for its answer, then fetches its tasks, so no update is missed in between. Someone other than the sender sees a job only if it has deliveries to one of their teams, and then sees only those deliveries.
+1. The user opens the Status page. The browser connects to the WebSocket API, and one list shows every job the user can see (their own, and other people's with deliveries to their teams), newest first, with its overall status. Filters narrow it by status, sender, date sent and team, and more rows load on scroll.
+2. The user opens a job in a side panel. The browser subscribes to that job first, waits for its answer, then fetches its tasks, so no update is missed in between. Someone other than the sender sees a job only if it has deliveries to one of their teams, and then sees only those deliveries.
 3. Each status change is pushed to the browser as it happens.
 4. If the connection drops, the browser reconnects, subscribes again and refetches the tasks.
 5. The sender can cancel a running distribution: deliveries not yet started stop and show as cancelled (grey, counted apart from failures), and ones already running finish.
@@ -266,14 +266,14 @@ The DocBeam Technical Design tab holds the schemas, API contracts, milestones, e
 
 **Scope**
 
-- Register and log in, with a sign-in that lasts a working day (refresh tokens) and a pause after repeated wrong passwords
+- Log in with an account the study administrator set up, with a sign-in that lasts a working day (refresh tokens) and a pause after repeated wrong passwords
 - Destination browsing limited to the user's teams
 - Picking up to 100 files, with direct upload to storage, progress per file, and a malware scan of every file before it can be sent
 - Mapping files to up to 20 destinations and submitting in one action, confirmed in under 500 ms (under 1 s at peak delivery load)
 - Background delivery of each task on its own, with automatic retries
 - Retrying failed deliveries, or cancelling a distribution, in one action
-- An audit trail of who sent what, where and when, and of every delivery outcome
-- A list of other people's distributions with deliveries to the user's teams
+- An audit record of who sent what, where and when, and of every delivery outcome, kept by the backend (the web app shows job history only, D-F1-13)
+- One list of the user's distributions and other people's distributions with deliveries to the user's teams, with filters and live status
 - Live status per task, down to the reason for each failure
 - Team-scoped preview and download straight from storage, and a preview of each file before it is sent
 - Encrypted storage, with staged files kept at least 30 days after the job finishes
@@ -312,6 +312,8 @@ High level only. Details come after Release 1. Candidate themes:
 
 - Admin screens for teams, binders and memberships, including signing a user out everywhere
 - Richer delivery reports, with per-destination summaries and export
+- An audit view in the web app (the records are already kept)
+- Searching past distributions by file name
 - Throttling tuned per client organization
 - Structured logs with correlation IDs across all services
 - Role-based access per binder

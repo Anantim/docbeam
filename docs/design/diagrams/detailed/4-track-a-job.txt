@@ -17,8 +17,8 @@ Delivery Lambda [icon: aws-lambda, color: green]
 DLQ Consumer [icon: aws-lambda, color: green]
 Sweeper [icon: aws-lambda, color: green]
 
-// Open the dashboard and connect
-User > Web Client: Open job list
+// Open the Status page and connect
+User > Web Client: Open Status
 Web Client > WebSocket API: Connect with JWT
 WebSocket API > WS Handlers: Invoke $connect
 WS Handlers > WS Handlers: Verify JWT against public keys
@@ -30,19 +30,33 @@ else [label: token invalid] {
   WS Handlers --> Web Client: 401, no connection
 }
 
-// Job list (counts refresh every 30 s; no pushes for the list)
-Web Client > API Gateway: Request jobs with JWT
+// One list of everything the user can see (read on open, after a send, cancel or retry, and every 30 s while something runs; no pushes for the list)
+Web Client > API Gateway: GET /jobs?scope=all (+ status, sender, sentSince, team filters from the address; limit 20)
 API Gateway > DocBeam API: Validate JWT and forward
-opt [label: My teams view] {
-  DocBeam API > Document Platform: Which teams is this user in? (cached 60 s)
-  Document Platform > Platform DB: Read the user's teams
-  Document Platform --> DocBeam API: Team IDs
-}
-DocBeam API > DocBeam DB: Read jobs (the user's, or others' with a delivery to the user's teams) with task counts, one query per page
-DocBeam API --> Web Client: Job list (others' jobs show counts for the user's teams only)
+DocBeam API > Document Platform: Which teams is this user in? (cached 60 s)
+Document Platform > Platform DB: Read the user's teams
+Document Platform --> DocBeam API: Team IDs
+DocBeam API > DocBeam DB: Read jobs (the user's, and others' with a delivery to the user's teams), newest first (created_at, id), with task counts, file names and folders, one query per page
+DocBeam API --> Web Client: Rows and nextCursor (others' jobs show only what reached the user's teams)
+Web Client > API Gateway: GET /jobs/running (the number on the Status tab, ignoring filters)
+API Gateway > DocBeam API: Validate JWT and forward
+DocBeam API --> Web Client: How many visible jobs still have a pending or in-progress delivery
 
-// Pick a job and subscribe before fetching
-User > Web Client: Select specific job
+loop [label: the end of the list scrolls into view and nextCursor is set, icon: repeat] {
+  Web Client > API Gateway: GET /jobs with ?cursor= (same filters)
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API --> Web Client: Next 20 rows (merged by id; nothing repeated or skipped)
+}
+
+opt [label: Open by ID with the 8-character ID from the list] {
+  Web Client > API Gateway: GET /jobs?idPrefix= (a full ID or a link opens directly)
+  API Gateway > DocBeam API: Validate JWT and forward
+  DocBeam API > DocBeam DB: Range on the primary key, among the jobs the user can see (at most 5)
+  DocBeam API --> Web Client: Matches (one opens; several to choose from; none: 'No distribution with that ID that you can see')
+}
+
+// Pick a job (row click, copied link or Open by ID) and subscribe before fetching
+User > Web Client: Open a job in the side panel
 Web Client > WebSocket API: Subscribe with jobId
 WebSocket API > WS Handlers: Invoke subscribe
 WS Handlers > DocBeam DB: Look up the job's sender
@@ -79,19 +93,25 @@ opt [label: caller is not the sender] {
 }
 
 alt [label: sender] {
-  DocBeam API > DocBeam DB: Read all tasks (100 per page)
+  DocBeam API > DocBeam DB: Read all tasks (100 per page, with the detected file type and attempts)
   DocBeam API --> Web Client: Every delivery in the job
 }
 else [label: job has a delivery to the caller's team] {
   DocBeam API > DocBeam DB: Read tasks for the caller's teams only (100 per page)
-  DocBeam API --> Web Client: Only the deliveries to the caller's teams
+  DocBeam API --> Web Client: Only the deliveries to the caller's teams ('Showing deliveries to your teams: ...')
 }
 else [label: no delivery to the caller's teams] {
   DocBeam API --> Web Client: 404 Not found
 }
 
 // Live updates
-loop [label: each task status change from Delivery Lambda, icon: repeat] {
+opt [label: a delivery starts its second or a later try] {
+  Delivery Lambda > DocBeam DB: Claim the task (attempt + 1), find subscribers (same rule)
+  Delivery Lambda > WebSocket API: PostToConnection (task_update, in_progress, attemptCount)
+  WebSocket API --> Web Client: The row shows 'Retrying'; its attempts are in the tooltip
+}
+
+loop [label: each final task status from Delivery Lambda, icon: repeat] {
   Delivery Lambda > DocBeam DB: Update task status (job row locked)
   Delivery Lambda > DocBeam DB: Find subscribers: the sender, and viewers whose team_ids include the task's team, token not expired
   Delivery Lambda > WebSocket API: PostToConnection (status, updatedAt, counts for what each viewer can see; cancelled counted apart from failed)
@@ -119,16 +139,10 @@ opt [label: user leaves the page] {
   WS Handlers > DocBeam DB: Delete connection row
 }
 
-// Audit tab
-opt [label: user opens the Audit tab] {
-  Web Client > API Gateway: GET /audit?jobId= with JWT (full history, paged)
-  API Gateway > DocBeam API: Validate JWT and forward
-  DocBeam API > DocBeam DB: Same visibility check; others get job-wide events and their teams' events only
-  DocBeam API --> Web Client: Events, newest first
-}
+// The web app shows job history only: audit events are still written, and GET /audit still answers, but no screen calls it (D-F1-13)
 
-// Retry from the job page
-opt [label: sender presses Retry failed deliveries] {
+// Retry from the job panel
+opt [label: sender presses Retry failed] {
   Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, reset retryable failed tasks to pending, audit event
@@ -137,8 +151,8 @@ opt [label: sender presses Retry failed deliveries] {
   WebSocket API --> Web Client: Other tabs and team viewers reload the tasks
 }
 
-// Cancel from the job page
-opt [label: sender presses Cancel distribution (offered only while it runs)] {
+// Cancel from the job panel
+opt [label: sender presses Cancel distribution (offered only while it runs) and confirms] {
   Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, set cancelled_at, mark pending tasks failed (CANCELLED), close job if nothing is running, audit event

@@ -113,7 +113,7 @@ WS Handlers > Document Platform: user's teams (visibility)
 Fan-out Lambda > RDS Proxy: read tasks, set fanned_out_at
 Delivery Lambda > RDS Proxy: lock job, update task, audit event, complete job, find subscribers
 DLQ Consumer > RDS Proxy: mark tasks or files failed, audit event, find live subscribers
-Upload Events Lambda > RDS Proxy: set uploaded_at and scan_status, audit event
+Upload Events Lambda > RDS Proxy: set uploaded_at, scan_status and detected_type, audit event
 WS Handlers > RDS Proxy: ws_connections (token expiry, viewer's teams)
 Sweeper Lambda > RDS Proxy: find stuck jobs, unclaimed files
 RDS Proxy > DocBeam DB: pooled connections

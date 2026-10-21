@@ -27,8 +27,10 @@ Platform DB [icon: aws-rds, color: orange]
 Platform File Store [icon: aws-s3, color: orange]
 
 // Prepare files
-User > Web Client: Select files and destinations
+User > Web Client: Add files; tick folders (for the selected files, or for every file, including files added later)
+Web Client > Web Client: Read each file's first bytes (and a ZIP's part list): contents must match the extension, else 'not added' with the reason
 Web Client > Web Client: Compute SHA-256 of each file (and of each part for files over 100 MB)
+Web Client > Web Client: Keep the batch in sessionStorage (a reload restores stored, clean files via GET /files?ids=)
 
 // Get upload URLs (up to 20 files per request)
 Web Client > API Gateway: Request upload URLs (name, size, type, SHA-256)
@@ -65,9 +67,14 @@ loop [label: each new file, icon: repeat] {
   Upload Events Queue > Upload Events Lambda: Trigger
   Upload Events Lambda > Object Store: Read the file, check stored size and checksum
   Upload Events Lambda > Upload Events Lambda: Scan with ClamAV, work out SHA-256 in the same pass
-  alt [label: clean] {
+  Upload Events Lambda > Object Store: Ranged reads of the first bytes (and a ZIP's directory) to find the real type
+  alt [label: clean, and the type found is the declared one] {
     Upload Events Lambda > Object Store: Tag scan-status=clean
-    Upload Events Lambda > DocBeam DB: Set uploaded_at and scan_status clean (conditional, safe to repeat)
+    Upload Events Lambda > DocBeam DB: Set uploaded_at, scan_status clean and detected_type (conditional, safe to repeat)
+  }
+  else [label: contents are not the declared type] {
+    Upload Events Lambda > Object Store: Delete the file
+    Upload Events Lambda > DocBeam DB: scan_status failed, file.refused audit event (CONTENT_TYPE)
   }
   else [label: size or SHA-256 differs from what was declared] {
     Upload Events Lambda > Object Store: Delete the file
@@ -89,10 +96,12 @@ loop [label: every 2 s while any file is being checked, icon: repeat] {
   Web Client > API Gateway: GET /files?ids= with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Read uploaded_at and scan_status
-  DocBeam API --> Web Client: Checking, Verified, or Refused with the reason
+  DocBeam API --> Web Client: Scanning, Ready, Failed (Retry) or Refused (malware, final); the reason in the state's tooltip
 }
-Web Client > Web Client: Turn on Send when every file is verified
-User > Web Client: Check the Review section under the files and destinations (every destination with the names of its files); preview any file from the copy in the browser (nothing sent) or remove it from a folder; press Send
+Web Client > Web Client: Turn on Send when every file is ready and has a folder (else show what blocks it beside Send)
+User > Web Client: Press Send
+Web Client > Web Client: Ask once: 'Send N files to M folders? Delivered files can't be recalled.' (Cancel focused)
+User > Web Client: Confirm Send
 
 // Submit the job
 Web Client > API Gateway: Submit job (file IDs, SHA-256s, destinations, Idempotency-Key required, else 400)
@@ -103,7 +112,7 @@ opt [label: Idempotency-Key already used, even by a request still running] {
   DocBeam API --> Web Client: 200 with the existing job
 }
 
-DocBeam API > DocBeam API: Check batch limits (100 files, 20 destinations, 2,000 deliveries, no duplicates)
+DocBeam API > DocBeam API: Check batch limits (100 files, 20 destinations, 2,000 deliveries, no duplicates, every destination a folder)
 
 opt [label: batch breaks a limit] {
   DocBeam API --> Web Client: 422 INVALID_BATCH, nothing is created
@@ -130,6 +139,7 @@ opt [label: any destination missing or outside the user's teams] {
 DocBeam API > DocBeam DB: One transaction: create job (queued_at), link files, insert all pending tasks in one statement, audit event
 DocBeam API > Job Queue: Send one fan-out message
 DocBeam API --> Web Client: 201 Job accepted (jobId, taskCount)
+Web Client > Web Client: Clear Distribute, open the job on Status with its panel open and filters cleared, toast 'Sent'
 
 opt [label: message lost after commit (ADR-014)] {
   Sweeper Lambda > DocBeam DB: Every minute, find jobs not fanned out and not finished 1 min after queued_at
@@ -158,6 +168,11 @@ loop [label: each task message, icon: repeat] {
 
   opt [label: task already completed or failed (including CANCELLED)] {
     Delivery Lambda > Task Queue: Acknowledge and stop
+  }
+
+  opt [label: second or later attempt] {
+    Delivery Lambda > WebSocket API: PostToConnection (task_update, in_progress, attemptCount)
+    WebSocket API > Web Client: The delivery shows 'Retrying'
   }
 
   Delivery Lambda > Object Store: HEAD with checksum mode
@@ -225,7 +240,7 @@ opt [label: a task message fails 5 times (about 17 min)] {
 }
 
 // Sender retries failed deliveries
-opt [label: sender presses Retry failed deliveries] {
+opt [label: sender presses Retry failed] {
   Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   alt [label: sender, job running or within 24 h of first finish, files under 2 days old] {
