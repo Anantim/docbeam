@@ -3,7 +3,8 @@ import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobSummary } from '../tracking/api.js';
 import { describeDestination } from '../distribute/mapping.js';
-import { formatWhen, jobChip, shortId } from '../tracking/format.js';
+import { jobChip, shortId } from '../tracking/format.js';
+import { When } from './When.js';
 import { CopyLinkButton, type Notify } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
 import { ListFoot } from './ListFoot.js';
@@ -110,13 +111,17 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
         <StatusChip tone={chip.tone} label={chip.label} meaning={JOB_STATUS_MEANING[status]} />
         {(status === 'pending' || status === 'in_progress') && <JobBar counts={counts ?? job.counts} total={job.taskCount} thin />}
       </td>
-      <td>{formatWhen(job.createdAt)}</td>
+      <td>
+        {/* The list has one Tab stop: the full time is on hover here, and on focus in the panel. */}
+        <When iso={job.createdAt} focusable={false} />
+      </td>
       {/* Files and Destinations: the first name or two on one line with an ellipsis, then "+N" for the rest. They share the
           spare width; the split view hides them (D-F1-40). */}
-      <td className="dist-more dist-fill">
-        <Tooltip text={job.fileNames.join('\n')} block>
+      <td className="dist-more dist-fill dist-files">
         <div className="cell-line">
-          <span className="cell-text">{job.fileNames[0] ?? ''}</span>
+          <Tooltip text={job.fileNames[0]}>
+            <span className="cell-text">{job.fileNames[0] ?? ''}</span>
+          </Tooltip>
           {job.fileNames.length > 1 && (
             <Popover
               label={`+${job.fileNames.length - 1}`}
@@ -126,12 +131,12 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
             />
           )}
         </div>
-        </Tooltip>
       </td>
-      <td className="dist-more dist-fill">
-        <Tooltip text={job.destinations.join('\n')} block>
+      <td className="dist-more dist-fill dist-dests">
         <div className="cell-line">
-          <span className="cell-text">{job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}</span>
+          <Tooltip text={job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}>
+            <span className="cell-text">{job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ')}</span>
+          </Tooltip>
           {job.destinations.length > 2 && (
             <Popover
               label={`+${job.destinations.length - 2}`}
@@ -141,7 +146,6 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
             />
           )}
         </div>
-        </Tooltip>
       </td>
     </tr>
   );
@@ -162,10 +166,10 @@ function ListHead() {
           Sent
         </th>
         {/* The spare width is shared by these two, so a long name is cut with an ellipsis and not by the edge (D-F1-40). */}
-        <th scope="col" className="dist-more dist-fill">
+        <th scope="col" className="dist-more dist-fill dist-files">
           Files
         </th>
-        <th scope="col" className="dist-more dist-fill">
+        <th scope="col" className="dist-more dist-fill dist-dests">
           Destinations
         </th>
       </tr>
@@ -198,10 +202,10 @@ export function DistributionList({ meId, filtered = false, onClearFilters, jobs,
                 <td>
                   <span className="sk sk-date" />
                 </td>
-                <td className="dist-more dist-fill">
+                <td className="dist-more dist-fill dist-files">
                   <span className="sk sk-name" />
                 </td>
-                <td className="dist-more dist-fill">
+                <td className="dist-more dist-fill dist-dests">
                   <span className="sk sk-name" />
                 </td>
               </tr>

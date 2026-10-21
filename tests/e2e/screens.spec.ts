@@ -57,13 +57,11 @@ test.describe('screens', () => {
     });
     await page.getByLabel('Choose files').setInputFiles([pdf('could-not-scan.pdf')]);
     await state('could-not-scan.pdf').filter({ hasText: 'Failed' }).waitFor({ timeout: 60_000 });
-    await shot('05b-file-failed-with-retry', true);
-    await page.unroute('**/api/files?**');
+    await shot('05b-file-failed-with-retry', true);    await page.unroute('**/api/files?**');
     await page.getByRole('button', { name: 'Clear' }).click();
     await page.getByLabel('Choose files').setInputFiles([{ name: 'eicar-test.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
     await state('eicar-test.docx').filter({ hasText: 'Refused' }).waitFor({ timeout: 90_000 });
-    await shot('05c-file-refused-malware', true);
-    // A refused file that was not added at all (a type that is not allowed): the calm "not added" box.
+    await shot('05c-file-refused-malware', true);    // A refused file that was not added at all (a type that is not allowed): the calm "not added" box.
     await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
     await page.locator('.not-added').waitFor();
     await shot('05d-not-added-box', true);

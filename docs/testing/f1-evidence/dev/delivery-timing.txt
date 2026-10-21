@@ -1,0 +1,11 @@
+PASS  2,000 deliveries accepted: 201, 2000 tasks, POST /jobs took 2424 ms from this machine
+[00:35:25] sample 2.8s completed=0 in_progress=0 pending=2000 failed=0
+[00:35:25] sample 10.7s completed=296 in_progress=16 pending=1688 failed=0
+[00:35:25] sample 18.7s completed=1246 in_progress=32 pending=722 failed=0
+[00:35:25] sample 26.2s completed=2000 in_progress=0 pending=0 failed=0
+[00:35:25] final counts {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+[00:35:25] TIMING POST /jobs accepted (client side) 2424 ms; to first delivery 4556 ms; to 50% (1,000 of 2,000) 16835 ms; to 100% 26169 ms (polled every 1 s, so each is exact to about 1 s plus one request)
+[00:35:25] TIMING deliveries per second between the first and the last: 92.5
+PASS  all 2,000 deliveries completed: {"pending":0,"in_progress":0,"completed":2000,"failed":0,"cancelled":0}
+
+PASS delivery-timing (2/2 lines)

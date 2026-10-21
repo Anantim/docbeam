@@ -9,6 +9,7 @@ import type * as ApiModule from '../tracking/api.js';
 import type { JobDetail, JobSummary } from '../tracking/api.js';
 import type { usePagedJobs } from '../tracking/usePagedJobs.js';
 import { tooltipOf } from '../testing/tooltip.js';
+import { formatWhen } from '../tracking/format.js';
 import { StatusPage } from './StatusPage.js';
 
 type StatusProps = Parameters<typeof StatusPage>[0];
@@ -352,7 +353,7 @@ describe('Cancel and Retry', () => {
     );
     const page = renderPage();
     await act(async () => page.release());
-    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah · 16 Oct \d\d:\d\d · Showing deliveries to your teams\.$/.test(el.textContent ?? ''));
+    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d · Showing deliveries to your teams\.$/.test(el.textContent ?? ''));
     expect(lead.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
     expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed/ })).toBeNull();
   });
@@ -361,7 +362,7 @@ describe('Cancel and Retry', () => {
     const asMember = () =>
       api.job.mockResolvedValue(detail({ isSender: false, taskCount: 2, counts: counts({ completed: 2 }), status: 'completed', fileCount: undefined, retry: undefined, cancel: undefined }));
     const line = () => document.querySelector('.panel-sub')?.textContent ?? '';
-    const sentBy = (name: string) => new RegExp(`^Sent by Priya Shah · 16 Oct \\d\\d:\\d\\d · ${name}$`);
+    const sentBy = (name: string) => new RegExp(`^Sent by Priya Shah · 16 Oct( 2026)?, \\d\\d:\\d\\d · ${name}$`);
 
     it('is not shown to the sender, who sees every delivery', async () => {
       api.teams.mockResolvedValue([{ id: 't1', name: 'Cardio' }, { id: 't2', name: 'Oncology' }]);
@@ -409,7 +410,7 @@ describe('Cancel and Retry', () => {
   it('says "Sent by <full name> (you) · date" under the header of my own distribution: a muted label, the name in normal weight (D-F1-22)', async () => {
     const page = renderPage();
     await act(async () => page.release());
-    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah \(you\) · 16 Oct \d\d:\d\d$/.test(el.textContent ?? ''));
+    const lead = await screen.findByText((_, el) => el?.classList.contains('panel-sub') === true && /^Sent by Priya Shah \(you\) · 16 Oct( 2026)?, \d\d:\d\d$/.test(el.textContent ?? ''));
     expect(lead.querySelector('.sentby')?.textContent).toBe('Sent by');
     expect(lead.querySelector('.sender-name')?.textContent).toBe('Priya Shah (you)');
   });
@@ -613,7 +614,7 @@ describe('the list and Open by ID', () => {
     const list = await screen.findByRole('list', { name: 'Distributions with that ID' });
     expect(onOpen).not.toHaveBeenCalled(); // several: the person chooses
     const rows = within(list).getAllByRole('button');
-    expect(rows.map((r) => r.textContent?.replace(/\d{1,2} \w{3} \d\d:\d\d/, '<date>'))).toEqual(['3f1c2a9e<date>You', '3f1c2a9e<date>Raj Mehta']);
+    expect(rows.map((r) => r.textContent?.replace(/(Today|Yesterday|\d{1,2} \w{3}( \d{4})?), \d\d:\d\d/, '<date>'))).toEqual(['3f1c2a9e<date>You', '3f1c2a9e<date>Raj Mehta']);
     await user.click(rows[1] as HTMLElement);
     expect(onOpen).toHaveBeenCalledWith('3f1c2a9e-0000-4000-8000-000000000002');
 
@@ -658,7 +659,7 @@ describe('the list and Open by ID', () => {
     const table = screen.getByRole('table', { name: 'Distributions' });
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ID', 'Status', 'Sent', 'Files', 'Destinations']); // no Sender column (D-F1-33)
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
-    const sent = '16 Oct 10:00'.replace('10:00', new Date('2026-10-16T10:00:00Z').toTimeString().slice(0, 5));
+    const sent = formatWhen('2026-10-16T10:00:00Z'); // "16 Oct, 15:30" in the viewer's zone (with the year once it is another year)
     // The sender is on every row, small and muted under the ID, in every state of the list.
     expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, 'Consent form.pdf+2', 'IRB approvals, Protocol amendments+2']);
     expect(row.querySelector('.dist-sender')?.textContent).toBe('You');
@@ -767,7 +768,7 @@ describe('the list and Open by ID', () => {
       expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
       expect(screen.queryByText(/^Showing \d+/)).toBeNull();
       expect(watchers).toHaveLength(1);
-      expect(watchers[0]?.options.rootMargin).toBe('0px 0px 280px 0px'); // 5 rows of 56 px
+      expect(watchers[0]?.options.rootMargin).toBe('0px 0px 280px 0px'); // 5 rows of 56 px (the look-ahead is its own number)
       expect(m.loadMore).not.toHaveBeenCalled();
       watchers[0]?.fire(); // the sentinel is within reach
       expect(m.loadMore).toHaveBeenCalledTimes(1);

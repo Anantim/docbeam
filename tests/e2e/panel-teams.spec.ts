@@ -26,7 +26,7 @@ for (const width of [1440, 1280, 1024]) {
         const sub = page.locator('.panel-sub');
         await expect(sub).toContainText('Showing deliveries'); // the panel has loaded
         const text = (await sub.innerText()).replace(/\s+/g, ' ');
-        expect(text).toMatch(/^Sent by Priya Shah · \d+ \w+ \d\d:\d\d · Showing deliveries to your teams?:/);
+        expect(text).toMatch(/^Sent by Priya Shah · (Today|Yesterday|\d+ \w+( \d{4})?), \d\d:\d\d · Showing deliveries to your teams?:/);
         expect(Math.round((await sub.locator('.panel-note').boundingBox())!.height), 'one line').toBeLessThan(22);
         // Nothing is cut by an ellipsis: what does not fit is "+N".
         expect(await sub.locator('.teamlist').evaluate((el: unknown) => (el as { scrollWidth: number; clientWidth: number }).scrollWidth <= (el as { clientWidth: number }).clientWidth), 'no ellipsis').toBe(true);

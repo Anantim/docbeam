@@ -230,6 +230,19 @@ Tests: lint and typecheck clean; unit 81 files, 660 tests; integration `auth`, `
 
 Full local run for PR #34 (sections 8.2 to 8.7): lint and typecheck clean; unit 82 files, 678 tests passed; integration 18 files, 198 tests passed; Playwright 76 passed, 10 skipped (dev only). 108 screenshots in `after/`.
 
+### 8.10 Part 2 timing, row height, cells, reasons, dates (D-F1-55 to D-F1-59; the pull request after #36)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| One largest job (100 x 20) timed in normal operation on dev: first delivery, half, all, per second | YES | `f1-evidence/dev/delivery-timing.txt`: 4.6 s, 16.8 s, 26.2 s, 92.5 a second, 0 failed; `POST /jobs` 763 ms at the gateway (`delivery-timing-server.txt`) |
+| One 52 px row height for both Status tables, in every state; same two type sizes and padding; at 1440 x 900 with the panel open at least 11 jobs and 9 deliveries | YES | `status-density.spec.ts` (every row 52 px; 12 jobs and 10 deliveries in view; 13 px and 12 px type); screenshots `after/10-*`, `after/status-density-*` at 1440, 1280, 1024 |
+| Files and Destinations show "<first file> +N" and "<first two folders> +N"; one line; "+N" always whole; 40 / 60; no stray tooltip | YES | `list-cells.spec.ts` (1, 2, 100 files; 1, 2, 5 folders; three widths); screenshots `after/status-cells-*`. Cause in D-F1-57: the name was drawn at 0 px |
+| A Failed or Refused file on Distribute keeps one short reason line, the whole sentence in the tooltip on hover and focus; rows within 56 px | YES (rows at most 56 px, not 52: the chip, the line and the padding do not fit in 52) | `Distribute.test.tsx`, `file-reasons.spec.ts`; screenshots `after/05b-*`, `after/05c-*` |
+| One date format for every time, comma before the time, midnight and year boundaries, `<time datetime>`, full time with seconds and zone in the tooltip, tabular numerals | YES | `format.test.ts`, `When.test.tsx`, `when.spec.ts`; screenshots `after/dates-*`. In the list the time is not a Tab stop (the list has one), in the panel it is |
+| Found while testing | Fixed | the focusable time added a Tab stop to every row (`status-scroll.spec.ts`); the density test had to learn the 1 px row border |
+
+Full local run before the dates change was finished: Playwright 113 passed, 10 skipped, 1 failed (the Tab stop above, fixed and run again: passed). Unit 89 files, 766 tests.
+
 ### 8.9 Team note on one line, header teams, page spacing (D-F1-53, D-F1-54)
 
 | Item | YES / NO | Evidence |

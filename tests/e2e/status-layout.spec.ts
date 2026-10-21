@@ -42,7 +42,9 @@ test('the full-width list: ID, Status, Sent fit their content; Files and Destina
       const dest = await edges('Destinations');
       expect(Math.abs(files.left - sent.right), `Files starts where Sent ends at ${width} px`).toBeLessThan(2);
       expect(Math.abs(dest.left - files.right), `Destinations starts where Files ends at ${width} px`).toBeLessThan(2);
-      expect(Math.abs(files.right - files.left - (dest.right - dest.left)), `Files and Destinations share the width at ${width} px`).toBeLessThan(24); // about equal: a table gives the spare width by weight
+      const share = (files.right - files.left) / (files.right - files.left + dest.right - dest.left);
+      expect(share, `Files take about 40% of the pair at ${width} px`).toBeGreaterThan(0.35); // D-F1-57: 40 / 60
+      expect(share).toBeLessThan(0.45);
       // One line, cut by an ellipsis: the text is wider than its box, and the "+N" stays whole.
       const text = row.locator('.cell-text').first();
       expect(await text.evaluate((el: unknown) => (el as { scrollWidth: number; clientWidth: number }).scrollWidth > (el as { clientWidth: number }).clientWidth), `the file name is cut at ${width} px`).toBe(true);

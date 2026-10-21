@@ -7,7 +7,8 @@ import { JOB_STATUS_MEANING } from '../explain.js';
 import type { LiveClient } from '../live/socket.js';
 import { trackingApi, type Counts, type JobDetail, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { statusFromCounts } from '../tracking/apply.js';
-import { formatWhen, jobChip, plural, shortId, taskLook } from '../tracking/format.js';
+import { jobChip, plural, shortId, taskLook } from '../tracking/format.js';
+import { When } from './When.js';
 import { bannerText, isLive } from '../tracking/links.js';
 import { useFileLink } from '../tracking/useFileLink.js';
 import { useJob } from '../tracking/useJob.js';
@@ -242,7 +243,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
           <span className="panel-lead">
             <span className="sentby">Sent by</span> <span className="sender-name">{detail.submittedBy.name}{detail.isSender ? ' (you)' : ''}</span>
             {' · '}
-            {formatWhen(detail.createdAt)}
+            <When iso={detail.createdAt} />
           </span>
           {/* Never for the sender, who sees every delivery; a team member is told whose deliveries these are, after a " · ". It
               stays on this one line: the team names that do not fit are "+N", with every team in the shared popover (D-F1-52, D-F1-53). */}

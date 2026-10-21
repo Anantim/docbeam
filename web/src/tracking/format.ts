@@ -38,8 +38,27 @@ export { plural };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const two = (n: number): string => String(n).padStart(2, '0');
 
-/** "16 Oct 22:41", in the browser's time zone. */
-export function formatWhen(iso: string): string {
+const hhmm = (d: Date): string => `${two(d.getHours())}:${two(d.getMinutes())}`;
+/** The whole days from `d` to `now` by the calendar of the viewer's time zone (not 24-hour blocks: a clock change makes a day 23 or 25 hours). */
+const daysAgo = (d: Date, now: Date): number =>
+  Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
+
+/**
+ * The one way every time is written (D-F1-59), 24-hour, in the viewer's time zone, always with a comma before the time:
+ * "Today, 04:34", "Yesterday, 18:10", "21 Oct, 04:34" (this year), "3 Mar 2025, 14:02" (earlier years).
+ */
+export function formatWhen(iso: string, now: Date = new Date()): string {
   const d = new Date(iso);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${two(d.getHours())}:${two(d.getMinutes())}`;
+  const ago = daysAgo(d, now);
+  if (ago === 0) return `Today, ${hhmm(d)}`;
+  if (ago === 1) return `Yesterday, ${hhmm(d)}`;
+  const day = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return d.getFullYear() === now.getFullYear() ? `${day}, ${hhmm(d)}` : `${day} ${d.getFullYear()}, ${hhmm(d)}`;
+}
+
+/** The full time for a tooltip, with seconds and the time zone: "21 Oct 2026, 04:34:12 IST" (the browser's short name for the zone). */
+export function formatFull(iso: string): string {
+  const d = new Date(iso);
+  const zone = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName')?.value ?? '';
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${hhmm(d)}:${two(d.getSeconds())}${zone ? ` ${zone}` : ''}`;
 }

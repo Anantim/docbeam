@@ -70,10 +70,12 @@
   --page: 1280px;
   --control: 36px;
   --control-sm: 28px;
-  /* One density for the two tables of Status (D-F1-46): a distribution row and a delivery row use the same vertical padding. */
+  /* One density for the two tables of Status (D-F1-46, D-F1-56): a distribution row and a delivery row are the same height
+     (TaskTable's ROW_HEIGHT is this number), with the same vertical padding and the same two type sizes. */
   --row-pad: var(--s-2);
-  --row-job: 56px;
-  --row-delivery: 48px;
+  --row-h: 52px;
+  --row-main: var(--fs-2);
+  --row-sub: var(--fs-1);
   --icon: 32px;
   --topbar: 56px;
   --dist-head: 40px; /* the sticky header row of the Status list: Up and Down keep a focused row clear of it */
@@ -94,7 +96,9 @@ html, body, #root { height: 100%; }
   *::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 }
 html { scroll-padding-top: calc(var(--topbar) + var(--s-4)); scroll-padding-bottom: var(--s-16); scrollbar-gutter: stable; }
-body { margin: 0; background: var(--bg); }
+/* Tabular numerals everywhere: times, counts and sizes line up in a column and do not jiggle when they change (D-F1-59). */
+body { margin: 0; background: var(--bg); font-variant-numeric: tabular-nums; }
+.when { white-space: nowrap; }
 #root { display: flex; flex-direction: column; font-family: var(--font); color: var(--text); background: var(--bg); font-size: var(--fs-3); line-height: 1.5; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: var(--fs-5); font-weight: 600; line-height: 1.25; }
@@ -198,7 +202,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .sk-path { width: 34ch; max-width: 90%; height: 10px; margin-top: var(--s-1); }
 .sk-lead { width: 24ch; max-width: 70%; }
 .sk-bar { width: 100%; height: 6px; }
-.sk-row td { height: var(--row-job); }
+.sk-row td { height: var(--row-h); }
 /* The sender bar under the ID only shows where the sender line does (the compact list). */
 
 /* sign in */
@@ -287,6 +291,8 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .size { font-size: var(--fs-2); color: var(--text-3); }
 .actions { display: flex; justify-content: flex-end; gap: var(--s-0); }
 .fmsg { margin-top: var(--s-1); font-size: var(--fs-1); color: var(--text-3); line-height: 1.4; }
+/* The one short reason under a Failed or Refused chip: one line, cut by an ellipsis, the whole sentence in the tooltip (D-F1-58). */
+.fmsg.short { margin-top: var(--s-0); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dot-text { font-size: var(--fs-1); font-weight: 500; color: var(--text-3); }
 .dot-text.warn { color: var(--warning); }
 .dot-text.bad { color: var(--error); }
@@ -452,7 +458,7 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
    with collapsed borders scrolls away with the rows. */
 .dist-table thead th { position: sticky; top: 0; z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 /* Every row is the same height with the panel open or closed, so opening one does not move the list under the pointer. */
-.dist-table tbody td { height: var(--row-job); }
+.dist-table tbody td { height: calc(var(--row-h) - 1px); } /* the 1 px bottom border makes the row --row-h */
 .dist-table { width: 100%; border-collapse: collapse; }
 .dist-table th { text-align: left; font-size: var(--fs-1); font-weight: 600; color: var(--text-3); background: var(--bg); padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--line); }
 .dist-table td { padding: var(--row-pad) var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 200px; }
@@ -469,17 +475,27 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .dist-table .dist-fill { width: 50%; }
 /* `width: 0; min-width: 100%` gives the cell's content no minimum width of its own, so the text is cut instead of widening
    the column, and the line still fills the column. */
-.cell-line { display: flex; align-items: center; gap: var(--s-1); width: 0; min-width: 100%; }
+/* The cell has `max-width: 0` (below), so its content cannot widen the column; the line inside fills what the column was given.
+   The name is the only part that shrinks and ends in an ellipsis; "+N" is `flex: none` and always whole (D-F1-57). */
+.dist-table .dist-fill { max-width: 0; }
+.dist-table .dist-files { width: 40%; }
+.dist-table .dist-dests { width: 60%; }
+.cell-line { display: flex; align-items: center; gap: var(--s-1); min-width: 0; }
+.cell-line > .tip-wrap { flex: 0 1 auto; min-width: 0; }
 .cell-text { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-line .count-link { flex: none; }
 @container (max-width: 640px) { .dist-table .dist-fit-sent { width: auto; } }
 .dist-id { font-weight: 600; white-space: nowrap; }
+/* The same two lines in both tables: the main line (ID, file name) and the second line (sender, folder path) (D-F1-56). */
+.dist-id, .tfile { font-size: var(--row-main); line-height: 1.35; }
+.dist-sender, .dest-text { font-size: var(--row-sub); color: var(--text-3); line-height: 1.25; }
 .dist-id-cell { display: inline-flex; align-items: center; gap: var(--s-1); }
 /* The sender under the ID, in every state of the list; opening the panel hides only Files and Folders. */
 .dist-sender { display: block; font-size: var(--fs-1); color: var(--text-3); line-height: 1.2; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
 /* The copy icon after an id: always there in the panel header; in the list it shows on row hover and on keyboard focus (and always where there is no hover). */
 .copy-wrap { position: relative; display: inline-flex; align-items: center; }
-/* In a list row the copy icon is as tall as the id beside it, so it does not make the row taller than --row-job (D-F1-46). */
-.dist-table .icon.small.copy-link { width: 22px; height: 22px; }
+/* In a list row the copy icon is as tall as the id beside it, so it does not make the row taller than --row-h (D-F1-46). */
+.dist-table .icon.small.copy-link { width: 22px; height: 22px; margin-block: -3px; } /* the negative margin keeps the 22 px target from making the row taller */
 .copy-link.reveal { opacity: 0; }
 .dist-table tr:hover .copy-link.reveal, .dist-table tr:focus-within .copy-link.reveal, .copy-link.reveal:focus-visible, .copy-link.reveal.copied { opacity: 1; }
 /* The copied state (D-F1-43, D-F1-51): the icon cross-fades to a green tick for 2 seconds; there is no visible label. */
@@ -548,14 +564,13 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .trow.thead { padding-top: var(--s-1); padding-bottom: var(--s-1); background: var(--bg); font-size: var(--fs-1); font-weight: 600; color: var(--text-3); }
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: var(--surface); }
-.tskel .trow { height: var(--row-delivery); background: var(--surface); }
+.tskel .trow { height: var(--row-h); background: var(--surface); }
 .tmargin { margin: var(--s-3); }
 .tfile-cell { min-width: 0; }
 .tfile-line { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
 /* The compact type tag of a delivery row: smaller than the one on Distribute. */
 .tfile-line .typetile { min-width: 0; padding: 0 var(--s-1); font-size: 10px; line-height: 16px; flex: none; }
 .tfile { font-weight: 500; }
-.dest-text { font-size: var(--fs-1); line-height: 1.25; }
 .tdetail { font-size: var(--fs-1); line-height: 1.4; min-width: 0; }
 .tdetail .code { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--error); }
 .tdetail .reason { color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

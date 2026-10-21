@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { UPLOAD_STATUS_MEANING } from '../explain.js';
+import { UPLOAD_STATUS_MEANING, UPLOAD_STATUS_SHORT } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
 import { isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
@@ -186,7 +186,17 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 {/* The tooltip and the screen-reader name of a state that has a reason are that reason (the line under the chip).
                     A new state is a new chip (the key), which fades in (D-F1-47). */}
                 <StatusChip key={view.text} tone={view.tone} label={view.text} meaning={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
-                {(view.reason ?? view.detail) && <div className="fmsg">{view.reason ?? view.detail}</div>}
+                {/* A problem that needs action keeps one short line under the chip (cut by an ellipsis); the whole sentence is the
+                    tooltip, on hover and on keyboard focus (D-F1-58). */}
+                {view.reason !== undefined && UPLOAD_STATUS_SHORT[f.status] !== undefined ? (
+                  <Tooltip text={view.reason} block>
+                    <div className="fmsg short" tabIndex={0} aria-label={view.reason}>
+                      {UPLOAD_STATUS_SHORT[f.status]}
+                    </div>
+                  </Tooltip>
+                ) : (
+                  view.detail !== undefined && <div className="fmsg">{view.detail}</div>
+                )}
               </div>
               <div className="chips" role="gridcell">
                 {infected ? (

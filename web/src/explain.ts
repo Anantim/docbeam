@@ -42,6 +42,17 @@ export const UPLOAD_STATUS_MEANING: Record<FileStatus, string> = {
   infected: 'Malware was found. The file was deleted and can never be sent.',
 };
 
+/**
+ * The one short line under a Failed, Interrupted or Refused chip on Distribute (D-F1-58): what is wrong and what to do, short
+ * enough for one line. The full sentence is `UPLOAD_STATUS_MEANING`, shown in the tooltip.
+ */
+export const UPLOAD_STATUS_SHORT: Partial<Record<FileStatus, string>> = {
+  refused: 'Upload failed. Retry or remove.',
+  interrupted: 'Connection broke. Retry to resume.',
+  unchecked: 'Scan failed. Retry or remove.',
+  infected: 'Malware found. Remove this file.',
+};
+
 /** The meaning of a failure code the page may not know (a newer server), or nothing. */
 export function failureMeaning(code: string | null): string | undefined {
   return code ? (FAILURE_MEANING as Record<string, string>)[code] : undefined;

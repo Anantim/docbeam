@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiFailure } from '../auth/session.js';
 import { trackingApi, type JobSummary } from '../tracking/api.js';
-import { formatWhen, shortId } from '../tracking/format.js';
+import { shortId } from '../tracking/format.js';
+import { When } from './When.js';
 import { extractJobId } from '../tracking/route.js';
 import { SearchIcon } from './Icons.js';
 import { Tooltip } from './Tooltip.js';
@@ -144,7 +145,7 @@ export function OpenById({ onOpen, meId }: Props) {
                 <li key={m.jobId}>
                   <button type="button" className="openid-match" onClick={() => finish(m.jobId)}>
                     <span className="mono">{shortId(m.jobId)}</span>
-                    <span>{formatWhen(m.createdAt)}</span>
+                    <When iso={m.createdAt} focusable={false} />
                     <span className="muted">{m.submittedBy.userId === meId ? 'You' : m.submittedBy.name}</span>
                   </button>
                 </li>

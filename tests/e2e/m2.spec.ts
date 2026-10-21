@@ -82,7 +82,7 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
   const eicar = row(page, name);
   await expect(eicar.locator('.status-chip')).toHaveText('Refused', { timeout: 90_000 });
-  await expect(eicar).toContainText('Malware was found');
+  await expect(eicar).toContainText('Malware found');
   await expect(eicar.locator('.status-chip')).toHaveAttribute('data-tone', 'bad');
   await expect(eicar.locator('.struck')).toBeVisible(); // its name is struck through
   await expect(eicar.getByRole('checkbox')).toHaveCount(0); // it cannot be selected

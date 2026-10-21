@@ -36,11 +36,16 @@ test('1440 x 900, panel open: 11 or more distributions and 9 or more deliveries 
     expect(jobs, 'distributions in view').toBeGreaterThanOrEqual(11);
     expect(deliveries, 'deliveries in view').toBeGreaterThanOrEqual(9);
 
-    // Row heights: about 56 px for a distribution, 48 px for a delivery.
-    const jobHeight = (await page.locator('.dist-table tbody tr').first().boundingBox())!.height;
-    const deliveryHeight = (await page.locator('.tscroll [role="row"][aria-rowindex]').first().boundingBox())!.height;
-    expect(Math.round(jobHeight)).toBeLessThanOrEqual(57);
-    expect(Math.round(deliveryHeight)).toBe(48);
+    // One row height, --row-h (52 px), for a distribution and a delivery, in every state (D-F1-56), and the same two type sizes.
+    const heights = await page.locator('.dist-table tbody tr').evaluateAll((rows: unknown[]) => (rows as Array<{ getBoundingClientRect(): { height: number } }>).map((r) => Math.round(r.getBoundingClientRect().height)));
+    const deliveryHeights = await page.locator('.tscroll [role="row"][aria-rowindex]').evaluateAll((rows: unknown[]) => (rows as Array<{ getBoundingClientRect(): { height: number } }>).map((r) => Math.round(r.getBoundingClientRect().height)));
+    expect([...new Set(heights)], 'every distribution row').toEqual([52]);
+    expect([...new Set(deliveryHeights)], 'every delivery row').toEqual([52]);
+    const size = async (selector: string): Promise<string> => (await page.evaluate(`getComputedStyle(document.querySelector('${selector}')).fontSize`)) as string;
+    expect(await size('.dist-id'), 'main line, list').toBe(await size('.tfile'));
+    expect(await size('.dist-sender'), 'second line, list').toBe(await size('.dest-text'));
+    expect(await size('.dist-sender')).toBe('12px');
+    expect(await size('.dist-id')).toBe('13px');
 
     // The header: the id, the copy icon, the status and Close on one line; the sent-by line under it; the progress line last.
     const y = async (selector: string): Promise<number> => {

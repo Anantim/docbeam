@@ -1187,4 +1187,36 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 - **Date:** 2026-10-21. **Decided by:** the person's "Page spacing" message.
 - Two tokens in `styles.css`: `--gap-section` (16 px) and `--gap-controls` (12 px). `.page` uses the first for the space above the title (it was 24 px) and between the blocks; the filter row sits 12 px above the table (`.page > .filterbar + .status-layout`). So: Status title to filter row 16, filter row to table 12; Distribute title to cards 16.
 - Test: `page-spacing.spec.ts` measures all four gaps at 1440, 1280 and 1024 px; `Shell.test.tsx` checks the tokens exist and are used.
-- **Working-rule slip:** one `sed -i` on `page-spacing.spec.ts`, and these two entries were appended with a shell `cat >>`. The rule is Edit-tool only.
+- **Working-rule slip:** one `sed -i` on `page-spacing.spec.ts`, and these two entries were appended with a shell `cat >>`.
+
+## D-F1-55. Part 2 on dev: one largest job timed end to end
+- **Date:** 2026-10-21. **Decided by:** the person's "Metrics" message (point 3).
+- New check `scripts/m5-delivery-timing.sh` (`delivery-timing` in `scripts/m5/checks.ts`): 100 files, 20 teams, nothing paused, polled once a second from the moment `POST /jobs` is accepted. Result on dev (the merged build of PR #36): first delivery 4.6 s, half 16.8 s, all 2,000 at 26.2 s (about 92 a second), 0 failed. `POST /jobs` itself was 763 ms at the gateway and 2.4 s from the laptop (this is the largest job, the p99 of 175 ms is over a mix of sizes). Evidence: `docs/testing/f1-evidence/dev/delivery-timing.txt` and `delivery-timing-server.txt`.
+- The README gets an "At a glance" table; the M5 section is labelled history.
+
+## D-F1-56. One row height for both Status tables
+- **Date:** 2026-10-21. **Decided by:** the person's "Row height" message. It replaces the 56 px and 48 px of D-F1-46.
+- `--row-h: 52px` is the height of a distribution row and a delivery row in every state (`TaskTable`'s `ROW_HEIGHT` is the same number), with `--row-pad` for both and two type sizes: `--row-main` (13 px) for the ID and the file name, `--row-sub` (12 px, muted) for the sender and the folder path. The 22 px copy icon in a list row has a negative block margin so it does not make the row taller.
+- At 1440 x 900 with the panel open: 12 distributions and 10 deliveries in view (the check asks for at least 11 and 9). Test: `status-density.spec.ts` (every row 52 px, both type sizes). Screenshots at 1440, 1280 and 1024.
+- **Working-rule slip:** a `sed -i` to rename the old tokens in `styles.css`.
+
+## D-F1-57. Files and Destinations cells show their names
+- **Date:** 2026-10-21. **Decided by:** the person's "Files and Destinations cells" message.
+- **Cause:** the name sat inside a `width: 0; min-width: 100%` line inside the cell's tooltip wrapper, so the name had no width of its own and was drawn at 0 px (the text was in the page, so the old test, which only checked that it was cut, passed). Now the cell has `max-width: 0` so its content cannot widen the column, the line is a plain flex row, the name is the only part that shrinks (`flex: 0 1 auto; min-width: 0`, ellipsis) and "+N" is `flex: none`. The tooltip is on the name only (the stray tooltip was the cell-wide one, which listed every name).
+- Files and Destinations take 40 % and 60 % of their pair (`.dist-files`, `.dist-dests`).
+- Test: `list-cells.spec.ts` (text for 1, 2 and 100 files and 1, 2 and 5 folders; the name is not collapsed; "+N" whole and inside its cell; 40 / 60; no stray tooltip) at 1440, 1280 and 1024, with screenshots `status-cells-*`. `status-layout.spec.ts` now checks the 40 / 60 share instead of equal widths.
+
+## D-F1-58. The reason stays under a Failed, Interrupted or Refused file on Distribute
+- **Date:** 2026-10-21. **Decided by:** the person's "Distribute file reasons" message.
+- One short line from the shared mapping (`UPLOAD_STATUS_SHORT` in `web/src/explain.ts`): "Upload failed. Retry or remove.", "Scan failed. Retry or remove.", "Malware found. Remove this file." (and "Connection broke. Retry to resume." for an interrupted upload), cut by an ellipsis. The whole sentence is the tooltip of the line, on hover and on keyboard focus (the line is a tab stop) and its accessible name. The chip keeps the whole sentence as its own tooltip.
+- A row with a reason is at most 56 px (the 52 px row height cannot hold the chip, the line and the row padding; checked in the test).
+- Tests: `Distribute.test.tsx`, `file-reasons.spec.ts`; `m2.spec.ts` expects the new wording.
+
+## D-F1-59. One date format for every time in the app
+- **Date:** 2026-10-21. **Decided by:** the person's "Date format" message. It replaces "16 Oct 22:41".
+- `formatWhen` (`web/src/tracking/format.ts`) writes every time, 24-hour, in the viewer's time zone, always with a comma before the time: "Today, 04:34", "Yesterday, 18:10", "21 Oct, 04:34" (this year), "3 Mar 2025, 14:02" (an earlier year). Days are counted by the viewer's calendar, not in 24-hour blocks (a clock change makes a day 23 or 25 hours). A time in the future shows as a date.
+- `When` (`web/src/components/When.tsx`) is the one place a time is drawn: a `<time datetime="…ISO…">` with the short text, and `formatFull` ("21 Oct 2026, 04:34:12 IST", the zone as the browser names it) in the shared Tooltip on hover and on keyboard focus (it is a tab stop in the panel; **not in the list rows, where the list has one Tab stop and the arrow keys move through rows** (`status-scroll.spec.ts` caught this), and not inside a button: Open by ID). It is used in the list's Sent column, the panel's "Sent by" line and Open by ID.
+- "Today" and "Yesterday" change at midnight without a reload: all times listen to one clock (`useSyncExternalStore`) that ticks when the local day changes (a timer to the next midnight, and a check when the tab becomes visible again, for a laptop that slept). It runs only while a time is on the page.
+- Tabular numerals (`font-variant-numeric: tabular-nums`) are set on the whole page, so times, counts and sizes line up.
+- Tests: `format.test.ts` (today, yesterday, this year, earlier year, the year boundary, midnight, a future time, the full time), `When.test.tsx` (the element, the tooltip, midnight passing, the clock stopping), `when.spec.ts` (list and panel at 1440, 1280 and 1024 px, tooltip on hover and focus). Screenshots: `dates-list-*`, `dates-panel-*`.
+- **Working-rule slips:** a few `sed -i` import edits (`OpenById`, `DistributionPanel`, `DistributionList`). The rule is Edit-tool only.
