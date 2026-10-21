@@ -15,10 +15,10 @@ interface Props {
 }
 
 /** The names that fit in `room` px with ", " between them and, when some are left out, a "+N" link after them. At least one name is always shown. */
-export function fitCount(widths: readonly number[], separator: number, plus: number, room: number): number {
+export function fitCount(widths: readonly number[], separator: number, plus: number, room: number, end = 0): number {
   const n = widths.length;
   const total = widths.reduce((sum, w, i) => sum + w + (i > 0 ? separator : 0), 0);
-  if (total <= room) return n;
+  if (total + end <= room) return n; // the end text ("."), shown only when every name fits, needs room too
   let used = 0;
   let k = 0;
   for (let i = 0; i < n; i += 1) {
@@ -37,8 +37,8 @@ export function fitCount(widths: readonly number[], separator: number, plus: num
 function roomOf(el: HTMLElement, room: 'self' | 'max-width'): number {
   if (room === 'self') return el.clientWidth;
   for (let node: HTMLElement | null = el; node && node !== document.body; node = node.parentElement) {
-    const max = Number.parseFloat(getComputedStyle(node).maxWidth);
-    if (Number.isFinite(max)) return max;
+    const limit = getComputedStyle(node).maxWidth;
+    if (limit.endsWith('px')) return Number.parseFloat(limit); // not "none" or a percentage
   }
   return el.clientWidth;
 }
@@ -69,9 +69,10 @@ export function TeamList({ names, panelLabel, end = '', align = 'start', room = 
       const parts = names.map(part);
       const sep = part(', ');
       const plus = part(`+${Math.max(1, names.length)}`);
+      const tail = part(end);
       document.body.appendChild(probe);
       const widths = parts.map((p) => p.offsetWidth);
-      const result = fitCount(widths, sep.offsetWidth, plus.offsetWidth + 8, roomOf(el, room));
+      const result = fitCount(widths, sep.offsetWidth, plus.offsetWidth + 8, roomOf(el, room), tail.offsetWidth);
       probe.remove();
       setShown((was) => (was === result ? was : result));
     };
@@ -80,7 +81,7 @@ export function TeamList({ names, panelLabel, end = '', align = 'start', room = 
     const watcher = new ResizeObserver(measure);
     watcher.observe(el);
     return () => watcher.disconnect();
-  }, [names]);
+  }, [names, end, room]);
 
   const hidden = names.length - shown;
   return (

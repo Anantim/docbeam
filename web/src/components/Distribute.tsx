@@ -148,7 +148,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   };
 
   const previewing = previewId ? files.find((f) => f.id === previewId) : undefined;
-  const listed = fileFilter.trim() === '' ? files : files.filter((f) => matchesFilter(f.name, fileFilter));
+  const listed = files.filter((f) => matchesFilter(f.name, fileFilter));
   // A Shift click selects the files between two clicks as they are listed.
   const order = listed.map((f) => f.id);
   const filterShown = files.length > FILTER_AFTER.files || fileFilter !== '';

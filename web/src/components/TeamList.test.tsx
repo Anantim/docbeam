@@ -28,6 +28,8 @@ describe('fitCount', () => {
     expect(fitCount([36, 30, 48], 12, 24, 120)).toBe(2); // 36 + 12 + 30 = 78, plus the separator and "+N" is 114 <= 120
     expect(fitCount([36, 30, 48], 12, 24, 100)).toBe(1); // 114 > 100: only the first name fits with its "+N"
     expect(fitCount([36, 30, 48], 12, 24, 10)).toBe(1); // never none
+    expect(fitCount([36, 30, 48], 12, 24, 138)).toBe(3); // exactly full: fine without an end text
+    expect(fitCount([36, 30, 48], 12, 24, 138, 6)).toBe(2); // the "." would not fit, so the last name becomes "+1"
   });
 });
 
