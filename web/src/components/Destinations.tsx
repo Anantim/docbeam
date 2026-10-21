@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { apiFetch } from '../auth/session.js';
 import type { Destination } from '../destinations/selection.js';
+import { chainOf, MIN_SEARCH, searchUrl, type FolderHit, type SearchPage } from '../destinations/search.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
 import { plural } from '../text.js';
@@ -24,6 +25,9 @@ interface Props {
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
   folders.map((f) => ({ id: f.id, kind: 'folder', name: f.name, binderId: parent.binderId, pathNames: [...parent.pathNames, f.name] }));
+
+/** The search waits for a pause in typing, so a word is one request and not one per letter. */
+const SEARCH_DELAY_MS = 300;
 
 interface Page {
   children: TreeNode[];
@@ -160,7 +164,12 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     setFlag(setFailed, node.id, false);
     try {
       const page = await loadPage(node, cursor);
-      setLoaded((m) => new Map(m).set(node.id, { children: [...(m.get(node.id)?.children ?? []), ...page.children], nextCursor: page.nextCursor }));
+      // A folder the search opened the tree to may already be there before its page is read: it is not listed twice.
+      setLoaded((m) => {
+        const have = m.get(node.id)?.children ?? [];
+        const known = new Set(have.map((c) => c.id));
+        return new Map(m).set(node.id, { children: [...have, ...page.children.filter((c) => !known.has(c.id))], nextCursor: page.nextCursor });
+      });
     } catch {
       setFlag(setFailed, node.id, true);
     } finally {
@@ -200,13 +209,51 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     if (roots) onTeams(roots.map((n) => n.name));
   }, [roots, onTeams]);
 
-  const keep = useMemo(() => (roots ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter]);
+  // From 2 characters the search asks the server, which knows every folder of the caller's teams, not only the rows loaded (D-F1-67).
+  const searching = filter.trim().length >= MIN_SEARCH;
+  const keep = useMemo(() => (roots && !searching ? visibleIds(roots, loaded, filter) : null), [roots, loaded, filter, searching]);
 
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
   const toggleRef = useRef(onToggle);
   toggleRef.current = onToggle;
   const toggle = useCallback((d: Destination) => toggleRef.current(d), []);
+  const stateRef = useRef(stateOf);
+  stateRef.current = stateOf;
+
+  const [hits, setHits] = useState<FolderHit[]>([]);
+  const [hitsNext, setHitsNext] = useState<string | null>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const searchGen = useRef(0);
+  const runSearch = useCallback(async (q: string, cursor: string | null): Promise<void> => {
+    const gen = (searchGen.current += cursor === null ? 1 : 0);
+    setSearchBusy(true);
+    setSearchFailed(false);
+    try {
+      const page = await apiFetch<SearchPage>(searchUrl(q, cursor));
+      if (gen !== searchGen.current) return; // the text changed while this was on its way
+      setHits((h) => (cursor === null ? page.items : [...h, ...page.items.filter((i) => !h.some((x) => x.id === i.id))]));
+      setHitsNext(page.nextCursor);
+    } catch {
+      if (gen === searchGen.current) setSearchFailed(true);
+    } finally {
+      if (gen === searchGen.current) setSearchBusy(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!searching) {
+      searchGen.current += 1; // anything still on its way is not wanted any more
+      setHits([]);
+      setHitsNext(null);
+      setSearchBusy(false);
+      setSearchFailed(false);
+      return;
+    }
+    setSearchBusy(true);
+    const timer = setTimeout(() => void runSearch(filter, null), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [filter, searching, runSearch]);
 
   const { ref: treeRef, more: moreBelow } = useMoreBelow<HTMLDivElement>();
   // The level that was just opened: its rows are scrolled into view inside the card once they are drawn (D-F1-39).
@@ -236,6 +283,46 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     });
     if (!loadedRef.current.has(node.id) && !inFlight.current.has(node.id)) void load(node, null);
   }, [load]);
+
+  /**
+   * Picking a match (D-F1-67): the box is cleared, the tree is opened down to the folder (each level is read if it is not loaded
+   * yet, and the folder is put in its level if that level's first page does not hold it), and the folder is ticked.
+   */
+  const pick = useCallback(
+    async (hit: FolderHit): Promise<void> => {
+      const chain = chainOf(hit);
+      const local = new Map(loadedRef.current);
+      try {
+        for (let i = 0; i < chain.length - 1; i += 1) {
+          const parent = chain[i] as TreeNode;
+          const child = chain[i + 1] as TreeNode;
+          let entry = local.get(parent.id);
+          if (!entry) {
+            const page = await loadPage(parent, null);
+            entry = { children: page.children, nextCursor: page.nextCursor };
+          }
+          if (!entry.children.some((c) => c.id === child.id)) entry = { ...entry, children: [...entry.children, child] };
+          local.set(parent.id, entry);
+        }
+      } catch {
+        setSearchFailed(true);
+        return;
+      }
+      setLoaded((m) => {
+        const next = new Map(m);
+        for (const [id, entry] of local) if (!next.has(id) || (entry.children.length > (next.get(id)?.children.length ?? 0))) next.set(id, entry);
+        return next;
+      });
+      const team = chain[0] as TreeNode;
+      setRoots((r) => (r === null || r.some((n) => n.id === team.id) ? r : [...r, team]));
+      setOpen((s) => new Set([...s, ...chain.slice(0, -1).map((n) => n.id)]));
+      reveal.current = hit.id;
+      setFilter('');
+      const target = destinationFor(chain[chain.length - 1] as TreeNode);
+      if (target && stateRef.current(target) === 'off') toggleRef.current(target);
+    },
+    [],
+  );
 
   function row(node: TreeNode, level: number) {
     if (keep && !keep.has(node.id)) return null;
@@ -324,8 +411,43 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
             <strong>You are not in a team yet</strong>
           </div>
         )}
-        {nothingMatches ? <div className="status-line">No binders or folders match.</div> : roots?.map((r) => row(r, 0))}
-        {roots !== null && rootsNext !== null && !keep && <MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
+        {searching ? (
+          <div className="search-results" role="region" aria-label="Matching folders">
+            {hits.map((hit) => {
+              const destination = { binderId: hit.binderId, folderId: hit.id, path: hit.path };
+              const tick = stateOf(destination);
+              const parts = hit.path.split(' / ');
+              return (
+                <button key={hit.id} type="button" className={`result ${tick !== 'off' ? 'on' : ''}`} data-nav="" aria-label={`Tick ${hit.path} and show it in the tree`} onClick={() => void pick(hit)}>
+                  <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`} aria-hidden="true">
+                    {tick === 'on' ? <CheckIcon size={12} /> : null}
+                    {tick === 'mixed' ? <MinusIcon size={12} /> : null}
+                  </span>
+                  <span className="result-text">
+                    <span className="result-name">{hit.name}</span>
+                    <span className="result-path">{parts.slice(0, -1).join(' / ')}</span>
+                  </span>
+                </button>
+              );
+            })}
+            {searchBusy && hits.length === 0 && <Skeleton rows={3} label="Searching folders" />}
+            {!searchBusy && !searchFailed && hits.length === 0 && <div className="status-line">No folders match.</div>}
+            {searchFailed && (
+              <div className="status-line err" role="alert">
+                Could not search.{' '}
+                <button className="link" type="button" onClick={() => void runSearch(filter, null)}>
+                  Try again
+                </button>
+              </div>
+            )}
+            {hitsNext !== null && <MoreRow className="status-line" busy={searchBusy} failed={false} onMore={() => void runSearch(filter, hitsNext)} />}
+          </div>
+        ) : nothingMatches ? (
+          <div className="status-line">No binders or folders match.</div>
+        ) : (
+          roots?.map((r) => row(r, 0))
+        )}
+        {roots !== null && rootsNext !== null && !keep && !searching &&<MoreRow className="status-line nested" style={{ ['--level' as string]: 0 }} busy={busy.has(ROOT)} failed={failed.has(ROOT)} onMore={() => void loadTeams(rootsNext)} />}
       </div>
       </div>
     </section>

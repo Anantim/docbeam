@@ -58,6 +58,11 @@ class FakeManager {
   remove = vi.fn((id: string) => this.set(this.files.filter((f) => f.id !== id)));
   retry = vi.fn();
   clear = vi.fn(() => this.set([]));
+  restore = vi.fn(async (entries: Array<{ id: string; name: string; stored: boolean }>) => {
+    const back = entries.filter((e) => e.stored).map((e) => ({ ...pageFile(e.name, 'verified'), id: e.id, restored: true }));
+    this.set([...this.files, ...back]);
+    return { restored: back.map((f) => f.id), dropped: entries.length - back.length };
+  });
 }
 
 const notify = vi.fn();
@@ -91,6 +96,7 @@ const tickTop = async (user: ReturnType<typeof userEvent.setup>, scope: string) 
   user.click(await folderTick(user, `Send ${scope} to ${FOLDER}`));
 
 beforeEach(() => {
+  sessionStorage.clear(); // the batch kept across a reload (D-F1-66) must not leak from one test to the next
   apiFetch.mockReset();
   notify.mockReset();
   apiFetch.mockImplementation(async (path: string) => {
@@ -345,7 +351,7 @@ describe('Distribute', () => {
     expect(document.querySelector('.sendbar [title], .sendbar .tip-wrap')).toBeNull(); // no tooltip in the bar carries a reason
   });
 
-  it('asks before the page is closed whenever it holds files that were not sent, and not when it is empty', async () => {
+  it('asks before the page is closed only when a reload would lose a file: one still uploading or one that failed, not one that is stored (D-F1-66)', async () => {
     const manager = new FakeManager([pageFile('a.pdf', 'uploading')]);
     screenWith(manager);
     const asks = () => {
@@ -355,16 +361,71 @@ describe('Distribute', () => {
     };
     expect(asks()).toBe(true);
 
-    // Everything uploaded and verified, nothing sent yet: a reload would lose the prepared batch.
+    // Everything uploaded and verified, nothing sent yet: a reload brings the batch back, so there is nothing to ask about.
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    await waitFor(() => expect(asks()).toBe(false));
+
+    // A file that failed must be added again after a reload.
+    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'unchecked')]);
     await waitFor(() => expect(asks()).toBe(true));
 
-    // A refused file is still on the page.
+    // A file refused for malware is not kept and is not worth a question.
     manager.set([pageFile('a.pdf', 'infected')]);
-    await waitFor(() => expect(asks()).toBe(true));
+    await waitFor(() => expect(asks()).toBe(false));
 
     manager.set([]);
     await waitFor(() => expect(asks()).toBe(false));
+  });
+
+  describe('the batch comes back after a reload (D-F1-66)', () => {
+    const stored = (name: string, id: string, stored = true) => ({ id, serverId: `srv-${id}`, name, sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.repeat(64), stored });
+    const keep = (batch: unknown) => sessionStorage.setItem('docbeam.batch.v1', JSON.stringify(batch));
+    const dest = { binderId: 'b1', folderId: 'f1', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' };
+
+    it('puts the stored files back, with their folder ticks and the held folders, and says how many could not come back', async () => {
+      keep({
+        files: [stored('a.pdf', 'p1'), stored('b.pdf', 'p2'), stored('c.pdf', 'p3', false)],
+        mapping: { destinations: { k1: dest }, files: { p1: ['k1'], p2: ['k1'], p3: ['k1'] }, held: ['k1'] },
+      });
+      screenWith(new FakeManager([]));
+      expect(await screen.findByText('a.pdf')).toBeTruthy();
+      expect(screen.getByText('b.pdf')).toBeTruthy();
+      expect(screen.queryByText('c.pdf')).toBeNull(); // it was mid-upload
+      await waitFor(() => expect(notify).toHaveBeenCalledWith('1 file could not be restored', 'error'));
+      // The ticks of the files that came back are kept; the one that did not has none.
+      const saved = JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string);
+      expect(Object.keys(saved.mapping.files).sort()).toEqual(['p1', 'p2']);
+      expect(saved.mapping.held).toEqual(['k1']);
+    });
+
+    it('does not restore over files that are already on the page, and says nothing when nothing is kept', async () => {
+      keep({ files: [stored('old.pdf', 'p9')], mapping: { destinations: {}, files: {}, held: [] } });
+      const manager = new FakeManager([pageFile('now.pdf', 'verified')]);
+      screenWith(manager);
+      expect(manager.restore).not.toHaveBeenCalled();
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('keeps the batch up to date while files are added and ticked, and forgets it after Clear', async () => {
+      const user = userEvent.setup();
+      const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+      screenWith(manager);
+      await waitFor(() => expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1));
+      await user.click(screen.getByRole('button', { name: 'Clear' }));
+      await waitFor(() => expect(sessionStorage.getItem('docbeam.batch.v1')).toBeNull());
+    });
+
+    it('forgets the batch after Send', async () => {
+      const user = userEvent.setup();
+      const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+      screenWith(manager);
+      await tickTop(user, 'all 1 file');
+      expect(sessionStorage.getItem('docbeam.batch.v1')).not.toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Send' }));
+      await user.click(within(screen.getByRole('dialog', { name: /^Send 1 file to 1 folder/ })).getByRole('button', { name: 'Send' }));
+      await waitFor(() => expect(onSent).toHaveBeenCalled());
+      await waitFor(() => expect(sessionStorage.getItem('docbeam.batch.v1')).toBeNull());
+    });
   });
 
   it('sends the batch, then clears the page, says "Sent", and hands the new distribution on to open on Status (D-F1-31)', async () => {

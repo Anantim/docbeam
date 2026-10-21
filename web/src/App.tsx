@@ -13,6 +13,7 @@ import { NO_FILTERS, type Filters } from './tracking/filters.js';
 import { hashFor, parseHash, type Route, type View } from './tracking/route.js';
 import { usePagedJobs } from './tracking/usePagedJobs.js';
 import { useRunningCount } from './tracking/useRunningCount.js';
+import { clearBatch } from './distribute/batch-store.js';
 import { uploadManager } from './upload/instance.js';
 
 /** The page position lives in the URL hash, so a reload (or a shared link) opens the same screen and distribution. */
@@ -54,7 +55,10 @@ export function App() {
   // A signed-out page keeps nothing: files picked by the last user are dropped from the queue.
   const signedOut = session.status === 'signedOut';
   useEffect(() => {
-    if (signedOut) uploadManager.clear();
+    if (signedOut) {
+      uploadManager.clear();
+      clearBatch(); // the next person in this tab does not get this batch back (D-F1-66)
+    }
   }, [signedOut]);
 
   // Signing out also leaves the distribution that was open: the next person in this tab starts on a clean page,

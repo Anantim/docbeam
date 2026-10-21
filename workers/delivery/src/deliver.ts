@@ -37,6 +37,7 @@ interface ClaimedTask {
   folder_id: string | null;
   destination_path: string | null;
   attempt_count: number;
+  updated_at: Date;
   original_name: string;
   content_type: string;
   checksum_sha256: string;
@@ -56,8 +57,8 @@ async function claim(db: Queryable, taskId: string): Promise<ClaimedTask | undef
     `WITH c AS (
        UPDATE tasks SET status = 'in_progress', attempt_count = attempt_count + 1, updated_at = now()
         WHERE id = $1 AND status IN ('pending', 'in_progress')
-        RETURNING id, job_id, file_id, team_id, binder_id, folder_id, destination_path, attempt_count)
-     SELECT c.id, c.job_id, c.team_id, c.binder_id, c.folder_id, c.destination_path, c.attempt_count,
+        RETURNING id, job_id, file_id, team_id, binder_id, folder_id, destination_path, attempt_count, updated_at)
+     SELECT c.id, c.job_id, c.team_id, c.binder_id, c.folder_id, c.destination_path, c.attempt_count, c.updated_at,
             f.original_name, f.content_type, f.checksum_sha256, f.s3_key, f.s3_checksum,
             j.submitted_by_user_id AS sender_id
        FROM c JOIN files f ON f.id = c.file_id JOIN jobs j ON j.id = c.job_id`,
@@ -173,6 +174,14 @@ export async function deliverTask(deps: Deps, taskId: string, receiveCount: numb
   if (!task) {
     deps.log.info('task already final; message dropped', { taskId });
     return { kind: 'done' };
+  }
+  // A delivery that starts its second try or a later one tells the dashboards (D-F1-65): the "Retrying" chip and the counts change
+  // live. One small push per attempt, never for the first try (nothing is different yet) and never able to fail the delivery.
+  if (task.attempt_count >= 2) {
+    await pushTaskUpdate(
+      { db: deps.db, post: deps.post, log: deps.log },
+      { jobId: task.job_id, taskId: task.id, teamId: task.team_id, status: 'in_progress', updatedAt: task.updated_at, attemptCount: task.attempt_count },
+    );
   }
   const where = `${task.original_name} to ${task.destination_path ?? 'the destination'}`;
   const fail = (code: FailureCode, detail: string) =>

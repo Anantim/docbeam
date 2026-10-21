@@ -7,6 +7,22 @@ import { cutPage, readPageQuery, TEAMS_DEFAULT_LIMIT, type Position } from '../p
 /** At most this many people in the Sender menu; a person is in a handful of teams, a team is a study group. */
 const MEMBERS_LIMIT = 200;
 
+/** The folder search: at least 2 characters (a single letter matches nearly everything), at most 100. */
+const SEARCH_MIN = 2;
+const SEARCH_MAX = 100;
+/** Folders nest a few levels; this stops a loop in bad data from running for ever. */
+const SEARCH_MAX_DEPTH = 20;
+
+interface SearchRow extends Record<string, unknown> {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
+  binder_id: string;
+  binder_name: string;
+  team_id: string;
+  team_name: string;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function notFound(): ApiError {
@@ -93,6 +109,53 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
        ORDER BY max(other.user_name), other.user_id
        LIMIT ${MEMBERS_LIMIT}`);
     return { items: result.rows.map((r) => ({ userId: r.user_id, name: r.name })) };
+  });
+
+  // The folder search of the Destinations tree (D-F1-67): folders whose name contains the text, in the caller's teams only
+  // (membership is in the query, so a folder of another team is never a row), with the full path and the ids that lead to it,
+  // so the page can open the tree down to a match. At least 2 characters; paged like the other lists. A trigram index serves it.
+  app.get('/folders/search', user, async (request) => {
+    const userId = callerId(request);
+    const { limit, after } = readPageQuery(request.query);
+    const raw = (request.query as Record<string, unknown>)['q'];
+    const q = typeof raw === 'string' ? raw.trim() : '';
+    if (q.length < SEARCH_MIN || q.length > SEARCH_MAX) throw new ApiError(400, 'VALIDATION_ERROR', `q must be ${SEARCH_MIN} to ${SEARCH_MAX} characters.`);
+    const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const hits = await db.execute<SearchRow>(sql`
+      SELECT f.id, f.name, f.parent_folder_id, b.id AS binder_id, b.name AS binder_name, t.id AS team_id, t.name AS team_name
+        FROM folders f
+        JOIN binders b ON b.id = f.binder_id
+        JOIN teams t ON t.id = b.team_id
+        JOIN team_members m ON m.team_id = t.id AND m.user_id = ${userId}
+       WHERE f.name ILIKE ${pattern}
+         ${after ? sql`AND (f.name, f.id) > (${after.name}, ${after.id}::uuid)` : sql``}
+       ORDER BY f.name, f.id
+       LIMIT ${limit + 1}`);
+    const { rows, nextCursor } = cutPage(hits.rows, limit, () => 0);
+
+    // The folders above each match, a level at a time (a few levels at most), to write the full path.
+    const known = new Map<string, { name: string; parent: string | null }>(rows.map((r) => [r.id, { name: r.name, parent: r.parent_folder_id }]));
+    let wanted = [...new Set(rows.map((r) => r.parent_folder_id).filter((id): id is string => id !== null && !known.has(id)))];
+    for (let depth = 0; wanted.length > 0 && depth < SEARCH_MAX_DEPTH; depth += 1) {
+      const up = await db.execute<{ id: string; name: string; parent_folder_id: string | null }>(sql`
+        SELECT id, name, parent_folder_id FROM folders WHERE id IN (${sql.join(wanted.map((id) => sql`${id}::uuid`), sql`, `)})`);
+      for (const r of up.rows) known.set(r.id, { name: r.name, parent: r.parent_folder_id });
+      wanted = [...new Set(up.rows.map((r) => r.parent_folder_id).filter((id): id is string => id !== null && !known.has(id)))];
+    }
+    const items = rows.map((r) => {
+      const folderIds: string[] = [];
+      for (let id: string | null = r.id; id !== null && folderIds.length <= SEARCH_MAX_DEPTH; id = known.get(id)?.parent ?? null) folderIds.unshift(id);
+      const names = folderIds.map((id) => known.get(id)?.name ?? '');
+      return {
+        id: r.id,
+        name: r.name,
+        path: [r.team_name, r.binder_name, ...names].join(' / '),
+        teamId: r.team_id,
+        binderId: r.binder_id,
+        folderIds, // top down, the match last
+      };
+    });
+    return { items, nextCursor };
   });
 
   app.get('/teams/:teamId/binders', user, async (request) => {

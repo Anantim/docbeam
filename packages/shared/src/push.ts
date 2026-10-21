@@ -32,7 +32,8 @@ export interface TaskUpdate {
   jobId: string;
   taskId: string;
   teamId: string;
-  status: 'completed' | 'failed';
+  /** `in_progress` is the start of a retry (the second try or later), D-F1-65. */
+  status: 'completed' | 'failed' | 'in_progress';
   failureCode?: FailureCode | undefined;
   failureReason?: string | undefined;
   updatedAt: Date;

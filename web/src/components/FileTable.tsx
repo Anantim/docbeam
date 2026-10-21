@@ -211,7 +211,7 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 )}
               </div>
               <div className="actions" role="gridcell">
-                {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} />}
+                {!infected && <PreviewButton name={f.name} onClick={() => onPreview(f.id)} {...(f.restored ? { offBecause: 'It is not available after a reload.' } : {})} />}
                 {canRetry && (
                   <Tooltip text={`Retry upload of ${f.name}`}>
                     <button className="icon retry" type="button" aria-label={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>

@@ -297,11 +297,8 @@ try {
     compose('up', '-d', '--no-deps', 'workers'); // the deliveries start now and meet a platform that is not there (`start` would bring the platform back: it is a dependency)
     await page.locator('.status-chip.big').waitFor();
     await say('The Document Platform was just stopped. Nothing is lost: look for the Retrying chips.', 5000);
-    // A delivery's second try is not pushed to the page (only its result is), and a reload needs the platform, so once the first
-    // retries have started the Pending tab is clicked: it asks for its deliveries again.
-    await skim(4, () => wait(40_000));
-    await click(page.getByRole('button', { name: /^Pending, \d+ deliver/ }));
-    await page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 60_000 });
+    // The second try of each delivery is pushed to the page, so the chips change by themselves (D-F1-65).
+    await page.locator('.status-chip', { hasText: 'Retrying' }).first().waitFor({ timeout: 120_000 });
     await say('Deliveries that failed once are Retrying. They wait and try again.', 4000);
     compose('start', 'platform');
     await skim(12, () => page.locator('.status-chip.big', { hasText: 'Completed with errors' }).waitFor({ timeout: 600_000 }));
@@ -323,7 +320,7 @@ try {
   await say('A filter shows its value on its button and lives in the address.', 3000);
   await click(page.getByRole('button', { name: 'Clear filters' }));
   if (await page.locator('.status-chip.big').count()) await page.keyboard.press('Escape'); // a panel left open: close it, the click below opens one
-  await click(page.locator('.dist-table tbody tr .dist-id').first());
+  await click(page.locator('.dist-table tbody tr').first());
   await page.locator('.status-chip.big').waitFor();
   await click(page.getByRole('button', { name: /^Preview / }).first());
   await page.getByRole('dialog', { name: 'File preview' }).waitFor();

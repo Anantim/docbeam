@@ -15,6 +15,7 @@ import {
   toggleDestination,
   type Mapping,
 } from '../distribute/mapping.js';
+import { loadBatch, saveBatch } from '../distribute/batch-store.js';
 import { Submission } from '../distribute/submit.js';
 import { submitJob } from '../upload/api.js';
 import { uploadManager } from '../upload/instance.js';
@@ -56,8 +57,34 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const [sendError, setSendError] = useState<string | null>(null);
   const submit = useMemo(() => submission ?? new Submission(submitJob), [submission]);
 
-  // Files on the page have not been sent (Send clears the page), and a reload loses the prepared batch.
-  useLeaveWarning(files.length > 0);
+  // A reload keeps the files that are already on the server (D-F1-66), so the browser asks first only when a file would be lost:
+  // one still being read or uploaded, or one that failed and must be added again.
+  useLeaveWarning(files.some((f) => !(f.status === 'checking' || f.status === 'verified' || f.status === 'infected')));
+
+  // The batch comes back after a reload: the files that are stored and clean, with their folder ticks. Saving waits until this
+  // has been tried, so the empty page of the first moment does not wipe what is kept.
+  const restoredOnce = useRef(false);
+  useEffect(() => {
+    const batch = loadBatch();
+    if (!batch || manager.getSnapshot().length > 0) {
+      restoredOnce.current = true;
+      return;
+    }
+    let live = true;
+    void manager.restore(batch.files).then(({ restored, dropped }) => {
+      if (!live) return;
+      const kept = new Set(restored);
+      setMapping({ destinations: batch.mapping.destinations, held: batch.mapping.held, files: Object.fromEntries(Object.entries(batch.mapping.files).filter(([id]) => kept.has(id))) });
+      if (dropped > 0) notify(`${dropped} ${dropped === 1 ? 'file' : 'files'} could not be restored`, 'error');
+      restoredOnce.current = true;
+    });
+    return () => {
+      live = false;
+    };
+  }, [manager, notify]);
+  useEffect(() => {
+    if (restoredOnce.current) saveBatch(files, mapping);
+  }, [files, mapping]);
 
   const usable = files.filter(isUsable);
   const scope = scopeOf([...files], selected);

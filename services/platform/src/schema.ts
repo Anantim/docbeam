@@ -50,7 +50,8 @@ export const folders = pgTable(
     name: text('name').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('idx_folders_parent').on(t.binderId, t.parentFolderId)],
+  // The trigram index serves the folder search (`GET /folders/search`, D-F1-67): a name that contains the text, without a scan.
+  (t) => [index('idx_folders_parent').on(t.binderId, t.parentFolderId), index('idx_folders_name_trgm').using('gin', t.name.op('gin_trgm_ops'))],
 );
 
 export const documents = pgTable('documents', {

@@ -75,7 +75,7 @@ Submission does the same small amount of work whatever the batch size. Everythin
 6. The Fan-out Lambda reads the job's pending task IDs and sends one message per task to the Task Queue.
 7. Each task message triggers the Delivery Lambda, which claims the task and checks the file in the Object Store.
 8. Delivery sends the file to the Document Platform with a service token. The platform checks membership, the destination, the file type and the fingerprint again, stores the file in the Platform File Store and records it once per task.
-9. Delivery records the result in DocBeam DB and pushes it through the WebSocket API to the sender and to viewers in that delivery's team.
+9. Delivery records the result in DocBeam DB and pushes it through the WebSocket API to the sender and to viewers in that delivery's team. When a delivery starts a second try or a later one, it also pushes that (status in progress, the attempt count), so the page can show "Retrying" (D-F1-65).
 10. A job message that fails 3 times, or a delivery message that fails 5 times, moves to its DLQ, and the DLQ Consumer marks the affected tasks failed with a reason. The sender can then retry the failed deliveries.
 
 ### Repository layout
@@ -389,6 +389,7 @@ User-token routes, reached by the browser through API Gateway:
 | `GET /teams/:teamId/binders` | `[{id, name}]`, or 404 if the caller is not a member |
 | `GET /binders/:binderId/contents` | One level: `{folders: [...], documents: [...]}`, or 404 |
 | `GET /folders/:folderId/contents` | One level inside a folder, same shape, or 404 |
+| `GET /folders/search?q=&limit=&cursor=` | The folder search of the Destinations tree (D-F1-67): folders whose name contains `q` (case-insensitive, 2 to 100 characters, else 400), in the caller's teams only (membership is in the query, so another team's folder is never a row). `{items: [{id, name, path, teamId, binderId, folderIds}], nextCursor}`: `path` is "Team / Binder / folders above / the folder"; `folderIds` runs from the top of the binder down to the folder (the match last), so the page can open the tree to it. Ordered by name then id, paged like the other lists (default 20, at most 100). A trigram index (`idx_folders_name_trgm`, `pg_trgm`) serves the contains-match. |
 
 Service-token routes, internal only:
 
@@ -431,7 +432,7 @@ Service-token routes, internal only:
 | `subscribe` | `{action: "subscribe", jobId}`. Looks up the sender. If the caller is someone else, gets their teams from the platform and allows the subscription only if the job has a delivery to one of them. Allowed: sets `job_id` and `team_ids` on the row and answers `{type: "subscribed", jobId}` on the same connection. Not allowed: answers `{type: "subscribe_error", jobId, code}` with NOT_FOUND (a missing job and a hidden one get the same answer), VALIDATION_ERROR or UNAVAILABLE (the platform could not be asked), and clears any earlier job on the connection |
 | `$disconnect` | Deletes the connection row |
 
-Push message: `{type: "task_update", jobId, taskId, status, failureCode?, failureReason?, updatedAt, counts}`. The sender's connections get counts for the whole job; a team viewer's get counts for their teams' deliveries only, worked out from one count per team and status. Pushes can arrive out of order, so the browser ignores one older than what it already shows (by `updatedAt`). After a cancel or a retry, the DocBeam API sends one job_update message to each open dashboard instead, with counts for what that viewer can see, and the page reloads the tasks. The job list does not use pushes: it refreshes its counts every 30 seconds.
+Push message: `{type: "task_update", jobId, taskId, status, failureCode?, failureReason?, attemptCount?, updatedAt, counts}`. `status` is `completed` or `failed` for a final result, and `in_progress` with `attemptCount` (2 or more) when a delivery starts a retry: one small push per attempt, never for the first try (D-F1-65). The sender's connections get counts for the whole job; a team viewer's get counts for their teams' deliveries only, worked out from one count per team and status. Pushes can arrive out of order, so the browser ignores one older than what it already shows (by `updatedAt`). After a cancel or a retry, the DocBeam API sends one job_update message to each open dashboard instead, with counts for what that viewer can see, and the page reloads the tasks. The job list does not use pushes: it refreshes its counts every 30 seconds.
 
 The handler finds its management address in the event (`https://<domain>/<stage>`), so the WS Lambda needs no API address in its own configuration (that would be a Terraform cycle). For the same reason its permission to post covers the WebSocket APIs of the account in the region; Delivery, the DLQ Consumer and the DocBeam API get the exact API.
 

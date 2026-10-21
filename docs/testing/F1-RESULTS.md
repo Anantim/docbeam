@@ -251,7 +251,19 @@ Full local run for PR #34 (sections 8.2 to 8.7): lint and typecheck clean; unit 
 | Empty deliveries bug, 3760e26b (D-F1-62): cause, fix, test | YES: the job truly had no deliveries (a stopped test run left a seeded job half written); status of a job with none is now pending; `POST /jobs` cannot make one (422, not 400); "Deliveries could not be loaded · Try again" | `tracking.test.ts`, `task-outcome.test.ts`, `apply.test.ts`, `batch.test.ts`, `TaskTable.test.tsx` |
 | Found while testing | Fixed | the focusable time added a Tab stop to every row (`status-scroll.spec.ts`); the density test had to learn the 1 px row border |
 
-The totals of the final run, which cover every item in 8.9 and 8.10: lint and typecheck clean; **783 unit tests in 90 files, 205 integration tests in 18 files, 114 Playwright tests plus 10 that run only on dev** (the two specs that failed on the way, the list's Tab stop and the old reason text in `m2.spec.ts`, were fixed and run again: passed).
+The totals at the end of that round (history; the latest are in 8.11): lint and typecheck clean; 783 unit tests in 90 files, 205 integration tests in 18 files, 114 Playwright tests plus 10 that run only on dev (the two specs that failed on the way, the list's Tab stop and the old reason text in `m2.spec.ts`, were fixed and run again: passed).
+
+### 8.11 The open items: row click, live retry, restore after a reload, folder search, STATUS (D-F1-64 to D-F1-68)
+
+| Item | YES / NO | Evidence |
+|---|---|---|
+| B1. The batch survives a reload: stored and clean files come back Ready with their folder ticks and held folders; mid-upload files are dropped with "N files could not be restored"; cleared after Send, Clear and sign-out | YES, except "files mid-upload restart": NO, not possible (the browser cannot read a file from disk again after a reload); they are dropped and counted (D-F1-66) | `batch-store.test.ts`, `manager.test.ts`, `Distribute.test.tsx`, `restore.spec.ts`, `m2.spec.ts` |
+| B2. Server-side folder search (`GET /folders/search`, your teams only, paged, 2+ characters, indexed); matches show their full path; picking one ticks it and opens the tree; integration tests for access and paging; design docs updated | YES | `platform.test.ts` (5 tests), `Destinations.test.tsx`, `search.test.ts`, `folder-search.spec.ts`; migration `0002_folders_name_trigram`; `docs/design/05-technical-design.md` |
+| B3. STATUS clean-up: stale statements removed or marked resolved; history labelled with dates; every known limit still true | YES | `docs/STATUS.md` ("Current state" section; limits checked against the code, GitHub runs and `npm audit`) |
+| B4. Row click: anywhere on a row opens its panel, except the copy icon and "+N" | YES (not a regression: it could not be reproduced; the test pins it; the recorder workaround is removed) | `row-click.spec.ts` (D-F1-64) |
+| B5. Live retry: a push when a delivery starts its second try or later, so "Retrying" and the counts change live; D-M2-16 and the design docs updated; the recorder's workaround removed | YES | `deliver.test.ts`, `TaskTable.test.tsx`, `retry-live.spec.ts` (D-F1-65) |
+
+Latest totals (2026-10-21): lint and typecheck clean; **807 unit tests in 92 files, 210 integration tests in 18 files, 124 Playwright tests plus 10 that run only on dev**. The one failure of the full run (`screens.spec.ts`, which expected an empty page after a reload) was fixed and the spec passed again.
 
 ### 8.9 Team note on one line, header teams, page spacing (D-F1-53, D-F1-54)
 
@@ -265,4 +277,4 @@ The totals of the final run, which cover every item in 8.9 and 8.10: lint and ty
 | Screenshots with 20 teams | NO (unit test only) | No local account has 20 teams and the header reads its teams from the token; `Shell.test.tsx` and `TeamList.test.tsx` cover 20 |
 | Found while testing | Fixed | Three teams showed as "Cardio +2" in the header (a box as wide as its content shrank with the names); fixed with `room="max-width"`. The first panel version lost the spaces around "·" and after the colon (white space between flex items is dropped) |
 
-Totals: see the end of 8.10 (783 unit tests in 90 files, 205 integration tests in 18 files, 114 Playwright tests plus 10 dev-only). The old equal-gaps spacing test was replaced by the 16 / 12 px rule.
+Totals: see the end of 8.11 (the latest). The old equal-gaps spacing test was replaced by the 16 / 12 px rule.

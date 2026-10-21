@@ -341,6 +341,18 @@ describe('TaskTable', () => {
     expect(api.tasks).toHaveBeenCalledTimes(1); // no fetch for a push
   });
 
+  it('shows the Retrying chip at once when the push says a second try started, with no fetch (D-F1-65)', async () => {
+    const { live, push } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
+    await screen.findByText(name(2));
+    expect(screen.queryByText('Retrying')).toBeNull();
+    push({ type: 'task_update', jobId: 'job', taskId: 't2', status: 'in_progress', attemptCount: 2, updatedAt: '2026-10-16T10:00:05.000Z', counts: { pending: 0, in_progress: 1, completed: 0, failed: 0, cancelled: 0 } });
+    const chip = (await screen.findByText('Retrying')).closest('.status-chip') as HTMLElement;
+    expect(chip.getAttribute('data-tone')).toBe('busy');
+    expect(tooltipOf(chip)).toBe('Trying again. Attempt 2 of 5.');
+    expect(api.tasks).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a push that is older than the row', async () => {
     api.tasks.mockImplementation(async (_j: string, page: number) =>
       pageOf(page, (i) => (i === 2 ? { status: 'completed', attemptCount: 1, updatedAt: '2026-10-16T10:00:09.000Z' } : {})),
