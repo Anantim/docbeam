@@ -23,10 +23,15 @@ const aws = {
  */
 export async function deleteJobs(db: { query: (text: string, values?: unknown[]) => Promise<unknown> }, jobIds: string[]): Promise<void> {
   if (jobIds.length === 0) return;
-  await db.query('DELETE FROM audit_events WHERE job_id = ANY($1::uuid[])', [jobIds]);
-  await db.query('DELETE FROM tasks WHERE job_id = ANY($1::uuid[])', [jobIds]);
-  await db.query('DELETE FROM files WHERE job_id = ANY($1::uuid[])', [jobIds]);
-  await db.query('DELETE FROM jobs WHERE id = ANY($1::uuid[])', [jobIds]);
+  // One statement, so it is all or nothing even on a pool: a run that stops half way must not leave a job without its
+  // deliveries, which the page would show as "Completed" with no rows (D-F1-62).
+  await db.query(
+    `WITH a AS (DELETE FROM audit_events WHERE job_id = ANY($1::uuid[])),
+          t AS (DELETE FROM tasks WHERE job_id = ANY($1::uuid[])),
+          f AS (DELETE FROM files WHERE job_id = ANY($1::uuid[]))
+     DELETE FROM jobs WHERE id = ANY($1::uuid[])`,
+    [jobIds],
+  );
 }
 
 export const sqs = new SQSClient(aws);

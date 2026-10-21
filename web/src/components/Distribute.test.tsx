@@ -230,24 +230,24 @@ describe('Distribute', () => {
     expect(tooltipOf(chip('scan.pdf'))).toBe('Scanning for malware');
     expect(chip('scan.pdf').getAttribute('aria-label')).toBe('Scanning for malware');
     expect(screen.queryByText('Checking')).toBeNull();
-    const line = (name: string) => screen.getByText(name).closest('[role="row"]')!.querySelector('.fmsg') as HTMLElement;
-    for (const [name, reason, short] of [
-      ['stored.pdf', 'Storage did not accept the upload. Retry it.', 'Upload failed. Retry or remove.'],
-      ['noscan.pdf', 'The file could not be scanned. Retry it or remove it.', 'Scan failed. Retry or remove.'],
+    // No reason line under a chip (D-F1-60): the reason is the chip's tooltip, from the one reason map, and a Tab stop shows it.
+    expect(document.querySelector('.fmsg')).toBeNull();
+    for (const [name, reason] of [
+      ['stored.pdf', 'Storage did not accept the upload.'],
+      ['noscan.pdf', 'The scan could not run.'],
     ] as const) {
       expect(chip(name).textContent).toBe('Failed');
-      expect(tooltipOf(chip(name))).toBe(reason); // the whole sentence is the chip's tooltip
+      expect(tooltipOf(chip(name))).toBe(reason);
       expect(chip(name).getAttribute('aria-label')).toBe(reason);
-      expect(line(name).textContent).toBe(short); // one short line under the chip (D-F1-58) ...
-      expect(line(name).getAttribute('aria-label')).toBe(reason); // ... and the whole sentence for a screen reader
-      expect(tooltipOf(line(name))).toBe(reason); // ... and in its own tooltip, on hover and on focus
-      expect(line(name).tabIndex).toBe(0);
-      expect(screen.getByRole('button', { name: `Retry upload of ${name}` })).toBeTruthy(); // Retry kept
+      expect(chip(name).tabIndex).toBe(0);
+      expect(screen.getByText(name).closest('[role="row"]')!.textContent).not.toContain(reason); // not repeated in the row
+      expect(screen.getByRole('button', { name: `Retry upload of ${name}` })).toBeTruthy(); // the visible action: Retry
+      expect(screen.getByRole('button', { name: `Remove ${name}` })).toBeTruthy();
     }
     expect(chip('virus.pdf').textContent).toBe('Refused');
-    expect(line('virus.pdf').textContent).toBe('Malware found. Remove this file.');
-    expect(tooltipOf(line('virus.pdf'))).toBe('Malware was found. The file was deleted and cannot be sent.');
+    expect(tooltipOf(chip('virus.pdf'))).toBe('Malware was found. The file was deleted and cannot be sent.');
     expect(chip('virus.pdf').getAttribute('aria-label')).toBe('Malware was found. The file was deleted and cannot be sent.');
+    expect(screen.getByRole('button', { name: 'Remove virus.pdf' })).toBeTruthy(); // the visible action on a Refused file: remove
     expect(screen.queryByRole('button', { name: 'Retry upload of virus.pdf' })).toBeNull(); // final: no Retry
     expect(screen.getByRole('img', { name: /virus\.pdf was refused for malware and cannot be selected or sent/ })).toBeTruthy(); // the tick locked
     expect(screen.getAllByText('Refused')).toHaveLength(1); // "Refused" is only for malware
@@ -335,9 +335,9 @@ describe('Distribute', () => {
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'checking')]);
     await waitFor(() => expect(reason()).toBe('Wait for 1 file to finish scanning'));
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'interrupted')]);
-    await waitFor(() => expect(reason()).toBe('Retry or remove 1 file that failed to upload'));
+    await waitFor(() => expect(reason()).toBe('Retry or remove 1 failed file'));
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'infected')]);
-    await waitFor(() => expect(reason()).toBe('Remove the 1 file refused for malware'));
+    await waitFor(() => expect(reason()).toBe('Remove 1 refused file'));
     manager.set([pageFile('a.pdf', 'verified')]);
     await tickTop(user, 'all 1 file');
     await waitFor(() => expect(reason()).toBe(''));

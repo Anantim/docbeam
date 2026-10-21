@@ -21,9 +21,11 @@ export interface TaskCounts {
 /** Job status is worked out when read, never stored (TDD "Job status"). */
 export function jobStatus(counts: TaskCounts, cancelled: boolean): JobStatus {
   const open = counts.pending + counts.inProgress;
-  if (open === 0 && cancelled) return 'cancelled';
-  if (open === 0) return counts.failed > 0 ? 'completed_with_errors' : 'completed';
   const total = open + counts.completed + counts.failed;
+  if (open === 0 && cancelled) return 'cancelled';
+  // Nothing delivered because there is nothing to deliver is not "Completed" (D-F1-62): a job with no deliveries is still pending.
+  if (total === 0) return 'pending';
+  if (open === 0) return counts.failed > 0 ? 'completed_with_errors' : 'completed';
   return counts.pending === total ? 'pending' : 'in_progress';
 }
 

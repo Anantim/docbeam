@@ -149,20 +149,20 @@ test('after one wrong password the same fixed pause note appears; a right passwo
 
   // An address that has no account: the note is the same, so it shows nothing about which accounts exist.
   await page.getByLabel('Work email').fill(`nobody.${randomUUID().slice(0, 8)}@example.com`);
-  await page.getByLabel('Password').fill('not-a-real-password');
+  await page.getByLabel('Password', { exact: true }).fill('not-a-real-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   const unknown = await page.getByTestId('pause-note').textContent();
 
   // One wrong password for a real account (only one: five in a row would pause it), then the right one.
   await page.getByLabel('Work email').fill(RAJ);
-  await page.getByLabel('Password').fill('wrong-password-once');
+  await page.getByLabel('Password', { exact: true }).fill('wrong-password-once');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByTestId('pause-note')).toHaveText(PAUSE_NOTE);
   expect(unknown).toBe(PAUSE_NOTE);
   await expect(page.getByRole('alert')).toContainText('Email or password is incorrect.');
 
-  await page.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
+  await page.getByLabel('Password', { exact: true }).fill(env.SEED_USER_PASSWORD as string);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await expect(page.getByTestId('pause-note')).toHaveCount(0);

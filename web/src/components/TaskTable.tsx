@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import type { LiveClient } from '../live/socket.js';
-import { ApiFailure } from '../auth/session.js';
 import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
+import { InfoIcon } from './Icons.js';
 import { matchesFilter, NoMatches } from './ListFilter.js';
 import { StatusChip } from './StatusChip.js';
 import { Tooltip } from './Tooltip.js';
@@ -70,8 +70,9 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
         setPages((prev) => new Map(prev).set(page, out.tasks));
         setError('');
         setFirstLoaded(true);
-      } catch (e) {
-        if (generation.current === gen) setError(e instanceof ApiFailure ? e.message : 'The deliveries could not be loaded.');
+      } catch {
+        // Said the same way for every cause; the reason a request failed is not for this page to show (D-F1-62).
+        if (generation.current === gen) setError('Deliveries could not be loaded');
       } finally {
         inflight.current.delete(page);
       }
@@ -99,6 +100,12 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
     const wanted = new Set([1, ...pagesRef.current.keys()]);
     for (const p of wanted) void load(p, generation.current);
   }, [reloadKey, load]);
+
+  // "Try again" asks again for the first page and the pages on screen, and clears the message while the answers come.
+  const retryLoad = (): void => {
+    setError('');
+    for (const p of new Set([1, ...pagesRef.current.keys()])) void load(p, generation.current);
+  };
 
   useEffect(() => {
     const box = scroller.current;
@@ -195,7 +202,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
       </div>
       {error && (
         <div role="alert" className="alert tmargin">
-          {error}
+          {error} · <button className="link" type="button" onClick={retryLoad}>Try again</button>
         </div>
       )}
       {!firstLoaded && !error && (
@@ -218,7 +225,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
           ))}
         </div>
       )}
-      {!error && firstLoaded && total === 0 && <div className="state small">No deliveries with this status.</div>}
+      {!error && firstLoaded && total === 0 && <div className="state small">{status === 'all' ? 'This distribution has no deliveries.' : 'No deliveries with this status.'}</div>}
       {!error && firstLoaded && total > 0 && matching?.length === 0 && onClearFilter && <NoMatches onClear={onClearFilter} />}
       <div className={`tbody-wrap fadewrap ${fill ? 'fill' : ''} ${moreBelow ? 'more-below' : ''}`}>
         <div
@@ -248,23 +255,41 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
   );
 }
 
+/** A failure that is the same however often it is tried: it is never said to have been "after N attempts" (D-F1-60). */
+const PERMANENT_FAILURES = new Set(['FILE_NOT_UPLOADED', 'CHECKSUM_MISMATCH', 'UNSUPPORTED_TYPE', 'NOT_AUTHORIZED_AT_DELIVERY', 'DESTINATION_NOT_FOUND', 'FANOUT_FAILED', 'CANCELLED']);
+
+/** A delivery that is waiting or running again after a failed try is "Retrying" (D-F1-60). */
+export const isRetrying = (task: Pick<TaskRow, 'attemptCount'>, kind: TaskKind): boolean => (kind === 'pending' || kind === 'in_progress') && task.attemptCount > 1;
+
 /**
- * The small muted line under a delivery's status chip: "Attempt N of 5" while it is pending or running again after a failed
- * try (N > 1), "Failed after N attempts" on a real failure, and nothing for a delivery that succeeded the first time, has not
- * started, or was cancelled.
+ * The attempts, said only where they matter and only in the tooltip (D-F1-60): "Attempt N of 5" while a delivery is trying
+ * again, "Failed after N attempts" for a failure that was retried, and nothing for a permanent failure (a file that never
+ * uploaded fails the same way every time), a cancelled delivery, or one that went through the first time.
  */
-export function attemptNote(task: Pick<TaskRow, 'attemptCount'>, kind: TaskKind): string | null {
+export function attemptNote(task: Pick<TaskRow, 'attemptCount' | 'failureCode'>, kind: TaskKind): string | null {
   const used = Math.min(MAX_ATTEMPTS, task.attemptCount);
-  if (kind === 'failed') return used > 0 ? `Failed after ${plural(used, 'attempt', 'attempts')}` : null;
-  if ((kind === 'pending' || kind === 'in_progress') && used > 1) return `Attempt ${used} of ${MAX_ATTEMPTS}`;
-  return null;
+  if (kind === 'failed') return used > 1 && !PERMANENT_FAILURES.has(task.failureCode ?? '') ? `Failed after ${plural(used, 'attempt', 'attempts')}` : null;
+  return isRetrying(task, kind) ? `Attempt ${used} of ${MAX_ATTEMPTS}` : null;
+}
+
+/** What the chip and the info icon of a delivery say: the reason from the one map, then the attempts where they apply. */
+export function deliveryTip(task: Pick<TaskRow, 'attemptCount' | 'failureCode'>, kind: TaskKind): string {
+  const note = attemptNote(task, kind);
+  if (kind === 'failed' || kind === 'cancelled') {
+    const reason = failureMeaning(kind === 'cancelled' ? 'CANCELLED' : task.failureCode);
+    // The sentence for RETRIES_EXHAUSTED already says "after 5 attempts"; every other retried failure gets the note.
+    return note && task.failureCode !== 'RETRIES_EXHAUSTED' ? `${reason} ${note}.` : reason;
+  }
+  return isRetrying(task, kind) && note ? `Trying again. ${note}.` : TASK_STATUS_MEANING[kind];
 }
 
 /** One row's cells. Memoised: a scroll or a push for another row does not draw it again. */
 const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { task: TaskRow } & Pick<Props, 'onPreview' | 'onDownload'>) {
   const kind = taskKindOf(task);
-  const look = taskLook(kind);
-  const note = attemptNote(task, kind);
+  const retrying = isRetrying(task, kind);
+  const look = retrying ? { label: 'Retrying', tone: 'busy' as const } : taskLook(kind);
+  const tip = deliveryTip(task, kind);
+  const hasReason = kind === 'failed' || kind === 'cancelled';
   return (
     <>
       <div role="cell" className="tfile-cell">
@@ -280,25 +305,23 @@ const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { tas
         </Tooltip>
       </div>
       <div role="cell" className="tstatus">
-        <StatusChip tone={look.tone} label={look.label} meaning={TASK_STATUS_MEANING[kind]} />
-        {/* The number of attempts is only said when it matters (D-F1-50): "Attempt 3 of 5" while a delivery is trying again,
-            "Failed after 5 attempts" on a failure, and nothing for one that went through the first time. */}
-        {note && <div className="tattempt-note">{note}</div>}
+        {/* Nothing under the chip (D-F1-60): the reason and the attempts are its tooltip, on hover, on focus and on a click. */}
+        <StatusChip tone={look.tone} label={look.label} meaning={tip} focusable={hasReason || retrying} />
       </div>
+      {/* The Details column is icons only: Preview and Download on a delivered file, an info icon where nothing arrived. */}
       <div role="cell" className="tdetail">
-        {task.status === 'failed' && (
-          <>
-            <Tooltip text={failureMeaning(task.failureCode)} block>
-              <div className="code">{task.failureCode}</div>
-            </Tooltip>
-            <Tooltip text={task.failureReason ?? undefined} block>
-              <div className="reason">{task.failureReason}</div>
-            </Tooltip>
-          </>
+        {hasReason && (
+          <Tooltip text={tip} openOnClick>
+            <button className="icon" type="button" aria-label={kind === 'cancelled' ? 'Why this delivery was cancelled' : 'Why this delivery failed'}>
+              <InfoIcon />
+            </button>
+          </Tooltip>
         )}
         {task.status === 'completed' && (task.fileExpired ? (
-          <Tooltip text="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder.">
-            <span className="muted">File expired</span>
+          <Tooltip text="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder." openOnClick>
+            <button className="icon" type="button" aria-label="Why this file cannot be opened">
+              <InfoIcon />
+            </button>
           </Tooltip>
         ) : (
           <div className="tbuttons">
@@ -306,8 +329,6 @@ const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { tas
             <DownloadButton name={task.fileName} onClick={() => onDownload(task)} />
           </div>
         ))}
-        {task.status === 'in_progress' && <span className="muted">Delivering now</span>}
-        {task.status === 'pending' && <span className="muted">In the queue</span>}
       </div>
     </>
   );

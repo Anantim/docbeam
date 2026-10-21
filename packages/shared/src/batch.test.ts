@@ -25,6 +25,12 @@ describe('validateBatch', () => {
     expect(validateBatch({ files: [], mappings: [] })).toMatchObject({ ok: false });
   });
 
+  it('never accepts a batch with no deliveries, however it is empty (D-F1-62)', () => {
+    expect(validateBatch({ files: [{ fileId: id(1) }], mappings: [] })).toMatchObject({ ok: false }); // a file with no mapping
+    expect(validateBatch({ files: [{ fileId: id(1) }], mappings: [{ fileId: id(1), destinations: [] }] })).toMatchObject({ ok: false }); // a mapping with no folder
+    expect(validateBatch({ files: [], mappings: [{ fileId: id(1), destinations: [dest(1)] }] })).toMatchObject({ ok: false }); // folders but no file
+  });
+
   it('refuses 101 files', () => {
     expect(validateBatch(batch(101, 1))).toMatchObject({ ok: false, reason: expect.stringContaining('100 files') });
   });

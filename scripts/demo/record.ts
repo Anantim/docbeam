@@ -140,7 +140,7 @@ async function click(target: Locator, pause = 350): Promise<void> {
 
 async function signIn(email: string): Promise<void> {
   await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD as string);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD as string);
   await click(page.getByRole('button', { name: 'Sign in' }));
   await page.getByRole('button', { name: 'Sign out' }).waitFor();
 }

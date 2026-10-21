@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { UPLOAD_STATUS_MEANING, UPLOAD_STATUS_SHORT } from '../explain.js';
+import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
 import { isUsable, type Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
@@ -37,14 +37,15 @@ export function statusView(f: PageFile): StatusView {
       return { text: 'Ready', tone: 'ok', bar: false };
     // "Failed" is a problem that can be tried again (Retry): storage did not accept the upload, or the scan could not run.
     // "Refused" is only for malware: final, no Retry, the tick box locked (D-F1-38).
+    // The reason is the tooltip of the chip, from the one reason map; nothing is written under the chip (D-F1-60).
     case 'refused':
-      return { text: 'Failed', tone: 'bad', bar: false, reason: f.message ?? 'Storage did not accept the upload. Retry it.' };
+      return { text: 'Failed', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.refused };
     case 'interrupted':
-      return { text: 'Interrupted', tone: 'bad', bar: false, reason: f.message ?? 'The connection broke. Retry carries on where it stopped.' };
+      return { text: 'Interrupted', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.interrupted };
     case 'unchecked':
-      return { text: 'Failed', tone: 'bad', bar: false, reason: 'The file could not be scanned. Retry it or remove it.' };
+      return { text: 'Failed', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.unchecked };
     case 'infected':
-      return { text: 'Refused', tone: 'bad', bar: false, reason: 'Malware was found. The file was deleted and cannot be sent.' };
+      return { text: 'Refused', tone: 'bad', bar: false, reason: UPLOAD_STATUS_MEANING.infected };
   }
 }
 
@@ -183,20 +184,17 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                     <div style={{ width: `${percent(f)}%` }} />
                   </div>
                 )}
-                {/* The tooltip and the screen-reader name of a state that has a reason are that reason (the line under the chip).
-                    A new state is a new chip (the key), which fades in (D-F1-47). */}
-                <StatusChip key={view.text} tone={view.tone} label={view.text} meaning={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]} ariaLabel={view.reason ?? view.tip} />
-                {/* A problem that needs action keeps one short line under the chip (cut by an ellipsis); the whole sentence is the
-                    tooltip, on hover and on keyboard focus (D-F1-58). */}
-                {view.reason !== undefined ? (
-                  <Tooltip text={view.reason} block>
-                    <div className="fmsg short" tabIndex={0} aria-label={view.reason}>
-                      {UPLOAD_STATUS_SHORT[f.status] ?? view.reason}
-                    </div>
-                  </Tooltip>
-                ) : (
-                  view.detail !== undefined && <div className="fmsg">{view.detail}</div>
-                )}
+                {/* The tooltip and the screen-reader name of a state that has a reason are that reason, on hover, on keyboard focus and
+                    on a click; a chip with a reason is a Tab stop. A new state is a new chip (the key), which fades in (D-F1-47). */}
+                <StatusChip
+                  key={view.text}
+                  tone={view.tone}
+                  label={view.text}
+                  meaning={view.reason ?? view.tip ?? UPLOAD_STATUS_MEANING[f.status]}
+                  ariaLabel={view.reason ?? view.tip}
+                  focusable={view.reason !== undefined}
+                />
+                {view.detail !== undefined && <div className="fmsg">{view.detail}</div>}
               </div>
               <div className="chips" role="gridcell">
                 {infected ? (

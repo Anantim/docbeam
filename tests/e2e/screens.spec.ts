@@ -31,8 +31,14 @@ test.describe('screens', () => {
 
     await page.goto('/');
     await shot('01-sign-in');
+    // The password hidden and shown, with the eye inside the field (D-F1-61).
+    await page.getByLabel('Password', { exact: true }).fill('example-password');
+    await shot('01a-sign-in-password-hidden', true);
+    await page.getByRole('button', { name: 'Show password' }).click();
+    await shot('01b-sign-in-password-shown', true);
+    await page.getByRole('button', { name: 'Hide password' }).click();
     await page.getByLabel('Work email').fill('nobody@example.com');
-    await page.getByLabel('Password').fill('wrong-password-here');
+    await page.getByLabel('Password', { exact: true }).fill('wrong-password-here');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.getByRole('alert').waitFor();
     await shot('02-sign-in-error');
@@ -195,11 +201,17 @@ test.describe('screens', () => {
     await Promise.race([pickFilter(page, 'Sender', 'Me').catch(() => undefined), page.getByRole('dialog', { name: 'Sign in again' }).waitFor()]);
     await page.getByRole('dialog', { name: 'Sign in again' }).waitFor();
     await shot('18-session-dialog');
+    await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill('example-password');
+    await shot('18a-session-dialog-password-hidden', true);
+    await page.getByRole('dialog').getByRole('button', { name: 'Show password' }).click();
+    await shot('18b-session-dialog-password-shown', true);
+    await page.getByRole('dialog').getByRole('button', { name: 'Hide password' }).click();
+    await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill('');
 
     // And on a long page scrolled to the bottom: the backdrop covers the viewport, whatever the page height.
     await page.unroute('**/api/jobs**');
     await page.unroute('**/api/auth/refresh');
-    await page.getByRole('dialog').getByLabel('Password').fill(process.env.DEV_SEED_PASSWORD ?? (env.SEED_USER_PASSWORD as string));
+    await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill(process.env.DEV_SEED_PASSWORD ?? (env.SEED_USER_PASSWORD as string));
     await page.getByRole('dialog').getByRole('button', { name: 'Sign in again' }).click();
     await page.getByRole('dialog').waitFor({ state: 'detached' });
     await page.getByRole('button', { name: 'Clear filters' }).click();
@@ -219,7 +231,7 @@ test.describe('screens', () => {
     await shot('19-session-dialog-long-scrolled-page', true);
     await page.unroute('**/api/jobs**');
     await page.unroute('**/api/auth/refresh');
-    await page.getByRole('dialog').getByLabel('Password').fill(process.env.DEV_SEED_PASSWORD ?? (env.SEED_USER_PASSWORD as string));
+    await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill(process.env.DEV_SEED_PASSWORD ?? (env.SEED_USER_PASSWORD as string));
     await page.getByRole('dialog').getByRole('button', { name: 'Sign in again' }).click();
     await page.getByRole('dialog').waitFor({ state: 'detached' });
 
@@ -460,6 +472,29 @@ test.describe('screens', () => {
       await shotAt('10l-panel-attempts-retrying-and-failed');
     } finally {
       await removeSeeded(mixed);
+    }
+    // The reasons in the tooltip (D-F1-60): a permanent failure, a retried failure, a cancelled delivery, a retrying one.
+    const reasons = await seedJob(page, ['Permanent.pdf', 'Retried.pdf', 'Cancelled.pdf', 'Retrying.pdf'], folder, () => 'application/pdf', (i) =>
+      i === 0 ? { status: 'failed', attempts: 1, code: 'FILE_NOT_UPLOADED' } : i === 1 ? { status: 'failed', attempts: 5, code: 'RETRIES_EXHAUSTED' } : i === 2 ? { status: 'failed', attempts: 1, code: 'CANCELLED' } : { status: 'in_progress', attempts: 3 },
+    );
+    try {
+      await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Distribute' }).click();
+      await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
+      await page.locator(`[data-job-id="${reasons}"]`).click();
+      await page.getByRole('table', { name: 'Deliveries, 4' }).waitFor();
+      for (const [file, shot] of [['Permanent.pdf', '10m-reason-permanent-failure'], ['Retried.pdf', '10n-reason-retried-failure'], ['Cancelled.pdf', '10o-reason-cancelled'], ['Retrying.pdf', '10p-reason-retrying']] as const) {
+        // One picture per width with the tooltip open (a resize closes a tooltip, so it is opened after each resize).
+        for (const s of sizes) {
+          await page.setViewportSize({ width: s.w, height: s.h });
+          await page.mouse.move(0, 0);
+          await page.waitForTimeout(250);
+          await page.locator('.trow', { hasText: file }).locator('.status-chip').hover();
+          await page.getByRole('tooltip').waitFor();
+          await page.screenshot({ path: `${dir}/${shot}-${s.w}.png` });
+        }
+      }
+    } finally {
+      await removeSeeded(reasons);
     }
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Distribute' }).click();
     await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();

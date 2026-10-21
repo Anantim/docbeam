@@ -18,13 +18,15 @@ interface Props {
   big?: boolean;
   /** What a screen reader says for the chip when the tooltip's sentence is more useful than the word (D-F1-38). */
   ariaLabel?: string | undefined;
+  /** A chip whose tooltip carries a reason is a Tab stop, and a click shows the tooltip too (D-F1-60). */
+  focusable?: boolean;
 }
 
 /** The text with a dot, tinted by its tone. Delivery states, distribution states and file states all use it. */
-export function StatusChip({ tone, label, meaning, big = false, ariaLabel }: Props) {
+export function StatusChip({ tone, label, meaning, big = false, ariaLabel, focusable = false }: Props) {
   return (
-    <Tooltip text={meaning}>
-      <span className={`status-chip ${big ? 'big' : ''}`} data-tone={tone} role={ariaLabel ? 'img' : undefined} aria-label={ariaLabel}>
+    <Tooltip text={meaning} openOnClick={focusable}>
+      <span className={`status-chip ${big ? 'big' : ''}`} data-tone={tone} role={ariaLabel ? 'img' : undefined} aria-label={ariaLabel} tabIndex={focusable ? 0 : undefined}>
         <span className="status-dot" aria-hidden="true" />
         {label}
       </span>

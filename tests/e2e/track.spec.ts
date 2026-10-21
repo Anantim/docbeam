@@ -142,8 +142,9 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     await expect(page.getByText(/6 deliveries cancelled\./)).toBeVisible();
     await expect(chip(page)).toHaveText('Cancelled');
     expect(await readCounts(page)).toEqual([0, 0, 0, 0, 6]); // Completed, Failed, In progress, Pending, Cancelled
-    await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(6);
-    expect(await tooltipOf(page, page.locator('.ttable .code').first())).toMatch(/sender cancelled/);
+    const why = page.locator('.ttable').getByRole('button', { name: 'Why this delivery was cancelled' });
+    await expect(why).toHaveCount(6);
+    expect(await tooltipOf(page, why.first())).toBe('Cancelled by the sender before it was delivered.');
 
     // A cancelled distribution has no Cancel button (D-M3-10). Nothing failed, so there is no Retry button either.
     await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
@@ -168,16 +169,14 @@ test('a failure shows its reason in the row, with what the code means', async ({
 
     await expect(chip(page)).toHaveText('Completed with errors', { timeout: 90_000 });
     expect(await readCounts(page)).toEqual([0, 2, 0, 0]);
-    const codes = page.locator('.ttable .code', { hasText: 'FILE_NOT_UPLOADED' });
-    await expect(codes).toHaveCount(2);
-    expect(await tooltipOf(page, codes.first())).toBe('The file was not in storage when the delivery started.');
-    // The reason names the file and the destination.
+    const why = page.locator('.ttable').getByRole('button', { name: 'Why this delivery failed' });
+    await expect(why).toHaveCount(2);
+    // The reason is the tooltip of the info icon, from the one reason map; no raw code, and no "after N attempts" for a permanent failure.
+    expect(await tooltipOf(page, why.first())).toBe('The file never finished uploading, so it could not be delivered.');
+    await expect(page.locator('.ttable')).not.toContainText('FILE_NOT_UPLOADED');
+    // Each row still names its file and folder once, in its own lines.
     // (Rows sort by file name, and the names have a random part, so look each one up.)
-    for (const fileName of names) {
-      const reason = page.locator('.ttable .reason').filter({ hasText: fileName });
-      await expect(reason).toHaveCount(1);
-      await expect(reason).toContainText('IRB approvals');
-    }
+    for (const fileName of names) await expect(page.locator('.ttable .tfile', { hasText: fileName })).toHaveCount(1);
 
     // Filter by Failed, then All.
     await page.getByRole('button', { name: /^Failed, 2 deliveries/ }).click();
@@ -208,9 +207,10 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   await page.reload();
   await expect(chip(page)).toHaveText('Completed with errors');
   await expect(page.getByRole('button', { name: 'Retry failed' })).toBeEnabled();
-  const code = page.locator('.ttable .code');
-  await expect(code).toHaveText('RETRIES_EXHAUSTED');
-  expect(await tooltipOf(page, code)).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
+  const failedChip = page.locator('.ttable .tscroll .status-chip');
+  await expect(failedChip).toHaveText('Failed');
+  expect(await tooltipOf(page, failedChip)).toBe('The platform did not respond after 5 attempts.');
+  await expect(page.locator('.ttable')).not.toContainText('RETRIES_EXHAUSTED');
 
   await noReload(page);
   await page.getByRole('button', { name: 'Retry failed' }).click();

@@ -3,15 +3,17 @@
 import type { FAILURE_CODES, JOB_STATUSES, TASK_STATUSES } from '@docbeam/shared/browser';
 import type { FileStatus } from './upload/manager.js';
 
+// The one reason map (D-F1-60): a plain sentence for every failure code and for every problem a file can have on Distribute. Both
+// screens read it, nothing shows a raw code, and none of the sentences repeats the file name or the folder (the row has them).
 export const FAILURE_MEANING: Record<(typeof FAILURE_CODES)[number], string> = {
-  FILE_NOT_UPLOADED: 'The file was not in storage when the delivery started.',
-  CHECKSUM_MISMATCH: "The file's fingerprint did not match the one it was uploaded with.",
-  UNSUPPORTED_TYPE: "The file's contents do not match its declared type.",
-  NOT_AUTHORIZED_AT_DELIVERY: 'The sender left the destination team after sending, so the platform refused it.',
-  DESTINATION_NOT_FOUND: 'The folder was deleted after the distribution was sent.',
-  RETRIES_EXHAUSTED: 'Tried 5 times over about 17 minutes; the platform did not accept it.',
-  FANOUT_FAILED: 'The distribution could not be split into deliveries. The sender can retry.',
-  CANCELLED: 'The sender cancelled the distribution before this delivery started.',
+  FILE_NOT_UPLOADED: 'The file never finished uploading, so it could not be delivered.',
+  CHECKSUM_MISMATCH: 'The file in storage does not match what was uploaded.',
+  UNSUPPORTED_TYPE: "The file's contents are not the type its name says.",
+  NOT_AUTHORIZED_AT_DELIVERY: 'The sender is no longer in this team.',
+  DESTINATION_NOT_FOUND: 'The folder no longer exists.',
+  RETRIES_EXHAUSTED: 'The platform did not respond after 5 attempts.',
+  FANOUT_FAILED: 'The distribution could not be split into deliveries.',
+  CANCELLED: 'Cancelled by the sender before it was delivered.',
 };
 
 export const TASK_STATUS_MEANING: Record<(typeof TASK_STATUSES)[number] | 'cancelled', string> = {
@@ -36,24 +38,16 @@ export const UPLOAD_STATUS_MEANING: Record<FileStatus, string> = {
   uploading: 'Sending the file to storage.',
   checking: 'Stored. The malware scan is running.',
   verified: 'Stored, intact and scanned clean.',
-  refused: 'Storage did not accept the upload because it did not match what was checked. Retry it.',
-  interrupted: 'The connection broke. Retry carries on from the parts already stored.',
-  unchecked: 'The file could not be scanned, so it cannot be sent.',
-  infected: 'Malware was found. The file was deleted and can never be sent.',
+  refused: 'Storage did not accept the upload.',
+  interrupted: 'The connection broke. Retry carries on where it stopped.',
+  unchecked: 'The scan could not run.',
+  infected: 'Malware was found. The file was deleted and cannot be sent.',
 };
 
 /**
- * The one short line under a Failed, Interrupted or Refused chip on Distribute (D-F1-58): what is wrong and what to do, short
- * enough for one line. The full sentence is `UPLOAD_STATUS_MEANING`, shown in the tooltip.
+ * The reason for a delivery that did not arrive, from the one reason map (D-F1-60): the sentence for its code, and a plain
+ * sentence for a code a newer server may send. Never the raw code, the platform's own text, the file name or the folder.
  */
-export const UPLOAD_STATUS_SHORT: Partial<Record<FileStatus, string>> = {
-  refused: 'Upload failed. Retry or remove.',
-  interrupted: 'Connection broke. Retry to resume.',
-  unchecked: 'Scan failed. Retry or remove.',
-  infected: 'Malware found. Remove this file.',
-};
-
-/** The meaning of a failure code the page may not know (a newer server), or nothing. */
-export function failureMeaning(code: string | null): string | undefined {
-  return code ? (FAILURE_MEANING as Record<string, string>)[code] : undefined;
+export function failureMeaning(code: string | null): string {
+  return (code ? (FAILURE_MEANING as Record<string, string | undefined>)[code] : undefined) ?? 'The delivery did not go through.';
 }

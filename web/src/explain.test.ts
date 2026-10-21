@@ -19,13 +19,33 @@ describe('the shared meanings', () => {
     }
   });
 
-  it('explains RETRIES_EXHAUSTED the way the person asked', () => {
-    expect(FAILURE_MEANING.RETRIES_EXHAUSTED).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
+  // The one reason map (D-F1-60): this test fails when a new failure code is added without a sentence, and when a sentence shows a
+  // raw code or says what the row already says.
+  it('has a plain sentence for every failure code and every problem a file can have, and none shows a raw code', () => {
+    for (const code of FAILURE_CODES) {
+      const sentence = FAILURE_MEANING[code];
+      expect(sentence, code).toBeTruthy();
+      expect(sentence, code).not.toMatch(/[A-Z]{2,}_[A-Z_]+/); // no raw code
+      expect(sentence, code).not.toMatch(/\.(pdf|docx|xlsx|png|jpg)\b/i); // no file name
+      expect(sentence, code).not.toContain(' / '); // no folder path
+    }
+    for (const status of ['refused', 'interrupted', 'unchecked', 'infected'] as const) expect(UPLOAD_STATUS_MEANING[status], status).toBeTruthy();
   });
 
-  it('says nothing for a code it does not know', () => {
-    expect(failureMeaning('SOMETHING_NEW')).toBeUndefined();
-    expect(failureMeaning(null)).toBeUndefined();
-    expect(failureMeaning('CANCELLED')).toContain('cancelled');
+  it('says it the way the person asked', () => {
+    expect(FAILURE_MEANING.FILE_NOT_UPLOADED).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(FAILURE_MEANING.CANCELLED).toBe('Cancelled by the sender before it was delivered.');
+    expect(FAILURE_MEANING.DESTINATION_NOT_FOUND).toBe('The folder no longer exists.');
+    expect(FAILURE_MEANING.NOT_AUTHORIZED_AT_DELIVERY).toBe('The sender is no longer in this team.');
+    expect(FAILURE_MEANING.RETRIES_EXHAUSTED).toBe('The platform did not respond after 5 attempts.');
+    expect(UPLOAD_STATUS_MEANING.infected).toBe('Malware was found. The file was deleted and cannot be sent.');
+    expect(UPLOAD_STATUS_MEANING.unchecked).toBe('The scan could not run.');
+    expect(UPLOAD_STATUS_MEANING.refused).toBe('Storage did not accept the upload.');
+  });
+
+  it('gives a plain sentence, never a raw code, for a code it does not know', () => {
+    expect(failureMeaning('SOMETHING_NEW')).toBe('The delivery did not go through.');
+    expect(failureMeaning(null)).toBe('The delivery did not go through.');
+    expect(failureMeaning('CANCELLED')).toContain('Cancelled');
   });
 });

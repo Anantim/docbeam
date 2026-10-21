@@ -23,7 +23,7 @@ test('an account the administrator set up sees an empty tree, signs out and sign
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 });
@@ -33,7 +33,7 @@ test('the sign-in page has the tagline and subtitle, and a wrong password gets o
   await expect(page.getByRole('heading', { name: 'One upload, every binder that needs it.' })).toBeVisible();
   await expect(page.getByText('Clinical trial document distribution for study teams')).toBeVisible();
   await page.getByLabel('Work email').fill(PRIYA);
-  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByRole('alert')).not.toContainText(/no such|not found|exists/i); // it must not say whether the account exists
@@ -149,7 +149,7 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
 
   await page.unroute('**/api/jobs**');
   await page.unroute('**/api/auth/refresh');
-  await dialog.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
+  await dialog.getByLabel('Password', { exact: true }).fill(env.SEED_USER_PASSWORD as string);
   await dialog.getByRole('button', { name: 'Sign in again' }).click();
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'Distribute' }).click();

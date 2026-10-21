@@ -24,3 +24,4 @@ backend.hcl
 # The demo recorder's step pictures and any stray video; the demo is docs/demo/docbeam-demo.webm
 docs/demo/frames/
 *.mp4
+!docs/demo/docbeam-demo.mp4

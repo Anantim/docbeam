@@ -67,7 +67,7 @@ export const ON_DEV = DEV_APP_URL !== undefined;
 export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto('/');
   await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill((process.env.DEV_SEED_PASSWORD ?? env.SEED_USER_PASSWORD) as string);
+  await page.getByLabel('Password', { exact: true }).fill((process.env.DEV_SEED_PASSWORD ?? env.SEED_USER_PASSWORD) as string);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }
@@ -250,7 +250,7 @@ export async function newAccount(page: Page, name = 'E2E Newcomer'): Promise<str
   expect(made.status()).toBe(201);
   await page.goto('/');
   await page.getByLabel('Work email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   return email;
@@ -306,7 +306,7 @@ export async function sql<T = Record<string, unknown>>(text: string, values: unk
  * directly in the database: a long list to try the "+N" popovers and the filters on, without uploading and scanning
  * dozens of files. Every delivery is completed, so no worker has anything to do with it. `removeSeeded` deletes it.
  */
-export async function seedJob(page: Page, files: string[], folders: string[], typeOf: (name: string) => string = () => 'application/pdf', states?: (fileIndex: number) => { status: 'completed' | 'in_progress' | 'failed'; attempts: number }): Promise<string> {
+export async function seedJob(page: Page, files: string[], folders: string[], typeOf: (name: string) => string = () => 'application/pdf', states?: (fileIndex: number) => { status: 'completed' | 'in_progress' | 'failed'; attempts: number; code?: string }): Promise<string> {
   const token = (await page.evaluate("sessionStorage.getItem('docbeam.accessToken')")) as string;
   const claims = JSON.parse(Buffer.from(token.split('.')[1] as string, 'base64url').toString('utf8')) as { sub: string; name?: string };
   const userId = claims.sub;
@@ -317,35 +317,51 @@ export async function seedJob(page: Page, files: string[], folders: string[], ty
   await platform.connect();
   const teamIds = new Map((await platform.query('SELECT id, name FROM teams')).rows.map((r: { id: string; name: string }) => [r.name, r.id] as const));
   await platform.end();
-  await sql(
+  // The job, its files and its deliveries go in together or not at all (D-F1-62): a run that stops half way must not leave a
+  // distribution with no deliveries, which the page shows as "Completed" with no rows.
+  const db = new pg.Client({ connectionString: conn('docbeam_db') });
+  await db.connect();
+  const tx = (text: string, values: unknown[]) => db.query(text, values);
+  try {
+  await tx('BEGIN', []);
+  await tx(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
      VALUES ($1, $2, $6, $3, $4, now(), now(), now(), $5)`,
     [jobId, userId, files.length * folders.length, randomUUID(), now, claims.name ?? 'Priya Shah'],
   );
   for (const [i, name] of files.entries()) {
     const fileId = randomUUID();
-    await sql(
+    await tx(
       `INSERT INTO files (id, owner_user_id, job_id, original_name, size_bytes, content_type, detected_type, checksum_sha256, s3_key, uploaded_at, scan_status, created_at)
        VALUES ($1, $2, $3, $4, 10, $7, $7, repeat('a', 64), $5, now(), 'clean', $6)`,
       [fileId, userId, jobId, name, `staging/${userId}/${fileId}`, new Date(now.getTime() + i), typeOf(name)],
     );
     for (const path of folders) {
       const state = states?.(i) ?? { status: 'completed', attempts: 1 };
-      await sql(
+      await tx(
         `INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, destination_path, status, attempt_count, failure_code, failure_reason)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [randomUUID(), jobId, fileId, teamIds.get(path.split(' / ')[0] as string) ?? randomUUID(), randomUUID(), path, state.status, state.attempts, state.status === 'failed' ? 'RETRIES_EXHAUSTED' : null, state.status === 'failed' ? 'The platform did not answer.' : null],
+        [randomUUID(), jobId, fileId, teamIds.get(path.split(' / ')[0] as string) ?? randomUUID(), randomUUID(), path, state.status, state.attempts, state.status === 'failed' ? (state.code ?? 'RETRIES_EXHAUSTED') : null, state.status === 'failed' ? 'The platform did not answer.' : null],
       );
     }
+  }
+  await tx('COMMIT', []);
+  } catch (error) {
+    await tx('ROLLBACK', []).catch(() => undefined);
+    throw error;
+  } finally {
+    await db.end();
   }
   return jobId;
 }
 
-/** Deletes a distribution made by `seedJob`, with its files and deliveries. */
+/** Deletes a distribution made by `seedJob`, with its files and deliveries, in one statement (all or nothing, D-F1-62). */
 export async function removeSeeded(jobId: string): Promise<void> {
-  await sql('DELETE FROM tasks WHERE job_id = $1', [jobId]);
-  await sql('DELETE FROM files WHERE job_id = $1', [jobId]);
-  await sql('DELETE FROM jobs WHERE id = $1', [jobId]);
+  await sql(
+    `WITH t AS (DELETE FROM tasks WHERE job_id = $1), f AS (DELETE FROM files WHERE job_id = $1)
+     DELETE FROM jobs WHERE id = $1`,
+    [jobId],
+  );
 }
 
 /** Removes a job's staged files from the Object Store, so its deliveries fail with FILE_NOT_UPLOADED. */

@@ -114,8 +114,8 @@ test('a file older than 33 days shows the expired note and no buttons', async ({
   await sql(`UPDATE files SET uploaded_at = now() - interval '40 days' WHERE job_id = $1 AND original_name = $2`, [jobId, DOCX]);
   await signIn(page, PRIYA);
   await page.goto(`/#/status/${jobId}`);
-  await expect(rowOf(page, DOCX)).toContainText('File expired');
-  await expect(rowOf(page, DOCX).getByRole('button')).toHaveCount(0);
+  await expect(rowOf(page, DOCX).getByRole('button', { name: 'Why this file cannot be opened' })).toBeVisible(); // an info icon, no words
+  await expect(rowOf(page, DOCX).getByRole('button', { name: /^(Preview|Download)/ })).toHaveCount(0);
   await expect(rowOf(page, PDF).getByRole('button', { name: `Preview ${PDF}` })).toBeVisible();
   expect(jobIdOf(page)).toBe(jobId);
 });
