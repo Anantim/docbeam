@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
@@ -88,18 +89,23 @@ describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
     expect(screen.getByRole('region', { name: 'Delivery rows, scrolls' })).toBeTruthy();
   });
 
-  it('at 240 px the box is 5 rows tall, so the sixth sits below the edge: the size hides it, not the data', async () => {
+  it('when the box is 5 rows tall, the sixth sits below the edge: the size hides it, not the data', async () => {
     api.tasks.mockImplementation(async () => six());
     const { live } = fakeLive();
-    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={240} />);
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={5 * ROW_HEIGHT} />);
     await screen.findByText(name(0));
-    expect((screen.getByRole('region', { name: 'Delivery rows, scrolls' }) as HTMLElement).style.height).toBe(`${5 * ROW_HEIGHT}px`); // 5 rows of 48 px
+    expect((screen.getByRole('region', { name: 'Delivery rows, scrolls' }) as HTMLElement).style.height).toBe(`${5 * ROW_HEIGHT}px`); // 5 rows of 52 px
     expect(screen.queryByText(/scroll the list/)).toBeNull(); // no line says it any more: the fade and the shadow do (D-F1-30)
     expect(document.querySelector('.tbody-wrap')?.className).toContain('more-below');
   });
 });
 
 // The box itself is on the panel's Deliveries row (StatusPage.test.tsx); the table narrows the rows it has loaded by `query`.
+it('ROW_HEIGHT is the stylesheet\'s --row-h, so the two cannot drift apart (D-F1-56)', () => {
+  const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
+  expect(css).toContain(`--row-h: ${ROW_HEIGHT}px;`);
+});
+
 describe('the table narrowed by the Filter… text (D-F1-41, D-F1-46)', () => {
   const some = (n: number, dests: (i: number) => string = () => 'Cardio / Regulatory'): TaskPage => ({ page: 1, limit: 100, total: n, tasks: Array.from({ length: n }, (_, i) => row(i, { destinationPath: dests(i), status: 'completed' })) });
   const table = (query: string, onClearFilter = vi.fn(), status: 'all' | 'completed' = 'all') => {

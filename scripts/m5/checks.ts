@@ -121,6 +121,38 @@ const checks: Record<string, () => Promise<void>> = {
     expect('DLQs empty afterwards (job, task, upload events)', dlq.every((n) => n === 0), dlq.join(', '));
   },
 
+  // ------------------------------------------------------------------ F1 (D-F1-55)
+  // One 100 x 20 distribution in normal operation (nothing paused), timed from the moment POST /jobs is accepted.
+  async 'delivery-timing'() {
+    const api = await mustLogin(USERS.load);
+    const files = await uploadClean(api, 100, 'f1-timing');
+    const started = Date.now();
+    const s = await submit(api, files, loadDestinations(20));
+    const acceptedMs = Date.now() - started;
+    expect('2,000 deliveries accepted', s.reply.status === 201 && s.taskCount === 2000, `${s.reply.status}, ${s.taskCount} tasks, POST /jobs took ${acceptedMs} ms from this machine`);
+    let first: number | null = null;
+    let half: number | null = null;
+    let all: number | null = null;
+    let last = { pending: 2000, in_progress: 0, completed: 0, failed: 0, cancelled: 0 };
+    const samples: string[] = [];
+    while (all === null && Date.now() - started < 30 * 60_000) {
+      const v = await job(api, s.jobId);
+      const at = Date.now() - started;
+      last = v.counts;
+      const finished = v.counts.completed + v.counts.failed + v.counts.cancelled;
+      samples.push(`${(at / 1000).toFixed(1)}s completed=${v.counts.completed} in_progress=${v.counts.in_progress} pending=${v.counts.pending} failed=${v.counts.failed}`);
+      if (first === null && v.counts.completed >= 1) first = at;
+      if (half === null && finished >= 1000) half = at;
+      if (v.counts.pending === 0 && v.counts.in_progress === 0) all = at;
+      else await sleep(1000);
+    }
+    for (const line of samples.filter((_, i) => i % 5 === 0)) log(`sample ${line}`);
+    log(`final counts ${JSON.stringify(last)}`);
+    log(`TIMING POST /jobs accepted (client side) ${acceptedMs} ms; to first delivery ${first} ms; to 50% (1,000 of 2,000) ${half} ms; to 100% ${all} ms (polled every 1 s, so each is exact to about 1 s plus one request)`);
+    if (first !== null && all !== null && all > first) log(`TIMING deliveries per second between the first and the last: ${(2000 / ((all - first) / 1000)).toFixed(1)}`);
+    expect('all 2,000 deliveries completed', last.completed === 2000 && last.failed === 0, JSON.stringify(last));
+  },
+
   // ------------------------------------------------------------------ 5.2
   async 'removed-member'() {
     needYes('pauses the Delivery trigger, runs the platform seed variant (removes the load user from Load Team 20), resumes the trigger, then restores the seed');

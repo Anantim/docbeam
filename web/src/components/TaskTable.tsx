@@ -12,8 +12,8 @@ import { TypeBadge } from './TypeBadge.js';
 import { plural, taskKindOf, taskLook } from '../tracking/format.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
-/** One delivery row: the file name with the folder path in small text under it (D-F1-46). The list of distributions uses the same density (`--row-job`). */
-export const ROW_HEIGHT = 48;
+/** One delivery row: the file name with the folder path in small text under it (D-F1-46). The list of distributions uses the same height (`--row-h`). */
+export const ROW_HEIGHT = 52; // the same as --row-h in the stylesheet, which the list of distributions uses too (D-F1-56)
 const MAX_ATTEMPTS = 5;
 
 interface Props {

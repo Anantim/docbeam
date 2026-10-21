@@ -1,0 +1,2 @@
+GET /jobs/{jobId}                                n=1 p50=101 p99=101 max=101
+POST /jobs                                       n=1 p50=763 p99=763 max=763

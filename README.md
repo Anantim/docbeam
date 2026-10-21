@@ -6,6 +6,25 @@ DocBeam is a batch document distribution app for clinical trial teams. It is a p
 
 > **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm) (recorded by a script, `scripts/demo/record.ts`, against the live dev site on 2026-10-20: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
 
+## At a glance
+
+Measured on the deployed dev site (AWS Sydney). The latest run leads; older runs are listed as history in the sections below. Largest job: 100 files to 20 teams, which is **2,000 deliveries**.
+
+| Measure | Latest result | Date | Evidence |
+|---|---|---|---|
+| Accepting the largest job (`POST /jobs`, server side), normal operation | p99 175 ms (p50 35 ms) over 100 jobs | 2026-10-20 | [submit-load-quiet.txt](docs/testing/f1-evidence/dev/submit-load-quiet.txt) |
+| The same under peak delivery load | p99 452 ms | 2026-10-20 | [submit-load-loaded.txt](docs/testing/f1-evidence/dev/submit-load-loaded.txt) |
+| One largest job, accepted to first delivery | 4.6 s | 2026-10-21 | [delivery-timing.txt](docs/testing/f1-evidence/dev/delivery-timing.txt) |
+| One largest job, accepted to half delivered (1,000) | 16.8 s | 2026-10-21 | same |
+| One largest job, accepted to all 2,000 delivered | 26.2 s (about 92 deliveries a second); 0 failed | 2026-10-21 | same, and [server side](docs/testing/f1-evidence/dev/delivery-timing-server.txt) (that request took 763 ms at the gateway; 2.4 s seen from the laptop) |
+| Delivery failure rate (system failures over all deliveries) | 0 of 12,872 after the fixes | 2026-10-17 | [failure-rate.txt](docs/testing/m5-evidence/failure-rate.txt) (history: 853 of 24,398, 3.5%, in the one run before the pool fix) |
+| Platform stopped for 5 minutes, then database failover (about 20 s) during a run | 2,000 of 2,000 delivered once each, DLQs empty | 2026-10-17 | [platform-outage.txt](docs/testing/m5-evidence/platform-outage.txt), [failover.txt](docs/testing/m5-evidence/failover.txt) |
+| Browsing the first level of the tree for a user in 50 teams (one call) | p99 832 ms from a laptop over the internet, 49 ms at the gateway | 2026-10-20 | [browse-timing.txt](docs/testing/f1-evidence/dev/browse-timing.txt) |
+| A 1 GiB file, uploaded in 64 parts, scanned and delivered | 54 s to upload, 95 s to scan, 36.9 s to deliver; same SHA-256 | 2026-10-18 | [multipart-1gb.txt](docs/testing/m5-evidence/multipart-1gb.txt) |
+| Virus scan (ClamAV) | about 15 s a file, 10 files at a time (100 files take about 2.5 minutes) | 2026-10-18 | [M5-RESULTS.md](docs/testing/M5-RESULTS.md) |
+| Cost of dev while it is up | about 3 to 5 USD a day, torn down when not in use | 2026-10 | [AGENTS.md](AGENTS.md), [STATUS.md](docs/STATUS.md) |
+| Tests | 756 unit, 204 integration (real ClamAV), 106 browser (10 more run only on dev); lint and typecheck clean | 2026-10-21 | [F1-RESULTS.md](docs/testing/F1-RESULTS.md) section 8.9 |
+
 ## The problem
 
 Research teams keep trial documents in a fixed hierarchy: Team, Binder, Folder, Document. A coordinator often has to put the same ten regulatory documents into fifteen binders at five hospitals. Today that is 150 separate uploads, nobody can see which ones failed halfway, and in a clinical trial a document that did not arrive is a compliance risk.
@@ -95,11 +114,11 @@ Locally the `workers` container polls the LocalStack queues and runs the same ha
 
 ## Tests
 
-| Layer | Command | Result at the end of F1 (2026-10-20) |
+| Layer | Command | Latest result (2026-10-21) |
 |---|---|---|
-| Unit and web (vitest) | `npm test` | 79 files, 623 tests |
-| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 180 tests |
-| Browser (Playwright, local) | `npm run test:e2e` | 50 tests (10 more run only on dev) |
+| Unit and web (vitest) | `npm test` | 88 files, 756 tests |
+| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 204 tests |
+| Browser (Playwright, local) | `npm run test:e2e` | 106 passed (10 more run only on dev) |
 | Browser on dev (Playwright) | `npm run test:e2e:dev` | 11 tests passed on 2026-10-20 (see F1 below) |
 | Checks on deployed dev | `scripts/m5-all.sh` | see M5 below |
 | Repository safe to publish | `scripts/check-public.sh` | gitleaks clean over every commit |
@@ -108,7 +127,7 @@ Also: `npm run lint`, `npm run typecheck`, `terraform fmt -check -recursive infr
 
 ## M5: proved on deployed dev
 
-M5 runs the success metrics of the [blueprint](docs/design/02-blueprint.md) against a dev built from nothing with the [runbook](docs/RUNBOOK-first-bring-up.md). Each check is a re-runnable script (`scripts/m5-*.sh`); the evidence is in [docs/testing/m5-evidence/](docs/testing/m5-evidence/) and the table with every number is [docs/testing/M5-RESULTS.md](docs/testing/M5-RESULTS.md).
+The numbers in this section are the M5 runs of 2026-10-17 and 2026-10-18: history. The latest numbers are in "At a glance" above. M5 runs the success metrics of the [blueprint](docs/design/02-blueprint.md) against a dev built from nothing with the [runbook](docs/RUNBOOK-first-bring-up.md). Each check is a re-runnable script (`scripts/m5-*.sh`); the evidence is in [docs/testing/m5-evidence/](docs/testing/m5-evidence/) and the table with every number is [docs/testing/M5-RESULTS.md](docs/testing/M5-RESULTS.md).
 
 | Check | Result |
 |---|---|
@@ -133,11 +152,12 @@ M5 runs the success metrics of the [blueprint](docs/design/02-blueprint.md) agai
 After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [docs/testing/F1-RESULTS.md](docs/testing/F1-RESULTS.md), decisions D-F1-1 to D-F1-12 in [docs/DECISIONS.md](docs/DECISIONS.md), a plain-English tour in [docs/walkthrough/F1.md](docs/walkthrough/F1.md)):
 
 - **A design system.** The stylesheet starts with tokens (a neutral palette, one accent, status colours for status only, five text sizes, a 4 px scale, one radius, one shadow); one status chip; one icon style; one font. Screens work from 1024 px up.
-- **Distribute is two columns.** Files on the left (a click selects, Shift and Ctrl select more), Destinations on the right (the highlighted file rows are the scope; there is no label beside the title), Clear and Send at the bottom (when Send is off, the reason is small text beside them, for example "Choose folders for 2 files"), and one question before it goes ("Send 3 files to 5 folders?" with the full summary, D-F1-20). **Only folders are destinations; binders are headings.** A folder ticked for all files stays ticked for files added later.
-- **Status shows job history only (D-F1-13).** One list of everything you can see, newest first, with one row of filters above it (Status, Sender, Sent, and Team when you are in more than one; they live in the address, D-F1-21), and a side panel for the one you open: its summary and deliveries with Retry failed and Cancel distribution. The list narrows beside the panel. There is no audit view in the page; `GET /audit` stays in the API.
+- **Distribute is two cards that fill the window (D-F1-39).** From 1024 px up the page does not scroll: Files on the left and Destinations on the right are as tall as the window leaves room for, and the file list and the folder tree scroll inside their cards. Clear and Send sit in a bar at the bottom; one question asks before it goes ("Send 3 files to 5 folders?" with the full summary). A click on a file row ticks or unticks it (no Ctrl needed; Shift extends); the Destinations title carries no "for N selected files" label and the bar carries no summary line, only the reason Send is off, as small text. **Only folders are destinations; binders are headings.** A folder ticked for all files stays ticked for files added later. A file is added only if its contents are the type its name says (first bytes, and a DOCX's or XLSX's ZIP file list); the type tag on a row comes from the contents too, and the same check runs again on the server (D-F1-44).
+- **Status shows job history only (D-F1-13).** One list of everything you can see, newest first: ID (with the sender below it), Status, Sent, Files (the first file name and "+N") and Destinations (the first two folders and "+N"), filling the window; the list scrolls inside its own area and loads the next page as you reach the end ("Loading more…", "That's everything"; no "Show more", D-F1-49). One row of filters sits above it (Status, Sender, Sent, and Team when you are in more than one; they live in the address, D-F1-21). Open a distribution and the list narrows beside a **split view** panel: a dense header (ID, copy icon, status, close; "Sent by" and the time; for a team member a one-line note of whose deliveries these are, with the teams that do not fit as "+N"), a thin progress bar, status tabs and the deliveries table (the file type, the folder, the status and, for a delivery on its second try or failed, a small attempt note). Past 15 deliveries a "Filter…" box appears. Both tables use one 52 px row height (D-F1-56). Every time is written one way ("Today, 04:34", "Yesterday, 18:10", "21 Oct, 04:34", "3 Mar 2025, 14:02", 24-hour, your time zone); hover or focus shows the full time with seconds and the zone (D-F1-59). A failed or refused file on Distribute keeps one short reason under its chip, with the whole sentence in a tooltip (D-F1-58). A delivery that is still being checked shows **Scanning**, a failed one a **Retry** and a file the scan refused **Refused**. There is no audit view in the page; `GET /audit` stays in the API.
+- **One look for filters, counts and tips (D-F1-41, D-F1-42, D-F1-47).** Every long list has the same "Filter…" box once it holds more than about 15 rows. A "+N" or "N folders" count opens one popover (on hover after 300 ms, on focus or on a click) with the full list. Hover hints are one tooltip component. Panels, dialogs and the tree move a little when they open and close, all of it switched off for people who ask for reduced motion (`prefers-reduced-motion`). Popovers and the page layout work from 1440 down to 1024 px.
 - **No sign-up in the web app (D-F1-17).** The study administrator sets accounts up (the seed script). `POST /auth/register` stays in the Auth Service and is switched off at the gateway by `public_registration_enabled`.
 - **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree loads 20 rows and more on scroll; the list of distributions loads 20 at a time as you scroll (the next page is asked for when its scroll area comes within about five rows of the end, with "Loading more…" while it comes and "That's everything" at the end; no page numbers and no "Show more", D-F1-49). The copy icon after a distribution ID copies its link.
-- **Measured on dev (2026-10-20):** a 2,000-delivery submit p99 175 ms in normal operation and 452 ms under peak delivery load (server side); the first level of the tree for a user in 50 teams p99 848 ms from a laptop over the internet (27 ms at the gateway); ticking one of 40 folders draws one row (was 40).
+- **Measured on dev:** see "At a glance" at the top for the latest numbers. Ticking one of 40 folders draws one row (was 40).
 - **Demo video:** [docs/demo/docbeam-demo.webm](docs/demo/docbeam-demo.webm), 4 minutes 23 seconds, recorded by `scripts/demo/record.ts` on dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
 
 ![The Distribute screen](docs/testing/f1-evidence/after/07-distribute-ready-to-send-1280.png)
