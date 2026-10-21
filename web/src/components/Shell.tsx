@@ -22,7 +22,7 @@ interface Props {
   children: ReactNode;
 }
 
-/** "1 distribution still running", "3 distributions still running": the badge's tooltip and its accessible name (D-F1-71). */
+/** "1 distribution still running", "3 distributions still running": the badge's tooltip and its accessible name (D-F1-72). */
 export const runningText = (n: number): string => `${n} ${n === 1 ? 'distribution' : 'distributions'} still running`;
 
 /** The app shell: the two tabs, the person, and sign out. */

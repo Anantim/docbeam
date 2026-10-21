@@ -4,7 +4,7 @@ import { addPdfs, PRIYA, signIn, tooltipOf } from './helpers.js';
 // The tooltip rules (D-M3-10, D-F1-47) on the Distribute screen, in a real browser: one Tooltip component, no `title` attribute.
 // The popover of folders is in m2.spec.ts and popover.spec.ts.
 
-test('a button that is off says why in text beside it, and a button with only an icon says what it does in a tooltip', async ({ page }) => {
+test('a Send that is off says why in text beside it (Clear explains itself even when off), and a button with only an icon says what it does in a tooltip', async ({ page }) => {
   await signIn(page, PRIYA);
 
   // Nothing added yet.

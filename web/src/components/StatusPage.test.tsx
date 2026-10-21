@@ -303,7 +303,7 @@ describe('Cancel and Retry', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel distribution' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel this distribution?' });
     expect(dialog.textContent).toContain('The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.');
-    expect(dialog.textContent).not.toMatch(/CANCELLED|\d deliveries/); // no raw code, no count (D-F1-71)
+    expect(dialog.textContent).not.toMatch(/CANCELLED|\d deliveries/); // no raw code, no count (D-F1-72)
     expect(api.cancel).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel distribution' }));
     await waitFor(() => expect(api.cancel).toHaveBeenCalledWith(JOB));
@@ -335,6 +335,10 @@ describe('Cancel and Retry', () => {
     const retry = screen.getByRole('button', { name: 'Retry failed' });
     expect(tooltipOf(cancel)).toBe('Stop the deliveries still waiting. Ones already delivered or running are not affected.');
     expect(tooltipOf(retry)).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
+    const bar = screen.getByRole('complementary').querySelector('.jbar') as HTMLElement; // the panel's bar is a Tab stop with the tooltip
+    expect(bar.getAttribute('tabindex')).toBe('0');
+    expect(tooltipOf(bar)).toBe(bar.getAttribute('aria-label'));
+    expect(tooltipOf(bar)).toBe('10 deliveries: 1 failed, 4 completed, 5 pending');
     await user.hover(retry);
     expect((await screen.findByRole('tooltip')).textContent).toBe("Send the failed deliveries again. Ones that can't succeed on a retry are left as they are.");
   });
@@ -439,7 +443,7 @@ describe('Cancel and Retry', () => {
     expect(top.querySelector('.copy-link')).not.toBeNull();
     expect(top.querySelector('.status-chip')).not.toBeNull();
     expect(within(top).getByRole('button', { name: 'Close' })).toBeTruthy();
-    expect([...head.children].map((c) => c.className.split(' ')[0])).toEqual(['panel-top', 'panel-sub', 'tip-wrap']); // (the bar is wrapped by its tooltip, D-F1-71) the bar is the last line of the header, under the sent-by line
+    expect([...head.children].map((c) => c.className.split(' ')[0])).toEqual(['panel-top', 'panel-sub', 'tip-wrap']); // (the bar is wrapped by its tooltip, D-F1-72) the bar is the last line of the header, under the sent-by line
     expect(document.querySelector('.jdest, .chip')).toBeNull(); // the folders are in the deliveries table, not here
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
     expect(css).toMatch(/\.panel-head \.jbar \{ height: 3px;/);

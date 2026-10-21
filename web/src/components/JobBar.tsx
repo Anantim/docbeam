@@ -5,7 +5,7 @@ import { Tooltip } from './Tooltip.js';
 const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
 
 /**
- * The bar's words (D-F1-71): "4 deliveries: 1 failed, 1 in progress, 1 cancelled, 1 completed", only the kinds that are not zero,
+ * The bar's words (D-F1-72): "4 deliveries: 1 failed, 1 in progress, 1 cancelled, 1 completed", only the kinds that are not zero,
  * in that order, and pending last (a delivery that has not started is part of the total and would otherwise be unaccounted for).
  */
 export function barText(counts: Counts, total: number): string {
