@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
+import { tooltipOf } from '../testing/tooltip.js';
 import { join } from 'node:path';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -226,12 +227,12 @@ describe('Distribute', () => {
     screenWith(manager);
     const chip = (n: string) => screen.getByText(n).closest('[role="row"]')!.querySelector('.status-chip') as HTMLElement;
     expect(chip('scan.pdf').textContent).toBe('Scanning');
-    expect(chip('scan.pdf').getAttribute('title')).toBe('Scanning for malware');
+    expect(tooltipOf(chip('scan.pdf'))).toBe('Scanning for malware');
     expect(chip('scan.pdf').getAttribute('aria-label')).toBe('Scanning for malware');
     expect(screen.queryByText('Checking')).toBeNull();
     for (const [name, reason] of [['stored.pdf', 'Storage did not accept the upload. Retry it.'], ['noscan.pdf', 'The file could not be scanned. Retry it or remove it.']] as const) {
       expect(chip(name).textContent).toBe('Failed');
-      expect(chip(name).getAttribute('title')).toBe(reason); // the same reason as the line under the chip
+      expect(tooltipOf(chip(name))).toBe(reason); // the same reason as the line under the chip
       expect(chip(name).getAttribute('aria-label')).toBe(reason);
       expect(screen.getByText(name).closest('[role="row"]')!.querySelector('.fmsg')?.textContent).toBe(reason);
       expect(screen.getByRole('button', { name: `Retry upload of ${name}` })).toBeTruthy(); // Retry kept
@@ -250,11 +251,11 @@ describe('Distribute', () => {
     const rowBoxes = screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' });
     expect(rowBoxes).toHaveLength(2);
     for (const box of rowBoxes) {
-      expect(box.getAttribute('title')).toBe('Select to choose folders for this file');
+      expect(tooltipOf(box)).toBe('Select to choose folders for this file');
       expect(box.getAttribute('aria-checked')).toBe('false');
     }
     const header = screen.getByRole('checkbox', { name: 'Select all to choose their folders' });
-    expect(header.getAttribute('title')).toBe('Select all to choose their folders');
+    expect(tooltipOf(header)).toBe('Select all to choose their folders');
     // Selection behaves as before: a click on the box selects the row, the header box selects all.
     await user.click(rowBoxes[0] as HTMLElement);
     expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' })[0]?.getAttribute('aria-checked')).toBe('true');
@@ -332,7 +333,7 @@ describe('Distribute', () => {
     await tickTop(user, 'all 1 file');
     await waitFor(() => expect(reason()).toBe(''));
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false);
-    expect(document.querySelector('[title]')?.closest('.sendbar')).toBeNull(); // no tooltip in the bar carries a reason
+    expect(document.querySelector('.sendbar [title], .sendbar .tip-wrap')).toBeNull(); // no tooltip in the bar carries a reason
   });
 
   it('asks before the page is closed whenever it holds files that were not sent, and not when it is empty', async () => {
@@ -459,16 +460,16 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
 
   it('is shown for more than 15 files and not for 15 or fewer', () => {
     screenWith(new FakeManager(many(15)));
-    expect(screen.queryByRole('textbox', { name: 'Filter files by name' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Filter files' })).toBeNull();
     cleanup();
     screenWith(new FakeManager(many(16)));
-    expect(screen.getByRole('textbox', { name: 'Filter files by name' }).getAttribute('placeholder')).toBe('Filter…');
+    expect(screen.getByRole('textbox', { name: 'Filter files' }).getAttribute('placeholder')).toBe('Filter…');
   });
 
   it('matches anywhere in the name in any case, says "Showing N of M" and "No matches", and Esc empties it', async () => {
     const user = userEvent.setup();
     screenWith(new FakeManager(many(20)));
-    const box = screen.getByRole('textbox', { name: 'Filter files by name' }) as HTMLInputElement;
+    const box = screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement;
     await user.type(box, 'labs-1');
     expect(dataRows()).toHaveLength(5); // Labs-02 .. Labs-20 even numbers starting with 1: 10, 12, 14, 16, 18
     expect(screen.getByText('Showing 5 of 20')).toBeTruthy();
@@ -484,7 +485,7 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
   it('"No matches" is one centred line across the table with a "Clear filter" link that empties the box and returns the focus to it (D-F1-45)', async () => {
     const user = userEvent.setup();
     screenWith(new FakeManager(many(20)));
-    const box = screen.getByRole('textbox', { name: 'Filter files by name' }) as HTMLInputElement;
+    const box = screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement;
     await user.type(box, 'zzz');
     const none = document.querySelector('.no-matches') as HTMLElement;
     expect(none.getAttribute('role')).toBe('status'); // the one shared component
@@ -496,15 +497,17 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
     expect(dataRows()).toHaveLength(20);
   });
 
-  it('the Files filter box is the same component as "Search folders": magnifier, one field style, and a height from the control tokens', () => {
+  it('the Files filter box is the same component as the folder filter ("Filter…"): magnifier, one field style, and a height from the control tokens', () => {
     screenWith(new FakeManager(many(20)));
-    const filter = screen.getByRole('textbox', { name: 'Filter files by name' });
-    const search = screen.getByRole('searchbox', { name: 'Filter destinations' });
+    const filter = screen.getByRole('textbox', { name: 'Filter files' });
+    const search = screen.getByRole('searchbox', { name: 'Filter folders' });
     for (const box of [filter, search]) {
       expect(box.className).toBe('field');
       expect(box.parentElement?.classList.contains('searchfield')).toBe(true);
       expect(box.parentElement?.querySelector('svg')).not.toBeNull(); // the magnifier
     }
+    expect(filter.getAttribute('placeholder')).toBe('Filter…'); // every box that narrows a loaded list says the same (D-F1-46)
+    expect(search.getAttribute('placeholder')).toBe('Filter…'); // "Search folders" is gone
     expect(filter.parentElement?.classList.contains('sm')).toBe(true); // beside "Add files", a small button
     expect(search.parentElement?.classList.contains('md')).toBe(true);
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
@@ -516,7 +519,7 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
   it('Select all and Send still act on all the files, not only the listed ones', async () => {
     const user = userEvent.setup();
     const submit = screenWith(new FakeManager(many(20)));
-    await user.type(screen.getByRole('textbox', { name: 'Filter files by name' }), 'consent-0'); // 5 of 20 listed
+    await user.type(screen.getByRole('textbox', { name: 'Filter files' }), 'consent-0'); // 5 of 20 listed
     expect(dataRows()).toHaveLength(5);
     await user.click(screen.getByRole('checkbox', { name: 'Select all to choose their folders' }));
     expect(screen.getByRole('checkbox', { name: 'Select all to choose their folders' }).getAttribute('aria-checked')).toBe('true'); // all 20 are selected
@@ -534,10 +537,10 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
     const user = userEvent.setup();
     const manager = new FakeManager(many(16));
     screenWith(manager);
-    await user.type(screen.getByRole('textbox', { name: 'Filter files by name' }), 'labs');
+    await user.type(screen.getByRole('textbox', { name: 'Filter files' }), 'labs');
     act(() => manager.set(many(16).slice(0, 15)));
-    expect(screen.getByRole('textbox', { name: 'Filter files by name' })).toBeTruthy(); // the filter is still set, so it stays visible
+    expect(screen.getByRole('textbox', { name: 'Filter files' })).toBeTruthy(); // the filter is still set, so it stays visible
     await user.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(screen.queryByRole('textbox', { name: 'Filter files by name' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Filter files' })).toBeNull();
   });
 });

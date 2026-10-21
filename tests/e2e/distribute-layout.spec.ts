@@ -53,10 +53,10 @@ test('1280 px, few files and a deeply expanded tree: no page scroll, the tree sc
   await expect(page.locator('.tree-wrap.more-below'), 'the fade and shadow show while more is below').toHaveCount(1);
 
   // The search box stays above the tree while the tree scrolls.
-  const search = (await page.getByPlaceholder('Search folders').boundingBox())!;
+  const search = (await page.getByRole('searchbox', { name: 'Filter folders' }).boundingBox())!;
   await page.evaluate("document.querySelector('.tree').scrollTop = 100000");
   await page.waitForTimeout(250);
-  expect((await page.getByPlaceholder('Search folders').boundingBox())!.y).toBe(search.y);
+  expect((await page.getByRole('searchbox', { name: 'Filter folders' }).boundingBox())!.y).toBe(search.y);
   await expect(page.locator('.tree-wrap.more-below'), 'no shadow at the very end').toHaveCount(0);
   const send = (await page.getByRole('button', { name: 'Send', exact: true }).boundingBox())!;
   expect(send.y + send.height, 'Send is in the window').toBeLessThanOrEqual(600);
@@ -108,4 +108,21 @@ test('under 1024 px the cards are stacked: the page scrolls and there are no inn
   expect(await overflowY(page, '.files-scroll')).toBe('visible');
   expect(await scrollMax(page, '.tree'), 'the tree shows all its rows').toBeLessThanOrEqual(1);
   expect(await page.locator('.fadewrap.more-below').count(), 'no fade without an inner scroll').toBe(0);
+});
+
+test('every tick box is a 16 x 16 square at 1440, 1280 and 1024 px: the header, the file rows and the folders of the tree (D-F1-48)', async ({ page }) => {
+  await signIn(page, PRIYA);
+  await addPdfs(page, 3, 'tick');
+  await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand CARDIO-301 Regulatory' }).click();
+  await page.getByRole('checkbox', { name: /IRB approvals$/ }).click(); // one ticked, one not
+  await page.locator('.frow[data-id]').first().click(); // and one file row selected
+  for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(300);
+    const sizes = (await page.evaluate(`[...document.querySelectorAll('.box')].map((b) => { const r = b.getBoundingClientRect(); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, where: b.closest('.frow.thead') ? 'header' : b.closest('.frow') ? 'file row' : 'tree' }; })`)) as Array<{ w: number; h: number; where: string }>;
+    expect(sizes.length, `tick boxes at ${width} px`).toBeGreaterThanOrEqual(6); // the header, three files, two folders
+    for (const s of sizes) expect({ w: s.w, h: s.h }, `a ${s.where} tick box at ${width} px`).toEqual({ w: 16, h: 16 });
+    expect(new Set(sizes.map((s) => s.where))).toEqual(new Set(['header', 'file row', 'tree']));
+  }
 });

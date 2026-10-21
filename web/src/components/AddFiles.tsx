@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
 import { AlertIcon, CloseIcon, UploadIcon } from './Icons.js';
+import { Tooltip } from './Tooltip.js';
 import { useMoreBelow } from './useMoreBelow.js';
 
 const ACCEPT = ALLOWED_FILE_TYPES.flatMap((t) => t.extensions).join(',');
@@ -84,9 +85,11 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, 
               ))}
             </ul>
           </div>
-          <button className="icon small" type="button" aria-label="Close" title="Close" onClick={onDismiss}>
-            <CloseIcon />
-          </button>
+          <Tooltip text="Close">
+            <button className="icon small" type="button" aria-label="Close" onClick={onDismiss}>
+              <CloseIcon />
+            </button>
+          </Tooltip>
         </div>
       )}
       {empty ? (

@@ -20,13 +20,15 @@ interface Props {
   onChange: (value: string | undefined) => void;
   /** A "Filter…" box shows above the choices when there are more than this many (the Sender menu: 10 people, D-F1-41). Never set on Status, Sent or Team. */
   filterAfter?: number;
+  /** What the box is called for a screen reader: "Filter senders". */
+  filterLabel?: string;
 }
 
 /**
  * One filter: a small button that opens a short menu (D-F1-21). A set filter shows its value on the button, in the
  * accent style. Up and Down move, Enter or Space chooses, Esc closes and gives the focus back, a click outside closes.
  */
-export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChange, filterAfter }: Props) {
+export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChange, filterAfter, filterLabel = `Filter ${label.toLowerCase()}` }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
@@ -104,7 +106,7 @@ export function FilterMenu({ label, value, valueLabel, anyLabel, choices, onChan
         <div id={menuId} className="fmenu card" role="menu" aria-label={label}>
           {filterable && (
             <div className="fmenu-filter" role="none">
-              <ListFilter ref={box} value={query} onChange={setQuery} label={`Filter ${label.toLowerCase()}`} />
+              <ListFilter ref={box} value={query} onChange={setQuery} label={filterLabel} />
             </div>
           )}
           {filterable && items.length === 1 && (

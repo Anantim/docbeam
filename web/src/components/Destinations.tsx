@@ -9,6 +9,7 @@ import { Popover } from './Popover.js';
 import { useMoreBelow } from './useMoreBelow.js';
 import { CheckIcon, ChevronIcon, FolderIcon, MinusIcon } from './Icons.js';
 import { SearchField } from './SearchField.js';
+import { Tooltip } from './Tooltip.js';
 
 interface Props {
   onToggle: (destination: Destination) => void;
@@ -69,17 +70,18 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
   return (
     <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
       {canExpand ? (
-        <button
-          type="button"
-          className="exp"
-          data-nav={node.kind === 'folder' ? undefined : ''}
-          aria-expanded={isOpen}
-          aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-          title={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-          onClick={() => onExpand(node)}
-        >
-          <ChevronIcon open={isOpen} size={14} />
-        </button>
+        <Tooltip text={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}>
+          <button
+            type="button"
+            className="exp"
+            data-nav={node.kind === 'folder' ? undefined : ''}
+            aria-expanded={isOpen}
+            aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
+            onClick={() => onExpand(node)}
+          >
+            <ChevronIcon open={isOpen} size={14} />
+          </button>
+        </Tooltip>
       ) : (
         <span className="spc" />
       )}
@@ -297,7 +299,7 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
         <h2>Destinations</h2>
       </div>
       <div className="filter">
-        <SearchField type="search" label="Filter destinations" placeholder="Search folders" value={filter} onChange={setFilter} />
+        <SearchField type="search" label="Filter folders" placeholder="Filter…" value={filter} onChange={setFilter} />
       </div>
       <div className={`tree-wrap fadewrap ${moreBelow ? 'more-below' : ''}`}>
       <div className="tree" ref={treeRef} onKeyDown={onTreeKey}>

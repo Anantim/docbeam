@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, CopyIcon } from './Icons.js';
+import { Tooltip } from './Tooltip.js';
 
 /** Says something in the toast corner. */
 export type Notify = (text: string, kind?: 'ok' | 'error') => void;
@@ -17,13 +18,13 @@ interface Props {
 /** The link that opens a distribution: this page's address with the full id. */
 const distributionLink = (jobId: string): string => `${window.location.origin}/#/status/${jobId}`;
 
-/** How long the green tick and "Copied" stay. */
+/** How long the green tick stays. */
 export const COPIED_MS = 2000;
 
 /**
- * A small copy icon that sits after a distribution's id. A click copies the link and, for 2 seconds, swaps the icon for a
- * green tick with a small "Copied" label; a screen reader is told "Link copied" through a polite live region. There is no
- * toast for a good copy. A click does not reach the row under it, so it never opens or closes the panel.
+ * A small copy icon that sits after a distribution's id. A click copies the link and, for 2 seconds, cross-fades the icon to
+ * a green tick (no visible label, D-F1-51); a screen reader is told "Link copied" through a polite live region that is always
+ * there. There is no toast for a good copy. A click does not reach the row under it, so it never opens or closes the panel.
  */
 export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) {
   const [copied, setCopied] = useState(false);
@@ -32,12 +33,12 @@ export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) 
 
   return (
     <span className="copy-wrap">
+      <Tooltip text="Copy link">
       <button
         type="button"
         tabIndex={tabbable ? 0 : -1}
         className={`icon small copy-link ${show} ${copied ? 'copied' : ''}`}
         aria-label="Copy link"
-        title="Copy link"
         onClick={(e) => {
           e.stopPropagation();
           void navigator.clipboard
@@ -50,13 +51,17 @@ export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) 
             .catch(() => notify('The link could not be copied.', 'error'));
         }}
       >
-        {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-      </button>
-      {copied && (
-        <span className={`copied-label ${show === 'reveal' ? 'above' : ''}`} aria-hidden="true">
-          Copied
+        {/* Both icons are always there and cross-fade over 120 ms (D-F1-47). */}
+        <span className={`copy-icons ${copied ? 'on' : ''}`}>
+          <span className="copy" style={{ display: 'contents' }}>
+            <CopyIcon size={14} />
+          </span>
+          <span className="tick" style={{ display: 'contents' }}>
+            <CheckIcon size={14} />
+          </span>
         </span>
-      )}
+      </button>
+      </Tooltip>
       <span className="sr" role="status" aria-live="polite">
         {copied ? 'Link copied' : ''}
       </span>

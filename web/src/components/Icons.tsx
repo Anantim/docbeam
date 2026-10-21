@@ -5,9 +5,9 @@ interface Props {
   size?: number;
 }
 
-function Svg({ size = 16, children }: Props & { children: React.ReactNode }) {
+function Svg({ size = 16, className, children }: Props & { className?: string; children: React.ReactNode }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className={className} width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {children}
     </svg>
   );
@@ -51,9 +51,10 @@ export const FolderIcon = (p: Props) => (
   </Svg>
 );
 
+/** One right-pointing chevron that turns down when `open`: the turn is a 120 ms rotation in CSS (`.chev`, D-F1-47), not a second drawing. */
 export const ChevronIcon = ({ open, ...p }: Props & { open: boolean }) => (
-  <Svg {...p}>
-    <path d={open ? 'm4 6 4 4 4-4' : 'm6 4 4 4-4 4'} />
+  <Svg {...p} className={open ? 'chev open' : 'chev'}>
+    <path d="m6 4 4 4-4 4" />
   </Svg>
 );
 
@@ -63,9 +64,10 @@ export const UploadIcon = (p: Props) => (
   </Svg>
 );
 
+/** `pathLength="1"` lets CSS draw the tick in with a stroke-dash animation (`.check path`, D-F1-47). */
 export const CheckIcon = (p: Props) => (
-  <Svg {...p}>
-    <path d="m3.5 8.5 3 3 6-7" />
+  <Svg {...p} className="check">
+    <path d="m3.5 8.5 3 3 6-7" pathLength="1" />
   </Svg>
 );
 

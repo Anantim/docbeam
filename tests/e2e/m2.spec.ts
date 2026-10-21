@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, CARDIO_IRB, docx, eicarDocx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, docx, eicarDocx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick, tooltipOf } from './helpers.js';
 
 // M2, Upload and distribute, as a regression pack (flow 2): pick, upload, scan, map, review, send.
 // (The 101 MiB multipart upload, the platform stopped mid-run and the SIGTERM drain are covered by the
@@ -18,7 +18,7 @@ test('a file is uploaded and scanned, mapped to a folder, and sent', async ({ pa
   // Ready, but nowhere to send it yet: the words beside Clear say what is missing, tied to Send, with no tooltip (D-F1-20).
   await expect(page.locator('.send-reason')).toHaveText('Choose folders for 1 file');
   await expect(send0).toHaveAttribute('aria-describedby', (await page.locator('.send-reason').getAttribute('id')) as string);
-  await expect(send0).not.toHaveAttribute('title', /.+/);
+  expect(await tooltipOf(page, send0)).toBeNull(); // and no tooltip either
   await expect(page.locator('.send-summary')).toHaveCount(0); // the summary line is gone from the bar
 
   await tick(page, CARDIO_IRB);
@@ -191,9 +191,9 @@ test('before sending, the preview shows a real multi-page PDF, a DOCX and an ima
 
   // The PDF is the browser's own copy in the viewer's frame: three pages, each with its text.
   await page.getByRole('button', { name: `Preview ${PDF}`, exact: true }).click();
-  const frame = page.getByTitle(`Preview of ${PDF}`);
+  const frame = page.getByLabel(`Preview of ${PDF}`);
   await expect(frame).toBeVisible();
-  const text = (await page.evaluate(`fetch(document.querySelector('iframe[title="Preview of ${PDF}"]').src).then((r) => r.text())`)) as string;
+  const text = (await page.evaluate(`fetch(document.querySelector('iframe[aria-label="Preview of ${PDF}"]').src).then((r) => r.text())`)) as string;
   expect(text).toContain('/Count 3');
   for (const n of [1, 2, 3]) expect(text).toContain(`(Page ${n} of 3)`);
   expect(text).toContain(`Consent ${id}`);
@@ -201,7 +201,7 @@ test('before sending, the preview shows a real multi-page PDF, a DOCX and an ima
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: `Preview ${DOCX}`, exact: true }).click();
-  await expect(page.frameLocator(`iframe[title="Preview of ${DOCX}"]`).locator('body')).toContainText(`Letter of intent ${id}`);
+  await expect(page.frameLocator(`iframe[aria-label="Preview of ${DOCX}"]`).locator('body')).toContainText(`Letter of intent ${id}`);
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: `Preview ${PNG}`, exact: true }).click();

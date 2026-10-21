@@ -4,6 +4,8 @@ import { initials, type Claims } from '../auth/token.js';
 import type { View } from '../tracking/route.js';
 import { LogoutIcon } from './Icons.js';
 import { Logo } from './Logo.js';
+import { TeamList } from './TeamList.js';
+import { Tooltip } from './Tooltip.js';
 
 const TABS: Array<[View, string]> = [
   ['distribute', 'Distribute'],
@@ -44,15 +46,21 @@ export function Shell({ claims, teams, view, onView, running = 0, children }: Pr
         <div className="spacer" />
         <div className="who">
           <span className="avatar">{initials(claims.name)}</span>
-          <div>
-            <div className="nm">{claims.name}</div>
-            <div className="tm ellipsis" title={teams.join(', ')}>
-              {teams.length > 3 ? `${teams.slice(0, 3).join(', ')} and ${teams.length - 3} more` : teams.join(', ')}
+          <div className="who-text">
+            {/* A very long name ends in an ellipsis and shows in full on hover; the teams stay on one line, at most about 220 px
+                wide, and the ones that do not fit are "+N" with every team in a popover (D-F1-53). */}
+            <Tooltip text={claims.name} block>
+              <div className="nm ellipsis">{claims.name}</div>
+            </Tooltip>
+            <div className="tm">
+              <TeamList names={teams} panelLabel="Your teams" align="end" room="max-width" />
             </div>
           </div>
-          <button className="icon" type="button" aria-label="Sign out" title="Sign out" onClick={() => void logout()}>
-            <LogoutIcon />
-          </button>
+          <Tooltip text="Sign out">
+            <button className="icon" type="button" aria-label="Sign out" onClick={() => void logout()}>
+              <LogoutIcon />
+            </button>
+          </Tooltip>
         </div>
       </header>
       {children}

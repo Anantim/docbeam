@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FILTER_AFTER, ListFilter, matchesFilter, NoMatches } from './ListFilter.js';
+import { overlayRoot } from './overlay.js';
 
 interface Props {
   /** What the count link shows, for example "+3" or "5 folders". */
@@ -11,6 +12,8 @@ interface Props {
   panelLabel: string;
   /** The list in the panel: full folder paths, or file names. */
   items: readonly string[];
+  /** `end` lines the panel's right edge up with the link's, for a link at the right of the window (the header). */
+  align?: 'start' | 'end';
 }
 
 const OPEN_AFTER_MS = 300;
@@ -23,6 +26,8 @@ interface Place {
   top: number;
   left: number;
   maxHeight: number;
+  /** Placed above the link: it then rises into place, and slides down from it when placed below (D-F1-47). */
+  above?: boolean;
 }
 
 /**
@@ -36,7 +41,7 @@ interface Place {
  *  - A list of more than 15 gets a "Filter…" box. Focusing or clicking the box pins the panel open until Esc or a click
  *    outside; a panel opened by a click or the keyboard is pinned and puts focus in the box (or on the list) at once.
  */
-export function Popover({ label, ariaLabel, panelLabel, items }: Props) {
+export function Popover({ label, ariaLabel, panelLabel, items, align = 'start' }: Props) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [query, setQuery] = useState('');
@@ -76,14 +81,15 @@ export function Popover({ label, ariaLabel, panelLabel, items }: Props) {
     if (!link || !card) return;
     const r = link.getBoundingClientRect();
     const width = Math.min(WIDTH, window.innerWidth - 2 * MARGIN);
-    const left = Math.max(MARGIN, Math.min(r.left, window.innerWidth - width - MARGIN));
+    const edge = align === 'end' ? r.right - width : r.left;
+    const left = Math.max(MARGIN, Math.min(edge, window.innerWidth - width - MARGIN));
     const below = window.innerHeight - r.bottom - MARGIN;
     const above = r.top - MARGIN;
     const wanted = Math.min(card.scrollHeight, MAX_HEIGHT);
     if (wanted <= below || below >= above) setPlace({ top: r.bottom, left, maxHeight: Math.min(MAX_HEIGHT, below) });
     else {
       const height = Math.min(wanted, above);
-      setPlace({ top: r.top - height, left, maxHeight: Math.min(MAX_HEIGHT, above) });
+      setPlace({ top: r.top - height, left, maxHeight: Math.min(MAX_HEIGHT, above), above: true });
     }
   };
   // After the list or the filter changes the panel is placed again (a shorter list may now fit below).
@@ -187,7 +193,7 @@ export function Popover({ label, ariaLabel, panelLabel, items }: Props) {
           <div
             id={id}
             ref={panel}
-            className="popover-panel"
+            className={`popover-panel ${place?.above ? 'above' : ''}`}
             role="dialog"
             aria-label={panelLabel}
             style={{ top: place?.top ?? 0, left: place?.left ?? 0, width: Math.min(WIDTH, window.innerWidth - 2 * MARGIN), maxHeight: place?.maxHeight, visibility: place ? 'visible' : 'hidden' }}
@@ -213,7 +219,7 @@ export function Popover({ label, ariaLabel, panelLabel, items }: Props) {
               ) : (
                 <ul>
                   {shown.map((item, i) => (
-                    <li key={`${i}-${item}`} title={item}>
+                    <li key={`${i}-${item}`}>
                       {item}
                     </li>
                   ))}
@@ -221,7 +227,7 @@ export function Popover({ label, ariaLabel, panelLabel, items }: Props) {
               )}
             </div>
           </div>,
-          document.body,
+          overlayRoot(),
         )}
     </>
   );

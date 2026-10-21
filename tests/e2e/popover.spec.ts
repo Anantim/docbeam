@@ -39,7 +39,7 @@ test('the count link on Distribute: opens after 300 ms, stays for the link and t
   await expect(panel, 'it should not open before 300 ms').toHaveCount(0);
   await expect(panel).toBeVisible();
   // It is on the page body, below the link with no gap, and inside the window.
-  expect(await panel.evaluate((el: unknown) => (el as { parentElement: { tagName: string } }).parentElement.tagName)).toBe('BODY');
+  expect(await panel.evaluate((el: unknown) => (el as { parentElement: { id: string } }).parentElement.id)).toBe('overlay-root'); // the one overlay on the page body
   const link = (await more.boundingBox())!;
   const open = (await panel.boundingBox())!;
   expect(Math.abs(open.y - (link.y + link.height)) < 2 || Math.abs(open.y + open.height - link.y) < 2, 'next to the link, below or above it').toBe(true);

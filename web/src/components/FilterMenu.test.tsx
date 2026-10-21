@@ -10,7 +10,7 @@ afterEach(cleanup);
 const people = (n: number) => [{ value: 'me', label: 'Me' }, ...Array.from({ length: n - 1 }, (_, i) => ({ value: `u${i}`, label: `Person ${String.fromCharCode(65 + (i % 26))}${i}` }))];
 
 const menu = (choices: ReturnType<typeof people>, filterAfter?: number, onChange = vi.fn()) =>
-  render(<FilterMenu label="Sender" value={undefined} valueLabel="" anyLabel="Anyone" choices={choices} onChange={onChange} filterAfter={filterAfter} />);
+  render(<FilterMenu label="Sender" value={undefined} valueLabel="" anyLabel="Anyone" choices={choices} onChange={onChange} filterAfter={filterAfter} filterLabel="Filter senders" />);
 
 describe('the Sender menu Filter… box (D-F1-41)', () => {
   it('has no box for 10 people or fewer, and one above that', async () => {
@@ -21,7 +21,7 @@ describe('the Sender menu Filter… box (D-F1-41)', () => {
     cleanup();
     menu(people(11), FILTER_AFTER.people);
     await user.click(screen.getByRole('button', { name: 'Sender' }));
-    expect(screen.getByRole('textbox', { name: 'Filter sender' }).getAttribute('placeholder')).toBe('Filter…');
+    expect(screen.getByRole('textbox', { name: 'Filter senders' }).getAttribute('placeholder')).toBe('Filter…');
     expect(document.activeElement).toBe(screen.getByRole('textbox')); // the focus is in the box, and the arrows go on into the list
   });
 

@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PageFile } from '../upload/manager.js';
 import { jobChip, taskLook } from '../tracking/format.js';
+import { tooltipOf } from '../testing/tooltip.js';
 import { statusView } from './FileTable.js';
 import { StatusChip } from './StatusChip.js';
 import { TypeBadge } from './TypeBadge.js';
@@ -23,12 +24,13 @@ const file = (status: PageFile['status']): PageFile => ({
 
 describe('one status chip, one colour meaning (D-M3-12)', () => {
   it('draws a coloured box with a dot from the tone', () => {
-    render(<StatusChip tone="ok" label="Delivered" title="Delivered to the folder in the platform." />);
+    render(<StatusChip tone="ok" label="Delivered" meaning="Delivered to the folder in the platform." />);
     const chip = screen.getByText('Delivered');
     expect(chip.className).toContain('status-chip');
     expect(chip.getAttribute('data-tone')).toBe('ok');
     expect(chip.querySelector('.status-dot')).not.toBeNull();
-    expect(chip.getAttribute('title')).toBe('Delivered to the folder in the platform.');
+    expect(chip.getAttribute('title')).toBeNull(); // the meaning is a tooltip, not a title attribute (D-F1-47)
+    expect(tooltipOf(chip)).toBe('Delivered to the folder in the platform.');
   });
 
   it('gives a delivered file, a verified upload and a completed distribution the same tone (green)', () => {

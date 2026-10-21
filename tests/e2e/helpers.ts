@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import JSZip from 'jszip';
 import pg from 'pg';
 import { env, s3 } from '../integration/helpers.js';
@@ -10,6 +10,7 @@ import { env, s3 } from '../integration/helpers.js';
 // database and LocalStack only to hold a job in a known state or to read what the page cannot show.
 
 export const PRIYA = 'priya.shah@example.com'; // Cardio and Oncology
+export const ANANTIM = 'anantim.patil@example.com'; // Cardio, Neuro and Oncology: the account the screenshots are taken with
 export const RAJ = 'raj.mehta@example.com'; // Cardio only
 export const SAM = 'sam.ito@example.com'; // Neuro only
 
@@ -265,6 +266,24 @@ export async function pickFilter(page: Page, filter: 'Status' | 'Sender' | 'Sent
 export const distRow = (page: Page, shortId?: string) =>
   shortId ? page.locator('.dist-table tbody tr', { hasText: shortId }) : page.locator('.dist-table tbody tr');
 
+/**
+ * The text of the tooltip an element shows when the pointer rests on it (D-F1-47), or null when none shows. It waits for the 300 ms
+ * the tooltip takes, reads the one `role="tooltip"` and moves the pointer away.
+ */
+export async function tooltipOf(page: Page, target: Locator): Promise<string | null> {
+  await page.mouse.move(0, 0);
+  await page.getByRole('tooltip').waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined); // an earlier one is gone
+  // A disabled button gets no pointer events of its own: the wrapper around it has the tooltip.
+  const wrapper = target.locator('xpath=ancestor::span[contains(@class,"tip-wrap")][1]');
+  await ((await wrapper.count()) > 0 ? wrapper : target).hover();
+  const tip = page.locator('.tooltip:not(.leaving)');
+  const shown = await tip.first().waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false);
+  const text = shown ? await tip.first().textContent() : null;
+  await page.mouse.move(0, 0);
+  await page.getByRole('tooltip').waitFor({ state: 'detached', timeout: 1500 }).catch(() => undefined);
+  return text;
+}
+
 /** The status chip in the header of the open distribution. */
 export const chip = (page: Page) => page.locator('.status-chip.big');
 
@@ -287,15 +306,21 @@ export async function sql<T = Record<string, unknown>>(text: string, values: unk
  * directly in the database: a long list to try the "+N" popovers and the filters on, without uploading and scanning
  * dozens of files. Every delivery is completed, so no worker has anything to do with it. `removeSeeded` deletes it.
  */
-export async function seedJob(page: Page, files: string[], folders: string[], typeOf: (name: string) => string = () => 'application/pdf'): Promise<string> {
+export async function seedJob(page: Page, files: string[], folders: string[], typeOf: (name: string) => string = () => 'application/pdf', states?: (fileIndex: number) => { status: 'completed' | 'in_progress' | 'failed'; attempts: number }): Promise<string> {
   const token = (await page.evaluate("sessionStorage.getItem('docbeam.accessToken')")) as string;
-  const userId = (JSON.parse(Buffer.from(token.split('.')[1] as string, 'base64url').toString('utf8')) as { sub: string }).sub;
+  const claims = JSON.parse(Buffer.from(token.split('.')[1] as string, 'base64url').toString('utf8')) as { sub: string; name?: string };
+  const userId = claims.sub;
   const jobId = randomUUID();
   const now = new Date();
+  // A folder in a real team goes to that team, so people in the team can see the delivery; any other name gets a team of its own.
+  const platform = new pg.Client({ connectionString: conn('platform_db') });
+  await platform.connect();
+  const teamIds = new Map((await platform.query('SELECT id, name FROM teams')).rows.map((r: { id: string; name: string }) => [r.name, r.id] as const));
+  await platform.end();
   await sql(
     `INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key, fanned_out_at, completed_at, first_completed_at, created_at)
-     VALUES ($1, $2, 'Priya Shah', $3, $4, now(), now(), now(), $5)`,
-    [jobId, userId, files.length * folders.length, randomUUID(), now],
+     VALUES ($1, $2, $6, $3, $4, now(), now(), now(), $5)`,
+    [jobId, userId, files.length * folders.length, randomUUID(), now, claims.name ?? 'Priya Shah'],
   );
   for (const [i, name] of files.entries()) {
     const fileId = randomUUID();
@@ -305,9 +330,11 @@ export async function seedJob(page: Page, files: string[], folders: string[], ty
       [fileId, userId, jobId, name, `staging/${userId}/${fileId}`, new Date(now.getTime() + i), typeOf(name)],
     );
     for (const path of folders) {
+      const state = states?.(i) ?? { status: 'completed', attempts: 1 };
       await sql(
-        `INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, destination_path, status) VALUES ($1, $2, $3, $4, $5, $6, 'completed')`,
-        [randomUUID(), jobId, fileId, randomUUID(), randomUUID(), path],
+        `INSERT INTO tasks (id, job_id, file_id, team_id, binder_id, destination_path, status, attempt_count, failure_code, failure_reason)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [randomUUID(), jobId, fileId, teamIds.get(path.split(' / ')[0] as string) ?? randomUUID(), randomUUID(), path, state.status, state.attempts, state.status === 'failed' ? 'RETRIES_EXHAUSTED' : null, state.status === 'failed' ? 'The platform did not answer.' : null],
       );
     }
   }

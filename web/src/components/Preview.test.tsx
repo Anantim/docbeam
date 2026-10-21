@@ -64,7 +64,7 @@ describe('Preview footer (D-F1-23)', () => {
 describe('Preview', () => {
   it('shows a DOCX in an iframe with an empty sandbox, through srcdoc', async () => {
     show({ name: 'amendment.docx', contentType: DOCX });
-    const frame = await screen.findByTitle('Preview of amendment.docx');
+    const frame = await screen.findByLabelText('Preview of amendment.docx');
     expect(frame.tagName).toBe('IFRAME');
     // `sandbox=""` is the strictest setting: no scripts, no same origin, no forms, no popups.
     expect(frame.getAttribute('sandbox')).toBe('');
@@ -75,20 +75,20 @@ describe('Preview', () => {
   it('shows an XLSX sheet the same way, with the cells as escaped text', async () => {
     const user = userEvent.setup();
     show({ name: 'sites.xlsx', contentType: XLSX });
-    const frame = await screen.findByTitle('Preview of sites.xlsx');
+    const frame = await screen.findByLabelText('Preview of sites.xlsx');
     expect(frame.getAttribute('sandbox')).toBe('');
     const html = frame.getAttribute('srcdoc') ?? '';
     expect(html).toContain('Mumbai');
     expect(html).toContain('&lt;b&gt;Open&lt;/b&gt;');
 
     await user.selectOptions(screen.getByLabelText('Sheet'), 'Notes');
-    expect((await screen.findByTitle('Preview of sites.xlsx')).getAttribute('srcdoc')).toContain('Second sheet');
-    expect(screen.getByTitle('Preview of sites.xlsx').getAttribute('sandbox')).toBe('');
+    expect((await screen.findByLabelText('Preview of sites.xlsx')).getAttribute('srcdoc')).toContain('Second sheet');
+    expect(screen.getByLabelText('Preview of sites.xlsx').getAttribute('sandbox')).toBe('');
   });
 
   it('opens a PDF from an object URL and revokes it on close', async () => {
     const { unmount } = show({ name: 'consent.pdf', contentType: 'application/pdf' });
-    const frame = await screen.findByTitle('Preview of consent.pdf');
+    const frame = await screen.findByLabelText('Preview of consent.pdf');
     expect(frame.getAttribute('src')).toBe('blob:test-1');
     unmount();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-1');
@@ -103,7 +103,7 @@ describe('Preview', () => {
   it('does not render a DOCX or XLSX over 50 MB', async () => {
     show({ name: 'big.xlsx', contentType: XLSX, sizeBytes: OFFICE_PREVIEW_MAX_BYTES + 1 });
     expect(await screen.findByText(/too large to show in the page/)).toBeTruthy();
-    expect(screen.queryByTitle('Preview of big.xlsx')).toBeNull();
+    expect(screen.queryByLabelText('Preview of big.xlsx')).toBeNull();
   });
 
   describe('from a stored-file link (M4)', () => {
@@ -114,7 +114,7 @@ describe('Preview', () => {
       const fetchSpy = vi.fn();
       vi.stubGlobal('fetch', fetchSpy);
       show({ name: 'consent.pdf', contentType: 'application/pdf', blob: undefined, url: LINK });
-      expect((await screen.findByTitle('Preview of consent.pdf')).getAttribute('src')).toBe(LINK);
+      expect((await screen.findByLabelText('Preview of consent.pdf')).getAttribute('src')).toBe(LINK);
       cleanup();
       show({ name: 'scan.png', contentType: 'image/png', blob: undefined, url: LINK });
       expect((await screen.findByAltText('scan.png')).getAttribute('src')).toBe(LINK);
@@ -126,7 +126,7 @@ describe('Preview', () => {
       const fetchSpy = vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(['docx']) }));
       vi.stubGlobal('fetch', fetchSpy);
       show({ name: 'amendment.docx', contentType: DOCX, blob: undefined, url: LINK });
-      const frame = await screen.findByTitle('Preview of amendment.docx');
+      const frame = await screen.findByLabelText('Preview of amendment.docx');
       expect(fetchSpy).toHaveBeenCalledWith(LINK);
       expect(frame.getAttribute('sandbox')).toBe('');
       expect(frame.getAttribute('srcdoc')).toContain('Protocol amendment');

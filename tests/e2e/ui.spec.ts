@@ -17,6 +17,7 @@ import {
   sendFiles,
   signIn,
   tick,
+  tooltipOf,
 } from './helpers.js';
 import { env } from '../integration/helpers.js';
 
@@ -49,7 +50,7 @@ test('a disabled button has the disabled attribute and the not-allowed cursor, a
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute('disabled', '');
     await expect(button).toHaveCSS('cursor', 'not-allowed');
-    await expect(button).not.toHaveAttribute('title', /.+/); // the reason, when there is one, is text beside the buttons
+    expect(await tooltipOf(page, button)).toBeNull(); // the reason, when there is one, is text beside the buttons
     await expect(button).toHaveCSS('color', rgb('#98A2B3')); // greyed, not the live colour
   }
   // An enabled button of the same kind does not look like that.
@@ -68,7 +69,7 @@ test('on Status, a delivered file has live Preview and Download icon buttons', a
     const label = `${kind} ${name}`;
     const button = page.getByRole('button', { name: label, exact: true });
     await expect(button).toBeEnabled();
-    await expect(button).toHaveAttribute('title', label);
+    expect(await tooltipOf(page, button)).toBe(label);
     await expect(button).toHaveCSS('cursor', 'pointer');
     await expect(button).toHaveClass(/\bicon\b/); // the same form as on Distribute
   }
@@ -198,7 +199,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
       // A long name ends with an ellipsis and its full text is in the title.
       const cell = page.locator(nameCell).first();
       await expect(cell).toHaveCSS('text-overflow', 'ellipsis');
-      expect(await cell.getAttribute('title'), `${label} at ${width}`).toContain(longName);
+      expect(await tooltipOf(page, cell), `${label} at ${width}`).toContain(longName);
       if (width === 1280) expect(await cell.evaluate((el: BrowserElement) => el.scrollWidth > el.clientWidth), `${label} at 1280 should be cut short`).toBe(true);
     }
   };
@@ -214,7 +215,7 @@ test('the Documents table sizes to its content and the deliveries panel does not
     await page.waitForTimeout(300);
     const cell = page.locator('.ttable .tfile').first();
     await expect(cell).toHaveCSS('text-overflow', 'ellipsis');
-    expect(await cell.getAttribute('title'), `Deliveries at ${width}`).toContain(longName);
+    expect(await tooltipOf(page, cell), `Deliveries at ${width}`).toContain(longName);
     expect(await page.locator('.panel').evaluate((el: BrowserElement) => el.scrollWidth <= el.clientWidth + 1), `the panel scrolls sideways at ${width}`).toBe(true);
   }
 });

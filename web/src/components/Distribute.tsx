@@ -168,7 +168,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onDismiss={() => setRejected([])}
             tools={
               filterShown ? (
-                <ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files by name" className="files-filter" size="sm" />
+                <ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files" className="files-filter" size="sm" />
               ) : undefined
             }
             hint={fileFilter.trim() !== '' ? `Showing ${listed.length} of ${files.length}` : undefined}

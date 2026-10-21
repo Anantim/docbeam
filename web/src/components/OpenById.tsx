@@ -4,6 +4,7 @@ import { trackingApi, type JobSummary } from '../tracking/api.js';
 import { formatWhen, shortId } from '../tracking/format.js';
 import { extractJobId } from '../tracking/route.js';
 import { SearchIcon } from './Icons.js';
+import { Tooltip } from './Tooltip.js';
 
 interface Props {
   /** Called with the full id of the distribution to open. */
@@ -104,18 +105,19 @@ export function OpenById({ onOpen, meId }: Props) {
         }
       }}
     >
-      <button
-        ref={button}
-        className="icon"
-        type="button"
-        aria-label="Open by ID"
-        title="Open by ID"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <SearchIcon size={16} />
-      </button>
+      <Tooltip text="Open by ID">
+        <button
+          ref={button}
+          className="icon"
+          type="button"
+          aria-label="Open by ID"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <SearchIcon size={16} />
+        </button>
+      </Tooltip>
       {open && (
         <form id={panelId} className="openid-card card" onSubmit={(e) => void submit(e)} aria-label="Open a distribution by ID">
           <label htmlFor={`${panelId}-field`}>Distribution ID or link</label>
@@ -150,9 +152,11 @@ export function OpenById({ onOpen, meId }: Props) {
             </ul>
           )}
           <div className="openid-actions">
-            <button className="btn btnsm" type="submit" disabled={empty || busy} title={empty ? 'Enter a distribution ID or link first' : undefined}>
-              Open
-            </button>
+            <Tooltip text={empty ? 'Enter a distribution ID or link first' : undefined}>
+              <button className="btn btnsm" type="submit" disabled={empty || busy}>
+                Open
+              </button>
+            </Tooltip>
           </div>
         </form>
       )}

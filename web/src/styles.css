@@ -58,6 +58,9 @@
   --s-6: 24px;
   --s-8: 32px;
   --s-12: 48px;
+  /* page rhythm, shared by Status and Distribute (D-F1-54): above the title, title to what follows, filter row to the table */
+  --gap-section: var(--s-4);
+  --gap-controls: var(--s-3);
   --s-16: 64px;
   /* one radius, one shadow, one grid width */
   --radius: 6px;
@@ -67,6 +70,10 @@
   --page: 1280px;
   --control: 36px;
   --control-sm: 28px;
+  /* One density for the two tables of Status (D-F1-46): a distribution row and a delivery row use the same vertical padding. */
+  --row-pad: var(--s-2);
+  --row-job: 56px;
+  --row-delivery: 48px;
   --icon: 32px;
   --topbar: 56px;
   --dist-head: 40px; /* the sticky header row of the Status list: Up and Down keep a focused row clear of it */
@@ -94,7 +101,40 @@ h1 { font-size: var(--fs-5); font-weight: 600; line-height: 1.25; }
 h2 { font-size: var(--fs-3); font-weight: 600; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button { font: inherit; cursor: pointer; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* Motion (D-F1-47). Only opacity and transform move, and a few widths the person asked for (the panel, the progress bar); nothing
+   animates a height, a top, page changes, scrolling, column layout or typing. One ease-out curve and a short list of durations,
+   so every effect has a reason and the same feel. An animation never holds back input: an action works at once, mid-animation. */
+:root {
+  --t-80: 80ms; /* a tooltip going out; every duration under reduced motion */
+  --t-100: 100ms; /* hover and press colours */
+  --t-120: 120ms; /* a tooltip coming in, the chevron, the copy tick, a tree level */
+  --t-140: 140ms; /* popovers and filter menus */
+  --t-150: 150ms; /* the dialog backdrop, arriving rows, boxes that appear */
+  --t-180: 180ms; /* the dialog itself and toasts */
+  --t-200: 200ms; /* the side panel, a status colour cross-fade */
+  --t-300: 300ms; /* the progress bar */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* How far things move; every one is 0 (and the scale 1) under reduced motion. */
+  --lift: 4px;
+  --lift-toast: 8px;
+  --slide-panel: 24px;
+  --scale-from: 0.98;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-80: 80ms; --t-100: 80ms; --t-120: 80ms; --t-140: 80ms; --t-150: 80ms; --t-180: 80ms; --t-200: 80ms; --t-300: 80ms; --lift: 0px; --lift-toast: 0px; --slide-panel: 0px; --scale-from: 1; }
+  .skeleton, .sk { animation: none; }
+  .chev, .chev.open { transition: none; }
+}
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(var(--lift)); } }
+@keyframes drop-in { from { opacity: 0; transform: translateY(calc(-1 * var(--lift))); } }
+@keyframes tip-out { to { opacity: 0; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateX(-50%) scale(var(--scale-from)); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(var(--lift-toast)); } }
+@keyframes panel-in { from { opacity: 0; transform: translateX(var(--slide-panel)); } }
+@keyframes panel-out { to { opacity: 0; transform: translateX(var(--slide-panel)); } }
+@keyframes fresh-fade { from { background-color: var(--fresh); } }
+@keyframes tick-draw { from { stroke-dashoffset: 1; } }
 
 /* status: one meaning of colour everywhere. A tone sets three variables; chips, dots and bars read them. */
 [data-tone='idle'] { --tone: var(--neutral); --tone-bg: var(--neutral-bg); --tone-dot: var(--neutral-dot); }
@@ -158,7 +198,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .sk-path { width: 34ch; max-width: 90%; height: 10px; margin-top: var(--s-1); }
 .sk-lead { width: 24ch; max-width: 70%; }
 .sk-bar { width: 100%; height: 6px; }
-.sk-row td { height: 64px; }
+.sk-row td { height: var(--row-job); }
 /* The sender bar under the ID only shows where the sender line does (the compact list). */
 
 /* sign in */
@@ -187,10 +227,17 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .who { display: flex; align-items: center; gap: var(--s-3); min-height: var(--topbar); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-tint); color: var(--accent-hover); font-size: var(--fs-1); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 .who .nm { font-weight: 600; font-size: var(--fs-2); line-height: 1.25; }
-.who .tm { font-size: var(--fs-1); color: var(--text-3); line-height: 1.25; max-width: 280px; }
+.who-text { min-width: 0; max-width: 220px; }
+.who .nm { max-width: 220px; }
+.who .tm { font-size: var(--fs-1); color: var(--text-3); line-height: 1.25; max-width: 220px; min-width: 0; }
+/* A list of names on one line, the ones that do not fit as "+N" (TeamList, D-F1-53). */
+.teamlist { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.teamlist-more { display: inline-block; margin-left: var(--s-2); vertical-align: baseline; }
+.teamlist .count-link { font-size: inherit; padding: 0; }
 
 /* the page grid: every screen sits in it */
-.page { flex: 1; width: 100%; max-width: var(--page); margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-6); padding: var(--s-6); }
+.page { flex: 1; width: 100%; max-width: var(--page); margin: 0 auto; display: flex; flex-direction: column; gap: var(--gap-section); padding: var(--gap-section) var(--s-6) var(--s-6); }
+.page > .filterbar + .status-layout { margin-top: calc(var(--gap-controls) - var(--gap-section)); }
 .page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3) var(--s-6); }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s-6); align-items: stretch; }
 @media (max-width: 960px) { .workspace { grid-template-columns: minmax(0, 1fr); } }
@@ -249,10 +296,16 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .chip { padding: var(--s-0) var(--s-2); border-radius: var(--radius); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-1); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* checkbox */
-.ck { width: 28px; height: 28px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius); }
+.ck { flex: none; min-width: 28px; width: 28px; height: 28px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius); }
 .ck:disabled { cursor: not-allowed; }
+.ck:focus-visible { outline: none; }
+.ck:focus-visible .box { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The control height belongs to text fields, buttons and selects; a native tick box or radio (none is used today) is a square too. */
+input[type='checkbox'], input[type='radio'] { width: 16px; height: 16px; min-height: 0; flex: none; padding: 0; accent-color: var(--accent); }
 .ck.locked { cursor: not-allowed; color: var(--error); }
-.box { width: 16px; height: 16px; border-radius: var(--radius); border: 1.5px solid var(--text-3); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; color: var(--on-accent); }
+/* Every tick box is a fixed 16 x 16 square (D-F1-48): it never grows with the control-height token, never shrinks in a narrow grid cell or flex row,
+   and its focus ring is drawn around the box itself, not around the 28 px button that holds it. */
+.box { flex: none; box-sizing: border-box; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px; aspect-ratio: 1; width: 16px; height: 16px; border-radius: var(--radius); border: 1.5px solid var(--text-3); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; color: var(--on-accent); }
 .ck[aria-checked='true'] .box, .ck[aria-checked='mixed'] .box { background: var(--accent); border-color: var(--accent); }
 
 /* distribute: destinations */
@@ -263,6 +316,7 @@ button:disabled, button[aria-disabled='true'] { cursor: not-allowed; }
 .searchfield { position: relative; display: block; min-width: 0; }
 .searchfield > svg { position: absolute; left: var(--s-3); top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
 .searchfield .field { padding-left: var(--s-8); }
+.searchfield input[type='search']::-webkit-search-cancel-button { display: none; } /* every box clears the same way: Esc, or "Clear filter" */
 .searchfield.sm .field { min-height: var(--control-sm); font-size: var(--fs-2); }
 /* "No matches" with its "Clear filter" link: one line, centred across the whole list, never cut off. */
 .no-matches { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: var(--s-3); width: 100%; box-sizing: border-box; padding: var(--s-5) var(--s-4); color: var(--text-3); font-size: var(--fs-2); white-space: nowrap; }
@@ -373,8 +427,8 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 @media (max-width: 1023px) { .status-layout.open { grid-template-columns: minmax(0, 1fr); } }
 .dist { container-type: inline-size; overflow: hidden; }
 /* Status from 1024 px up is a fixed screen (D-F1-29): the page does not scroll; the title and the filter row stay; the list
-   card fills the height that is left and its table scrolls inside it, under a sticky header row, with "Showing N · Show more"
-   at the end of that scroll area; the panel fills the same height beside it and scrolls on its own. Under 1024 px the page
+   card fills the height that is left and its table scrolls inside it, under a sticky header row, and the next page loads when the
+   area nears its end (D-F1-49); the panel fills the same height beside it and scrolls on its own. Under 1024 px the page
    scrolls as usual and the panel is under the list. */
 @media (min-width: 1024px) {
   html:has(.page-fixed) { scrollbar-gutter: auto; }
@@ -398,10 +452,10 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
    with collapsed borders scrolls away with the rows. */
 .dist-table thead th { position: sticky; top: 0; z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 /* Every row is the same height with the panel open or closed, so opening one does not move the list under the pointer. */
-.dist-table tbody td { height: 64px; }
+.dist-table tbody td { height: var(--row-job); }
 .dist-table { width: 100%; border-collapse: collapse; }
 .dist-table th { text-align: left; font-size: var(--fs-1); font-weight: 600; color: var(--text-3); background: var(--bg); padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--line); }
-.dist-table td { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 200px; }
+.dist-table td { padding: var(--row-pad) var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 200px; }
 .dist-table tbody tr { cursor: pointer; }
 .dist-table tbody tr:hover { background: var(--bg); }
 .dist-table tbody tr.on { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
@@ -424,16 +478,17 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .dist-sender { display: block; font-size: var(--fs-1); color: var(--text-3); line-height: 1.2; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
 /* The copy icon after an id: always there in the panel header; in the list it shows on row hover and on keyboard focus (and always where there is no hover). */
 .copy-wrap { position: relative; display: inline-flex; align-items: center; }
+/* In a list row the copy icon is as tall as the id beside it, so it does not make the row taller than --row-job (D-F1-46). */
+.dist-table .icon.small.copy-link { width: 22px; height: 22px; }
 .copy-link.reveal { opacity: 0; }
 .dist-table tr:hover .copy-link.reveal, .dist-table tr:focus-within .copy-link.reveal, .copy-link.reveal:focus-visible, .copy-link.reveal.copied { opacity: 1; }
-/* The copied state (D-F1-43): a green tick and a small label, for 2 seconds; the label floats so the column does not move. */
+/* The copied state (D-F1-43, D-F1-51): the icon cross-fades to a green tick for 2 seconds; there is no visible label. */
 .icon.copy-link.copied, .icon.copy-link.copied:hover { color: var(--success); }
-.copied-label { position: absolute; left: calc(100% + var(--s-1)); top: 50%; transform: translateY(-50%); z-index: 5; padding: var(--s-0) var(--s-2); border-radius: var(--radius); background: var(--success-bg); color: var(--success); font-size: var(--fs-1); font-weight: 600; white-space: nowrap; pointer-events: none; border: 1px solid var(--success-dot); }
-/* In a list row the label floats above the icon, so it covers neither the ID nor the status next to it. */
-.copied-label.above { left: 50%; top: auto; bottom: calc(100% + var(--s-0)); transform: translateX(-50%); }
 @media (hover: none) { .copy-link.reveal { opacity: 1; } }
 .list-foot { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--s-4); }
-.list-foot .shown { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.list-foot { color: var(--text-3); font-size: var(--fs-2); padding: var(--s-3) var(--s-4); }
+/* The invisible end of a list that has more: watched, so the next page loads before the end is reached. */
+.list-sentinel { height: 1px; }
 .dist-table td, .dist-table th { white-space: nowrap; }
 .dist-error { margin: var(--s-3) var(--s-4); }
 /* With the panel open the list is narrow: the file and destination counts go, the panel shows the folders. */
@@ -442,57 +497,125 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 /* The panel is a flex column: its header, then the body whose deliveries scroll inside it (D-F1-26). From 1024 px up it
    fills the height of the fixed Status screen (above, D-F1-29); under that it is as tall as its content, under the list. */
 .panel { container-type: inline-size; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-.panel-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
+/* The dense header (D-F1-46): the id, the copy icon, the status and Close on one line; "Sent by …" in one small line under it;
+   then the progress as a 3 px line that runs the whole width, with no divider under the header. */
+.panel-head { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2) var(--s-4) 0; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.panel-top { display: flex; align-items: center; gap: var(--s-3); }
+/* One line: who sent it and when, then (for a team member) the note, whose team names shrink to "+N" when they do not fit. */
+.panel-sub { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; font-size: var(--fs-2); color: var(--text-3); padding-bottom: var(--s-2); }
+.panel-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.panel-note { display: flex; flex: 1 1 0; min-width: 0; white-space: pre; }
+/* The spaces are inside the two pieces (kept by white-space: pre): white space between flex items would disappear. */
+.panel-sep, .panel-note-label { flex: none; white-space: pre; }
+.panel-note .teamlist { flex: 1 1 0; }
+.panel-head .jbar { height: 3px; margin: 0 calc(-1 * var(--s-4)); width: auto; border-radius: 0; }
 .panel-title { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; }
 .panel-title h2, .panel-head > h2 { font-size: var(--fs-4); font-weight: 600; flex: 1; }
 .panel-title h2 { flex: none; }
-.panel-body { padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.panel-body { padding: var(--s-3) var(--s-4) var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .panel-alert { margin: var(--s-4); }
 .panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); }
-.panel-section { display: flex; flex-direction: column; gap: var(--s-2); border-top: 1px solid var(--line); padding-top: var(--s-4); flex: 1 1 auto; min-height: 17rem; }
-.panel-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
-.panel-section h3 { font-size: var(--fs-3); font-weight: 600; margin: 0; }
-.jdest { align-items: center; gap: var(--s-2); }
+.panel-section { display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 auto; min-height: 12rem; }
+/* One row: the title, the status choice and, past 15 deliveries, the "Filter…" box. It wraps only when the panel is very narrow. */
+.panel-section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+/* The tabs on the left, the box on the right, level, and the box exactly as tall as the tab strip (D-F1-50). */
+:root { --strip-h: 32px; }
+.deliveries-filter { flex: 1 1 8rem; min-width: 8rem; max-width: 18rem; margin-left: auto; }
+.panel-section-head .deliveries-filter .field { min-height: var(--strip-h); height: var(--strip-h); }
 .jbar { display: flex; height: 6px; border-radius: var(--radius); overflow: hidden; background: var(--line); }
 .jbar > div { transition: width 0.15s ease; background: var(--tone-dot); }
 .jbar.thin { height: 3px; margin-top: var(--s-1); width: 100%; min-width: 96px; }
 .banner { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-2) var(--s-3); background: var(--info-bg); color: var(--info); font-size: var(--fs-2); border-radius: var(--radius); }
 .banner.bad { background: var(--error-bg); color: var(--error); }
-.tfilters { display: flex; flex-wrap: wrap; gap: var(--s-0); padding: var(--s-0); background: var(--surface-2); border-radius: var(--radius); }
+.tfilters { display: flex; flex-wrap: wrap; align-items: center; box-sizing: border-box; min-height: var(--strip-h); gap: var(--s-0); padding: var(--s-0); background: var(--surface-2); border-radius: var(--radius); }
 .tfilter { min-height: var(--control-sm); padding: 0 var(--s-2); border: 0; border-radius: var(--radius); background: none; display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-1); font-weight: 500; color: var(--text-3); }
 .tfilter:disabled { color: var(--text-off); }
 .tfilter.on { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .tfilter .num { font-weight: 600; font-variant-numeric: tabular-nums; }
-/* The "Filter…" box over the deliveries (not the status buttons above, `.tfilter`). */
-.dfilter { flex: none; padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--line); background: var(--surface); }
-.dfilter .field { width: 100%; }
 .ttable { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; position: relative; }
 /* In the panel the table takes the room that is left and its rows scroll inside; a soft fade at the bottom edge says there are more rows below. */
 .ttable.fill { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .tbody-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
-.tbody-wrap.fill { flex: 0 1 auto; }
-.tscroll.fill { flex: 0 1 auto; min-height: 192px; scroll-padding-bottom: 40px; }
+.tbody-wrap.fill { flex: 1 1 0; }
+/* The rows' box fills what is left of the panel, whatever the number of deliveries: no band of empty page under it (D-F1-46). */
+.tscroll.fill { flex: 1 1 0; min-height: 0; scroll-padding-bottom: 40px; }
 /* A scroll area with more rows below it: a soft fade and a thin shadow along its bottom edge, gone at the end. The
    deliveries table and the Status list share this (D-F1-30, D-F1-33). */
 .fadewrap { position: relative; }
 .fadewrap.more-below::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; z-index: 3; pointer-events: none; box-shadow: 0 -2px 5px 1px rgba(16, 24, 40, 0.16); }
 .fadewrap.more-below::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px; z-index: 3; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--surface)); }
-.trow { display: grid; grid-template-columns: minmax(0, 1fr) 108px 56px minmax(96px, 168px); gap: var(--s-3); align-items: center; padding: 0 var(--s-3); border-bottom: 1px solid var(--line); }
-.trow.thead { padding-top: var(--s-2); padding-bottom: var(--s-2); background: var(--bg); font-size: var(--fs-1); font-weight: 600; color: var(--text-3); }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(80px, 112px); gap: var(--s-2); align-items: center; padding: 0 var(--s-3); border-bottom: 1px solid var(--line); box-sizing: border-box; }
+.trow.thead { padding-top: var(--s-1); padding-bottom: var(--s-1); background: var(--bg); font-size: var(--fs-1); font-weight: 600; color: var(--text-3); }
 .tscroll { overflow-y: auto; overflow-x: hidden; position: relative; }
 .tscroll .trow { background: var(--surface); }
-.tskel .trow { height: 64px; background: var(--surface); }
+.tskel .trow { height: var(--row-delivery); background: var(--surface); }
 .tmargin { margin: var(--s-3); }
 .tfile-cell { min-width: 0; }
 .tfile-line { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
-.tfile-line .typetile { min-width: 36px; flex: none; }
+/* The compact type tag of a delivery row: smaller than the one on Distribute. */
+.tfile-line .typetile { min-width: 0; padding: 0 var(--s-1); font-size: 10px; line-height: 16px; flex: none; }
 .tfile { font-weight: 500; }
-.dest-text { font-size: var(--fs-1); }
+.dest-text { font-size: var(--fs-1); line-height: 1.25; }
 .tdetail { font-size: var(--fs-1); line-height: 1.4; min-width: 0; }
 .tdetail .code { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--error); }
 .tdetail .reason { color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tbuttons { display: flex; gap: var(--s-1); }
 .logo-bg { fill: var(--accent); }
 .logo-mark { stroke: var(--on-accent); }
-/* A narrow panel drops the Attempts column: its number is also in the chip's title. */
-@container (max-width: 520px) { .tattempts { display: none; } .trow { grid-template-columns: minmax(0, 1fr) 96px 72px; gap: var(--s-2); } }
+/* A narrow panel gives the status and the buttons a little less. */
+@container (max-width: 520px) { .trow { grid-template-columns: minmax(0, 1fr) 120px 72px; gap: var(--s-2); } }
+/* The attempts note under the status chip: small and muted, only when it matters (D-F1-50). */
+.tstatus { min-width: 0; }
+.tattempt-note { font-size: var(--fs-1); color: var(--text-3); line-height: 1.2; margin-top: var(--s-0); white-space: nowrap; }
+
+/* ---- Effects (D-F1-47): every one is a fade, a few pixels of slide or a colour change; none moves layout ---- */
+:root { --fresh: #fff3bf; }
+/* Hover and press: colour in 100 ms, on buttons, rows, links, count links and tick boxes. */
+button, .btn, .btn2, .icon, .link, .tab, .count-link, .fbtn, .fitem, .tfilter, .exp, .ck, .box, .field { transition: background-color var(--t-100) var(--ease-out), color var(--t-100) var(--ease-out), border-color var(--t-100) var(--ease-out), box-shadow var(--t-100) var(--ease-out); }
+.dist-table tbody tr, .frow[role='row'], .row, .openid-match { transition: background-color var(--t-100) var(--ease-out); }
+/* The tick draws in when a box is ticked, and the tree's chevron turns. */
+.check path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.box .check path { animation: tick-draw var(--t-120) var(--ease-out); }
+.chev { transition: transform var(--t-120) var(--ease-out); }
+.chev.open { transform: rotate(90deg); }
+/* A level of the tree fades in when it opens; there is no height animation. */
+.tree [data-node] [data-node] { animation: fade-in var(--t-120) var(--ease-out); }
+/* Tooltips: in 120 ms, out in 80 ms. The wrapper is a plain box around its trigger. */
+.tip-wrap { display: inline-flex; flex: 0 1 auto; max-width: 100%; min-width: 0; }
+.tip-wrap > * { min-width: 0; }
+.tip-wrap.block { display: block; }
+.fname > .tip-wrap:last-child { margin-left: auto; padding-left: var(--s-2); }
+.tip-wrap > :disabled { pointer-events: none; }
+.tooltip { font-family: var(--font); position: fixed; z-index: 100; padding: var(--s-1) var(--s-2); background: var(--text); color: var(--on-accent); border-radius: var(--radius); font-size: var(--fs-1); font-weight: 500; line-height: 1.4; pointer-events: none; overflow-wrap: anywhere; white-space: pre-line; box-shadow: var(--shadow); animation: rise-in var(--t-120) var(--ease-out); }
+.tooltip.below { animation-name: drop-in; }
+.tooltip.leaving { animation: tip-out var(--t-80) var(--ease-out) forwards; }
+/* Popovers and filter menus: 140 ms, from the trigger. */
+.popover-panel { animation: rise-in var(--t-140) var(--ease-out); }
+.popover-panel:not(.above) { animation-name: drop-in; }
+.fmenu { animation: drop-in var(--t-140) var(--ease-out); }
+/* Dialogs: the backdrop fades in over 150 ms, the dialog fades and grows from 0.98 over 180 ms. */
+.overlay { animation: fade-in var(--t-150) var(--ease-out); }
+.dialog { animation: dialog-in var(--t-180) var(--ease-out); }
+.preview { animation: fade-in var(--t-180) var(--ease-out); }
+/* Toasts slide up 8 px and fade in. */
+.toast { animation: toast-in var(--t-180) var(--ease-out); }
+/* The side panel slides in from the right when it opens and out again when it closes; it is as wide as its column the whole time. */
+.panel-slot { display: contents; }
+.panel-slot.entering > .panel { animation: panel-in var(--t-200) var(--ease-out); }
+.panel-slot.leaving > .panel { animation: panel-out var(--t-200) var(--ease-out) forwards; pointer-events: none; }
+/* Live status: a colour cross-fade, and a progress bar that grows. */
+.status-chip, .status-dot, .tdot { transition: background-color var(--t-200) var(--ease-out), color var(--t-200) var(--ease-out); }
+.jbar > div, .bar > div { transition: width var(--t-300) var(--ease-out); }
+/* Arriving rows fade in; the distribution that was just sent is highlighted and the highlight fades out over a second. */
+.dist-table tbody tr.arrive { animation: fade-in var(--t-150) var(--ease-out); }
+.dist-table tbody tr.fresh { animation: fresh-fade 1s var(--ease-out); }
+.dist-table tbody tr.arrive.fresh { animation: fade-in var(--t-150) var(--ease-out), fresh-fade 1s var(--ease-out); }
+.frow[data-id] { animation: fade-in var(--t-150) var(--ease-out); }
+/* Boxes that appear, and a file's new state. */
+.not-added, .no-matches, .fstatus .status-chip, .fmsg { animation: fade-in var(--t-150) var(--ease-out); }
+/* The copy icon and its tick cross-fade over 120 ms. */
+.copy-icons { position: relative; display: inline-flex; width: 14px; height: 14px; }
+.copy-icons svg { position: absolute; inset: 0; transition: opacity var(--t-120) var(--ease-out); }
+.copy-icons .tick svg { opacity: 0; }
+.copy-icons.on .tick svg { opacity: 1; }
+.copy-icons.on .copy svg { opacity: 0; }

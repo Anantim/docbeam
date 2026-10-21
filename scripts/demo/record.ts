@@ -258,7 +258,7 @@ try {
   // 8. The list, the filters, a preview and a download.
   await click(page.getByRole('button', { name: 'Status' }));
   await page.locator('.dist-table tbody tr').first().waitFor();
-  await say('One list of everything you can see. Filter by status, sender, date and team; Show more loads the next 20.', 4000);
+  await say('One list of everything you can see. Filter by status, sender, date and team; the next 20 load as you scroll.', 4000);
   await click(page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: /^Status/ }));
   await click(page.getByRole('menuitemradio', { name: 'Completed', exact: true }));
   await say('A filter shows its value on its button and lives in the address.', 3000);

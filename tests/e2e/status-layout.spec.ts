@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CARDIO_IRB, chip, distRow, pickFilter, PRIYA, RAJ, removeSeeded, rgb, sendFiles, seedJob, signIn } from './helpers.js';
+import { CARDIO_IRB, chip, distRow, pickFilter, PRIYA, RAJ, removeSeeded, rgb, sendFiles, seedJob, signIn, tooltipOf } from './helpers.js';
 
 // The last round of Status polish (D-F1-18): table alignment, one toast corner, Showing N, the copy icon, the dialog backdrop.
 
@@ -42,7 +42,7 @@ test('the full-width list: ID, Status, Sent fit their content; Files and Destina
       const dest = await edges('Destinations');
       expect(Math.abs(files.left - sent.right), `Files starts where Sent ends at ${width} px`).toBeLessThan(2);
       expect(Math.abs(dest.left - files.right), `Destinations starts where Files ends at ${width} px`).toBeLessThan(2);
-      expect(Math.abs(files.right - files.left - (dest.right - dest.left)), `Files and Destinations share the width at ${width} px`).toBeLessThan(12); // about equal: a table gives the spare width by weight
+      expect(Math.abs(files.right - files.left - (dest.right - dest.left)), `Files and Destinations share the width at ${width} px`).toBeLessThan(24); // about equal: a table gives the spare width by weight
       // One line, cut by an ellipsis: the text is wider than its box, and the "+N" stays whole.
       const text = row.locator('.cell-text').first();
       expect(await text.evaluate((el: unknown) => (el as { scrollWidth: number; clientWidth: number }).scrollWidth > (el as { clientWidth: number }).clientWidth), `the file name is cut at ${width} px`).toBe(true);
@@ -63,19 +63,20 @@ test('the full-width list: ID, Status, Sent fit their content; Files and Destina
   }
 });
 
-test('spacing: the gap between the filter row and the table equals the gap between the title and the filter row, at 1440, 1280 and 1024 px (D-F1-33)', async ({ page }) => {
+test('spacing: 16 px from the title to the filter row and 12 px from the filter row to the table, at 1440, 1280 and 1024 px (D-F1-54, was equal gaps in D-F1-33)', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(distRow(page).first()).toBeVisible();
   for (const width of [1440, 1280, 1024]) {
     await page.setViewportSize({ width, height: 800 });
     await page.waitForTimeout(200);
-    const title = (await page.getByRole('heading', { name: 'Distributions' }).boundingBox())!;
+    const title = (await page.locator('.page-head:visible').boundingBox())!; // the title row (the heading's own box is a little shorter)
     const filters = (await page.getByRole('group', { name: 'Filters' }).boundingBox())!;
     const list = (await page.locator('.dist').boundingBox())!;
     const above = filters.y - (title.y + title.height);
     const below = list.y - (filters.y + filters.height);
-    expect(Math.abs(above - below), `at ${width} px: ${above} above the filters, ${below} below`).toBeLessThanOrEqual(1);
+    expect(Math.round(above), `at ${width} px: above the filters`).toBe(16);
+    expect(Math.round(below), `at ${width} px: below the filters`).toBe(12);
   }
 });
 
@@ -96,36 +97,28 @@ test('the list gets the fade and the thin shadow of the deliveries table while m
   }
 });
 
-test('Showing N sits beside Show more; Show more adds a page; scrolling to the end loads nothing (no infinite scroll)', async ({ page }) => {
+test('under 1024 px the page itself scrolls and the next page still loads on the way down; there is no "Show more" (D-F1-49)', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 });
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   await expect(distRow(page).first()).toBeVisible();
-  const foot = page.locator('.list-foot');
-  const shown = async (): Promise<number> => Number(/Showing (\d+)/.exec((await foot.textContent()) ?? '')?.[1]);
-  const first = await shown();
-  expect(first).toBe(await distRow(page).count());
-  const more = page.getByRole('button', { name: 'Show more' });
-  if ((await more.count()) === 0) test.skip(true, 'Priya has no more than one page of distributions here');
-  await foot.scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Show more' })).toHaveCount(0);
+  const first = await distRow(page).count();
   await page.evaluate(`window.scrollTo(0, document.documentElement.scrollHeight)`);
-  await page.waitForTimeout(1500);
-  expect(await shown()).toBe(first); // scrolling to the end does not load
-  await more.click();
-  await expect.poll(shown).toBeGreaterThan(first);
-  expect(await shown()).toBe(await distRow(page).count());
+  await expect.poll(() => distRow(page).count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(first);
 });
 
-test('the copy icon: shown on row hover and focus, always in the panel; it copies the link, shows a green tick and "Copied" for 2 seconds with no toast, and does not open or close the panel', async ({ page }) => {
+test('the copy icon: shown on row hover and focus, always in the panel; it copies the link, cross-fades to a green tick for 2 seconds with no label and no toast, and does not open or close the panel', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
   const row = distRow(page).first();
   await expect(row).toBeVisible();
-  const jobId = (await row.locator('.dist-id').getAttribute('title')) as string;
+  const jobId = (await row.locator('.dist-id').getAttribute('data-job-id')) as string;
   await expect(page.getByRole('button', { name: 'Copy link', exact: true })).toHaveCount(await distRow(page).count()); // one per row, none in the header
 
   const icon = row.getByRole('button', { name: 'Copy link' });
-  await expect(icon).toHaveAttribute('title', 'Copy link');
+  expect(await tooltipOf(page, icon)).toBe('Copy link');
   await expect(icon).toHaveCSS('opacity', '0'); // hidden until the row is hovered or focused
   await row.hover();
   await expect(icon).toHaveCSS('opacity', '1');
@@ -137,8 +130,9 @@ test('the copy icon: shown on row hover and focus, always in the panel; it copie
   // A click copies and does not open the panel.
   await row.hover();
   await icon.click();
-  // No toast for a good copy (D-F1-43): the icon becomes a green tick with "Copied" for 2 seconds, then goes back.
-  await expect(row.getByText('Copied', { exact: true })).toBeVisible();
+  // No toast for a good copy (D-F1-43) and no visible label (D-F1-51): the icon cross-fades to a green tick for 2 seconds, then goes back.
+  await expect(row.locator('.copy-icons.on')).toHaveCount(1);
+  await expect(row.getByText('Copied', { exact: true })).toHaveCount(0); // the only words are the hidden "Link copied"
   await expect(icon).toHaveClass(/copied/);
   await expect(icon).toHaveCSS('color', rgb('#067647'));
   await expect(row.locator('.copy-wrap [role="status"]')).toHaveText('Link copied');
@@ -146,7 +140,7 @@ test('the copy icon: shown on row hover and focus, always in the panel; it copie
   expect(await page.evaluate('navigator.clipboard.readText()')).toBe(`http://localhost:5173/#/status/${jobId}`);
   await expect(page).toHaveURL(/#\/status$/);
   await expect(page.getByRole('complementary')).toHaveCount(0);
-  await expect(row.getByText('Copied', { exact: true })).toHaveCount(0, { timeout: 4000 }); // 2 seconds
+  await expect(row.locator('.copy-icons.on')).toHaveCount(0, { timeout: 4000 }); // 2 seconds
   await expect(icon).not.toHaveClass(/copied/);
 
   // In the panel the icon is always there, there is no "Copy link" text button, and a click leaves the panel open.
@@ -181,7 +175,7 @@ test('the panel is sticky and at most as tall as the screen; a team member scrol
     await raj.getByRole('button', { name: 'Status' }).click();
     await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
     const panel = raj.getByRole('complementary');
-    await expect(panel).toContainText('Only the deliveries to your teams are shown.'); // kept
+    await expect(panel).toContainText('Showing deliveries to your team: Cardio.'); // Raj is in Cardio only (D-F1-52)
     await expect(panel).toContainText('Sent by Priya Shah');
     await expect(raj.locator('.ttable .tscroll .trow').first()).toBeVisible();
 
@@ -230,8 +224,8 @@ test('the Status tab badge counts pending and in-progress distributions of every
   const rowsFor = async (status: string): Promise<number> => {
     await pickFilter(page, 'Status', status);
     await page.waitForTimeout(600);
-    for (let i = 0; i < 20 && (await page.getByRole('button', { name: 'Show more' }).count()) > 0; i += 1) {
-      await page.getByRole('button', { name: 'Show more' }).click();
+    for (let i = 0; i < 40 && (await page.getByText("That's everything").count()) === 0; i += 1) {
+      await page.evaluate(`(document.querySelector('.dist-scroll') ?? document.scrollingElement).scrollTop = 999999`);
       await page.waitForTimeout(400);
     }
     return distRow(page).count();

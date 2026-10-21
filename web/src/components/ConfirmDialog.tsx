@@ -2,7 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useFocusTrap } from './useFocusTrap.js';
 
 interface Props {
-  title: string;
+  /** The question, as the dialog's heading and accessible name. */
+  heading: string;
   children: ReactNode;
   confirmLabel: string;
   cancelLabel: string;
@@ -14,7 +15,7 @@ interface Props {
 }
 
 /** A small yes/no question over the page. Esc and the overlay answer no, and so does Enter: the focus starts on the safe answer. */
-export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, tone = 'danger', busy = false, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({ heading, children, confirmLabel, cancelLabel, tone = 'danger', busy = false, onConfirm, onCancel }: Props) {
   const keep = useRef<HTMLButtonElement>(null);
   const box = useRef<HTMLDivElement>(null);
   useFocusTrap(box);
@@ -35,9 +36,9 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, tone
   return (
     <>
       <div className="overlay" onClick={onCancel} />
-      <div ref={box} className="dialog" role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={box} className="dialog" role="dialog" aria-modal="true" aria-label={heading}>
         <div className="dialog-body">
-          <h2>{title}</h2>
+          <h2>{heading}</h2>
           {children}
         </div>
         <div className="actions">

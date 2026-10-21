@@ -42,6 +42,7 @@ export function FilterBar({ filters, onChange, meId, members, teams }: Props) {
         choices={[{ value: 'me', label: 'Me' }, ...others.map((m) => ({ value: m.userId, label: m.name || 'Member' }))]}
         onChange={(v) => onChange({ ...filters, sender: v })}
         filterAfter={FILTER_AFTER.people}
+        filterLabel="Filter senders"
       />
       <FilterMenu
         label="Sent"

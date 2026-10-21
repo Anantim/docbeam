@@ -51,7 +51,7 @@ Tests that cover the M3 rules:
 | Retry/Cancel buttons by role and state; confirmation before Cancel; retry banner; team viewer text; cancelled note; not-found card | `StatusPage.test.tsx` "Cancel and Retry" |
 | Open by ID takes a full id or a link, not the short id; Mine / My teams | `StatusPage.test.tsx` "the list and Open by ID", `web/src/tracking/route.test.ts` |
 | Audit trail filters (Deliveries is two actions), distribution filter, load more | (the audit page and its test were removed in D-F1-13; `format.test.ts` stays) |
-| "+N" popover lists only the hidden folders, closes on Esc, outside click, Tab away | `web/src/components/DestinationChips.test.tsx` |
+| "+N" popover lists only the hidden folders, closes on Esc, outside click, Tab away | `web/src/components/Popover.test.tsx` (the component moved there; the panel's chips were removed in D-F1-46) |
 | Teardown script refuses prod and any bucket not `docbeam-dev-…-<account id>`, never the state bucket, deletes in batches of 1,000 | `tests/scripts/empty-dev-buckets.test.ts` |
 | The dev connection budget stays at 79 | `packages/shared/src/db.test.ts` |
 

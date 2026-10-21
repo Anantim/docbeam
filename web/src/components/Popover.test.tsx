@@ -98,7 +98,8 @@ describe('the count link and its popover (D-F1-42)', () => {
     const { container } = render(<Harness list={items(5)} />);
     await user.click(link());
     expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(panel()?.parentElement).toBe(document.body);
+    expect(panel()?.parentElement).toBe(document.getElementById('overlay-root')); // the one shared overlay, on the body (D-F1-47)
+    expect(document.getElementById('overlay-root')?.parentElement).toBe(document.body);
   });
 
   it('lists full paths, and shows no filter box for 15 or fewer', async () => {

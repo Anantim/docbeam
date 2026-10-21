@@ -10,10 +10,10 @@ test('Distribute: the box shows past 15 files, narrows the list, says Showing N 
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, PRIYA);
   await addPdfs(page, 15, 'few');
-  await expect(page.getByRole('textbox', { name: 'Filter files by name' })).toHaveCount(0); // 15: no box
+  await expect(page.getByRole('textbox', { name: 'Filter files' })).toHaveCount(0); // 15: no box
   await page.getByLabel('Choose files').setInputFiles([{ name: 'sixteenth-labs.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n% sixteen\n%%EOF\n') }]);
   await expect(page.getByText('Ready', { exact: true })).toHaveCount(16, { timeout: 90_000 });
-  const box = page.getByRole('textbox', { name: 'Filter files by name' });
+  const box = page.getByRole('textbox', { name: 'Filter files' });
   await expect(box).toBeVisible();
 
   await box.fill('SIXTEENTH');
