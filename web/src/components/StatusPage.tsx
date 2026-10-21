@@ -225,7 +225,6 @@ export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLiv
               onCounts={followCounts}
               signedInAgain={signedInAgain}
               focusHeading={focusJobId === panelId}
-              teamNames={choices.teams.map((t) => t.name)}
               onChanged={() => {
                 void all.refresh();
                 if (!unfiltered) void other.refresh();

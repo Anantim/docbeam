@@ -98,7 +98,7 @@ alt [label: sender] {
 }
 else [label: job has a delivery to the caller's team] {
   DocBeam API > DocBeam DB: Read tasks for the caller's teams only (100 per page)
-  DocBeam API --> Web Client: Only the deliveries to the caller's teams ('Showing deliveries to your teams: ...')
+  DocBeam API --> Web Client: Only the deliveries to the caller's teams ('Showing only deliveries to' with team chips)
 }
 else [label: no delivery to the caller's teams] {
   DocBeam API --> Web Client: 404 Not found
@@ -142,7 +142,7 @@ opt [label: user leaves the page] {
 // The web app shows job history only: audit events are still written, and GET /audit still answers, but no screen calls it (D-F1-13)
 
 // Retry from the job panel
-opt [label: sender presses Retry failed] {
+opt [label: sender presses Retry (icon)] {
   Web Client > API Gateway: POST /jobs/:jobId/retry with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, reset retryable failed tasks to pending, audit event
@@ -152,7 +152,7 @@ opt [label: sender presses Retry failed] {
 }
 
 // Cancel from the job panel
-opt [label: sender presses Cancel distribution (offered only while it runs) and confirms] {
+opt [label: sender presses Cancel (icon, offered only while it runs) and confirms] {
   Web Client > API Gateway: POST /jobs/:jobId/cancel with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Sender only (403 NOT_SENDER otherwise); lock job row, set cancelled_at, mark pending tasks failed (CANCELLED), close job if nothing is running, audit event

@@ -5,15 +5,16 @@ import { addPdfs, CARDIO_IRB, PRIYA, removeSeeded, seedJob, signIn, tick } from 
 // in the side panel (past 15). Both narrow only what is listed; short lists have no box. (The Sender menu's box, past 10
 // people, is covered by FilterMenu.test.tsx: the seed has too few people to reach 10.)
 
-test('Distribute: the box shows past 15 files, narrows the list, says Showing N of M, and Select all and Send still act on every file', async ({ page }) => {
+test('Distribute: the box is always shown, narrows the list, says Showing N of M, and Select all and Send still act on every file', async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, PRIYA);
+  const box = page.getByRole('textbox', { name: 'Filter files' });
+  await expect(box).toBeDisabled(); // always there (D-F1-77), and off while there is no file
   await addPdfs(page, 15, 'few');
-  await expect(page.getByRole('textbox', { name: 'Filter files' })).toHaveCount(0); // 15: no box
+  await expect(box).toBeEnabled(); // no threshold: the box is on from the first file
   await page.getByLabel('Choose files').setInputFiles([{ name: 'sixteenth-labs.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\n% sixteen\n%%EOF\n') }]);
   await expect(page.getByText('Ready', { exact: true })).toHaveCount(16, { timeout: 90_000 });
-  const box = page.getByRole('textbox', { name: 'Filter files' });
   await expect(box).toBeVisible();
 
   await box.fill('SIXTEENTH');
@@ -35,7 +36,7 @@ test('Distribute: the box shows past 15 files, narrows the list, says Showing N 
   await page.keyboard.press('Escape');
 });
 
-test('the side panel: the box shows past 15 deliveries, matches the file name or the folder, and works with the status choice', async ({ page }) => {
+test('the side panel: the box is always shown, matches the file name or the folder, and works with the status choice', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, PRIYA);
   const names = Array.from({ length: 20 }, (_, i) => `${i % 2 === 0 ? 'Consent' : 'Lab results'} ${String(i + 1).padStart(2, '0')}.pdf`);
@@ -45,7 +46,7 @@ test('the side panel: the box shows past 15 deliveries, matches the file name or
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
     await page.locator(`[data-job-id="${short}"]`).click();
     await expect(page.getByRole('table', { name: 'Deliveries, 3' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: /Filter deliveries/ })).toHaveCount(0); // 3 deliveries: no box
+    await expect(page.getByRole('textbox', { name: /Filter deliveries/ })).toBeEnabled(); // 3 deliveries: the box is there all the same (D-F1-77)
 
     await page.locator(`[data-job-id="${jobId}"]`).click();
     const table = page.getByRole('table', { name: 'Deliveries, 20' });

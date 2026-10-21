@@ -77,10 +77,10 @@ test('a distribution cancelled part way: filter numbers, the bar, chips and rows
     await expect(page.getByText(/5 deliveries cancelled\./)).toBeVisible();
     await expect(chip(page)).toHaveText('Cancelled');
 
-    // 3 delivered, 0 failed, 5 cancelled: Cancelled is its own filter, grey, and Failed stays 0.
+    // 3 delivered, 0 failed, 5 cancelled: Cancelled is its own filter, grey, and Failed has no tab (D-F1-77).
     expect(await readCounts(page)).toEqual([3, 0, 0, 0, 5]);
     await expect(page.locator('.tfilter', { hasText: 'Cancelled' }).locator('.tdot')).toHaveCSS('background-color', GREY);
-    await expect(page.locator('.tfilter', { hasText: 'Failed' }).locator('.tdot')).toHaveCSS('background-color', RED);
+    await expect(page.locator('.tfilter', { hasText: 'Failed' })).toHaveCount(0);
 
     // The bar in the panel: 3 of 8 green, 5 of 8 grey, and no red or blue.
     const header = await bar(page.locator('.panel .jbar'));
@@ -99,9 +99,7 @@ test('a distribution cancelled part way: filter numbers, the bar, chips and rows
     await page.getByRole('button', { name: 'Completed, 3 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(3);
     await expect(page.locator('.ttable').getByRole('button', { name: /^Why this delivery/ })).toHaveCount(0); // a delivered row has Preview and Download, no info icon
-    await page.getByRole('button', { name: 'Failed, 0 deliveries' }).click();
-    await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(0);
-    await expect(page.getByText('No deliveries with this status.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Failed,/ })).toHaveCount(0); // none failed: no Failed tab (D-F1-77), and no red either
     await page.getByRole('button', { name: 'Cancelled, 5 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(5);
     await expect(page.locator('.ttable').getByRole('button', { name: 'Why this delivery was cancelled' })).toHaveCount(5);
@@ -142,7 +140,7 @@ test('a distribution of 6 deliveries shows all 6 in the panel on a laptop screen
   const { jobId } = await sendFiles(page, 3, [CARDIO_IRB, CARDIO_PROTOCOL]); // 3 files x 2 folders
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(jobIdOf(page)).toBe(jobId);
-  await expect(page.getByRole('button', { name: /^All, 6 deliveries/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Completed, 6 deliveries/ })).toBeVisible(); // all completed: the one tab, Completed (D-F1-77)
   const rows = page.locator('.ttable .tscroll .trow');
   await expect(rows).toHaveCount(6);
   const box = (await page.getByRole('region', { name: /Delivery rows/ }).boundingBox())!;

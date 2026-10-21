@@ -154,7 +154,7 @@ export function OpenById({ onOpen, meId }: Props) {
           )}
           <div className="openid-actions">
             <Tooltip text={empty ? 'Enter a distribution ID or link first' : undefined}>
-              <button className="btn btnsm" type="submit" disabled={empty || busy}>
+              <button className="btn" type="submit" disabled={empty || busy}>
                 Open
               </button>
             </Tooltip>

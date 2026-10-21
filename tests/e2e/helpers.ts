@@ -235,8 +235,10 @@ export async function readCounts(page: Page): Promise<number[]> {
   await counts(page).waitFor({ timeout: 20_000 }); // the panel may still be loading
   const labels = await counts(page).getByRole('button').evaluateAll((els: Array<{ getAttribute(name: string): string | null }>) => els.map((e) => e.getAttribute('aria-label') ?? ''));
   const by = new Map(labels.map((l) => [l.split(',')[0], Number(/(\d+) deliver/.exec(l)?.[1])]));
-  const order = ['Completed', 'Failed', 'In progress', 'Pending', 'Cancelled'];
-  return order.filter((name) => by.has(name)).map((name) => by.get(name) as number);
+  // A status with no delivery has no tab (D-F1-77), so it reads as 0; Cancelled is only there once something was cancelled.
+  const order = ['Completed', 'Failed', 'In progress', 'Pending'];
+  const read = order.map((name) => by.get(name) ?? 0);
+  return by.has('Cancelled') ? [...read, by.get('Cancelled') as number] : read;
 }
 
 /**

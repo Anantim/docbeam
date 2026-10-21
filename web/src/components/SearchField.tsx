@@ -8,8 +8,8 @@ interface Props {
   label: string;
   placeholder: string;
   type?: 'search' | 'text';
-  /** `sm` is the height of a small button (`--control-sm`), for a box that sits on one row with one, like "Add files". */
-  size?: 'md' | 'sm';
+  /** Off, for a list that is empty: the box stays where it is (D-F1-77). */
+  disabled?: boolean;
   className?: string;
   onFocus?: FocusEventHandler<HTMLInputElement>;
   onClick?: MouseEventHandler<HTMLInputElement>;
@@ -18,19 +18,20 @@ interface Props {
 
 /**
  * The one search box (D-F1-45): a magnifier, the shared border, radius, padding and placeholder colour, and one height from
- * the control tokens (`--control`, or `--control-sm` with a small button). "Search folders" and every "Filter…" box are this
- * component, so they cannot drift apart.
+ * the control token (`--control`, 36 px, the same as every button beside it, D-F1-77). "Search folders" and every "Filter…" box
+ * are this component, so they cannot drift apart.
  */
 export const SearchField = forwardRef<HTMLInputElement, Props>(function SearchField(
-  { value, onChange, label, placeholder, type = 'text', size = 'md', className = '', onFocus, onClick, onKeyDown },
+  { value, onChange, label, placeholder, type = 'text', disabled = false, className = '', onFocus, onClick, onKeyDown },
   ref,
 ) {
   return (
-    <span className={`searchfield ${size} ${className}`}>
+    <span className={`searchfield ${className}`}>
       <SearchIcon size={14} />
       <input
         ref={ref}
         type={type}
+        disabled={disabled}
         className="field"
         placeholder={placeholder}
         aria-label={label}

@@ -546,12 +546,14 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
   const many = (n: number): PageFile[] => Array.from({ length: n }, (_, i) => pageFile(`${i % 2 === 0 ? 'Consent' : 'Labs'}-${String(i + 1).padStart(2, '0')}.pdf`, 'verified'));
   const dataRows = () => document.querySelectorAll('.frow[data-id]');
 
-  it('is shown for more than 15 files and not for 15 or fewer', () => {
-    screenWith(new FakeManager(many(15)));
-    expect(screen.queryByRole('textbox', { name: 'Filter files' })).toBeNull();
-    cleanup();
-    screenWith(new FakeManager(many(16)));
-    expect(screen.getByRole('textbox', { name: 'Filter files' }).getAttribute('placeholder')).toBe('Filter…');
+  it('is always shown, with any number of files, and off while there is no file (D-F1-77)', () => {
+    for (const n of [0, 1, 15, 16]) {
+      screenWith(new FakeManager(many(n)));
+      const box = screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement;
+      expect(box.getAttribute('placeholder')).toBe('Filter…');
+      expect(box.disabled).toBe(n === 0);
+      cleanup();
+    }
   });
 
   it('matches anywhere in the name in any case, says "Showing N of M" and "No matches", and Esc empties it', async () => {
@@ -596,12 +598,12 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
     }
     expect(filter.getAttribute('placeholder')).toBe('Filter…'); // every box that narrows a loaded list says the same (D-F1-46)
     expect(search.getAttribute('placeholder')).toBe('Filter…'); // "Search folders" is gone
-    expect(filter.parentElement?.classList.contains('sm')).toBe(true); // beside "Add files", a small button
-    expect(search.parentElement?.classList.contains('md')).toBe(true);
+    // One height for the box, "Add files" and the folder filter: --control, 36 px (D-F1-77). No small variant is left.
+    expect(screen.getByRole('button', { name: 'Add files' }).className).toBe('btn2');
     const css = readFileSync(join(process.cwd(), 'web/src/styles.css'), 'utf8');
-    expect(css).toMatch(/\.searchfield\.sm \.field \{ min-height: var\(--control-sm\)/); // the same token as .btnsm
-    expect(css).toMatch(/\.btnsm \{ min-height: var\(--control-sm\)/);
-    expect(css).toMatch(/\.field \{ width: 100%; min-height: var\(--control\)/); // and the same token as .btn, .btn2
+    expect(css).not.toMatch(/\.searchfield\.sm/);
+    expect(css).toMatch(/\.btn2 \{[^}]*min-height: var\(--control\)/);
+    expect(css).toMatch(/\.field \{ width: 100%; min-height: var\(--control\)/); // the same token as .btn, .btn2
   });
 
   it('Select all and Send still act on all the files, not only the listed ones', async () => {
@@ -621,14 +623,14 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
     expect(body.files).toHaveLength(20);
   });
 
-  it('keeps the box while the filter has text even if the list shrinks to 15 or fewer, and clears it with Clear', async () => {
+  it('stays when the list shrinks, and goes off (but stays) when Clear empties the list', async () => {
     const user = userEvent.setup();
     const manager = new FakeManager(many(16));
     screenWith(manager);
     await user.type(screen.getByRole('textbox', { name: 'Filter files' }), 'labs');
     act(() => manager.set(many(16).slice(0, 15)));
-    expect(screen.getByRole('textbox', { name: 'Filter files' })).toBeTruthy(); // the filter is still set, so it stays visible
+    expect((screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement).disabled).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(screen.queryByRole('textbox', { name: 'Filter files' })).toBeNull();
+    expect((screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement).disabled).toBe(true);
   });
 });

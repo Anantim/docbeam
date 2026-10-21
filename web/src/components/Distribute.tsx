@@ -23,7 +23,7 @@ import type { UploadManager } from '../upload/manager.js';
 import { AddFiles } from './AddFiles.js';
 import { Destinations } from './Destinations.js';
 import { FileTable } from './FileTable.js';
-import { FILTER_AFTER, ListFilter, matchesFilter } from './ListFilter.js';
+import { ListFilter, matchesFilter } from './ListFilter.js';
 import { Preview } from './Preview.js';
 import { SendBar } from './SendBar.js';
 import { SendDialog } from './SendDialog.js';
@@ -186,7 +186,6 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const listed = files.filter((f) => matchesFilter(f.name, fileFilter));
   // A Shift click selects the files between two clicks as they are listed.
   const order = listed.map((f) => f.id);
-  const filterShown = files.length > FILTER_AFTER.files || fileFilter !== '';
 
   return (
     <>
@@ -201,11 +200,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onPick={pickFiles}
             rejected={rejected}
             onDismiss={() => setRejected([])}
-            tools={
-              filterShown ? (
-                <ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files" className="files-filter" size="sm" />
-              ) : undefined
-            }
+            tools={<ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files" className="files-filter" disabled={files.length === 0} />}
             hint={fileFilter.trim() !== '' ? `Showing ${listed.length} of ${files.length}` : undefined}
           >
             <FileTable

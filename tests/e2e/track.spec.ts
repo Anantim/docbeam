@@ -87,13 +87,14 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       // Raj: Status shows everything he can see, so the distribution is there; open it.
       await raj.getByRole('button', { name: 'Status' }).click();
       await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
-      await expect(raj.getByText(/Sent by Priya Shah · .*Showing deliveries to your team: Cardio\./)).toBeVisible();
+      await expect(raj.locator('.panel-lead')).toContainText('Sent by Priya Shah');
+      await expect(raj.locator('.panel-sub .panel-note .sr')).toHaveText('Showing only deliveries to Cardio');
       await expect(raj.locator('.ttable .status-chip')).toHaveCount(2);
       await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
       await expect(raj.locator('.panel')).not.toContainText('Oncology');
       await expect(raj.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
-      await expect(raj.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
+      await expect(raj.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
       expect(await readCounts(raj)).toEqual([0, 0, 0, 2]);
       expect(await readCounts(page)).toEqual([0, 0, 0, 4]);
 
@@ -148,7 +149,7 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
     expect(await tooltipOf(page, why.first())).toBe('Cancelled by the sender before it was delivered.');
 
     // A cancelled distribution has no Cancel button (D-M3-10). Nothing failed, so there is no Retry button either.
-    await expect(page.getByRole('button', { name: 'Retry failed' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cancel distribution' })).toHaveCount(0);
 
     // The workers start: the queued messages stop at the claim and nothing is delivered.
@@ -187,10 +188,8 @@ test('a failure shows its reason in the row, with what the code means', async ({
     await page.getByRole('button', { name: /^All, 2 deliveries/ }).click();
     await expect(page.locator('.ttable .status-chip')).toHaveCount(2);
 
-    // A permanent failure cannot be retried, and Retry says so.
-    const retry = page.getByRole('button', { name: 'Retry failed' });
-    await expect(retry).toBeDisabled();
-    expect(await tooltipOf(page, retry)).toMatch(/No failed delivery can be retried/);
+    // A permanent failure cannot be retried, so there is no Retry icon (D-F1-77).
+    await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toHaveCount(0);
   });
 });
 
@@ -207,14 +206,14 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   );
   await page.reload();
   await expect(chip(page)).toHaveText('Completed with errors');
-  await expect(page.getByRole('button', { name: 'Retry failed' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toBeEnabled();
   const failedChip = page.locator('.ttable .tscroll .status-chip');
   await expect(failedChip).toHaveText('Failed');
   expect(await tooltipOf(page, failedChip)).toBe('The platform did not respond after 5 attempts.');
   await expect(page.locator('.ttable')).not.toContainText('RETRIES_EXHAUSTED');
 
   await noReload(page);
-  await page.getByRole('button', { name: 'Retry failed' }).click();
+  await page.getByRole('button', { name: 'Retry failed deliveries' }).click();
   await expect(page.getByText(/1 delivery queued again\./)).toBeVisible();
   await expect(chip(page)).toHaveText('Completed', { timeout: 90_000 });
   expect(await readCounts(page)).toEqual([1, 0, 0, 0]);
