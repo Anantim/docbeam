@@ -31,6 +31,7 @@ locals {
     "GET /teams/members"                    = { service = "platform", public = false }
     "GET /teams/{teamId}/binders"           = { service = "platform", public = false }
     "GET /binders/{binderId}/contents"      = { service = "platform", public = false }
+    "GET /folders/search"                   = { service = "platform", public = false }
     "GET /folders/{folderId}/contents"      = { service = "platform", public = false }
 
     # DocBeam API, M2 (Step 2.1 and 2.2). Status and audit routes: M3; download: M4.

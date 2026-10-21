@@ -15,6 +15,13 @@
       "when": 1792500832567,
       "tag": "0001_team_member_names",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792563735174,
+      "tag": "0002_folders_name_trigram",
+      "breakpoints": true
     }
   ]
 }

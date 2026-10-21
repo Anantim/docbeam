@@ -37,6 +37,19 @@ export interface PageFile {
   sha256?: string;
   /** The file id the API knows it by, once a link has been issued. */
   serverId?: string;
+  /** Brought back after a reload (D-F1-66): it is on the server, and this page holds no copy of its bytes (so no local preview). */
+  restored?: boolean;
+}
+
+/** A file of a batch kept across a reload: what `restore` needs to look it up again. */
+export interface RestoreEntry {
+  id: string;
+  serverId?: string | undefined;
+  name: string;
+  sizeBytes: number;
+  contentType: string;
+  sha256?: string | undefined;
+  stored: boolean;
 }
 
 export type Hasher = (file: Blob, multipart: boolean, onProgress: (fraction: number) => void) => Promise<HashResult>;
@@ -143,6 +156,56 @@ export class UploadManager {
     this.files = [...this.files, ...added];
     this.emit();
     for (const f of added) void this.prepare(f.id);
+  }
+
+  /**
+   * Puts back the files of a batch kept across a reload (D-F1-66). Each one is looked up with the same route the page polls
+   * while a file is being checked: one that is stored and clean comes back Ready, one stored and still being scanned comes
+   * back Checking, and one that is gone, refused, failed its check or was still uploading is dropped. Returns the page ids
+   * that came back and how many were dropped. The page keeps the same ids, so the folder ticks still point at the files.
+   */
+  async restore(entries: readonly RestoreEntry[]): Promise<{ restored: string[]; dropped: number; unreachable?: true }> {
+    const candidates = entries.filter((e) => e.stored && e.serverId !== undefined);
+    const states = new Map<string, { uploaded: boolean; scanStatus: string }>();
+    try {
+      for (let i = 0; i < candidates.length; i += LIMITS.maxFileIdsPerQuery) {
+        const chunk = candidates.slice(i, i + LIMITS.maxFileIdsPerQuery);
+        for (const s of await this.call(() => this.api.fileStates(chunk.map((e) => e.serverId as string)))) states.set(s.fileId, s);
+      }
+    } catch {
+      // The server could not be asked: nothing can be shown as ready that was not checked. The page keeps the stored batch for
+      // the next reload instead of treating the files as lost (`unreachable`).
+      return { restored: [], dropped: entries.length, unreachable: true };
+    }
+    // A second call for the same batch (React runs an effect twice in development) finds the first one's files already here: they
+    // are not added again, and they count as restored.
+    const here = new Set(this.files.map((f) => f.id));
+    const already = candidates.filter((e) => here.has(e.id)).map((e) => e.id);
+    const back: PageFile[] = [];
+    for (const e of candidates) {
+      if (here.has(e.id)) continue;
+      const s = states.get(e.serverId as string);
+      if (!s || !s.uploaded || s.scanStatus === 'infected' || s.scanStatus === 'failed') continue;
+      back.push({
+        id: e.id,
+        file: new File([], e.name),
+        name: e.name,
+        sizeBytes: e.sizeBytes,
+        contentType: e.contentType,
+        status: s.scanStatus === 'clean' ? 'verified' : 'checking',
+        progress: 1,
+        partsDone: 0,
+        partCount: isMultipart(e.sizeBytes) ? partCount(e.sizeBytes) : 0,
+        ...(e.sha256 ? { sha256: e.sha256 } : {}),
+        serverId: e.serverId as string,
+        restored: true,
+      });
+    }
+    for (const f of back) this.internal.set(f.id, { grantedAt: 0, removed: false, requesting: false });
+    this.files = [...this.files, ...back];
+    this.emit();
+    if (back.some((f) => f.status === 'checking')) this.startPolling();
+    return { restored: [...already, ...back.map((f) => f.id)], dropped: entries.length - already.length - back.length };
   }
 
   remove(id: string): void {

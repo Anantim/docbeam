@@ -283,6 +283,66 @@ describe('browse pages across folders and documents (F1 part B)', () => {
   });
 });
 
+describe('GET /folders/search (D-F1-67)', () => {
+  type Hit = { id: string; name: string; path: string; names: string[]; teamId: string; binderId: string; folderIds: string[] };
+  const search = async (token: string | undefined, q: string, extra = '') => call(PLATFORM_URL, `/folders/search?q=${encodeURIComponent(q)}${extra}`, token ? { token } : {});
+  const paths = (res: { body: { items: Hit[] } }) => res.body.items.map((h) => h.path);
+
+  it('finds folders whose name contains the text, ignoring case, with the full path and the ids that lead to the folder', async () => {
+    expect(paths(await search(priya.token, 'ETHICS'))).toEqual(['Oncology / ONC-118 Regulatory / Ethics committee']);
+    const nested = (await search(priya.token, '2026')).body.items as Hit[];
+    expect(nested.map((h) => h.path)).toEqual(['Cardio / CARDIO-301 Regulatory / Protocol amendments / 2026']);
+    const hit = nested[0] as Hit;
+    expect(hit.names).toEqual(['Cardio', 'CARDIO-301 Regulatory', 'Protocol amendments', '2026']); // the path as names, for a page that must not split it
+    expect(hit.folderIds).toHaveLength(2); // the folder it is in, then the match
+    expect(hit.folderIds[1]).toBe(hit.id);
+    expect(hit.teamId).toBe(team('Cardio').id);
+    expect(hit.binderId).toBe(binder('Cardio', 'CARDIO-301 Regulatory').id);
+  });
+
+  it('shows only the caller\'s teams: nothing from another team, even with the same words', async () => {
+    expect(paths(await search(raj.token, 'ethics'))).toEqual([]); // Oncology is not Raj's
+    expect(paths(await search(raj.token, 'approvals'))).toEqual(['Cardio / CARDIO-301 Regulatory / IRB approvals']); // not Neuro's "Site approvals"
+    expect(paths(await search(sam.token, 'approvals'))).toEqual(['Neuro / NEU-207 Regulatory / Site approvals']);
+    const nobody = await registerAndLogin();
+    expect((await search(nobody.token, 'approvals')).body).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('treats % _ and \\ as plain characters, not as wildcards', async () => {
+    expect(paths(await search(priya.token, '%%'))).toEqual([]);
+    expect(paths(await search(priya.token, '__'))).toEqual([]);
+    expect(paths(await search(priya.token, '\\\\'))).toEqual([]);
+  });
+
+  it('wants 2 to 100 characters, and a signed-in caller', async () => {
+    for (const q of ['', ' ', 'a', ' a ', 'x'.repeat(101)]) expect((await search(priya.token, q)).status, JSON.stringify(q)).toBe(400);
+    expect((await call(PLATFORM_URL, '/folders/search', { token: priya.token })).status).toBe(400); // no q at all
+    expect((await search(undefined, 'approvals')).status).toBe(401);
+    expect((await search(priya.token, 'ab', '&limit=0')).status).toBe(400);
+    expect((await search(priya.token, 'ab', '&cursor=nonsense')).status).toBe(400);
+  });
+
+  it('comes in pages: 20 by default, a cursor for the next, no folder twice, none missed', async () => {
+    const loader = await login('load.user@example.com'); // in 50 teams, each with a folder "RA"
+    const first = await search(loader.token, 'RA');
+    expect(first.status).toBe(200);
+    expect(first.body.items).toHaveLength(20);
+    expect(first.body.nextCursor).toEqual(expect.any(String));
+    const seen: Hit[] = [...first.body.items];
+    let cursor: string | null = first.body.nextCursor;
+    for (let guard = 0; cursor && guard < 20; guard += 1) {
+      const page = await search(loader.token, 'RA', `&limit=20&cursor=${encodeURIComponent(cursor)}`);
+      seen.push(...page.body.items);
+      cursor = page.body.nextCursor;
+    }
+    expect(new Set(seen.map((h) => h.id)).size).toBe(seen.length);
+    expect(seen.length).toBeGreaterThanOrEqual(50);
+    expect(seen.every((h) => h.path.split(' / ').length >= 3)).toBe(true);
+    const small = await search(loader.token, 'RA', '&limit=3');
+    expect(small.body.items).toHaveLength(3);
+  });
+});
+
 describe('service routes (ADR-013)', () => {
   it('checks a batch of destinations and returns team and path', async () => {
     const token = await serviceToken('docbeam-api', 'memberships:read');

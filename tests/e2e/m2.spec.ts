@@ -244,9 +244,11 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
   await page.getByRole('button', { name: 'Clear' }).click();
 });
 
-test('the browser asks before a page that holds files is closed', async ({ page }) => {
+test('the browser asks before a page that would lose a file is closed (a file still uploading), and not otherwise (D-F1-66)', async ({ page }) => {
   await signIn(page, PRIYA);
-  await addPdfs(page, 1, 'leave');
+  await page.route(/localhost:4566/, () => undefined); // the storage upload is held, so the file stays mid-upload
+  await page.getByLabel('Choose files').setInputFiles([pdf('leave.pdf')]);
+  await expect(page.locator('.frow', { hasText: 'leave.pdf' })).toBeVisible();
   await page.locator('body').click(); // the browser only asks after the page has been used
   const asked = page.waitForEvent('dialog', { timeout: 10_000 });
   void page.close({ runBeforeUnload: true });
@@ -255,8 +257,9 @@ test('the browser asks before a page that holds files is closed', async ({ page 
   await dialog.dismiss(); // stay
   expect(page.isClosed()).toBe(false);
 
-  // With nothing on the page there is nothing to lose, so no question.
-  await page.getByRole('button', { name: 'Clear' }).click();
+  // With nothing on the page there is nothing to lose, so no question. (A stored, clean file is not lost either: it comes back after a reload.)
+  await page.unroute(/localhost:4566/);
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
   let again = false;
   page.on('dialog', (d) => {
     again = true;

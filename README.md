@@ -23,7 +23,7 @@ Measured on the deployed dev site (AWS Sydney). The latest run leads; older runs
 | A 1 GiB file, uploaded in 64 parts, scanned and delivered | 54 s to upload, 95 s to scan, 36.9 s to deliver; same SHA-256 | 2026-10-18 | [multipart-1gb.txt](docs/testing/m5-evidence/multipart-1gb.txt) |
 | Virus scan (ClamAV) | about 15 s a file, 10 files at a time (100 files take about 2.5 minutes) | 2026-10-18 | [M5-RESULTS.md](docs/testing/M5-RESULTS.md) |
 | Cost of dev while it is up | about 3 to 5 USD a day, torn down when not in use | 2026-10 | [AGENTS.md](AGENTS.md), [STATUS.md](docs/STATUS.md) |
-| Tests | 783 unit (90 files), 205 integration (18 files, real ClamAV), 114 browser (plus 10 that run only on dev); lint and typecheck clean | 2026-10-21 | [F1-RESULTS.md](docs/testing/F1-RESULTS.md) section 8.10 |
+| Tests | 810 unit (92 files), 210 integration (18 files, real ClamAV), 124 browser (plus 10 that run only on dev); lint and typecheck clean | 2026-10-21 | [F1-RESULTS.md](docs/testing/F1-RESULTS.md) section 8.10 |
 
 ## The problem
 
@@ -116,9 +116,9 @@ Locally the `workers` container polls the LocalStack queues and runs the same ha
 
 | Layer | Command | Latest result (2026-10-21) |
 |---|---|---|
-| Unit and web (vitest) | `npm test` | 90 files, 783 tests |
-| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 205 tests |
-| Browser (Playwright, local) | `npm run test:e2e` | 114 passed (plus 10 that run only on dev) |
+| Unit and web (vitest) | `npm test` | 92 files, 810 tests |
+| Integration (Compose + LocalStack, real ClamAV) | `npm run test:integration` | 18 files, 210 tests |
+| Browser (Playwright, local) | `npm run test:e2e` | 124 passed (plus 10 that run only on dev) |
 | Browser on dev (Playwright) | `npm run test:e2e:dev` | 11 tests passed on 2026-10-20 (see F1 below) |
 | Checks on deployed dev | `scripts/m5-all.sh` | see M5 below |
 | Repository safe to publish | `scripts/check-public.sh` | gitleaks clean over every commit |

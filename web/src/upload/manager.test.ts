@@ -398,6 +398,66 @@ describe('multipart', () => {
   });
 });
 
+describe('restore after a reload (D-F1-66)', () => {
+  const entry = (id: string, serverId: string, stored = true) => ({ id, serverId, name: `${id}.pdf`, sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.repeat(64), stored });
+
+  it('brings back files that are stored and clean as Ready, and ones still being scanned as Checking, with the same page ids', async () => {
+    scan = { s2: 'pending' };
+    const manager = newManager();
+    const out = await manager.restore([entry('p1', 's1'), entry('p2', 's2')]);
+    expect(out).toEqual({ restored: ['p1', 'p2'], dropped: 0 });
+    expect(manager.getSnapshot().map((f) => [f.id, f.status, f.restored, f.serverId])).toEqual([
+      ['p1', 'verified', true, 's1'],
+      ['p2', 'checking', true, 's2'],
+    ]);
+    // The scan is followed again, and the file comes back Ready when it is clean.
+    scan = { s2: 'clean' };
+    await vi.advanceTimersByTimeAsync(POLL_MS + 1);
+    expect(snap(manager, 1).status).toBe('verified');
+    manager.dispose();
+  });
+
+  it('drops a file that is refused, failed its check, is gone from the server, or was still uploading, and counts it', async () => {
+    scan = { s1: 'infected', s2: 'failed' };
+    api.fileStates.mockImplementation(async (ids: string[]) =>
+      ids.filter((id) => id !== 's3').map((fileId) => ({ fileId, uploaded: fileId !== 's4', scanStatus: scan[fileId] ?? 'clean' })),
+    );
+    const manager = newManager();
+    const out = await manager.restore([entry('p1', 's1'), entry('p2', 's2'), entry('p3', 's3'), entry('p4', 's4'), entry('p5', 's5'), entry('p6', 's6', false)]);
+    expect(out).toEqual({ restored: ['p5'], dropped: 5 });
+    expect(manager.getSnapshot().map((f) => f.id)).toEqual(['p5']);
+    expect(api.fileStates).toHaveBeenCalledTimes(1);
+    expect(api.fileStates.mock.calls[0]?.[0]).toEqual(['s1', 's2', 's3', 's4', 's5']); // the one that was mid-upload is not asked about
+    manager.dispose();
+  });
+
+  it('brings back nothing when the server cannot be asked', async () => {
+    api.fileStates.mockRejectedValue(new Error('down'));
+    const manager = newManager();
+    expect(await manager.restore([entry('p1', 's1'), entry('p2', 's2')])).toEqual({ restored: [], dropped: 2, unreachable: true });
+    expect(manager.getSnapshot()).toEqual([]);
+    manager.dispose();
+  });
+
+  it('a second restore of the same batch (an effect that runs twice) adds nothing and drops nothing', async () => {
+    const manager = newManager();
+    const batch = [entry('p1', 's1'), entry('p2', 's2')];
+    const [a, b] = await Promise.all([manager.restore(batch), manager.restore(batch)]);
+    expect(manager.getSnapshot().map((f) => f.id)).toEqual(['p1', 'p2']);
+    expect(a.dropped + b.dropped).toBe(0);
+    expect(b.restored).toEqual(['p1', 'p2']);
+    manager.dispose();
+  });
+
+  it('a restored file can be removed like any other', async () => {
+    const manager = newManager();
+    await manager.restore([entry('p1', 's1')]);
+    manager.remove('p1');
+    expect(manager.getSnapshot()).toEqual([]);
+    manager.dispose();
+  });
+});
+
 describe('remove', () => {
   it('stops a running upload and aborts a multipart one', async () => {
     transport.hold = true;

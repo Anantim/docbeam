@@ -1,6 +1,32 @@
 # DocBeam status
 
-Updated 2026-10-21, end of the **F1 round** (the reviewer's feedback) and its dev round. **Dev AWS is DOWN** (torn down 2026-10-21, 02:54 UTC).
+Updated 2026-10-21, end of the **F1 round** (the reviewer's feedback), its dev round and the open items that followed. **Dev AWS is DOWN** (torn down 2026-10-21, 02:54 UTC). Prod is code only and was never applied.
+
+**How to read this file.** The section "Current state" is true today. Everything under "History" is the account from when it was written, labelled with its date; where something in it has since been resolved, the line says so.
+
+## Current state (2026-10-21)
+
+- **Built and merged:** M0 to M5, then the F1 round (D-F1-1 to D-F1-67). The open items of the last round are done: restore after a reload (D-F1-66), the server-side folder search (D-F1-67), live retry pushes (D-F1-65), the row-click check (D-F1-64).
+- **Tests (local, 2026-10-21):** see the "final" line in the F1 section below; they are re-counted at the end of each round (the latest totals are in the README "Tests" table).
+- **Checked on dev (2026-10-20 and 21, then torn down):** the browser specs `status-dev`, `download-dev` and `m5-browser-dev`, the 22-minute session check, the browse timing and the 100 x 20 delivery timing. Evidence: `docs/testing/f1-evidence/dev/`.
+- **Demo:** `docs/demo/docbeam-demo.mp4` and `.webm`, recorded locally by `scripts/demo/record.ts` (the recorder also records dev with `DEMO_DEV=1`).
+- **Known limits that are still true:**
+  1. Prod was never deployed or applied (README "Prod"); its workflow does one apply and cannot bring up a brand-new prod (D-M1-13).
+  2. The platform is a stand-in; its ingest capacity is the client's to confirm (D-M2-22).
+  3. `POST /jobs` under peak delivery load was measured at p99 452 ms on dev and 992 ms in the worst M5 run (limit 1 s, D-M5-17); the cause is a small `db.t4g.micro` database, a larger one is planned and not done.
+  4. A restored file (after a reload) has no local copy, so its Preview is off; a file that was mid-upload cannot come back (D-F1-66).
+  5. A person's second try of a delivery shows live as "Retrying" only on a build with D-F1-65 (any new deploy has it; dev is down).
+  6. Contrast, focus rings and the screen reader were checked by design and by eye, not with a tool or a screen reader.
+  7. `grill-with-docs` and `grill-me` were not run (the agent cannot start them).
+  8. An old pending task aimed at a binder's top level fails at the platform with 404 (D-F1-3).
+  9. `npm audit` shows 6 moderate findings, all in drizzle-kit's development chain (esbuild); `npm audit fix --force` would downgrade drizzle-kit.
+  10. The SNS alarm email was never confirmed on a bring-up (alarms were read in CloudWatch).
+  11. No 20-team screenshot (unit tests cover 20 teams); the delivery timing is one run.
+- **Resolved since they were first written:** the webm-only demo (now also mp4), the dev specs "edited but not run" (run 2026-10-20), the sign-in dialog fix "not seen in a real run" (22.1 minutes with no dialog on dev), the demo that "needs re-recording" (done), the one-call browse timing "not re-timed" (done: p99 832 ms), the scheduled teardown that did not run (teardown is manual now, D-F1-16), the destination search that "only finds loaded rows" (D-F1-67), the daily Upload Events rebuild "not yet run" (it has: 2026-10-18, 19 and 20 succeeded; with dev down the deploy step skips).
+- **Repository variables (checked 2026-10-21):** `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true`, `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL` set. The daily `dev-up-check` fails on days dev is up and passes when it is down (2026-10-17 to 20).
+- **Next:** nothing is blocked. To bring dev up: `docs/RUNBOOK-first-bring-up.md`; to record the demo: `docs/DEMO-SCRIPT.md`.
+
+# History (each section is the account from the date it names)
 
 ## F1 (the reviewer's feedback round): release summary
 
@@ -9,9 +35,9 @@ Evidence and the YES/NO table for every point: `docs/testing/F1-RESULTS.md`. Dec
 - **Done:** a design system in `styles.css` (tokens, one status chip, one icon set, one font, 1024 px up); Distribute as Files and Destinations with row selection, one summary line, a question before Send, and folders ticked for all files staying ticked for later files; only folders are destinations; the four platform browse routes paged (`limit`, `cursor`, `nextCursor`) and the tree loading 20 rows at a time; Status and Audit merged into one list with a side panel (deliveries, Retry failed, Cancel distribution, History) with Mine, My teams, All I can see and a status filter (`GET /jobs` takes `scope=all` and `status`, and returns `fileCount` and `destinationCount`); one set of status words; focus traps, keyboard walking of the tree, skeleton rows; render counts measured (tree 40 to 1 row per tick, list 40 to 0 on a no-change refresh); a recorder for the demo.
 - **Tests (history, 2026-10-20; the final totals are in the "2026-10-21, local, final" line below):** unit 79 files, 623 tests; integration 18 files, 180 tests; Playwright 50 local (10 more run only on dev) and 11 on dev; lint and typecheck clean.
 - **Dev numbers:** `POST /jobs` p99 175 ms (normal) and 452 ms (peak load), server side; first level of the tree for the 50-team user p99 848 ms from the laptop, 27 ms at the gateway.
-- **Known limits and not done:** (1) the destination search only finds rows that were loaded (no server-side search); (2) `grill-with-docs` and `grill-me` were not run (the agent cannot start them); (3) the demo is a webm, not an mp4 (no H.264 encoder here, nothing may be installed); (4) the three-page walk of 50 teams was not re-timed after the check was changed to a log line; (5) contrast, focus rings and the screen reader were checked by design and by eye, not with a tool or a screen reader; (6) the 10:00 IST scheduled teardown did not run (see F1-RESULTS); (7) an old pending task aimed at a binder's top level fails at the platform with 404 (D-F1-3); (8) the prod workflow and prod code were not touched and not run.
+- **Known limits and not done (as written on 2026-10-20; resolved ones are marked, the rest is in "Current state"):** (1) the destination search only finds rows that were loaded (no server-side search) **[resolved: D-F1-67]**; (2) `grill-with-docs` and `grill-me` were not run (the agent cannot start them); (3) the demo is a webm, not an mp4 **[resolved: ffmpeg is installed, there is an mp4]**; (4) the three-page walk of 50 teams was not re-timed after the check was changed to a log line **[resolved: one call, p99 832 ms on 2026-10-20]**; (5) contrast, focus rings and the screen reader were checked by design and by eye, not with a tool or a screen reader; (6) the 10:00 IST scheduled teardown did not run **[resolved: teardown is manual, D-F1-16]**; (7) an old pending task aimed at a binder's top level fails at the platform with 404 (D-F1-3); (8) the prod workflow and prod code were not touched and not run.
 - **Working-rule slips this round** (all in git, listed in D-F1-12): many mechanical edits by short Python scripts and `sed -i` instead of the Edit tool.
-- **Next:** nothing is blocked. If dev is brought up again, follow `docs/RUNBOOK-first-bring-up.md` (section 11: apply from saved plans); `scripts/demo/record.ts` makes a new video in about 20 minutes.
+- **Next (as written on 2026-10-20):** nothing was blocked. If dev is brought up again, follow `docs/RUNBOOK-first-bring-up.md` (section 11: apply from saved plans).
 
 ### F1 follow-up (2026-10-20): job history only, no sign-up, session, Status layout
 
@@ -20,22 +46,21 @@ Decisions D-F1-13 to D-F1-17 (`docs/DECISIONS.md`); every point with YES or NO i
 - **Done:** no audit view in the web app (the backend and `GET /audit` stay); no sign-up in the web app (`POST /auth/register` stays, off at the gateway); the sign-in dialog fix (stale-tolerant key cache in the services, the page ends the session only on a refused refresh) and one spacing rhythm for every dialog; Status with the compact list beside a 60 % panel, Esc closing from anywhere, an Open by ID icon button, a badge that counts running distributions only; Distribute with a designed empty state; `GET /teams` 50 per page.
 - **Teardown is manual.** `.github/workflows/dev-teardown.yml` has `workflow_dispatch` only; the one-off schedule is gone (D-F1-16).
 - **Tests (history, D-F1-20 to D-F1-38; superseded by the final totals below):** unit 82 files, 678 tests; integration 18 files, 198 tests; Playwright 76 passed, 10 skipped (dev only); lint and typecheck clean.
-- **Known issues:** (1) the cause of the sign-in dialog was found by reading the code and fixed with tests that move the clock; it was not seen in a real 17-minute run, the lost refresh answer case is closed by a 30-second grace period (D-F1-19, ADR-015 updated); (2) the restored one-call browse assertion in `m5-browse-timing` has not run on dev; (3) the demo video predates the change (it shows History and the old sign-in), so it needs a new recording when dev is up; (4) `status-dev`, `download-dev` and `m5-browser-dev` were edited but not run on dev.
+- **Known issues (as written on 2026-10-20; all four are resolved):** (1) the sign-in dialog fix was not seen in a real 17-minute run **[resolved: 22.1 minutes on dev, no dialog, a refresh at 14.1 minutes returned 200]**; the lost refresh answer case is closed by a 30-second grace period (D-F1-19, ADR-015 updated); (2) the one-call browse assertion in `m5-browse-timing` had not run on dev **[resolved: ran 2026-10-20]**; (3) the demo video predated the change **[resolved: re-recorded]**; (4) `status-dev`, `download-dev` and `m5-browser-dev` were not run on dev **[resolved: run 2026-10-20]**.
 - **Working-rule slips:** listed in D-F1-14.
 
 ### F1 final round (2026-10-20), Part 1 and the Distribute and Status changes
 
-Decisions D-F1-18 to D-F1-21; YES/NO in `docs/testing/F1-RESULTS.md` section 8. Part 1 is merged (PR #33). The Distribute and Status changes are in the pull request that follows it: the bar says why Send is off in text, Destinations says "for N selected files" (only while files are ticked, D-F1-24), Status has no switch and one filter row (Status, Sender, Sent, Team) kept in the address, `GET /jobs` has a cursor and the new filters, `GET /teams/members` lists the people in your teams. **New infrastructure code:** a gateway route `GET /teams/members` in `infra/envs/dev` and `infra/envs/prod` (prod not applied). **The platform seed must run again** on any database that existed before (the deploy step does it) so that members get their names. **Not yet done:** Part 2 (dev bring-up, dev specs, the 20-minute session check, the browse timing, the new demo video, teardown). There is no `dev-up` workflow: dev is brought up from the laptop with `docs/RUNBOOK-first-bring-up.md`.
+Decisions D-F1-18 to D-F1-21; YES/NO in `docs/testing/F1-RESULTS.md` section 8. Part 1 is merged (PR #33). The Distribute and Status changes are in the pull request that follows it: the bar says why Send is off in text, Destinations says "for N selected files" (only while files are ticked, D-F1-24), Status has no switch and one filter row (Status, Sender, Sent, Team) kept in the address, `GET /jobs` has a cursor and the new filters, `GET /teams/members` lists the people in your teams. **New infrastructure code:** a gateway route `GET /teams/members` in `infra/envs/dev` and `infra/envs/prod` (prod not applied). **The platform seed must run again** on any database that existed before (the deploy step does it) so that members get their names. (Part 2, the dev round, was done on 2026-10-20 and 21: see the next section.) There is no `dev-up` workflow: dev is brought up from the laptop with `docs/RUNBOOK-first-bring-up.md`.
 
 ### F1 dev round and the last UI batch (2026-10-21), branch `f6-dev-round`
 
 Decisions D-F1-39 to D-F1-54; YES/NO in `docs/testing/F1-RESULTS.md` sections 8.8 and 8.9. In this branch: the fixed-height Distribute screen, the dense panel, one "Filter…" box and one count popover, motion tokens and tooltips, 16 px tick boxes, the list loading on scroll, no Attempts column (attempt notes under the status), Open by ID highlight, file types from contents (browser and Upload Events Lambda; `files.detected_type`, migration 0004), a keyset order `(created_at, id)` (migration 0003), the team note and header teams on one line with "+N", and one page rhythm (`--gap-section` 16 px, `--gap-controls` 12 px).
 - **Later in the day (PRs #37 and the results pull request):** row height 52 px, Files and Destinations cells, one date format, one reason map with reasons in tooltips, Retrying chip, Send reason, show password, and the empty-distribution fix (D-F1-55 to D-F1-62).
-- **Tests (2026-10-21, local, final):** lint and typecheck clean; unit 90 files, 783 tests; integration 18 files, 205 tests; Playwright 114 passed plus 10 that run only on dev (the one failing spec was fixed and re-run; the screenshots were regenerated).
+- **Tests (2026-10-21, local, final):** lint and typecheck clean; unit 92 files, 810 tests; integration 18 files, 210 tests; Playwright 124 passed plus 10 that run only on dev (the one failing spec was fixed and re-run; the screenshots were regenerated).
 - **Part 2 on dev, done:** `status-dev`, `download-dev`, `m5-browser-dev` (the multipart test flaked once and passed again), the 22-minute session check (22.1 min, no dialog, a refresh at 14.1 min returned 200), the browse timing (p99 832 ms from the laptop, 49 ms at the gateway), the 100 x 20 delivery timing (26.2 s for all 2,000), and the demo re-recorded on the build of PR #36 (`docs/demo/docbeam-demo.webm` and `.mp4`). Evidence in `docs/testing/f1-evidence/dev/`.
 - **Dev AWS is DOWN.** Brought up 2026-10-20 about 16:48 UTC (healthy about 17:49 UTC); torn down by the `dev-teardown` workflow on 2026-10-21, finished 02:54 UTC, and checked: no cluster, database, Lambda, API, CloudFront or data bucket left (only the Terraform state bucket).
-- **Known limits:** (1) the demo video was re-recorded locally on the final build (D-F1-63), so it no longer shows the 2,000-delivery send and the AWS outage (dev is down); the recorder still does both with `DEMO_DEV=1`; (2) the delivery timing is one run; (3) the 20-team case has no screenshot (unit tests only); (4) the third point of the "Empty deliveries bug" message was cut off after "Deliveries could not be loaded ·" and was read as "· Try again" (D-F1-62).
-- **Known issues:** no 20-team screenshot (unit tests cover 20 teams); a few working-rule slips (shell edits) listed in D-F1-40, D-F1-47, D-F1-49 and D-F1-54.
+- **Notes:** the demo was re-recorded locally on the final build (D-F1-63), so it shows a local outage and not the 2,000-delivery send on AWS (the recorder still does both with `DEMO_DEV=1`); the third point of the "Empty deliveries bug" message was cut off after "Deliveries could not be loaded ·" and was read as "· Try again" (D-F1-62); a few working-rule slips (shell edits) are listed in D-F1-40, D-F1-47, D-F1-49, D-F1-54 and later entries.
 
 Earlier text of this file (before F1) follows.
 
@@ -167,16 +192,16 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 
 - AWS account `346208529537`, region `ap-southeast-2`, Free plan, credits end 2027-04-13.
 - State bucket `docbeam-tfstate-346208529537`. Deploy user `docbeam-github-deploy`, GitHub secrets and variables `AWS_REGION`, `TF_STATE_BUCKET`, environments `dev` and `prod`.
-- Dev is **DOWN** (the M4 round was brought up, checked and destroyed the same day: `terraform destroy` of 275 resources; no ECS cluster, RDS instance, NAT gateway, Elastic IP, load balancer, Lambda, API, queue, CloudFront distribution, ECR repository or secret is left; `aws s3 ls` shows only `docbeam-tfstate-346208529537`). The line below is from the M3 round: (M3 round brought up, checked and destroyed on 2026-10-17: both data buckets emptied with `scripts/empty-dev-buckets.sh dev`, then `terraform destroy`, 274 resources). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda, RDS instance, API, queue, CloudFront distribution or secret is left. The last dev app was `https://d2d0tow0wi92yw.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tag: `ab819d42b96c` for the first push, then `517547c519d9` for the DocBeam API; the Delivery and DLQ Lambda code is from `517547c`.
+- (Written in the M4 round, 2026-10-17; dev is down now too, see "Current state".) Dev is **DOWN** (the M4 round was brought up, checked and destroyed the same day: `terraform destroy` of 275 resources; no ECS cluster, RDS instance, NAT gateway, Elastic IP, load balancer, Lambda, API, queue, CloudFront distribution, ECR repository or secret is left; `aws s3 ls` shows only `docbeam-tfstate-346208529537`). The line below is from the M3 round: (M3 round brought up, checked and destroyed on 2026-10-17: both data buckets emptied with `scripts/empty-dev-buckets.sh dev`, then `terraform destroy`, 274 resources). Terraform state is empty; `aws s3 ls` shows only `docbeam-tfstate-346208529537`; no ECS cluster, ECR repository, Lambda, RDS instance, API, queue, CloudFront distribution or secret is left. The last dev app was `https://d2d0tow0wi92yw.cloudfront.net`; a new bring-up gives a new address (README "Build dev"). Last tag: `ab819d42b96c` for the first push, then `517547c519d9` for the DocBeam API; the Delivery and DLQ Lambda code is from `517547c`.
 - **Teardown** (D-M2-23, script from M3): `terraform destroy` fails on the two data buckets once they hold many versions (`bufio.Scanner: token too long`). Empty `docbeam-dev-object-store-<account id>` and `docbeam-dev-platform-files-<account id>` with the AWS CLI first (all versions and delete markers, 1,000 at a time), never the tfstate bucket, then destroy. A script for this is proposed for M3.
 - Set: `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true` (the person set it before the M2 merge), `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL`. With dev down the deploy jobs skip with a notice.
 
-## Known issues
+## Known issues (as written in the M2 to M5 rounds, 2026-10-16 to 18; the ones still true are in "Current state")
 
 - **The platform is a stand-in.** D-M2-22 sizes it (1 vCPU / 2 GB, 6 ingests at once, 503 after 30 s). The real platform's ingest capacity is for the client to confirm.
 - **The `task-dlq-not-empty` alarm did not fire** when 14 and 50 tasks went through the Task DLQ: the DLQ Consumer emptied the queue before the alarm's one-minute evaluation. The alarm is wired and `OK`.
-- **`POST /jobs` 500 ms p99** is measured in M5 (check 5.1). From a laptop outside AWS a job took 0.86 to 0.97 s including a new TLS connection.
-- **The daily Upload Events rebuild** has not yet run against dev (it needs the merge and `LAMBDA_DEPLOY_ENABLED`).
+- **`POST /jobs` 500 ms p99** was measured in M5 (check 5.1); the result and the wording change are in M5-RESULTS and D-M5-17 **[resolved]**. From a laptop outside AWS a job took 0.86 to 0.97 s including a new TLS connection.
+- **The daily Upload Events rebuild** had not yet run against dev **[resolved: it runs daily at 03:17 UTC; 2026-10-18, 19 and 20 succeeded, and the deploy step skips while dev is down]**.
 - **Uploads:** 4 in parallel; the parts of one file go one after another. A failed file shows Retry and Remove together (the mockup shows Retry alone).
 - `terraform init -upgrade` moved the AWS provider to 6.69.0.
 - **Images:** `push-image.sh` must build with `--provenance=false --sbom=false` (it does now). ECR tags are immutable, so an image pushed the wrong way needs a new tag.
@@ -184,13 +209,13 @@ D-M1-1 local secrets and signing key; D-M1-2 ALB listener per service, plain HTT
 - **After the first apply, task definitions in Terraform carry the image `bootstrap`** (D-M1-14) unless `image_tag` is passed. Running `scripts/run-task.sh` on a family needs a `deploy-service.sh` first.
 - The first-time `terraform apply` for the web distribution can take 3 minutes and the VPC Link 2 minutes. A full first apply of dev took about 25 minutes (229 resources).
 - Internal traffic is plain HTTP inside the VPC (D-M1-2, accepted).
-- The M0 items still stand: no RDS Proxy in dev (D-M0-6), the deploy user has AdministratorAccess, GitHub Free has no required reviewer for prod (D-G3), `npm audit` shows four moderate findings in drizzle-kit's dev chain.
+- The M0 items still stand: no RDS Proxy in dev (D-M0-6), the deploy user has AdministratorAccess, GitHub Free has no required reviewer for prod (D-G3), `npm audit` shows moderate findings in drizzle-kit's dev chain (six on 2026-10-21).
 - Deploy jobs skip with a notice when the service, function or environment does not exist, or already runs the image (D-M1-14, D-M1-15). A manual run of a workflow from `main` with `force` redeploys dev.
 - Credits are limited. Dev costs about 4.5 USD a day while up.
 
-## UI polish (after M4)
+## UI polish (after M4): all done (2026-10-16 list, resolved in the F1 round, 2026-10-20 and 21)
 
-Noted by the person after the M2 browser runs (2026-10-16). Not done in M2.
+Noted by the person after the M2 browser runs (2026-10-16). Each item is now done: ellipsis and tooltips instead of a horizontal scroll (D-F1-40, D-F1-47), one count link and popover for "+N" and "N folders" (D-F1-42), short status chips with the meaning in a tooltip (D-F1-47, D-F1-60), one accent colour with the status colours for status only (D-F1-5), fewer hints (D-F1-45), tooltips on every icon button (D-F1-47), and the batch restored after a reload (D-F1-66). The original list follows.
 
 - No horizontal scroll in the Documents table: truncate long names with a tooltip, fold Size into the name line.
 - The destinations column shows a count ("3 folders") with a popover listing every path; "+N" chips must not hide information.
@@ -213,6 +238,6 @@ npm run dev -w @docbeam/web      # http://localhost:5173
 
 Dev on AWS: the README "Build dev" block and `docs/testing/M2-TESTING.md` sections 2 and 3. Gotchas: use absolute paths in Bash; `packages/shared/dist` is stale until `npm run build`; Compose services must run `exec node` to get SIGTERM (D-M2-17); the job tests deliver documents into the Cardio binder, so no test may expect an empty folder level; a test that stops a container must start it again in `finally`; the web upload queue (`web/src/upload/manager.ts`) must not import the session module, because the integration test runs it in Node; `terraform apply` needs `-auto-approve` when it has no terminal.
 
-## Next (after M5)
+## Next (after M5; written 2026-10-18, kept as history)
 
 Fold the decisions into the design documents (D-M5-4, 5, 8, 10, 12, 13, 15, 17), and merge the pull request. The 5.1 known limit (D-M5-17): try `db.t4g.small` for dev and a shorter job-row lock in cancel, and check prod's Multi-AZ instance the same way, before relying on the 1 s peak-load figure.

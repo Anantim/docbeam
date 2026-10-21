@@ -100,12 +100,89 @@ describe('Destinations tree', () => {
     await user.click(await screen.findByRole('button', { name: 'Expand Cardio' }));
     await user.click(await screen.findByRole('button', { name: 'Expand Oncology' }));
     await screen.findByText('ONC-118 Regulatory');
-    await user.type(screen.getByRole('searchbox'), 'onc-118');
+    // One character only narrows what is loaded (the server search starts at 2, D-F1-67).
+    await user.type(screen.getByRole('searchbox'), 'n');
     expect(screen.queryByText('CARDIO-301 Regulatory')).toBeNull();
     expect(screen.getByText('ONC-118 Regulatory')).toBeTruthy();
     await user.clear(screen.getByRole('searchbox'));
-    await user.type(screen.getByRole('searchbox'), 'zzz');
+    await user.type(screen.getByRole('searchbox'), 'z');
     expect(screen.getByText('No binders or folders match.')).toBeTruthy();
+    expect(apiFetch.mock.calls.some((c) => String(c[0]).startsWith('/folders/search'))).toBe(false);
+  });
+});
+
+describe('the folder search (D-F1-67)', () => {
+  const hit = (id: string, name: string, path: string, extra: Record<string, unknown> = {}) => ({ id, name, path, names: path.split(' / '), teamId: 't-cardio', binderId: 'b-reg', folderIds: [id], ...extra });
+  const search = (q: string, page: unknown) => {
+    answers[`/folders/search?q=${q}`] = page;
+  };
+
+  it('asks the server from 2 characters, after a pause, and lists the matches with their full path', async () => {
+    search('ir', { items: [hit('f-irb', 'IRB approvals', 'Cardio / CARDIO-301 Regulatory / IRB approvals')], nextCursor: null });
+    const user = userEvent.setup();
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    await user.type(screen.getByRole('searchbox'), 'ir');
+    const result = await screen.findByRole('button', { name: 'Tick Cardio / CARDIO-301 Regulatory / IRB approvals and show it in the tree' });
+    expect(result.textContent).toContain('IRB approvals');
+    expect(result.textContent).toContain('Cardio / CARDIO-301 Regulatory'); // the path above the folder
+    // One request for the word, not one per letter.
+    expect(apiFetch.mock.calls.filter((c) => String(c[0]).startsWith('/folders/search'))).toEqual([['/folders/search?q=ir']]);
+    expect(screen.queryByText('Oncology')).toBeNull(); // the matches replace the tree while searching
+  });
+
+  it('picking a match clears the box, opens the tree down to the folder (reading the levels it needs) and ticks it', async () => {
+    search('irb', { items: [hit('f-irb', 'IRB approvals', 'Cardio / CARDIO-301 Regulatory / IRB approvals')], nextCursor: null });
+    const onToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<Destinations stateOf={() => 'off'} onToggle={onToggle} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    await user.type(screen.getByRole('searchbox'), 'irb');
+    await user.click(await screen.findByRole('button', { name: /^Tick Cardio .* IRB approvals and show it in the tree$/ }));
+    // The tree is back, open to the folder.
+    expect(await screen.findByRole('checkbox', { name: /to Cardio \/ CARDIO-301 Regulatory \/ IRB approvals$/ })).toBeTruthy();
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
+    expect(onToggle).toHaveBeenCalledWith({ binderId: 'b-reg', folderId: 'f-irb', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' });
+    expect(screen.getByRole('button', { name: 'Collapse Cardio' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Collapse CARDIO-301 Regulatory' })).toBeTruthy();
+  });
+
+  it('does not untick a folder that is already ticked when it is picked, and shows a folder that is not on its level\'s first page', async () => {
+    search('arch', { items: [hit('f-late', 'Archive 2019', 'Cardio / CARDIO-301 Regulatory / Archive 2019')], nextCursor: null });
+    const onToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<Destinations stateOf={(d) => (d.folderId === 'f-late' ? 'on' : 'off')} onToggle={onToggle} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    await user.type(screen.getByRole('searchbox'), 'arch');
+    await user.click(await screen.findByRole('button', { name: /Archive 2019 and show it in the tree$/ }));
+    // The first page of the binder (IRB approvals only) does not hold it, but the tree shows it.
+    expect(await screen.findByRole('checkbox', { name: /Archive 2019$/ })).toBeTruthy();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it('says when nothing matches, offers more pages, and retries a failed search', async () => {
+    search('page', { items: [hit('f1', 'Page one', 'Cardio / R / Page one')], nextCursor: 'c2' });
+    answers['/folders/search?q=page&cursor=c2'] = { items: [hit('f2', 'Page two', 'Cardio / R / Page two')], nextCursor: null };
+    search('nomatch', { items: [], nextCursor: null });
+    const user = userEvent.setup();
+    render(<Destinations stateOf={() => 'off'} onToggle={() => {}} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    await user.type(screen.getByRole('searchbox'), 'page');
+    await screen.findByRole('button', { name: /Page one/ });
+    await user.click(await screen.findByRole('button', { name: /Show more|Load more|more/i }));
+    await screen.findByRole('button', { name: /Page two/ });
+
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'nomatch');
+    expect(await screen.findByText('No folders match.')).toBeTruthy();
+
+    await user.clear(screen.getByRole('searchbox'));
+    delete answers['/folders/search?q=broken'];
+    await user.type(screen.getByRole('searchbox'), 'broken');
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not search.');
+    search('broken', { items: [hit('f3', 'Broken one', 'Cardio / R / Broken one')], nextCursor: null });
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByRole('button', { name: /Broken one/ });
   });
 });
 

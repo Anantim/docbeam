@@ -307,8 +307,9 @@ test.describe('screens', () => {
     }
     await page.evaluate("document.querySelector('.tree').scrollTop = 0");
     await shot('05e-distribute-deep-tree-few-files');
-    await page.reload(); // the tree is short again
+    await page.reload(); // the tree is short again (and the two files come back: the batch survives a reload, D-F1-66)
     await page.getByRole('heading', { name: 'New distribution' }).waitFor();
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await addPdfs(page, 14, 'many');
     await shot('05f-distribute-many-files-tree');
   });

@@ -179,7 +179,7 @@ Diagram: Track a Job
 
 #### Live updates
 
-1. Each time the Delivery Lambda or the DLQ Consumer finishes a task, it pushes the new status, the time of the change and fresh totals to the sender's connections and to connections of viewers in that delivery's team. Each gets totals for what they can see.
+1. Each time the Delivery Lambda or the DLQ Consumer finishes a task, it pushes the new status, the time of the change and fresh totals to the sender's connections and to connections of viewers in that delivery's team. Each gets totals for what they can see. The Delivery Lambda also pushes when a delivery starts a second try or a later one, so its chip changes to "Retrying" and the totals move without a refresh (D-F1-65).
 2. The dashboard updates that row and the totals without a refresh. A push older than what the row already shows is ignored, since pushes can arrive out of order.
 3. If the connection drops, Web Client reconnects, subscribes again, and reloads the tasks once to catch up. Nothing is missed.
 4. When the user closes the page, the WebSocket API runs the WS Handler, which deletes the connection record.

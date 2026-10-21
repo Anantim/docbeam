@@ -30,7 +30,7 @@ export type LiveMessage =
       type: 'task_update';
       jobId: string;
       taskId: string;
-      status: 'completed' | 'failed';
+      status: 'completed' | 'failed' | 'in_progress';
       failureCode?: string;
       failureReason?: string;
       /** Attempts the task took, when the server knows. */

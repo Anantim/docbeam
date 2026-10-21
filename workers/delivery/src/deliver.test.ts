@@ -29,6 +29,8 @@ interface Options {
   /** Rows changed by the final write; 0 means another outcome already won. */
   finalRows?: number;
   backToPendingRows?: number;
+  /** A dashboard is watching: pushes go here. */
+  post?: (connectionId: string, body: string) => Promise<boolean>;
 }
 
 function setup(o: Options = {}) {
@@ -40,6 +42,10 @@ function setup(o: Options = {}) {
         ? { rows: [], rowCount: 0 }
         : { rows: [{ updated_at: new Date('2026-10-15T00:00:00Z'), team_id: 'team-1', file_id: 'f-1', destination_path: 'p' }], rowCount: 1 };
     if (text.includes("SET status = 'pending'")) return { rows: [], rowCount: o.backToPendingRows ?? 1 };
+    // What a push reads: the sender's open dashboard, the sender, and the counts.
+    if (text.includes('FROM ws_connections')) return { rows: [{ connection_id: 'conn-1', user_id: 'user-1', team_ids: ['team-1'] }], rowCount: 1 };
+    if (text.includes('submitted_by_user_id FROM jobs')) return { rows: [{ submitted_by_user_id: 'user-1' }], rowCount: 1 };
+    if (text.includes('FROM tasks WHERE job_id')) return { rows: [{ team_id: 'team-1', status: 'in_progress', n: '1' }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
   };
   const query = vi.fn(async (text: string, values?: unknown[]) => {
@@ -74,7 +80,7 @@ function setup(o: Options = {}) {
     platformUrl: 'http://platform',
     bucket: 'bucket',
     checksumOptional: o.checksumOptional ?? false,
-    post: undefined,
+    post: o.post,
     log,
   } as unknown as Deps;
   const finalWrite = () => calls.find((c) => c.text.startsWith('UPDATE tasks') && c.text.includes('status = $2'));
@@ -171,6 +177,37 @@ describe('deliverTask', () => {
     expect(await deliverTask(s.deps, TASK, 1)).toEqual({ kind: 'retry', gapSeconds: 30 });
     const back = s.calls.find((c) => c.text.includes("SET status = 'pending'"));
     expect(String(back?.values?.[1])).toContain('TimeoutError');
+  });
+
+  describe('the retry push (D-F1-65)', () => {
+    const sent = (post: ReturnType<typeof vi.fn>) => post.mock.calls.map((c) => JSON.parse(String(c[1])) as Record<string, unknown>);
+
+    it('pushes one small task update when the second try starts, with the attempt count and no failure', async () => {
+      const post = vi.fn(async () => true);
+      const s = setup({ claim: [{ ...claimed, attempt_count: 2, updated_at: new Date('2026-10-15T00:00:10Z') }], post, responses: [json(500, {})] });
+      expect(await deliverTask(s.deps, TASK, 2)).toEqual({ kind: 'retry', gapSeconds: 120 });
+      const pushes = sent(post);
+      expect(pushes).toHaveLength(1); // one per attempt: the failed try itself adds none
+      expect(pushes[0]).toMatchObject({ type: 'task_update', jobId: 'job-1', taskId: TASK, status: 'in_progress', attemptCount: 2, updatedAt: '2026-10-15T00:00:10.000Z' });
+      expect(pushes[0]).not.toHaveProperty('failureCode');
+      expect(pushes[0]?.counts).toMatchObject({ in_progress: 1 });
+    });
+
+    it('does not push for the first try', async () => {
+      const post = vi.fn(async () => true);
+      const s = setup({ post, responses: [json(500, {})] });
+      await deliverTask(s.deps, TASK, 1);
+      expect(post).not.toHaveBeenCalled();
+    });
+
+    it('a push that fails does not fail the delivery', async () => {
+      const post = vi.fn(async () => {
+        throw new Error('gateway down');
+      });
+      const s = setup({ claim: [{ ...claimed, attempt_count: 3, updated_at: new Date() }], post, responses: [json(201, { documentId: 'doc-3' })] });
+      expect(await deliverTask(s.deps, TASK, 3)).toEqual({ kind: 'done' });
+      expect(s.finalWrite()?.values?.[1]).toBe('completed');
+    });
   });
 
   it('sends the fifth attempt on at once (gap 0)', async () => {
