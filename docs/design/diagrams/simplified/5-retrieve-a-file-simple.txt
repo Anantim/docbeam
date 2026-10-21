@@ -16,7 +16,7 @@ opt [label: mode is not download or preview] {
 DocBeam API > DocBeam API: Sender, or delivered to the user's team?
 
 alt [label: allowed] {
-  DocBeam API --> Web Client: 2-minute link for this one file, with its name, type and size (logged)
+  DocBeam API --> Web Client: 2-minute link for this one file, with its name, type (from its contents) and size (logged)
   Web Client > Object Store: Fetch the file directly
   Object Store --> Web Client: File (only if scanned clean)
   Web Client > Web Client: Save it and count down the link's 2 minutes, or show it in the viewer

@@ -11,7 +11,7 @@ Document Platform [icon: aws-ecs, color: green]
 Platform DB [icon: aws-rds, color: orange]
 Object Store [icon: aws-s3, color: orange]
 
-User > Web Client: Open a job and click Preview or Download on a file
+User > Web Client: Open a job and click Preview or Download on a completed delivery
 Web Client > API Gateway: Request a link (mode: download or preview) with JWT
 API Gateway > DocBeam API: Validate JWT and forward
 
@@ -29,8 +29,8 @@ opt [label: caller is not the sender] {
 
 alt [label: sender, or file delivered (completed) to the caller's team, within 33-day storage] {
   DocBeam API > DocBeam DB: Write download.issued audit event (mode; for anyone but the sender, team = lowest-id matching team, every matching team in the detail)
-  DocBeam API > DocBeam API: Sign GET URL locally (one file, 2 min; attachment under the original name, or inline with the stored type for a preview)
-  DocBeam API --> Web Client: Return the URL with the file's name, type and size (from its record)
+  DocBeam API > DocBeam API: Sign GET URL locally (one file, 2 min; attachment under the original name, or inline with the detected type for a preview)
+  DocBeam API --> Web Client: Return the URL with the file's name, type (detected from its contents) and size (from its record)
   Web Client > Object Store: Fetch the file with the URL
   Object Store > Object Store: Check signature, expiry and the clean scan tag
   Object Store --> Web Client: File bytes

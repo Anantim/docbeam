@@ -10,8 +10,8 @@ Auth DB [icon: aws-rds, color: orange]
 Document Platform [icon: aws-ecs, color: green]
 Platform DB [icon: aws-rds, color: orange]
 
-// Login
-User > Web Client: Log in with email and password
+// Login (accounts are set up by the study administrator; no sign-up page, register is off at the gateway)
+User > Web Client: Log in with email and password (eye button shows or hides it)
 Web Client > API Gateway: Login request
 API Gateway > Auth Service: Forward (login needs no JWT; tightly throttled)
 Auth Service > Auth DB: Look up user, check sign-in pause and password hash
@@ -36,12 +36,19 @@ loop [label: 1 min before the token expires, icon: repeat] {
     Auth Service > Auth DB: Mark it used, store the next one (same sign-in, same end time)
     Auth Service --> Web Client: New 15-minute JWT and new refresh cookie
   }
-  else [label: token already used] {
+  else [label: used again within 30 s of its swap (a lost answer)] {
+    Auth Service > Auth DB: Store one more token in the same sign-in
+    Auth Service --> Web Client: New JWT and refresh cookie; the sign-in carries on
+  }
+  else [label: used again after 30 s (reuse)] {
     Auth Service > Auth DB: Revoke every token of this sign-in
     Auth Service --> Web Client: 401, sign-in dialog
   }
   else [label: 12 hours are up] {
-    Auth Service --> Web Client: 401, sign-in dialog (the page stays as it is)
+    Auth Service --> Web Client: 401, sign-in dialog (requests wait and are sent again after sign-in)
+  }
+  else [label: refresh cannot reach the server] {
+    Web Client > Web Client: Retryable error; the sign-in stays (no dialog)
   }
 }
 
@@ -52,27 +59,42 @@ opt [label: user signs out] {
   Auth Service --> Web Client: 204, cookie cleared
 }
 
-// Teams
-User > Web Client: View teams
-Web Client > API Gateway: Request teams with JWT
+// Teams (the tree starts with the teams only)
+User > Web Client: Open Distribute
+Web Client > API Gateway: GET /teams with JWT (50 per page)
 API Gateway > Document Platform: Validate JWT and forward
-Document Platform > Platform DB: Read teams the user belongs to
-Document Platform --> Web Client: Return team list
+Document Platform > Platform DB: Read teams the user belongs to (one page, by name)
+Document Platform --> Web Client: Teams and nextCursor
 
 loop [label: User expands a team, icon: repeat] {
   User > Web Client: Expand team
-  Web Client > API Gateway: Request binders with JWT
+  Web Client > API Gateway: GET /teams/:id/binders with JWT (20 per page)
   API Gateway > Document Platform: Validate JWT and forward
-  Document Platform > Platform DB: Check membership, read binders
-  Document Platform --> Web Client: Return binders (404 if not a member)
+  Document Platform > Platform DB: Check membership, read one page of binders
+  Document Platform --> Web Client: Binders and nextCursor (404 if not a member)
 }
 
 loop [label: User expands a binder or folder, icon: repeat] {
   User > Web Client: Expand binder or folder
-  Web Client > API Gateway: Request contents with JWT
+  Web Client > API Gateway: GET /binders/:id/contents or /folders/:id/contents with JWT (20 per page)
   API Gateway > Document Platform: Validate JWT and forward
-  Document Platform > Platform DB: Check membership, read one level
-  Document Platform --> Web Client: Return folders and documents (404 if not a member)
+  Document Platform > Platform DB: Check membership, read one page of one level
+  Document Platform --> Web Client: Folders, documents and nextCursor (404 if not a member)
 }
 
-User > Web Client: Select destinations (up to 20)
+opt [label: the end of a level scrolls into view and nextCursor is set] {
+  Web Client > API Gateway: Same request with ?cursor= (the last row seen)
+  API Gateway > Document Platform: Validate JWT and forward
+  Document Platform > Platform DB: Check membership again, read the next page
+  Document Platform --> Web Client: Next page (nothing repeated or skipped)
+}
+
+opt [label: User types 2 or more characters in Filter (one character only narrows the loaded rows)] {
+  Web Client > API Gateway: GET /folders/search?q= with JWT (after a 300 ms pause)
+  API Gateway > Document Platform: Validate JWT and forward
+  Document Platform > Platform DB: Folders whose name contains q, in the user's teams only (trigram index)
+  Document Platform --> Web Client: Matches with full paths and nextCursor
+  User > Web Client: Pick a match (the tree opens down to it and ticks it)
+}
+
+User > Web Client: Tick folders, up to 20 (binders are headings; checked only at Send)

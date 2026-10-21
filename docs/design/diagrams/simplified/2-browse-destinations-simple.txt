@@ -6,7 +6,7 @@ Web Client [icon: react, color: blue]
 Auth Service [icon: aws-ecs, color: green]
 Document Platform [icon: aws-ecs, color: green]
 
-// Sign in
+// Sign in (accounts are set up by the study administrator)
 User > Web Client: Enter email and password
 Web Client > Auth Service: Log in
 alt [label: details correct] {
@@ -18,11 +18,11 @@ else [label: wrong, or paused after 5 wrong tries] {
 
 loop [label: a minute before the token expires, icon: repeat] {
   Web Client > Auth Service: Refresh with the cookie
-  Auth Service --> Web Client: New token (after 12 hours: ask for the password)
+  Auth Service --> Web Client: New token (only a refused refresh asks for the password)
 }
 
 // Browse
-User > Web Client: Open teams, binders and folders
-Web Client > Document Platform: Ask for one level at a time
+User > Web Client: Open teams, binders and folders, or search folders by name
+Web Client > Document Platform: Ask for one level at a time, a page at a time (or search)
 Document Platform --> Web Client: Only what the user's teams contain (404 otherwise)
-User > Web Client: Tick up to 20 destination folders
+User > Web Client: Tick up to 20 folders (binders are headings)

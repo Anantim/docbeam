@@ -7,19 +7,19 @@ WebSocket API [icon: aws-api-gateway, color: green]
 DocBeam API [icon: aws-ecs, color: green]
 Delivery Lambda [icon: aws-lambda, color: green]
 
-User > Web Client: Open the job list
-Web Client > DocBeam API: Mine, or my teams' distributions
-DocBeam API --> Web Client: Jobs with counts (refreshed every 30 s)
+User > Web Client: Open Status
+Web Client > DocBeam API: Everything I can see (filters: status, sender, sent, team)
+DocBeam API --> Web Client: Jobs with counts, 20 at a time (more as the user scrolls)
 
-User > Web Client: Open one job
+User > Web Client: Open one job in the side panel
 Web Client > WebSocket API: Subscribe first (checked: sender or same team)
 WebSocket API --> Web Client: Subscribed
 Web Client > DocBeam API: Then load its deliveries
-DocBeam API --> Web Client: All deliveries for the sender, own team's for others
+DocBeam API --> Web Client: All deliveries for the sender, own teams' for others
 
-loop [label: each delivery finishes, icon: repeat] {
-  Delivery Lambda > WebSocket API: New status
-  WebSocket API --> Web Client: Row and totals update live (cancelled shown grey, apart from failures)
+loop [label: each delivery retries or finishes, icon: repeat] {
+  Delivery Lambda > WebSocket API: New status (Retrying, Completed or Failed)
+  WebSocket API --> Web Client: Row and totals update live (reasons on hover; cancelled shown grey, apart from failures)
 }
 
 opt [label: connection drops] {
@@ -27,7 +27,7 @@ opt [label: connection drops] {
   Web Client > DocBeam API: Reload once to catch up
 }
 
-opt [label: sender presses Retry or Cancel] {
+opt [label: sender presses Retry failed or Cancel distribution] {
   Web Client > DocBeam API: Retry failed, or cancel waiting deliveries
   DocBeam API --> Web Client: Updated job
   DocBeam API > WebSocket API: Tell every open page
