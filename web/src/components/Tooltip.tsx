@@ -16,6 +16,8 @@ interface Props {
   children: ReactNode;
   /** The wrapper is a block (for a cut-off line of text) and not an inline box. */
   block?: boolean;
+  /** A click shows it too (and it stays until Esc, a click elsewhere or the pointer or focus leaving), for a trigger that carries a reason. */
+  openOnClick?: boolean;
 }
 
 interface Place {
@@ -33,7 +35,7 @@ interface Place {
  *
  * The wrapper is a span around the trigger, so a disabled button (which gets no pointer events of its own) still has a tooltip.
  */
-export function Tooltip({ text, children, block = false }: Props) {
+export function Tooltip({ text, children, block = false, openOnClick = false }: Props) {
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [place, setPlace] = useState<Place | null>(null);
@@ -109,6 +111,9 @@ export function Tooltip({ text, children, block = false }: Props) {
         }}
         onPointerUp={() => {
           mouseDown.current = false;
+        }}
+        onClick={() => {
+          if (openOnClick && on) show();
         }}
         onFocus={(event) => {
           // Keyboard focus shows it at once; focus that a click brought does not (the pointer already had its turn).

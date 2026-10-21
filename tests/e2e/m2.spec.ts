@@ -82,14 +82,14 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
   const eicar = row(page, name);
   await expect(eicar.locator('.status-chip')).toHaveText('Refused', { timeout: 90_000 });
-  await expect(eicar).toContainText('Malware found');
+  expect(await tooltipOf(page, eicar.locator('.status-chip'))).toBe('Malware was found. The file was deleted and cannot be sent.'); // the reason is the chip's tooltip (D-F1-60)
   await expect(eicar.locator('.status-chip')).toHaveAttribute('data-tone', 'bad');
   await expect(eicar.locator('.struck')).toBeVisible(); // its name is struck through
   await expect(eicar.getByRole('checkbox')).toHaveCount(0); // it cannot be selected
   await expect(eicar).toContainText('Will not be sent');
   const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
   await expect(sendBtn).toBeDisabled();
-  await expect(page.locator('.send-reason')).toHaveText('Remove the file refused for malware'); // it is the only file
+  await expect(page.locator('.send-reason')).toHaveText('Remove 1 refused file'); // it is the only file
   await page.getByRole('button', { name: `Remove ${name}` }).click();
   await expect(row(page, name)).toHaveCount(0);
 
@@ -272,7 +272,7 @@ test('signing out with files on the page leaves nothing for the next person', as
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.getByLabel('Work email').fill(PRIYA);
-  await page.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
+  await page.getByLabel('Password', { exact: true }).fill(env.SEED_USER_PASSWORD as string);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);

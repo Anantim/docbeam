@@ -1,0 +1,44 @@
+
+Running 4 tests using 1 worker
+
+[1/4] [chromium] › tests/e2e/m5-browser-dev.spec.ts:67:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered
+[chromium] › tests/e2e/m5-browser-dev.spec.ts:67:1 › slow connection: a file uploads over a slow link, is checked, sent and delivered
+slow connection: 2 MiB uploaded and verified in 52 s at about 64 KiB/s
+
+[2/4] [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts
+  1) [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('.frow').filter({ hasText: 'resume-db8e4a.pdf' }).getByText(/Part [2-9] of \d+/)
+    Expected: visible
+    Timeout: 120000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('.frow').filter({ hasText: 'resume-db8e4a.pdf' }).getByText(/Part [2-9] of \d+/) with timeout 120000ms
+      - waiting for locator('.frow').filter({ hasText: 'resume-db8e4a.pdf' }).getByText(/Part [2-9] of \d+/)
+
+
+      107 |     const progress = rowOf(page, name).getByText(/Part \d+ of \d+/);
+      108 |     await expect(progress).toBeVisible({ timeout: 120_000 });
+    > 109 |     await expect(rowOf(page, name).getByText(/Part [2-9] of \d+/)).toBeVisible({ timeout: 120_000 });
+          |                                                                    ^
+      110 |     const before = Number(/Part (\d+) of/.exec((await progress.textContent()) ?? '')?.[1]);
+      111 |     await page.screenshot({ path: evidence('multipart-before-drop') });
+      112 |
+        at /home/anantim/docbeam/tests/e2e/m5-browser-dev.spec.ts:109:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m5-browser-dev-multipart-r-8dc7a-es-on-from-the-stored-parts-chromium/error-context.md
+
+
+[3/4] [chromium] › tests/e2e/m5-browser-dev.spec.ts:141:1 › PNG and JPG previews show the image in the page
+[4/4] [chromium] › tests/e2e/m5-browser-dev.spec.ts:192:1 › WebSocket reconnect: the page loses its connection for 30 s mid-run and catches up
+  1 failed
+    [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts 
+  2 did not run
+  1 passed (3.1m)

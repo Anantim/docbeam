@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { AuthError, login, logout } from '../auth/session.js';
+import { PasswordField } from './PasswordField.js';
 import { PauseNote } from './PauseNote.js';
 import { useFocusTrap } from './useFocusTrap.js';
 
@@ -8,6 +9,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [attempts, setAttempts] = useState(0);
   const box = useRef<HTMLFormElement>(null);
   useFocusTrap(box);
 
@@ -15,6 +17,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
     event.preventDefault();
     setBusy(true);
     setError('');
+    setAttempts((n) => n + 1); // the password goes back to hidden
     try {
       await login(email, password);
       onSignedIn();
@@ -40,17 +43,7 @@ export function SessionDialog({ email, onSignedIn }: { email: string; onSignedIn
         )}
         <div className="dialog-field">
           <label htmlFor="again">Password for {email}</label>
-          <input
-            id="again"
-            className="field"
-            type="password"
-            aria-label="Password"
-            autoComplete="current-password"
-            autoFocus
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <PasswordField id="again" ariaLabel="Password" autoFocus value={password} onChange={setPassword} resetKey={attempts} />
         </div>
         <div className="actions">
           <button className="btn2" type="button" onClick={() => void logout()}>

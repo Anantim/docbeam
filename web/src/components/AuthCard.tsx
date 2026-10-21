@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { AuthError, login } from '../auth/session.js';
 import { Logo } from './Logo.js';
+import { PasswordField } from './PasswordField.js';
 import { PauseNote } from './PauseNote.js';
 
 /**
@@ -12,11 +13,13 @@ export function AuthCard() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [attempts, setAttempts] = useState(0);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
     setBusy(true);
+    setAttempts((n) => n + 1); // the password goes back to hidden
     try {
       await login(email, password);
     } catch (err) {
@@ -52,7 +55,7 @@ export function AuthCard() {
           </div>
           <div className="dialog-field">
             <label htmlFor="pw">Password</label>
-            <input id="pw" className="field" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordField id="pw" value={password} onChange={setPassword} resetKey={attempts} />
           </div>
           <button className="btn" type="submit" disabled={busy}>
             Sign in

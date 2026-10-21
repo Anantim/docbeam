@@ -1,6 +1,6 @@
 # DocBeam status
 
-Updated 2026-10-20, end of the **F1 round** (the reviewer's feedback). **Dev AWS is DOWN** (see "Dev state").
+Updated 2026-10-21, end of the **F1 round** (the reviewer's feedback) and its dev round. **Dev AWS is DOWN** (torn down 2026-10-21, 02:54 UTC).
 
 ## F1 (the reviewer's feedback round): release summary
 
@@ -30,8 +30,11 @@ Decisions D-F1-18 to D-F1-21; YES/NO in `docs/testing/F1-RESULTS.md` section 8. 
 ### F1 dev round and the last UI batch (2026-10-21), branch `f6-dev-round`
 
 Decisions D-F1-39 to D-F1-54; YES/NO in `docs/testing/F1-RESULTS.md` sections 8.8 and 8.9. In this branch: the fixed-height Distribute screen, the dense panel, one "Filter…" box and one count popover, motion tokens and tooltips, 16 px tick boxes, the list loading on scroll, no Attempts column (attempt notes under the status), Open by ID highlight, file types from contents (browser and Upload Events Lambda; `files.detected_type`, migration 0004), a keyset order `(created_at, id)` (migration 0003), the team note and header teams on one line with "+N", and one page rhythm (`--gap-section` 16 px, `--gap-controls` 12 px).
-- **Tests (2026-10-21, local):** lint and typecheck clean; unit 88 files, 756 tests; integration 18 files, 204 tests (last run before the final UI edits, which touch only `web/`); Playwright 106 passed, 10 skipped (dev only) plus the one changed spacing test run again.
-- **Not done yet (Part 2, dev):** the end-to-end distribution timing, the new demo video, teardown, the README metrics table and the README F1 section rewrite. Dev AWS state: see the line at the top of this file when those are done.
+- **Later in the day (PRs #37 and the results pull request):** row height 52 px, Files and Destinations cells, one date format, one reason map with reasons in tooltips, Retrying chip, Send reason, show password, and the empty-distribution fix (D-F1-55 to D-F1-62).
+- **Tests (2026-10-21, local, final):** lint and typecheck clean; unit 90 files, 783 tests; integration 18 files, 205 tests; Playwright 114 passed, 10 skipped (dev only), then the failing spec re-run and the screenshots regenerated.
+- **Part 2 on dev, done:** `status-dev`, `download-dev`, `m5-browser-dev` (the multipart test flaked once and passed again), the 22-minute session check (22.1 min, no dialog, a refresh at 14.1 min returned 200), the browse timing (p99 832 ms from the laptop, 49 ms at the gateway), the 100 x 20 delivery timing (26.2 s for all 2,000), and the demo re-recorded on the build of PR #36 (`docs/demo/docbeam-demo.webm` and `.mp4`). Evidence in `docs/testing/f1-evidence/dev/`.
+- **Dev AWS is DOWN.** Brought up 2026-10-20 about 16:48 UTC (healthy about 17:49 UTC); torn down by the `dev-teardown` workflow on 2026-10-21, finished 02:54 UTC, and checked: no cluster, database, Lambda, API, CloudFront or data bucket left (only the Terraform state bucket).
+- **Known limits:** (1) the demo video was recorded before the Details/Reasons/date/password changes of the last pull request (dev was then torn down), so it shows the old Details column; it needs a new recording the next time dev is up; (2) the delivery timing is one run; (3) the 20-team case has no screenshot (unit tests only); (4) the third point of the "Empty deliveries bug" message was cut off after "Deliveries could not be loaded ·" and was read as "· Try again" (D-F1-62).
 - **Known issues:** no 20-team screenshot (unit tests cover 20 teams); a few working-rule slips (shell edits) listed in D-F1-40, D-F1-47, D-F1-49 and D-F1-54.
 
 Earlier text of this file (before F1) follows.

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveClient, LiveMessage } from '../live/socket.js';
 import type * as ApiModule from '../tracking/api.js';
 import type { TaskPage, TaskRow } from '../tracking/api.js';
 import { tooltipOf } from '../testing/tooltip.js';
-import { attemptNote, ROW_HEIGHT, TaskTable } from './TaskTable.js';
+import { attemptNote, deliveryTip, ROW_HEIGHT, TaskTable } from './TaskTable.js';
 
 const api = vi.hoisted(() => ({ tasks: vi.fn() }));
 vi.mock('../tracking/api.js', async (importOriginal) => ({
@@ -173,39 +173,67 @@ describe('the type tag in the deliveries table (D-F1-44)', () => {
   });
 });
 
-describe('the attempts note under the status chip (D-F1-50)', () => {
-  it('says "Attempt N of 5" while a delivery is trying again, "Failed after N attempts" on a failure, and nothing for a first-try success', () => {
-    expect(attemptNote({ attemptCount: 1 }, 'completed')).toBeNull(); // went through the first time
-    expect(attemptNote({ attemptCount: 3 }, 'completed')).toBeNull(); // done: the history is not repeated
-    expect(attemptNote({ attemptCount: 0 }, 'pending')).toBeNull();
-    expect(attemptNote({ attemptCount: 1 }, 'in_progress')).toBeNull(); // the first try
-    expect(attemptNote({ attemptCount: 2 }, 'in_progress')).toBe('Attempt 2 of 5');
-    expect(attemptNote({ attemptCount: 3 }, 'pending')).toBe('Attempt 3 of 5'); // waiting for its next try
-    expect(attemptNote({ attemptCount: 5 }, 'failed')).toBe('Failed after 5 attempts');
-    expect(attemptNote({ attemptCount: 1 }, 'failed')).toBe('Failed after 1 attempt');
-    expect(attemptNote({ attemptCount: 0 }, 'failed')).toBeNull();
-    expect(attemptNote({ attemptCount: 2 }, 'cancelled')).toBeNull();
+describe('the attempts and the reason in the tooltip, nothing under the chip (D-F1-50, D-F1-60)', () => {
+  const retried = { failureCode: 'RETRIES_EXHAUSTED' };
+  it('says "Attempt N of 5" while a delivery is trying again, "Failed after N attempts" only for a retried failure, and nothing else', () => {
+    expect(attemptNote({ attemptCount: 1, failureCode: null }, 'completed')).toBeNull(); // went through the first time
+    expect(attemptNote({ attemptCount: 3, failureCode: null }, 'completed')).toBeNull(); // done: the history is not repeated
+    expect(attemptNote({ attemptCount: 0, failureCode: null }, 'pending')).toBeNull();
+    expect(attemptNote({ attemptCount: 1, failureCode: null }, 'in_progress')).toBeNull(); // the first try
+    expect(attemptNote({ attemptCount: 2, failureCode: null }, 'in_progress')).toBe('Attempt 2 of 5');
+    expect(attemptNote({ attemptCount: 3, failureCode: null }, 'pending')).toBe('Attempt 3 of 5'); // waiting for its next try
+    expect(attemptNote({ attemptCount: 5, failureCode: 'SOMETHING_NEW' }, 'failed')).toBe('Failed after 5 attempts'); // a code this page does not know, retried
+    expect(attemptNote({ attemptCount: 0, failureCode: 'SOMETHING_NEW' }, 'failed')).toBeNull();
+    expect(attemptNote({ attemptCount: 2, failureCode: 'CANCELLED' }, 'cancelled')).toBeNull();
+    // Never for a permanent failure, however many tries it had.
+    for (const code of ['FILE_NOT_UPLOADED', 'CHECKSUM_MISMATCH', 'UNSUPPORTED_TYPE', 'NOT_AUTHORIZED_AT_DELIVERY', 'DESTINATION_NOT_FOUND', 'FANOUT_FAILED']) {
+      expect(attemptNote({ attemptCount: 4, failureCode: code }, 'failed'), code).toBeNull();
+    }
   });
 
-  it('shows the note in the row, in small muted text under the chip, with no Attempts column', async () => {
+  it('the tip is the reason from the one map, then the attempts where they apply', () => {
+    expect(deliveryTip({ attemptCount: 5, ...retried }, 'failed')).toBe('The platform did not respond after 5 attempts.');
+    expect(deliveryTip({ attemptCount: 1, failureCode: 'FILE_NOT_UPLOADED' }, 'failed')).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(deliveryTip({ attemptCount: 3, failureCode: 'SOMETHING_NEW' }, 'failed')).toBe('The delivery did not go through. Failed after 3 attempts.');
+    expect(deliveryTip({ attemptCount: 1, failureCode: 'CANCELLED' }, 'cancelled')).toBe('Cancelled by the sender before it was delivered.');
+    expect(deliveryTip({ attemptCount: 3, failureCode: null }, 'in_progress')).toBe('Trying again. Attempt 3 of 5.');
+    expect(deliveryTip({ attemptCount: 1, failureCode: null }, 'completed')).toBe('Delivered to the folder in the platform.');
+  });
+
+  it('shows the Retrying chip, no text under any chip, and the tip on the chip and on the info icon', async () => {
     api.tasks.mockImplementation(async () => ({
       page: 1,
       limit: 100,
-      total: 4,
+      total: 5,
       tasks: [
         row(0, { status: 'completed', attemptCount: 1 }),
         row(1, { status: 'in_progress', attemptCount: 3 }),
-        row(2, { status: 'failed', attemptCount: 5, failureCode: 'RETRIES_EXHAUSTED', failureReason: 'x' }),
-        row(3, { status: 'completed', attemptCount: 2 }),
+        row(2, { status: 'failed', attemptCount: 5, failureCode: 'RETRIES_EXHAUSTED', failureReason: 'raw platform text' }),
+        row(3, { status: 'failed', attemptCount: 1, failureCode: 'FILE_NOT_UPLOADED', failureReason: 'raw platform text' }),
+        row(4, { status: 'failed', attemptCount: 1, failureCode: 'CANCELLED', failureReason: 'raw platform text' }),
       ],
     }));
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
     await screen.findByText(name(3));
-    const notes = [...document.querySelectorAll('.tattempt-note')].map((n) => n.textContent);
-    expect(notes).toEqual(['Attempt 3 of 5', 'Failed after 5 attempts']);
-    expect(document.querySelector('.tattempts')).toBeNull();
-    expect(document.querySelector('.tattempt-note')?.closest('.tstatus')?.querySelector('.status-chip')).not.toBeNull();
+    const chipOf = (i: number) => screen.getByText(name(i)).closest('[role="row"]')!.querySelector('.status-chip') as HTMLElement;
+    const rowOf = (i: number) => screen.getByText(name(i)).closest('[role="row"]') as HTMLElement;
+    expect(chipOf(1).textContent).toBe('Retrying'); // in-progress colour
+    expect(chipOf(1).getAttribute('data-tone')).toBe('busy');
+    expect(tooltipOf(chipOf(1))).toBe('Trying again. Attempt 3 of 5.');
+    expect(tooltipOf(chipOf(2))).toBe('The platform did not respond after 5 attempts.');
+    expect(tooltipOf(chipOf(3))).toBe('The file never finished uploading, so it could not be delivered.'); // no "after N attempts" for a permanent one
+    expect(chipOf(4).textContent).toBe('Cancelled');
+    expect(tooltipOf(chipOf(4))).toBe('Cancelled by the sender before it was delivered.');
+    // The info icon says the same; nothing is written under a chip and no raw code or platform text appears.
+    expect(tooltipOf(within(rowOf(3)).getByRole('button', { name: 'Why this delivery failed' }))).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(tooltipOf(within(rowOf(4)).getByRole('button', { name: 'Why this delivery was cancelled' }))).toBe('Cancelled by the sender before it was delivered.');
+    expect(document.querySelector('.tattempt-note, .reason, .code')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/RETRIES_EXHAUSTED|FILE_NOT_UPLOADED|raw platform text/);
+    // Details: Preview and Download on the delivered row only.
+    expect(within(rowOf(0)).getByRole('button', { name: `Preview ${name(0)}` })).toBeTruthy();
+    expect(within(rowOf(2)).queryByRole('button', { name: /^Preview/ })).toBeNull();
+    expect(document.querySelector('.tdetail .muted')).toBeNull(); // no "In the queue", "Delivering now" or "File expired" words
   });
 });
 
@@ -300,16 +328,14 @@ describe('TaskTable', () => {
     expect(api.tasks.mock.calls.map((c) => c[1])).toEqual([1, 15, 16]);
   });
 
-  it('changes a row in place for a live push, with the reason inline', async () => {
+  it('changes a row in place for a live push, with the reason in the tooltip', async () => {
     const { live, push } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:05.000Z'));
-    const code = await screen.findByText('RETRIES_EXHAUSTED');
-    expect(screen.getByText(/the platform did not answer/)).toBeTruthy();
-    // The code and the status chip each carry a one-line meaning (D-M3-10).
-    expect(tooltipOf(code)).toBe('Tried 5 times over about 17 minutes; the platform did not accept it.');
-    expect(tooltipOf(screen.getByText('Failed').closest('.status-chip') as Element)).toContain('This delivery ended with a failure. The reason is shown.');
+    const chip = (await screen.findByText('Failed')).closest('.status-chip') as Element;
+    expect(tooltipOf(chip)).toBe('The platform did not respond after 5 attempts.'); // the one reason map (D-F1-60)
+    expect(document.body.textContent).not.toMatch(/RETRIES_EXHAUSTED|the platform did not answer/); // no raw code, no platform text
     // Cut-short text shows in full.
     expect(tooltipOf(screen.getByText(name(2)))).toBe(name(2));
     expect(api.tasks).toHaveBeenCalledTimes(1); // no fetch for a push
@@ -323,7 +349,7 @@ describe('TaskTable', () => {
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:03.000Z'));
-    expect(screen.queryByText('RETRIES_EXHAUSTED')).toBeNull();
+    expect(screen.queryByText('Failed')).toBeNull();
   });
 
   it('loads again after a reload, keeping the rows on screen meanwhile', async () => {
@@ -362,7 +388,7 @@ describe('TaskTable', () => {
     await screen.findByText('No deliveries with this status.');
   });
 
-  it('shows the expired-file message instead of the buttons, and live Preview and Download on a delivered file', async () => {
+  it('shows an info icon for an expired file instead of the buttons, and live Preview and Download on a delivered file', async () => {
     const delivered = row(1, { status: 'completed', attemptCount: 1 });
     api.tasks.mockResolvedValue({
       page: 1,
@@ -372,7 +398,8 @@ describe('TaskTable', () => {
     });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
-    await screen.findByText('File expired');
+    const expired = await screen.findByRole('button', { name: 'Why this file cannot be opened' });
+    expect(tooltipOf(expired)).toMatch(/more than 33 days old/);
 
     const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
     const preview = screen.getByRole('button', { name: `Preview ${name(1)}` }) as HTMLButtonElement;
@@ -390,10 +417,23 @@ describe('TaskTable', () => {
     expect(screen.queryByRole('button', { name: new RegExp(`(Download|Preview) ${name(2)}`) })).toBeNull();
   });
 
-  it('shows an error when the deliveries cannot be loaded', async () => {
-    api.tasks.mockRejectedValue(new Error('boom'));
+  it('shows "Deliveries could not be loaded · Try again" when the request fails, never the reason, and Try again loads the rows (D-F1-62)', async () => {
+    api.tasks.mockRejectedValueOnce(new Error('boom: connect ECONNREFUSED 10.0.0.1'));
+    api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 1, tasks: [row(0, { status: 'completed', attemptCount: 1 })] });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
-    expect((await screen.findByRole('alert')).textContent).toBe('The deliveries could not be loaded.');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Deliveries could not be loaded · Try again');
+    expect(document.body.textContent).not.toContain('ECONNREFUSED');
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText(name(0));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('says a distribution with no deliveries has none, instead of an empty table with no word (D-F1-62)', async () => {
+    api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 0, tasks: [] });
+    const { live } = fakeLive();
+    render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
+    await screen.findByText('This distribution has no deliveries.');
   });
 });

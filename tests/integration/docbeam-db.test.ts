@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { compose, env } from './helpers.js';
+import { compose, deleteJobs, env } from './helpers.js';
 
 const url = (user: string, password: string) => `postgres://${user}:${password}@localhost:5432/docbeam_db`;
 let admin: pg.Client;
@@ -12,12 +12,17 @@ beforeAll(async () => {
   app = new pg.Client({ connectionString: url('docbeam_app', env.DOCBEAM_APP_PASSWORD ?? '') });
   await Promise.all([admin.connect(), app.connect()]);
 });
+// Every job this file inserts by hand, removed at the end: a job with no deliveries (or one that no worker will ever touch) left in
+// the shared database shows in the Status list for good, as "Completed" with no rows (D-F1-62).
+const made: string[] = [];
 afterAll(async () => {
+  await deleteJobs(admin, made);
   await Promise.all([admin.end(), app.end()]);
 });
 
 async function insertJobWithTask(client: pg.Client): Promise<{ jobId: string; fileId: string; binderId: string }> {
   const jobId = randomUUID();
+  made.push(jobId);
   const fileId = randomUUID();
   const binderId = randomUUID();
   const user = randomUUID();
@@ -72,12 +77,11 @@ describe('DocBeam DB (Step 1.5, D-G8)', () => {
   it('refuses a repeated idempotency key for one user and a bad status', async () => {
     const user = randomUUID();
     const key = randomUUID();
-    const insert = () =>
-      app.query(`INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key) VALUES ($1,$2,'A',1,$3)`, [
-        randomUUID(),
-        user,
-        key,
-      ]);
+    const insert = () => {
+      const id = randomUUID();
+      made.push(id);
+      return app.query(`INSERT INTO jobs (id, submitted_by_user_id, submitted_by_name, task_count, idempotency_key) VALUES ($1,$2,'A',1,$3)`, [id, user, key]);
+    };
     await insert();
     await expect(insert()).rejects.toThrow(/uq_jobs_idem/);
     const { jobId, fileId } = await insertJobWithTask(app);

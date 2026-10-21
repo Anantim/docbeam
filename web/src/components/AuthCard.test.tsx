@@ -35,6 +35,35 @@ describe('the sign-in page (D-F1-17)', () => {
   });
 });
 
+describe('show password on both screens (D-F1-61)', () => {
+  it('the sign-in page: hidden at first, shown by the eye, hidden again after the attempt', async () => {
+    session.login.mockRejectedValue(new Error('x'));
+    const user = userEvent.setup();
+    render(<AuthCard />);
+    const pw = screen.getByLabelText('Password') as HTMLInputElement;
+    expect(pw.type).toBe('password');
+    await user.type(pw, 'not-the-password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(pw.type).toBe('text');
+    await user.type(screen.getByLabelText('Work email'), 'someone@example.com');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(pw.type).toBe('password');
+  });
+
+  it('the "Sign in again" dialog: hidden when it opens, shown by the eye, hidden again after the attempt', async () => {
+    session.login.mockRejectedValue(new Error('x'));
+    const user = userEvent.setup();
+    render(<SessionDialog email="priya.shah@example.com" onSignedIn={() => undefined} />);
+    const pw = screen.getByLabelText('Password', { selector: 'input' }) as HTMLInputElement;
+    expect(pw.type).toBe('password');
+    await user.type(pw, 'not-the-password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(pw.type).toBe('text');
+    await user.click(screen.getByRole('button', { name: 'Sign in again' }));
+    expect(pw.type).toBe('password');
+  });
+});
+
 describe('the sign-in pause note (D-M3-13)', () => {
   it('is not shown before a failed attempt', () => {
     render(<AuthCard />);

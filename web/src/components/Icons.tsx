@@ -110,6 +110,22 @@ export const AlertIcon = (p: Props) => (
   </Svg>
 );
 
+export const InfoIcon = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 7.4v3.6M8 5v.1" />
+  </Svg>
+);
+
+/** The eye with a slash: the password is shown, press to hide it. */
+export const EyeOffIcon = (p: Props) => (
+  <Svg {...p}>
+    <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
+    <circle cx="8" cy="8" r="2" />
+    <path d="M2.5 13.5l11-11" />
+  </Svg>
+);
+
 export const LogoutIcon = (p: Props) => (
   <Svg {...p}>
     <path d="M6.5 3h-3v10h3M9.5 5.5 12 8l-2.5 2.5M12 8H6.5" />

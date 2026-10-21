@@ -34,7 +34,7 @@ test('while the sign-in is over the page behind the dialog shows no error, and a
   // Sign in again. The requests that waited are sent again: the distribution and the list are back.
   await page.unroute('**/api/jobs**');
   await page.unroute('**/api/auth/refresh');
-  await dialog.getByLabel('Password').fill(env.SEED_USER_PASSWORD as string);
+  await dialog.getByLabel('Password', { exact: true }).fill(env.SEED_USER_PASSWORD as string);
   await dialog.getByRole('button', { name: 'Sign in again' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -98,17 +98,17 @@ test('a distribution cancelled part way: filter numbers, the bar, chips and rows
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(8);
     await page.getByRole('button', { name: 'Completed, 3 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(3);
-    await expect(page.locator('.ttable .code')).toHaveCount(0);
+    await expect(page.locator('.ttable').getByRole('button', { name: /^Why this delivery/ })).toHaveCount(0); // a delivered row has Preview and Download, no info icon
     await page.getByRole('button', { name: 'Failed, 0 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(0);
     await expect(page.getByText('No deliveries with this status.')).toBeVisible();
     await page.getByRole('button', { name: 'Cancelled, 5 deliveries' }).click();
     await expect(page.locator('.ttable .tscroll .trow')).toHaveCount(5);
-    await expect(page.locator('.ttable .code', { hasText: 'CANCELLED' })).toHaveCount(5);
+    await expect(page.locator('.ttable').getByRole('button', { name: 'Why this delivery was cancelled' })).toHaveCount(5);
     const rowChips = page.locator('.ttable .tscroll .status-chip');
     await expect(rowChips).toHaveCount(5);
     for (const text of await rowChips.allTextContents()) expect(text).toBe('Cancelled');
-    expect(await tooltipOf(page, rowChips.first())).toMatch(/Nothing was delivered/);
+    expect(await tooltipOf(page, rowChips.first())).toBe('Cancelled by the sender before it was delivered.');
 
     // A reload and the workers starting change nothing.
     await page.reload();

@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+[1/1] [chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts
+[chromium] › tests/e2e/m5-browser-dev.spec.ts:90:1 › multipart resume: the network drops mid-upload and the same upload carries on from the stored parts
+multipart resume: 2 parts stored before the drop, 2 shown right after Retry
+
+  1 passed (2.7m)

@@ -87,6 +87,24 @@ const get = (email: string, path: string) => call(DOCBEAM_URL, path, { token: to
 const post = (email: string, path: string) => call(DOCBEAM_URL, path, { token: tokens[email], method: 'POST' });
 const taskRow = async (id: string) => (await db.query('SELECT status, failure_code, attempt_count FROM tasks WHERE id = $1', [id])).rows[0];
 
+describe('a job whose deliveries are missing (D-F1-62)', () => {
+  it('is never "completed": the status is pending, the counts are zero and the tasks list is empty, in the job, the list and the tasks', async () => {
+    // The shape of the empty distribution seen in the page: the job row says 4 deliveries, and none exist.
+    const { jobId } = await insertJob([], { firstCompletedHoursAgo: 0 });
+    await db.query('UPDATE jobs SET task_count = 4, completed_at = now() WHERE id = $1', [jobId]);
+    // (The page counts the deliveries that exist, so taskCount is 0 here, not the 4 on the job row.)
+    const detail = await get(priya, `/jobs/${jobId}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body).toMatchObject({ jobId, taskCount: 0, status: 'pending', counts: { pending: 0, in_progress: 0, completed: 0, failed: 0 } });
+    const tasks = await get(priya, `/jobs/${jobId}/tasks`);
+    expect(tasks.status).toBe(200);
+    expect(tasks.body).toMatchObject({ total: 0, tasks: [] });
+    const list = await get(priya, '/jobs?scope=mine&limit=50');
+    const row = (list.body as { items: Array<{ jobId: string; status: string }> }).items.find((j) => j.jobId === jobId);
+    expect(row?.status).toBe('pending'); // not "completed"
+  });
+});
+
 describe('GET /jobs, /jobs/:id and /jobs/:id/tasks', () => {
   let job: { jobId: string; taskIds: string[] };
   beforeAll(async () => {

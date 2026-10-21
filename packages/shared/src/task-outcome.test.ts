@@ -12,6 +12,8 @@ describe('jobStatus', () => {
     [c(0, 0, 2, 1), false, 'completed_with_errors'],
     [c(0, 0, 2, 1), true, 'cancelled'],
     [c(1, 0, 2, 1), true, 'in_progress'],
+    [c(0, 0, 0, 0), false, 'pending'], // no deliveries at all is never "completed" (D-F1-62)
+    [c(0, 0, 0, 0), true, 'cancelled'],
   ])('%j cancelled=%s is %s', (counts, cancelled, expected) => {
     expect(jobStatus(counts, cancelled)).toBe(expected);
   });

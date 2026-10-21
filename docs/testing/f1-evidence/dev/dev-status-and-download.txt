@@ -1,0 +1,10 @@
+
+Running 6 tests using 1 worker
+
+[1/6] [chromium] › tests/e2e/download-dev.spec.ts:42:1 › Priya sends a PDF to Cardio and Oncology, and another to Oncology only
+[2/6] [chromium] › tests/e2e/download-dev.spec.ts:51:1 › Raj previews a Cardio file; the Oncology-only file and its distribution are not found
+[3/6] [chromium] › tests/e2e/download-dev.spec.ts:69:1 › Sam, in neither team, gets not found for the distribution and 404 for its file
+[4/6] [chromium] › tests/e2e/download-dev.spec.ts:81:1 › Priya previews and downloads; the audit API shows her every link event and Raj only his own (no audit view in the page)
+[5/6] [chromium] › tests/e2e/download-dev.spec.ts:108:1 › a download bar runs past 2:00 and shows the expired text
+[6/6] [chromium] › tests/e2e/status-dev.spec.ts:6:1 › send with the question first, then the list, a filter, the panel and Esc, on dev
+  6 passed (4.0m)
