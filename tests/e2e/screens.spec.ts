@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { test } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, ANANTIM, CARDIO_IRB, docx, CARDIO_PROTOCOL, eicarDocx, pdf, pickFilter, RAJ, removeSeeded, seedJob, send, signIn, sql, tick } from './helpers.js';
+import { addPdfs, ANANTIM, CARDIO_IRB, docx, CARDIO_PROTOCOL, eicarDocx, openListedDistribution, pdf, pickFilter, RAJ, removeSeeded, seedJob, send, signIn, sql, tick } from './helpers.js';
 
 // Takes a screenshot of every screen and dialog at 1440, 1280 and 1024 px wide (F1). It does not assert anything and
 // only runs when SHOT_DIR is set: SHOT_DIR=docs/testing/f1-evidence/after npx playwright test screens
@@ -277,7 +277,7 @@ test.describe('screens', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Sign out' }).click();
     await signIn(page, RAJ);
     await page.getByRole('button', { name: 'Status' }).click();
-    await page.locator('.dist-table tbody tr', { hasText: 'Anantim Patil' }).first().click();
+    await openListedDistribution(page, 'Anantim Patil');
     await page.locator('.panel-sub').waitFor();
     await page.waitForTimeout(800);
     // What the screen shows (the panel is at most as tall as it, sticky, and its 12 deliveries scroll inside with a fade).
