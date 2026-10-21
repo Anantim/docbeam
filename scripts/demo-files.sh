@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Makes the files for the demo recording (docs/DEMO-SCRIPT.md) in one folder: 12 small PDFs, one PNG, and a test file
-# the virus scanner must refuse. The EICAR file is the standard harmless antivirus test string (68 characters).
+# Makes the files for the demo recording (docs/DEMO-SCRIPT.md) in one folder: 12 small PDFs, one PNG, a picture renamed to
+# .pdf (the page must not add it), and a test file the virus scanner must refuse. The EICAR file is the standard harmless antivirus test string (68 characters).
 #   scripts/demo-files.sh [folder]      # default: ~/docbeam-demo-files
 set -euo pipefail
 
@@ -23,6 +23,9 @@ done
 
 # A 1x1 PNG
 printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x9a\xa0\xa0\x00\x00\x00\x00IEND\xaeB`\x82' >"$DIR/Site photo.png"
+
+# A picture renamed to .pdf: the page reads the contents, not the name, and does not add it (D-F1-44).
+cp "$DIR/Site photo.png" "$DIR/Renamed photo.pdf"
 
 # The standard EICAR test string, inside a real DOCX (the page no longer adds the bare text named .pdf: it is not a PDF).
 # It is not a virus; every scanner refuses it on purpose.
