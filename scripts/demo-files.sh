@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Makes the files for the demo recording (docs/DEMO-SCRIPT.md) in one folder: 12 small PDFs, one PNG, a picture renamed to
+# Makes the files for the demo recording (docs/DEMO-SCRIPT.md) in one folder: 12 small PDFs (and 8 "Batch" PDFs), one PNG, a picture renamed to
 # .pdf (the page must not add it), and a test file the virus scanner must refuse. The EICAR file is the standard harmless antivirus test string (68 characters).
 #   scripts/demo-files.sh [folder]      # default: ~/docbeam-demo-files
 set -euo pipefail
@@ -19,6 +19,12 @@ for n in "${names[@]}"; do
   # files are the same. It has no cross-reference table; PDF viewers rebuild it.
   stream="BT /F1 22 Tf 30 100 Td ($n) Tj 0 -30 Td /F1 12 Tf (Demo file $i) Tj ET"
   printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 420 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length %d>>stream\n%s\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%%%EOF\n' "${#stream}" "$stream" >"$DIR/$n.pdf"
+done
+
+# Eight more PDFs, named "Batch ...": the recording adds them to the 12 above for the send of 20 files (the main flow leaves them out).
+for n in 1 2 3 4 5 6 7 8; do
+  stream="BT /F1 22 Tf 30 100 Td (Batch file $n) Tj 0 -30 Td /F1 12 Tf (Demo batch $n) Tj ET"
+  printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 420 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length %d>>stream\n%s\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%%%EOF\n' "${#stream}" "$stream" >"$DIR/Batch $n.pdf"
 done
 
 # A 1x1 PNG
