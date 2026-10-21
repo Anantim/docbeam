@@ -8,6 +8,7 @@ import {
   distRow,
   jobIdOf,
   ONC_ETHICS,
+  openListedDistribution,
   pickFilter,
   PRIYA,
   RAJ,
@@ -275,7 +276,7 @@ test('a distribution opens in a side panel on the same page; the list narrows be
   await expect(page.getByRole('complementary')).toHaveCount(0);
   const wide = (await page.locator('.dist-table').boundingBox())!.width;
 
-  await page.locator('.dist-table tbody tr').first().click();
+  await openListedDistribution(page);
   const panel = page.getByRole('complementary');
   await expect(panel.getByRole('region', { name: 'Deliveries' })).toBeVisible();
   await expect(panel.getByText('History')).toHaveCount(0);
@@ -312,7 +313,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
 
     const [name] = await addPdfs(page, 1, 'keep');
     await page.getByRole('button', { name: /^Status/ }).click();
-    await page.locator('.dist-table tbody tr').first().click();
+    await openListedDistribution(page);
     await expect(page.locator('.status-chip.big')).toBeVisible();
     const jobId = jobIdOf(page);
 

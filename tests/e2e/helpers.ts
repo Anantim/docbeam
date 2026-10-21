@@ -264,7 +264,18 @@ export async function pickFilter(page: Page, filter: 'Status' | 'Sender' | 'Sent
 
 /** A distribution's row in the list. */
 export const distRow = (page: Page, shortId?: string) =>
-  shortId ? page.locator('.dist-table tbody tr', { hasText: shortId }) : page.locator('.dist-table tbody tr');
+  shortId ? page.locator('.dist-table tbody tr:not(.sk-row)', { hasText: shortId }) : page.locator('.dist-table tbody tr:not(.sk-row)');
+
+/**
+ * Opens a distribution from the list by clicking the ID button of the first real row, the one with the matching text if
+ * `hasText` is given. Not the middle of the row: that can be the "+N" of the Files cell, which opens a list of its own, and
+ * while the list loads the rows are grey placeholders (D-F1-76).
+ */
+export async function openListedDistribution(page: Page, hasText?: string): Promise<void> {
+  const row = (hasText ? page.locator('.dist-table tbody tr:not(.sk-row)', { hasText }) : distRow(page)).first();
+  await expect(row).toBeVisible();
+  await row.locator('.dist-id').click();
+}
 
 /**
  * The text of the tooltip an element shows when the pointer rests on it (D-F1-47), or null when none shows. It waits for the 300 ms

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { newAccount, pickFilter, PRIYA, removeSeeded, seedJob, signIn, tooltipOf } from './helpers.js';
+import { newAccount, openListedDistribution, pickFilter, PRIYA, removeSeeded, seedJob, signIn, tooltipOf } from './helpers.js';
 
 // "Open by ID": a small icon button on the Status page that opens a card with one field (D-F1-15), and the
 // empty state of the Status page (found on dev, M3 browser check 13).
@@ -17,6 +17,10 @@ test('Open by ID on another distribution, and a link to one, scroll its row into
   const rowId = page.locator(`[data-job-id="${jobId}"]`);
   await expect(rowId).not.toBeInViewport(); // the 16th row is below the visible part of the list
 
+  // The highlight lasts one second, and a slow machine can look after it has gone: a watcher in the page notes that it came.
+  await page.evaluate(`window.__sawFresh = false; new MutationObserver(() => {
+    if (document.querySelector('.dist-table tbody tr.fresh')) window.__sawFresh = true;
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true });`);
   await trigger(page).click();
   await box(page).fill(jobId.slice(0, 8)); // the 8 characters the list shows
   await box(page).press('Enter');
@@ -24,7 +28,7 @@ test('Open by ID on another distribution, and a link to one, scroll its row into
   await expect(rowId).toBeInViewport(); // the list scrolled to it
   const tr = page.locator('tr', { has: rowId });
   await expect(tr).toHaveClass(/\bon\b/); // selected
-  await expect(tr).toHaveClass(/\bfresh\b/); // and highlighted for a second
+  await expect.poll(() => page.evaluate('window.__sawFresh')).toBe(true); // and highlighted for a second
   await expect(tr).not.toHaveClass(/\bfresh\b/, { timeout: 3000 });
 
   // A link: the same distribution opened by the address, with the list scrolled away from it first.
@@ -182,7 +186,7 @@ test('a person with no distributions sees the empty state on first load, not "no
 test('signing out leaves the open distribution, so the next person does not land on it', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByRole('button', { name: 'Status' }).click();
-  await page.locator('.dist-table tbody tr').first().click();
+  await openListedDistribution(page);
   await expect(page).toHaveURL(/#\/status\/[0-9a-f-]{36}$/);
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
