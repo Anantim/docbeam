@@ -192,20 +192,17 @@ try {
   await skim(12, () => page.getByText('Ready', { exact: true }).nth(pdfs.length + extra.length - 1).waitFor({ timeout: 180_000 }));
   // A picture with a .pdf name (scripts/demo-files.sh): the page reads the contents and does not add it.
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'Renamed photo.pdf'));
-  await page.locator('.not-added').waitFor();
+  const notAdded = page.locator('.notice').filter({ hasText: 'not added' });
+  await notAdded.waitFor();
   await say('The type comes from the contents, not the name. A picture renamed to .pdf is not added.', 3000);
-  await click(page.locator('.not-added').getByRole('button', { name: 'Close' }));
+  await click(notAdded.getByRole('button', { name: 'Close' }));
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.docx')); // a real DOCX with the test string inside (scripts/eicar-docx.ts)
-  await skim(12, () => page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 }));
-  // The refused row is brought into view and its red chip is hovered, so the reason shows while the caption does.
-  const refusedRow = page.locator('.frow', { hasText: 'EICAR test file.docx' });
-  await refusedRow.scrollIntoViewIfNeeded();
-  const refusedChip = refusedRow.locator('.status-chip', { hasText: 'Refused' });
-  const refusedBox = (await refusedChip.boundingBox())!;
-  await page.mouse.move(refusedBox.x + refusedBox.width / 2, refusedBox.y + refusedBox.height / 2, { steps: 25 });
-  await page.getByRole('tooltip').waitFor();
-  await say('The standard antivirus test file is refused, and the chip says why. It is deleted and can never be sent.', 3500, true); // at the top: the bottom would cover the row
-  await click(page.getByRole('button', { name: 'Remove EICAR test file.docx' }));
+  // The scan finds the test string: the file leaves the list by itself, and the "not added" box says why (D-F1-78).
+  const malware = page.locator('.notice').filter({ hasText: 'Malware was found' });
+  await skim(12, () => malware.waitFor({ timeout: 120_000 }));
+  await malware.scrollIntoViewIfNeeded();
+  await say('The standard antivirus test file is taken out of the list by itself, and the note says why. It is deleted and can never be sent.', 3500);
+  await click(malware.getByRole('button', { name: 'Close' }));
 
   // A reload keeps the files that are already uploaded and scanned (D-F1-66).
   await say('Reload the page: the files that are already uploaded and scanned are still here.', 2500);

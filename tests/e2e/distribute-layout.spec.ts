@@ -86,8 +86,8 @@ test('the "files not added" box is at the top of the Files card scroll area', as
   await open(page, 1280, 700);
   await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
   await expect(page.getByText('1 file not added')).toBeVisible();
-  expect(await page.evaluate("document.querySelector('.not-added').parentElement.className")).toBe('files-scroll');
-  expect(await page.evaluate("document.querySelector('.files-scroll').firstElementChild.className")).toBe('not-added');
+  expect(await page.evaluate("document.querySelector('.notice').parentElement.className")).toBe('files-scroll');
+  expect(await page.evaluate("document.querySelector('.files-scroll').firstElementChild.classList.contains('notice')")).toBe(true);
 });
 
 test('1024 px: the same fixed screen', async ({ page }) => {

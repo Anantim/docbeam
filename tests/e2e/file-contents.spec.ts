@@ -17,9 +17,9 @@ test('a file whose contents are not what its name says is not added, and the box
     { name: 'setup.pdf', mimeType: 'application/pdf', buffer: Buffer.from('MZ\x90\x00 a program') }, // a program named .pdf
     { name: 'plain.xlsx', mimeType: 'application/octet-stream', buffer: await docx('really a Word file') }, // a DOCX named .xlsx
   ]);
-  const box = page.locator('.not-added');
-  await expect(box.getByText('4 files not added')).toBeVisible();
-  expect(await box.locator('.not-added-reason').allTextContents()).toEqual([
+  const box = page.locator('.notice').filter({ hasText: 'not added' });
+  await expect(box.getByText('4 files not added.')).toBeVisible();
+  expect(await box.locator('.notice-detail').allTextContents()).toEqual([
     'The contents are a PDF, but the name says .docx.',
     'The contents are a PNG, but the name says .pdf.',
     "This isn't a real PDF file.",

@@ -6,6 +6,7 @@ import {
   CARDIO_IRB,
   CARDIO_PROTOCOL,
   chip,
+  clearPage,
   columnReport,
   docx,
   makePdf,
@@ -58,7 +59,7 @@ test('a disabled button has the disabled attribute and the not-allowed cursor, a
   await addPdfs(page, 1, 'look');
   await expect(page.getByRole('button', { name: 'Clear' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Clear' })).toHaveCSS('cursor', 'pointer');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('on Status, a delivered file has live Preview and Download icon buttons', async ({ page }) => {
@@ -140,7 +141,7 @@ test('file type badges show the type as text, in one neutral style: colour is ke
   for (const f of unique) await expect(page.locator('.frow', { hasText: f.name }).locator('.typetile')).toHaveText(f.type);
   const colours = await page.locator('.frow .typetile').evaluateAll((els: BrowserElement[]) => els.map((e) => getComputedStyle(e).color + getComputedStyle(e).backgroundColor));
   expect(new Set(colours).size).toBe(1);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('after one wrong password the same fixed pause note appears; a right password signs in', async ({ page }) => {

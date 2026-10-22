@@ -387,27 +387,26 @@ try {
   // A file that is not what its name says, and one with a type that is not allowed: both are refused in the browser, no request.
   setStep('2-refused-in-browser');
   await page.getByLabel('Choose files').setInputFiles([{ name: 'Renamed photo.pdf', mimeType: 'application/pdf', buffer: Buffer.from('\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR') }, { name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
-  await page.locator('.not-added').waitFor();
+  await page.locator('.notice').filter({ hasText: 'not added' }).waitFor();
   await shot(page, '02-files', [
     { n: 1, target: page.locator('.frow', { hasText: small[0]?.name }).locator('.fname'), label: 'chosen on your disk · name, size and type read in the browser (no call)' },
     { n: 2, target: page.locator('.frow', { hasText: small[0]?.name }).locator('.status-chip'), label: 'POST /uploads, then S3 POST, then GET /files → scanStatus (Ready = clean)' },
-    { n: 3, target: page.locator('.not-added'), label: 'computed in the browser · first bytes read before the file is added; no request' },
+    { n: 3, target: page.locator('.notice').filter({ hasText: 'not added' }), label: 'computed in the browser · first bytes read before the file is added; no request' },
     { n: 4, target: page.getByRole('button', { name: 'Send', exact: true }), label: 'computed in the browser · off until every file is Ready and has a folder' },
   ]);
-  await page.locator('.not-added').getByRole('button', { name: 'Close' }).click();
+  await page.locator('.notice').filter({ hasText: 'not added' }).getByRole('button', { name: 'Close' }).click();
 
-  // The first-bytes check of the browser and the scan of the server, on the EICAR test file.
+  // The first-bytes check of the browser and the scan of the server, on the EICAR test file: the file leaves the list by itself.
   setStep('2-malware');
   from = lastId();
   execFileSync('node', ['--no-warnings', 'scripts/eicar-docx.ts', join(CAP, 'eicar.docx')], { cwd: ROOT, stdio: 'pipe' });
   await page.getByLabel('Choose files').setInputFiles(join(CAP, 'eicar.docx'));
-  await page.getByText('Refused', { exact: true }).waitFor({ timeout: 120_000 });
+  await page.locator('.notice').filter({ hasText: 'Malware was found' }).waitFor({ timeout: 120_000 });
   rmSync(join(CAP, 'eicar.docx'), { force: true });
   await shot(page, '02b-refused', [
-    { n: 1, target: page.locator('.frow', { hasText: 'eicar' }).locator('.status-chip'), label: 'GET /files → scanStatus "infected"; the reason is the chip tooltip (computed in the browser)' },
-    { n: 2, target: page.getByRole('button', { name: /^Remove eicar/ }), label: 'press → removes it from the page · no call (the server already deleted the object)' },
+    { n: 1, target: page.locator('.notice').filter({ hasText: 'Malware was found' }), label: 'GET /files → scanStatus "infected"; the file is taken out of the list and named here (computed in the browser, no call of its own)' },
   ]);
-  await page.getByRole('button', { name: /^Remove eicar/ }).click();
+  await page.locator('.notice').filter({ hasText: 'Malware was found' }).getByRole('button', { name: 'Close' }).click();
 
   // A multipart upload: a file over the threshold goes in parts, each with its own link.
   setStep('2-multipart');

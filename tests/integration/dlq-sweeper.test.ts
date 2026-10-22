@@ -82,7 +82,8 @@ describe('DLQ Consumer', () => {
     }, 30_000);
     expect(failed.failure_code).toBe('RETRIES_EXHAUSTED');
     expect(failed.failure_reason).toContain('consent.pdf to Cardio / Regulatory');
-    expect(failed.failure_reason).toContain('The platform answered 503.');
+    expect(failed.failure_reason).toMatch(/The platform didn't respond after 5 attempts\.$/); // the one sentence the web app shows (D-F1-78)
+    expect(failed.last_error).toContain('The platform answered 503.'); // the last error stays in its own column
     expect((await job(jobId)).completed_at).not.toBeNull();
     expect(await failedEvents(jobId)).toHaveLength(1);
   }, 60_000);

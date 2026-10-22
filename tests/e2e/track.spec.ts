@@ -4,6 +4,7 @@ import {
   CARDIO_IRB,
   CARDIO_PROTOCOL,
   chip,
+  clearPage,
   deleteStagedFiles,
   distRow,
   jobIdOf,
@@ -134,7 +135,7 @@ test('Cancel: waiting deliveries stop, with a question first', async ({ page }) 
 
     await page.getByRole('button', { name: 'Cancel distribution' }).click();
     const dialog = page.getByRole('dialog', { name: 'Cancel this distribution?' });
-    await expect(dialog).toContainText('The deliveries still waiting will stop. Deliveries already running finish. This cannot be undone.');
+    await expect(dialog).toContainText('The deliveries still waiting will stop. Deliveries already running finish. This can\'t be undone.');
     await dialog.getByRole('button', { name: 'Keep it going' }).click();
     await expect(dialog).toHaveCount(0);
     expect(await readCounts(page)).toEqual([0, 0, 0, 6]);
@@ -174,7 +175,7 @@ test('a failure shows its reason in the row, with what the code means', async ({
     const why = page.locator('.ttable').getByRole('button', { name: 'Why this delivery failed' });
     await expect(why).toHaveCount(2);
     // The reason is the tooltip of the info icon, from the one reason map; no raw code, and no "after N attempts" for a permanent failure.
-    expect(await tooltipOf(page, why.first())).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(await tooltipOf(page, why.first())).toBe("The file never finished uploading, so it couldn't be delivered.");
     await expect(page.locator('.ttable')).not.toContainText('FILE_NOT_UPLOADED');
     // Each row still names its file and folder once, in its own lines.
     // (Rows sort by file name, and the names have a random part, so look each one up.)
@@ -209,7 +210,7 @@ test('Retry sends a failed delivery again', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Retry failed deliveries' })).toBeEnabled();
   const failedChip = page.locator('.ttable .tscroll .status-chip');
   await expect(failedChip).toHaveText('Failed');
-  expect(await tooltipOf(page, failedChip)).toBe('The platform did not respond after 5 attempts.');
+  expect(await tooltipOf(page, failedChip)).toBe("The platform didn't respond after 5 attempts.");
   await expect(page.locator('.ttable')).not.toContainText('RETRIES_EXHAUSTED');
 
   await noReload(page);
@@ -324,7 +325,7 @@ test('the two tabs are on, Copy link copies the address, and a prepared batch su
     await page.getByRole('button', { name: /^Distribute/ }).click();
     await expect(page.locator('.frow', { hasText: name as string })).toHaveCount(1);
     await expect(page.locator('.frow', { hasText: name as string }).locator('.status-chip')).toHaveText('Ready');
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
   } finally {
     await context.close();
   }
@@ -358,7 +359,7 @@ test('the filter row: Status, Sender, Sent, Team; set filters show on their butt
   await expect(bar.getByRole('button', { name: 'Status: Cancelled' })).toHaveClass(/on/);
   await expect(page).toHaveURL(/#\/status\?status=cancelled$/);
   const rows = distRow(page);
-  const none = page.getByText('No distribution matches these filters');
+  const none = page.getByText('No matches', { exact: true });
   await expect(rows.first().or(none)).toBeVisible();
   if ((await none.count()) === 0) for (const text of await rows.locator('.status-chip').allTextContents()) expect(text).toBe('Cancelled');
 

@@ -264,6 +264,16 @@ export async function pickFilter(page: Page, filter: 'Status' | 'Sender' | 'Sent
   await page.getByRole('menuitemradio', { name: option, exact: true }).click();
 }
 
+/**
+ * Clears the Distribute page the way a person does (D-F1-78): with files on it, Clear asks first and the question is answered
+ * with its "Clear"; with none, it clears at once. For the clean-up at the end of a test.
+ */
+export async function clearPage(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  const ask = page.getByRole('dialog', { name: /^Remove all \d+ files? and their folder ticks\?$/ });
+  if (await ask.isVisible().catch(() => false)) await ask.getByRole('button', { name: 'Clear' }).click();
+}
+
 /** A distribution's row in the list. */
 export const distRow = (page: Page, shortId?: string) =>
   shortId ? page.locator('.dist-table tbody tr:not(.sk-row)', { hasText: shortId }) : page.locator('.dist-table tbody tr:not(.sk-row)');

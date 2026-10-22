@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { addPdfs, CARDIO_IRB, chip, counts, openListedDistribution, PRIYA, sendFiles, signIn, tooltipOf, withWorkersStopped } from './helpers.js';
+import { addPdfs, CARDIO_IRB, chip, clearPage, counts, openListedDistribution, PRIYA, sendFiles, signIn, tooltipOf, withWorkersStopped } from './helpers.js';
 
 // The side panel's first row (D-F1-77): Cancel and Retry are icons just left of Close, then a thin divider; and one
 // control height (--control, 36 px) for the boxes and buttons that sit beside each other.
@@ -53,7 +53,7 @@ test('one control height: Open by ID, the deliveries filter, the Files filter, A
   expect(await h(page.getByRole('textbox', { name: 'Filter files' })), 'Files filter').toBe(36);
   expect(await h(page.getByRole('button', { name: 'Add files' })), 'Add files').toBe(36);
   expect(await h(page.getByRole('searchbox', { name: 'Filter folders' })), 'Destinations filter').toBe(36);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
   await page.getByRole('button', { name: 'Open by ID' }).click();

@@ -96,9 +96,16 @@ loop [label: every 2 s while any file is being checked, icon: repeat] {
   Web Client > API Gateway: GET /files?ids= with JWT
   API Gateway > DocBeam API: Validate JWT and forward
   DocBeam API > DocBeam DB: Read uploaded_at and scan_status
-  DocBeam API --> Web Client: Scanning, Ready, Failed (Retry) or Refused (malware, final); the reason in the state's tooltip
+  DocBeam API --> Web Client: Scanning, Ready or Failed (Retry), the reason in the state's tooltip; for malware (infected) the file is taken out of the list at once
+  Web Client > Web Client: Malware: drop the file, its selection and folder ticks, update the counts, add it to the 'not added' note with its reason
 }
 Web Client > Web Client: Turn on Send when every file is ready and has a folder (else show what blocks it beside Send)
+opt [label: user presses Clear with files on the page] {
+  Web Client > Web Client: Ask 'Remove all N files and their folder ticks?' (Keep them focused)
+}
+opt [label: user signs out while a file is still being read or uploaded] {
+  Web Client > Web Client: Ask 'Sign out and stop N uploads?' (Stay focused)
+}
 User > Web Client: Press Send
 Web Client > Web Client: Ask once: 'Send N files to M folders? Delivered files can't be recalled.' (Cancel focused)
 User > Web Client: Confirm Send

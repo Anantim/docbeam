@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { GetQueueUrlCommand, SendMessageCommand } from '@aws-sdk/client-sqs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { FAILURE_REASON } from '../../packages/shared/src/reasons.js';
 import { finishTask } from '../../packages/shared/src/task-outcome.js';
 import { AUTH_URL, call, deleteJobs, DOCBEAM_URL, env, eventually, PREFIX, serviceToken, sqs } from './helpers.js';
 
@@ -85,7 +86,7 @@ async function insertJob(
 
 const get = (email: string, path: string) => call(DOCBEAM_URL, path, { token: tokens[email] });
 const post = (email: string, path: string) => call(DOCBEAM_URL, path, { token: tokens[email], method: 'POST' });
-const taskRow = async (id: string) => (await db.query('SELECT status, failure_code, attempt_count FROM tasks WHERE id = $1', [id])).rows[0];
+const taskRow = async (id: string) => (await db.query('SELECT status, failure_code, failure_reason, attempt_count FROM tasks WHERE id = $1', [id])).rows[0];
 
 describe('a job whose deliveries are missing (D-F1-62)', () => {
   it('is never "completed": the status is pending, the counts are zero and the tasks list is empty, in the job, the list and the tasks', async () => {
@@ -560,6 +561,8 @@ describe('POST /jobs/:id/cancel while deliveries run', () => {
     expect(await taskRow(waitingB)).toMatchObject({ status: 'failed', failure_code: 'CANCELLED' });
     expect(await taskRow(running)).toMatchObject({ status: 'in_progress' });
     expect(await taskRow(done)).toMatchObject({ status: 'completed' });
+    // The stored reason ends with the one sentence the web app shows for a cancelled delivery (D-F1-78).
+    expect((await taskRow(waitingA)).failure_reason).toMatch(new RegExp(`${FAILURE_REASON.CANCELLED.replace('.', '\\.')}$`));
 
     // A delivery is still running, so the job is not closed and does not read cancelled yet.
     let detail = await get(priya, `/jobs/${job.jobId}`);
@@ -640,6 +643,47 @@ describe('POST /jobs/:id/retry', () => {
       await eventually(async () => (await taskRow(id)).failure_code === 'FILE_NOT_UPLOADED' || undefined, 60_000);
       expect((await taskRow(id)).attempt_count).toBe(1);
     }
+  });
+
+  it('pressed twice at once: one retry sets the tasks back, the other is refused, and no task is made twice (D-F1-78)', async () => {
+    const job = await insertJob(
+      [
+        { team: cardio, status: 'failed', code: 'RETRIES_EXHAUSTED', attempts: 5 },
+        { team: cardio, status: 'failed', code: 'RETRIES_EXHAUSTED', attempts: 5 },
+        { team: oncology, status: 'completed' },
+      ],
+      { firstCompletedHoursAgo: 2 },
+    );
+    const replies = await Promise.all([post(priya, `/jobs/${job.jobId}/retry`), post(priya, `/jobs/${job.jobId}/retry`)]);
+    expect(replies.map((r) => r.status).sort()).toEqual([202, 409]);
+    expect(replies.find((r) => r.status === 202)?.body).toEqual({ retried: 2 });
+    expect(replies.find((r) => r.status === 409)?.body.error.code).toBe('NOTHING_TO_RETRY');
+    const rows = (await db.query(`SELECT id FROM tasks WHERE job_id = $1`, [job.jobId])).rows;
+    expect(rows).toHaveLength(3); // no task was added
+    const audit = await get(priya, `/audit?jobId=${job.jobId}&action=job.retried`);
+    expect(audit.body.events).toHaveLength(1); // one retry was recorded
+  });
+
+  it('with Cancel at the same time: the outcome is one of the two orders, every task has one state, and none is made twice (D-F1-78)', async () => {
+    const job = await insertJob(
+      [
+        { team: cardio, status: 'failed', code: 'RETRIES_EXHAUSTED', attempts: 5 },
+        { team: cardio, status: 'pending' },
+        { team: oncology, status: 'completed' },
+      ],
+      { firstCompletedHoursAgo: 1 },
+    );
+    const [retry, cancel] = await Promise.all([post(priya, `/jobs/${job.jobId}/retry`), post(priya, `/jobs/${job.jobId}/cancel`)]);
+    expect([202, 409]).toContain(retry.status); // 409 when the cancel got there first: a cancelled distribution can't be retried
+    expect([202, 409]).toContain(cancel.status);
+    const rows = (await db.query<{ status: string; failure_code: string | null }>(`SELECT status, failure_code FROM tasks WHERE job_id = $1`, [job.jobId])).rows;
+    expect(rows).toHaveLength(3);
+    // After the dust settles, only the states the rules allow: delivered, cancelled (failed with CANCELLED), or waiting again.
+    for (const r of rows) {
+      const ok = r.status === 'completed' || (r.status === 'failed' && r.failure_code === 'CANCELLED') || ['pending', 'in_progress'].includes(r.status) || (r.status === 'failed' && r.failure_code === 'RETRIES_EXHAUSTED');
+      expect(ok, `${r.status} ${r.failure_code}`).toBe(true);
+    }
+    expect(rows.filter((r) => r.status === 'completed')).toHaveLength(1); // the delivered one is never touched
   });
 
   it('is refused after 24 hours from the first finish', async () => {

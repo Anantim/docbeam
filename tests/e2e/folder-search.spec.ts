@@ -47,7 +47,8 @@ test('one letter only narrows the loaded rows; nothing is asked of the server', 
 test('a person sees only folders of their own teams: Raj finds no Oncology folder', async ({ page }) => {
   await signIn(page, RAJ);
   await page.getByRole('searchbox', { name: 'Filter folders' }).fill('ethics');
-  await expect(page.getByText('No folders match.')).toBeVisible();
+  await expect(page.getByText('No matches', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Clear filter' })).toBeVisible();
   await page.getByRole('searchbox', { name: 'Filter folders' }).fill('approvals');
   await expect(page.getByRole('button', { name: /IRB approvals and show it in the tree$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Site approvals/ })).toHaveCount(0); // Neuro's

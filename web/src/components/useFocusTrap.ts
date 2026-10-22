@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -8,8 +8,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * dialog, which knows what "no" means for it.
  */
 export function useFocusTrap(box: RefObject<HTMLElement | null>, initial?: RefObject<HTMLElement | null>): void {
+  // Read while the dialog is drawn, before an `autoFocus` field inside it takes the focus: that field is not what to go back to (D-F1-78).
+  const [before] = useState(() => document.activeElement as HTMLElement | null);
   useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     initial?.current?.focus();
@@ -38,7 +39,7 @@ export function useFocusTrap(box: RefObject<HTMLElement | null>, initial?: RefOb
       if (usable) before.focus();
       else focusPageHeading();
     };
-  }, [box, initial]);
+  }, [box, initial, before]);
 }
 
 /** The first heading that is not hidden, which is the screen that shows, where the focus goes when what had it has left the page (D-F1-78). */

@@ -43,6 +43,16 @@ describe('fanOut', () => {
     expect(new Set(t.sent[0]?.Entries.map((e) => e.Id)).size).toBe(10);
   });
 
+  it('run again for the same job (after a retry, or by the sweeper) creates no task: it only reads tasks and sends messages (D-F1-78)', async () => {
+    const t = setup(4);
+    await fanOut(t.deps, JOB);
+    await fanOut(t.deps, JOB);
+    const writes = t.queries.filter((q) => !q.text.startsWith('SELECT')).map((q) => q.text);
+    expect(writes).toHaveLength(2); // only the "fanned out" mark, once per run
+    for (const w of writes) expect(w).toContain('UPDATE jobs SET fanned_out_at');
+    expect(t.queries.some((q) => /INSERT INTO tasks/i.test(q.text))).toBe(false);
+  });
+
   it('sends nothing for a job with no pending task, but still marks it fanned out', async () => {
     const t = setup(0);
     expect(await fanOut(t.deps, JOB)).toBe(0);

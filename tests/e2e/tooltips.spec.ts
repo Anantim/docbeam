@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, PRIYA, signIn, tooltipOf } from './helpers.js';
+import { addPdfs, clearPage, PRIYA, signIn, tooltipOf } from './helpers.js';
 
 // The tooltip rules (D-M3-10, D-F1-47) on the Distribute screen, in a real browser: one Tooltip component, no `title` attribute.
 // The popover of folders is in m2.spec.ts and popover.spec.ts.
@@ -53,7 +53,7 @@ test('a Send that is off says why in text beside it (Clear explains itself even 
   })()`);
   expect(broken).toEqual([]);
 
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('a tooltip comes after 300 ms of resting, at once on keyboard focus, closes on Esc, and the Esc does not close the panel under it', async ({ page }) => {
@@ -73,7 +73,7 @@ test('a tooltip comes after 300 ms of resting, at once on keyboard focus, closes
   await expect(page.getByRole('tooltip')).toHaveText(`Remove ${name}`, { timeout: 500 });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('Clear, the file type tag and a binder heading explain themselves in a tooltip (D-F1-72)', async ({ page }) => {
@@ -83,5 +83,5 @@ test('Clear, the file type tag and a binder heading explain themselves in a tool
   expect(await tooltipOf(page, page.locator('.typetile').first())).toBe("Type read from the file's contents");
   await page.getByRole('button', { name: 'Expand Cardio', exact: true }).click();
   expect(await tooltipOf(page, page.locator('.name.binder').first())).toBe('Binders hold folders. Open it to choose a folder.');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });

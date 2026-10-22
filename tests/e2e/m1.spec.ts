@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { newAccount, PRIYA, RAJ, SAM, signIn } from './helpers.js';
+import { clearPage, newAccount, PRIYA, RAJ, SAM, signIn } from './helpers.js';
 
 // M1, Browse destinations, as a regression pack (flow 1): sign-in, and seeing only your own teams.
 const NEURO_BINDER = 'a3a4ad1e-e539-549e-80f9-508b960d620d'; // NEU-207 Regulatory, in the Neuro team only
@@ -145,7 +145,7 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
   await expect(dialog).toContainText('Nothing on this page is lost');
   // The page behind keeps what it showed: no "could not be loaded" error while the dialog is open (D-F1-14).
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByText(/could not be loaded/i)).toHaveCount(0);
+  await expect(page.getByText(/couldn't be loaded/i)).toHaveCount(0);
 
   await page.unroute('**/api/jobs**');
   await page.unroute('**/api/auth/refresh');
@@ -154,5 +154,5 @@ test('when the sign-in has ended, a dialog asks for the password and the page st
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'Distribute' }).click();
   await expect(page.locator('.frow', { hasText: name })).toHaveCount(1); // the prepared file is still there
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });

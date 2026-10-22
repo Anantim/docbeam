@@ -293,7 +293,6 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 .fname { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
 .fname .size { flex: none; margin-left: auto; padding-left: var(--s-2); }
 .link.plain { color: var(--text); font-weight: 500; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.struck { color: var(--text-off); text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .typetile { min-width: 36px; padding: var(--s-0) var(--s-1); border-radius: var(--radius); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-1); font-weight: 600; text-align: center; flex: none; }
 .typetile.big { min-width: 44px; padding: var(--s-1) 0; }
 .size { font-size: var(--fs-2); color: var(--text-3); }
@@ -314,7 +313,6 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 .ck:focus-visible .box { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The control height belongs to text fields, buttons and selects; a native tick box or radio (none is used today) is a square too. */
 input[type='checkbox'], input[type='radio'] { width: 16px; height: 16px; min-height: 0; flex: none; padding: 0; accent-color: var(--accent); }
-.ck.locked { cursor: not-allowed; color: var(--error); }
 /* Every tick box is a fixed 16 x 16 square (D-F1-48): it never grows with the control-height token, never shrinks in a narrow grid cell or flex row,
    and its focus ring is drawn around the box itself, not around the 28 px button that holds it. */
 .box { flex: none; box-sizing: border-box; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px; aspect-ratio: 1; width: 16px; height: 16px; border-radius: var(--radius); border: 1.5px solid var(--text-3); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; color: var(--on-accent); }

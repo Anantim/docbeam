@@ -98,7 +98,7 @@ alt [label: sender] {
 }
 else [label: job has a delivery to the caller's team] {
   DocBeam API > DocBeam DB: Read tasks for the caller's teams only (100 per page)
-  DocBeam API --> Web Client: Only the deliveries to the caller's teams ('Showing only deliveries to' with team chips)
+  DocBeam API --> Web Client: Only the deliveries to the caller's teams ('Showing only deliveries to' with team chips; '+N' opens the team list)
 }
 else [label: no delivery to the caller's teams] {
   DocBeam API --> Web Client: 404 Not found

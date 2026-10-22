@@ -207,7 +207,7 @@ test('WebSocket reconnect: the page loses its connection for 30 s mid-run and ca
   const shownBefore = (await readCounts(page))[0] as number;
   await network(page, { offline: true });
   await page.waitForTimeout(30_000);
-  // Offline, the page cannot fetch either: it shows "The distribution could not be loaded" instead of the counts.
+  // Offline, the page cannot fetch either: it shows "The distribution couldn't be loaded." instead of the counts.
   const during = (await readCounts(page))[0]; // undefined while that message is shown
   const serverNow = await apiDelivered();
   console.log(`websocket: page showed ${shownBefore} delivered before the drop and ${during ?? 'no counts (error message)'} after 30 s offline; the server had ${serverNow}`);
