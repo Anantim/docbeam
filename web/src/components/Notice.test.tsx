@@ -33,7 +33,7 @@ describe('the one in-page note (D-F1-78)', () => {
     expect(again.className).toContain('link');
     await user.click(again);
     expect(retry).toHaveBeenCalledTimes(1);
-    const x = screen.getByRole('button', { name: 'Close' });
+    const x = screen.getByRole('button', { name: /^Close note: / });
     expect(x.className).toBe('icon small');
     await user.click(x);
     expect(close).toHaveBeenCalledTimes(1);

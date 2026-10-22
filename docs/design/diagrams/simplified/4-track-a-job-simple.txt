@@ -12,9 +12,9 @@ Web Client > DocBeam API: Everything I can see (filters: status, sender, sent, t
 DocBeam API --> Web Client: Jobs with counts, 20 at a time (more as the user scrolls)
 
 User > Web Client: Open one job in the side panel
-Web Client > WebSocket API: Subscribe first (checked: sender or same team)
-WebSocket API --> Web Client: Subscribed
-Web Client > DocBeam API: Then load its deliveries
+Web Client > WebSocket API: Subscribe (checked: sender or same team)
+Web Client > DocBeam API: At the same time, load the job and its first deliveries
+WebSocket API --> Web Client: Subscribed (a job still running is read once more now)
 DocBeam API --> Web Client: All deliveries for the sender, own teams' for others
 
 loop [label: each delivery retries or finishes, icon: repeat] {

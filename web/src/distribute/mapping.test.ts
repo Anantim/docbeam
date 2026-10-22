@@ -27,7 +27,7 @@ const file = (id: string, status: FileStatus = 'verified'): PageFile => ({
   progress: 1,
   partsDone: 0,
   partCount: 0,
-  sha256: 'a'.repeat(64),
+  sha256: id.padEnd(64, '-'), // each file has its own contents (two with the same are refused, D-F1-81)
   serverId: `server-${id}`,
 });
 
@@ -129,7 +129,7 @@ describe('limits are checked at Send, not at the tick', () => {
     expect(destinationCounts(mapping, files).size).toBe(21);
     const r = readiness(mapping, files);
     expect(r.ready).toBe(false);
-    expect(r.reason).toBe('A distribution can have at most 20 destinations.');
+    expect(r.reason).toBe('A distribution can have at most 20 folders.');
     // Unticking one makes it valid again.
     expect(readiness(tick(mapping, files, none, dest(21)), files).ready).toBe(true);
   });
@@ -213,7 +213,7 @@ describe('buildJobRequest', () => {
     let mapping = tick(emptyMapping, files, none, dest(1));
     mapping = tick(mapping, files, none, dest(2));
     expect(buildJobRequest(mapping, files)).toEqual({
-      files: [{ fileId: 'server-a', sha256: 'a'.repeat(64) }],
+      files: [{ fileId: 'server-a', sha256: 'a'.padEnd(64, '-') }],
       mappings: [{ fileId: 'server-a', destinations: [{ binderId: 'b1', folderId: 'f1' }, { binderId: 'b2', folderId: 'f2' }] }],
     });
   });

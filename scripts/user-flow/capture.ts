@@ -527,7 +527,7 @@ try {
     { n: 6, target: page.locator('.dist-table tbody tr').first().locator('.status-chip'), label: 'GET /jobs → items[].status (a word and a colour chosen in the browser)' },
     { n: 7, target: page.locator('.dist-table tbody tr').first().locator('time'), label: 'GET /jobs → items[].createdAt (written as "Today, 12:41" in the browser)' },
     { n: 8, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').first(), label: 'GET /jobs → items[].fileNames[0] (the first file; the rest are the +N)' },
-    { n: 9, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').nth(1), label: 'GET /jobs → items[].destinations (the first two folder names)' },
+    { n: 9, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').nth(1), label: 'GET /jobs → items[].destinations (the first two folders as "team · folder"; the full path on hover)' },
   ]);
 
   setStep('5-filter');
@@ -547,7 +547,7 @@ try {
   await figure(page, 'net-5d-open', 'Opening a distribution: its detail, a subscription on the live connection, then its deliveries', since(from));
   await shot(page, '05b-panel', [
     { n: 1, target: page.locator('.status-chip.big'), label: 'GET /jobs/{jobId} → counts → status word (computed in the browser)' },
-    { n: 2, target: page.locator('.panel-sub'), label: 'GET /jobs/{jobId} → submittedBy.name, createdAt · the team note: GET /teams (your team names)' },
+    { n: 2, target: page.locator('.panel-sub'), label: 'GET /jobs/{jobId} → submittedBy.name, createdAt · a team member\'s note names the teams in destinations[] (the folder paths): no extra call' },
     { n: 3, target: page.locator('.tfilters'), label: 'GET /jobs/{jobId} → counts · updated by WS task_update → counts' },
     { n: 4, target: page.locator(ROWS).first().locator('.tfile'), label: 'GET /jobs/{jobId}/tasks → tasks[].fileName' },
     { n: 5, target: page.locator(ROWS).first().locator('.dest-text'), label: 'GET /jobs/{jobId}/tasks → tasks[].destinationPath' },
@@ -631,7 +631,7 @@ try {
   await raj.waitForTimeout(1200);
   await figure(raj, 'net-6-raj', 'Raj (Cardio only) opens the same distribution: the same calls, narrower answers', since(from));
   await shot(raj, '06-team-member', [
-    { n: 1, target: raj.locator('.panel-sub'), label: 'GET /jobs/{jobId} → isSender false, submittedBy.name · the note names Raj\'s teams (GET /teams)' },
+    { n: 1, target: raj.locator('.panel-sub'), label: 'GET /jobs/{jobId} → isSender false, submittedBy.name · the note names the teams in destinations[] (the folder paths of the deliveries Raj may see): no extra call' },
     { n: 2, target: raj.locator('.tfilters'), label: 'GET /jobs/{jobId} → counts: only the deliveries to Raj\'s teams' },
     { n: 3, target: raj.locator(ROWS).first(), label: 'GET /jobs/{jobId}/tasks → only Cardio rows' },
     { n: 4, target: raj.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }), label: 'GET /jobs/running → running (his own view)' },

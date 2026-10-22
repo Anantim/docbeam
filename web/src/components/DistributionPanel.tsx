@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { num } from '../text.js';
 import { useThrottled } from './useThrottled.js';
 import { useWide } from './useWide.js';
 import { ApiFailure } from '../auth/session.js';
 import { formatSize } from '../distribute/files.js';
-import { JOB_STATUS_MEANING } from '../explain.js';
+import { JOB_STATUS_MEANING, RETRY_ENDED } from '../explain.js';
 import type { LiveClient } from '../live/socket.js';
 import { describeDestination } from '../distribute/mapping.js';
 import { trackingApi, type Counts, type JobDetail, type TaskRow } from '../tracking/api.js';
@@ -57,7 +58,7 @@ const TASKS_VIEWPORT = 640;
  * numbers move live. There is no history of audit events: the web app shows job history only (D-F1-13).
  */
 export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onCounts, signedInAgain = 0, focusHeading = false, initialTab = 'all' }: Props) {
-  const { state, counts, reloadKey, reloadAll } = useJob(jobId, live);
+  const { state, counts, reloadKey, reloadAll, firstTasks } = useJob(jobId, live);
   // Under 1024 px the page scrolls and the panel is under the list: the deliveries box is a fixed height there.
   const wide = useWide();
   // After a send the panel opens by itself: the focus moves to its heading, once (D-F1-31).
@@ -92,7 +93,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const { preview, download } = files;
   const onPreview = useCallback((t: TaskRow) => void preview(t.fileId, t.fileName), [preview]);
   const onDownload = useCallback((t: TaskRow) => void download(t.fileId, t.fileName), [download]);
-  const announcement = state.status === 'ready' ? `${jobChip(liveStatus ?? state.detail.status).label}. ${(counts ?? state.detail.counts).completed} of ${state.detail.taskCount} completed.` : '';
+  const announcement = state.status === 'ready' ? `${jobChip(liveStatus ?? state.detail.status).label}. ${num((counts ?? state.detail.counts).completed)} of ${num(state.detail.taskCount)} completed.` : '';
   const announced = useThrottled(announcement, 5_000);
 
   const close = (
@@ -190,6 +191,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
   const showCancel = detail.isSender && running;
   const canCancel = showCancel && !!detail.cancel?.open && c.pending > 0;
   const canRetry = detail.isSender && !!detail.retry?.open;
+  const retryNote = detail.isSender && c.failed > 0 && detail.retry && !detail.retry.open ? RETRY_ENDED[detail.retry.reason ?? ''] : undefined;
 
   async function act(kind: 'cancel' | 'retry'): Promise<void> {
     setBusy(true);
@@ -261,6 +263,9 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
         <JobBar counts={c} total={all} focusable />
       </div>
 
+      {/* For the sender, when deliveries failed and Retry can no longer help: say so and what to do (D-F1-81). The API already says why. */}
+      {retryNote && <Notice tone="info" className="in-card" heading={retryNote} />}
+
       <div className="panel-body">
         <div className="sr" role="status" aria-live="polite">
           {announced}
@@ -284,7 +289,7 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
                   >
                     {id !== 'all' && <span className="tdot" data-tone={taskLook(id).tone} />}
                     {TAB_LABEL[id]}
-                    <span className="num">{n}</span>
+                    <span className="num">{num(n)}</span>
                   </button>
                 );
               })}
@@ -301,6 +306,8 @@ export function DistributionPanel({ jobId, live, notify, onClose, onChanged, onC
               queryBox.current?.focus();
             }}
             reloadKey={reloadKey}
+            first={firstTasks}
+            firstCovers={all > 0 && c.completed === all}
             live={live}
             viewportHeight={TASKS_VIEWPORT}
             fill={wide}

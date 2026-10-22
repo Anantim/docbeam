@@ -21,8 +21,9 @@ interface Props {
  */
 export function FilterBar({ filters, onChange, meId, members, teams }: Props) {
   const others = members.filter((m) => m.userId !== meId);
-  const senderLabel = filters.sender === 'me' ? 'Me' : (members.find((m) => m.userId === filters.sender)?.name ?? 'Someone');
-  const teamLabel = teams.find((t) => t.id === filters.team)?.name ?? 'This team';
+  // The address holds the person's id, never the word "me" (D-F1-81), so a shared link shows the sender's own name to the person who opens it.
+  const senderLabel = filters.sender === meId ? 'Me' : (members.find((m) => m.userId === filters.sender)?.name ?? '');
+  const teamLabel = teams.find((t) => t.id === filters.team)?.name ?? '';
 
   return (
     <div className="filterbar" role="group" aria-label="Filters">
@@ -39,7 +40,7 @@ export function FilterBar({ filters, onChange, meId, members, teams }: Props) {
         value={filters.sender}
         valueLabel={senderLabel}
         anyLabel="Anyone"
-        choices={[{ value: 'me', label: 'Me' }, ...others.map((m) => ({ value: m.userId, label: m.name || 'Member' }))]}
+        choices={[{ value: meId, label: 'Me' }, ...others.map((m) => ({ value: m.userId, label: m.name || 'Member' }))]}
         onChange={(v) => onChange({ ...filters, sender: v })}
         filterAfter={FILTER_AFTER.people}
         filterLabel="Filter senders"
@@ -52,8 +53,8 @@ export function FilterBar({ filters, onChange, meId, members, teams }: Props) {
         choices={SENT_PRESETS.map((p) => ({ value: p, label: SENT_LABEL[p] }))}
         onChange={(v) => onChange({ ...filters, sent: v as SentPreset | undefined })}
       />
-      {/* Only for a person in more than one team; but a team that is already in the address always shows, so it can be seen and cleared. */}
-      {(teams.length > 1 || filters.team !== undefined) && (
+      {/* Only for a person in more than one team, with no exception: a team in the address that is not one of theirs is dropped (D-F1-81). */}
+      {teams.length > 1 && (
         <FilterMenu
           label="Team"
           value={filters.team}

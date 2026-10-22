@@ -114,7 +114,7 @@ describe('POST /files/:fileId/downloads', () => {
     const reply = await ask(priya, f.fileId, { mode: 'preview' });
     expect(reply.status).toBe(201);
     const file = await fetch(reply.body.url);
-    expect(file.headers.get('content-disposition')).toBe('inline');
+    expect(file.headers.get('content-disposition')).toMatch(/^inline; filename="/);
     expect(file.headers.get('content-type')).toBe('application/pdf');
   });
 

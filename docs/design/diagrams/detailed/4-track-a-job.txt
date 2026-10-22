@@ -55,9 +55,9 @@ opt [label: Open by ID with the 8-character ID from the list] {
   DocBeam API --> Web Client: Matches (one opens; several to choose from; none: 'No distribution with that ID that you can see')
 }
 
-// Pick a job (row click, copied link or Open by ID) and subscribe before fetching
+// Pick a job (row click, copied link or Open by ID): the subscribe, the job and its first deliveries go out together
 User > Web Client: Open a job in the side panel
-Web Client > WebSocket API: Subscribe with jobId
+Web Client > WebSocket API: Subscribe with jobId (at the same time as the job and its first page of deliveries are requested)
 WebSocket API > WS Handlers: Invoke subscribe
 WS Handlers > DocBeam DB: Look up the job's sender
 
@@ -67,7 +67,7 @@ opt [label: caller is not the sender] {
     Auth Service > Auth DB: Verify client secret hash
     Auth Service --> WS Handlers: Service JWT
   }
-  WS Handlers > Document Platform: Which teams is the caller in?
+  WS Handlers > Document Platform: Which teams is the caller in? (kept 60 s)
   Document Platform > Platform DB: Read the caller's teams
   Document Platform --> WS Handlers: Team IDs
   WS Handlers > DocBeam DB: Does the job have a delivery to one of those teams?
@@ -82,7 +82,7 @@ else [label: not allowed, or no such job] {
   WS Handlers --> Web Client: subscribe_error NOT_FOUND (same answer for both)
 }
 
-// Fetch the tasks only after the subscribed answer (no answer in 5 s: fetch anyway)
+// The tasks are requested with the subscribe; a job still pending or in progress is read once more after the subscribed answer (a finished job is final after one read)
 Web Client > API Gateway: Request job tasks with JWT
 API Gateway > DocBeam API: Validate JWT and forward
 DocBeam API > DocBeam DB: Look up the job's sender

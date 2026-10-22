@@ -309,6 +309,7 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 /* checkbox */
 .ck { flex: none; min-width: 28px; width: 28px; height: 28px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius); }
 .ck:disabled { cursor: not-allowed; }
+.ck[aria-disabled='true'], .result[aria-disabled='true'] { cursor: not-allowed; opacity: 0.5; }
 .ck:focus-visible { outline: none; }
 .ck:focus-visible .box { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The control height belongs to text fields, buttons and selects; a native tick box or radio (none is used today) is a square too. */
@@ -402,6 +403,10 @@ html:has(.overlay) { background-color: var(--scrim-solid); }
 .toasts { position: fixed; left: var(--s-6); bottom: var(--s-6); display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); z-index: 90; pointer-events: none; }
 body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(--s-4)); }
 .toast { background: var(--text); color: var(--on-accent); border-radius: var(--radius); padding: var(--s-3) var(--s-4); display: flex; align-items: center; gap: var(--s-3); max-width: 360px; box-shadow: var(--shadow); }
+.offline-note { flex: none; width: 100%; max-width: var(--page); margin: var(--s-3) auto 0; padding: 0 var(--s-6); }
+.toast { pointer-events: auto; }
+.toast .toast-text { min-width: 0; overflow-wrap: anywhere; }
+.toast .toast-close { margin-left: auto; color: inherit; }
 .toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--success-dot); flex: none; }
 .toast.error i { background: var(--error-dot); }
 .preview-overlay { z-index: 90; }
@@ -453,7 +458,8 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
   .page-fixed .status-layout { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
   .page-fixed .dist { display: flex; flex-direction: column; min-height: 0; }
   .dist-fade { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .dist-scroll { flex: 1 1 auto; min-height: 0; overflow-y: scroll; scroll-padding-top: var(--dist-head); }
+  /* A scrollbar only when there is something to scroll; the gutter keeps the columns where they are either way (D-F1-81). */
+  .dist-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; scroll-padding-top: var(--dist-head); }
   .page-fixed .panel { position: static; max-height: none; height: 100%; }
   /* Distribute is the same kind of screen (D-F1-39): the two cards fill the height between the title and the Send bar,
      level at top and bottom; the file rows (under their fixed header row) and the folder tree (under its fixed search
@@ -494,6 +500,7 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 .cell-line { display: flex; align-items: center; gap: var(--s-1); min-width: 0; }
 .cell-line > .tip-wrap { flex: 0 1 auto; min-width: 0; }
 .cell-text { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-sep { flex: none; margin-left: -2px; }
 .cell-line .count-link { flex: none; }
 @container (max-width: 640px) { .dist-table .dist-fit-sent { width: auto; } }
 .dist-id { font-weight: 600; white-space: nowrap; }

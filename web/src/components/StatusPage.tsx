@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { liveClient } from '../live/instance.js';
 import type { LiveClient } from '../live/socket.js';
 import { PANEL_OUT_MS, prefersReducedMotion } from '../motion.js';
 import { trackingApi, type Counts, type JobSummary } from '../tracking/api.js';
-import { isUnfiltered, type Filters } from '../tracking/filters.js';
+import { applicableFilters, isUnfiltered, needsChoices, sameFilters, withoutUnjudged, type Filters } from '../tracking/filters.js';
 import { useFilterChoices } from '../tracking/useFilterChoices.js';
 import { usePagedJobs } from '../tracking/usePagedJobs.js';
 import { DistributionList } from './DistributionList.js';
@@ -24,6 +24,8 @@ interface Props {
   filters: Filters;
   /** Sets the filters (and so the address). */
   onFilters: (filters: Filters) => void;
+  /** Puts filters that apply to this person in the address in place of the ones that do not: the address is replaced, with no new history entry (D-F1-81). */
+  onSanitise?: (filters: Filters) => void;
   /** Opens a distribution in the panel, or closes the panel with null. */
   onOpen: (jobId: string | null) => void;
   /** Everything I can see, unfiltered, loaded by the app (it also feeds the badge on the Status tab). */
@@ -44,13 +46,27 @@ interface Props {
  * when). Esc or Close brings the full list back. The address keeps the open distribution and the filters. The web app
  * shows job history only: no audit trail (D-F1-13).
  */
-export function StatusPage({ meId, jobId, filters, onFilters, onOpen, all, onLive, notify, live = liveClient, signedInAgain = 0, focusJobId = null }: Props) {
+export function StatusPage({ meId, jobId, filters: addressFilters, onFilters, onSanitise = onFilters, onOpen, all, onLive, notify, live = liveClient, signedInAgain = 0, focusJobId = null }: Props) {
   const [liveCounts, setLiveCounts] = useState<{ jobId: string; counts: Counts } | null>(null);
-  // The app already loads the unfiltered list (it feeds the badge on the tab): use it while nothing is filtered.
-  const unfiltered = isUnfiltered(filters);
-  const other = usePagedJobs(filters, !unfiltered, undefined, signedInAgain);
-  const list = unfiltered ? all : other;
   const choices = useFilterChoices(true, signedInAgain);
+  // The filters of the address that apply to this person (D-F1-81): a team they are not in, or a sender who is not them or in their
+  // teams, is dropped, and the list shows as if the link did not have it. A team or sender is judged only when the person's teams and
+  // colleagues are in, so a slow read never drops a valid one; until then the list waits. If those reads fail the address is kept as it is.
+  const waiting = needsChoices(addressFilters, meId) && !choices.settled;
+  const filters = useMemo(() => {
+    if (waiting) return withoutUnjudged(addressFilters, meId);
+    const cannotJudge = needsChoices(addressFilters, meId) && !choices.ok;
+    const me = addressFilters.sender === 'me' ? { ...addressFilters, sender: meId } : addressFilters;
+    return cannotJudge ? me : applicableFilters(addressFilters, { meId, memberIds: choices.members.map((m) => m.userId), teamIds: choices.teams.map((t) => t.id) });
+  }, [addressFilters, waiting, choices.ok, choices.members, choices.teams, meId]);
+  // Dropped filters leave the address too, replacing it, so the back button does not return to them.
+  useEffect(() => {
+    if (!waiting && !sameFilters(filters, addressFilters)) onSanitise(filters);
+  }, [waiting, filters, addressFilters, onSanitise]);
+  // The app already loads the unfiltered list (it feeds the badge on the tab): use it while nothing is filtered.
+  const unfiltered = isUnfiltered(filters) && !waiting;
+  const other = usePagedJobs(filters, !unfiltered && !waiting, undefined, signedInAgain);
+  const list = unfiltered ? all : other;
 
   // Opening Status reads the list again: the app's list is polled only while something runs, so a distribution that
   // someone sent to my team since it was last read is shown now and not at the next poll (D-F1-25).

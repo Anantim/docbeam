@@ -263,7 +263,30 @@ The totals at the end of that round (history; the latest are in 8.11): lint and 
 | B4. Row click: anywhere on a row opens its panel, except the copy icon and "+N" | YES (not a regression: it could not be reproduced; the test pins it; the recorder workaround is removed) | `row-click.spec.ts` (D-F1-64) |
 | B5. Live retry: a push when a delivery starts its second try or later, so "Retrying" and the counts change live; D-M2-16 and the design docs updated; the recorder's workaround removed | YES | `deliver.test.ts`, `TaskTable.test.tsx`, `retry-live.spec.ts` (D-F1-65) |
 
-Latest totals (2026-10-21): lint and typecheck clean; **890 unit tests in 99 files, 212 integration tests in 18 files, 136 Playwright tests passed and 15 skipped, 0 failed (2026-10-22; D-F1-78)**. The first full run of the final round had four failures, all old wording in specs ("did not respond" and the not-found heading); they were fixed and the full run passed.
+Latest totals (2026-10-22): lint and typecheck clean; **959 unit tests in 102 files, 218 integration tests in 18 files, 142 Playwright tests passed and 17 skipped, 0 failed (D-F1-81)**. The first full run of the last round had 13 failures, all specs written for the old behaviour (the Clear question for one file, "Copy link", `sender=me`, a tooltip on focus the page moves, the 21st folder, two EICAR files with the same contents); they were fixed, one real bug was found by a new test (the address was written back after a fast move to it, fixed by replacing it after the move), and the full run passed.
+
+### 8.13 The last round (D-F1-81)
+
+| Item | Result | Evidence |
+|---|---|---|
+| A1 copies: same file again, renamed copy, same name with other contents, restored batch, API 422 | YES | `files.test.ts`, `manager.test.ts` ("copies, age and offline"), `Distribute.test.tsx`, `batch.test.ts`, `jobs.test.ts` (integration), `last-round.spec.ts` |
+| A2 files over 24 hours, on the page and after a reload; the API names the file | YES | `manager.test.ts`, `Distribute.test.tsx`, `jobs.test.ts` (integration), `jobs.test.ts` (API unit) |
+| A3 a name over 255 characters | YES | `files.test.ts`, `Distribute.test.tsx`, `uploads.test.ts` (integration), `last-round.spec.ts` |
+| A4 the 21st folder cannot be ticked (tree and search), "folders" in the reason | YES | `Destinations.test.tsx`, `Distribute.test.tsx`, `m2.spec.ts`, `batch.test.ts`, `jobs.test.ts` |
+| A5 folder search in path order with natural numbers | YES | `platform.test.ts` (integration, the load user's 50 teams, in pages of 7) |
+| A6 Clear for one file, singular and plural of counts | YES | `Distribute.test.tsx`, `LastRound.test.tsx` |
+| A7 the retry-window notice for the sender only | YES | `StatusAddress.test.tsx` |
+| A8, A9 address filters that do not apply; "Sender: Me" as the person's id | YES | `filters.test.ts`, `StatusAddress.test.tsx`, `last-round.spec.ts` (Sam, and a colleague opening the link) |
+| A10, A11 "team · folder" cell; one file order | YES | `StatusPage.test.tsx`, `list-cells.spec.ts`, `tracking.test.ts` (integration) |
+| A12 opening a distribution: where the time goes, and the faster order | YES (numbers in the walkthrough of this round in `docs/DECISIONS.md` D-F1-81 and the final report) | `scripts/perf/open-timing.ts`, `open-timing-dev.spec.ts`, `StatusPage.test.tsx` ("go out together", a running one is read again after the subscribe answer, a push after the first read) |
+| A13 thousands separators | YES | `LastRound.test.tsx`, `TaskTable.test.tsx` |
+| A14 scrollbars only when needed | YES | `status-scroll.spec.ts` (`overflow-y: auto`, `scrollbar-gutter: stable`); every other scroll area was already `auto` |
+| A15 PDF title | YES, done: the key ends in the safe name, previews carry `inline; filename=` | `object-key.test.ts`, `upload-events.test.ts`, `uploads.test.ts`, `s3.test.ts`, and the old-key integration tests (`downloads.test.ts`, `delivery.test.ts`) |
+| A16 error toasts stay | YES | `LastRound.test.tsx` |
+| A17 offline note; uploads and the live connection carry on | YES | `LastRound.test.tsx`, `manager.test.ts`, `last-round.spec.ts` |
+| A18 page titles | YES | `LastRound.test.tsx`, `last-round.spec.ts` |
+| A19 tooltips only when asked for | YES | `LastRound.test.tsx`, `tooltips.spec.ts`, `panel-header.spec.ts` |
+| A20 unique button names | YES | `StatusPage.test.tsx`, `TaskTable.test.tsx`, `Distribute.test.tsx`, `FileTable.tsx` numbers files of one name |
 
 ### 8.12 The final sequence: demo and the user-flow guide (D-F1-69, D-F1-70)
 

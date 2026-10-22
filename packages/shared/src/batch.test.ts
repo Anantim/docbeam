@@ -16,6 +16,23 @@ function batch(files: number, perFile: number, destinations = perFile): BatchInp
   };
 }
 
+describe('validateBatch: two files with the same contents (D-F1-81)', () => {
+  const same = (a: string, b: string): BatchInput => ({
+    files: [
+      { fileId: id(1), sha256: a },
+      { fileId: id(2), sha256: b },
+    ],
+    mappings: [id(1), id(2)].map((fileId) => ({ fileId, destinations: [dest(0)] })),
+  });
+  it('refuses them, whatever the letter case, with the shared sentence', () => {
+    expect(validateBatch(same('a'.repeat(64), 'A'.repeat(64)))).toEqual({ ok: false, reason: 'Two files in this distribution have the same contents.' });
+  });
+  it('accepts different contents, and files that carry no fingerprint', () => {
+    expect(validateBatch(same('a'.repeat(64), 'b'.repeat(64)))).toMatchObject({ ok: true });
+    expect(validateBatch(batch(2, 1))).toMatchObject({ ok: true });
+  });
+});
+
 describe('validateBatch', () => {
   it('accepts the largest batch: 100 files x 20 destinations = 2,000 deliveries', () => {
     expect(validateBatch(batch(100, 20))).toEqual({ ok: true, taskCount: 2000, destinationCount: 20 });
@@ -40,7 +57,7 @@ describe('validateBatch', () => {
     b.mappings.forEach((m, i) => {
       m.destinations = [dest(i)];
     });
-    expect(validateBatch(b)).toMatchObject({ ok: false, reason: expect.stringContaining('20 destinations') });
+    expect(validateBatch(b)).toMatchObject({ ok: false, reason: 'A distribution can have at most 20 folders.' });
   });
 
   it('refuses a file with no destination', () => {

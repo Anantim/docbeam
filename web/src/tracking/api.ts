@@ -17,7 +17,7 @@ export interface JobSummary {
   /** Files and folders the caller may see in the distribution (all of them for the sender). */
   fileCount: number;
   destinationCount: number;
-  /** The files in the order they were added, and the folders as full paths, for the list (D-F1-40). */
+  /** The files by name (the order of the panel's deliveries) and the folders as full paths, for the list (D-F1-40, D-F1-81). */
   fileNames: string[];
   destinations: string[];
   counts: Counts;

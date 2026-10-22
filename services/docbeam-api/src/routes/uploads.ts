@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ApiError, hexToBase64, isAllowedType, isMultipart, isSha256Hex, LIMITS, partCount } from '@docbeam/shared';
+import { ApiError, hexToBase64, isAllowedType, isMultipart, isSha256Hex, LIMITS, objectKey, partCount } from '@docbeam/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -18,7 +18,7 @@ const uploadsBody = z.object({
         name: z
           .string()
           .min(1)
-          .max(255)
+          .max(LIMITS.maxFileNameChars)
           .refine((n) => !/[\r\n]/.test(n)),
         sizeBytes: z.number().int().min(1).max(LIMITS.maxFileBytes),
         contentType: z.string().refine(isAllowedType),
@@ -59,7 +59,8 @@ export function registerUploadRoutes(app: FastifyInstance, db: Db, store: Object
 
     const rows = body.files.map((f) => {
       const id = randomUUID();
-      return { ...f, id, key: `staging/${principal.userId}/${id}` };
+      // The key ends in the file's own name (made safe), so a viewer with no title for a PDF shows the name (D-F1-81).
+      return { ...f, id, key: objectKey(principal.userId, id, f.name) };
     });
 
     const uploads = await Promise.all(

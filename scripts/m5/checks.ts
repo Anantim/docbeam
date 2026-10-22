@@ -252,7 +252,8 @@ const checks: Record<string, () => Promise<void>> = {
       expect('with Delivery paused no delivery has started (all 6 pending)', held.counts.pending === 6, JSON.stringify(held.counts));
       const userId = (await job(api, jobId)).submittedBy.userId;
       const victim = files[1]!;
-      aws(['s3', 'rm', `s3://${objectBucket()}/staging/${userId}/${victim.fileId}`]);
+      // The key is staging/{user}/{file} or, since D-F1-81, staging/{user}/{file}/{name}: remove whatever is under the file's prefix.
+      aws(['s3', 'rm', `s3://${objectBucket()}/staging/${userId}/${victim.fileId}`, '--recursive']);
       log(`deleted staging/${userId}/${victim.fileId}`);
     } finally {
       await setTrigger('delivery', true);

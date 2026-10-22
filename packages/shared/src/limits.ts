@@ -11,6 +11,8 @@ export const LIMITS = {
   maxDestinationsPerJob: 20,
   /** Deliveries (file x destination) in one distribution. */
   maxTasksPerJob: 2_000,
+  /** The longest file name the API takes (characters). */
+  maxFileNameChars: 255,
   /** Hard size limit of one file (1 GiB). */
   maxFileBytes: GIB,
   /** Files above this size use a multipart upload (100 MiB). */

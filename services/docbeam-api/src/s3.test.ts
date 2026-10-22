@@ -86,7 +86,7 @@ describe('object store signing (ADR-002, ADR-004)', () => {
     const url = new URL(
       await store().presignGet({ key: 'staging/user-1/file-3', fileName: 'a.png', contentType: 'image/png', mode: 'preview' }),
     );
-    expect(url.searchParams.get('response-content-disposition')).toBe('inline');
+    expect(url.searchParams.get('response-content-disposition')).toBe(`inline; filename="a.png"; filename*=UTF-8''a.png`);
     expect(url.searchParams.get('response-content-type')).toBe('image/png');
     expect(url.searchParams.get('X-Amz-Expires')).toBe('120');
   });
@@ -111,7 +111,7 @@ describe('contentDisposition', () => {
     );
   });
 
-  it('is inline for a preview', () => {
-    expect(contentDisposition('a.pdf', 'preview')).toBe('inline');
+  it('is inline for a preview, and still carries the name (D-F1-81)', () => {
+    expect(contentDisposition('a.pdf', 'preview')).toBe(`inline; filename="a.pdf"; filename*=UTF-8''a.pdf`);
   });
 });

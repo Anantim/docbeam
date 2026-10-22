@@ -41,6 +41,40 @@ export function filtersFromParams(params: URLSearchParams): Filters {
   return out;
 }
 
+/** What the person's own teams and colleagues are, to tell which filters of an address apply to this person (D-F1-81). */
+export interface Choices {
+  meId: string;
+  /** The ids of the people in the person's teams. */
+  memberIds: readonly string[];
+  /** The ids of the person's teams. */
+  teamIds: readonly string[];
+}
+
+/**
+ * The filters of an address that apply to this person: a team only when the person is in it and in more than one team (the
+ * Team button is shown only then), a sender only when it is the person (`me` is the person's own id from now on) or someone in
+ * the person's teams. Anything else is dropped, and the list shows as if the link did not have it.
+ */
+export function applicableFilters(f: Filters, choices: Choices): Filters {
+  const out: Filters = { ...f };
+  if (out.sender === 'me') out.sender = choices.meId;
+  if (out.sender !== undefined && out.sender !== choices.meId && !choices.memberIds.includes(out.sender)) delete out.sender;
+  if (out.team !== undefined && !(choices.teamIds.length > 1 && choices.teamIds.includes(out.team))) delete out.team;
+  return out;
+}
+
+/** True when a filter needs the person's teams or colleagues to be judged (so the page waits for them). */
+export const needsChoices = (f: Filters, meId: string): boolean => f.team !== undefined || (f.sender !== undefined && f.sender !== 'me' && f.sender !== meId);
+
+/** The filters that can be judged without the person's teams: the ones that need them are left out until they are known. */
+export function withoutUnjudged(f: Filters, meId: string): Filters {
+  const out: Filters = { ...f };
+  if (out.sender === 'me') out.sender = meId;
+  if (out.sender !== undefined && out.sender !== meId) delete out.sender;
+  delete out.team;
+  return out;
+}
+
 /** In a fixed order, so the same choices are always the same address. Empty for no filters. */
 export function filtersToQuery(f: Filters): string {
   const params = new URLSearchParams();

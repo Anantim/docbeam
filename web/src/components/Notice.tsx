@@ -42,7 +42,8 @@ export const Notice = forwardRef<HTMLDivElement, Props>(function Notice({ tone =
       </div>
       {onClose && (
         <Tooltip text="Close">
-          <button className="icon small" type="button" aria-label="Close" onClick={onClose}>
+          {/* The tooltip says "Close"; the screen-reader name says which note, so it is not confused with the panel's Close (D-F1-81). */}
+          <button className="icon small" type="button" aria-label={`Close note: ${heading}`} onClick={onClose}>
             <CloseIcon />
           </button>
         </Tooltip>

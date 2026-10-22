@@ -270,7 +270,7 @@ export async function pickFilter(page: Page, filter: 'Status' | 'Sender' | 'Sent
  */
 export async function clearPage(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
-  const ask = page.getByRole('dialog', { name: /^Remove all \d+ files? and their folder ticks\?$/ });
+  const ask = page.getByRole('dialog', { name: /^Remove (this file and its|all [\d,]+ files and their) folder ticks\?$/ });
   if (await ask.isVisible().catch(() => false)) await ask.getByRole('button', { name: 'Clear' }).click();
 }
 

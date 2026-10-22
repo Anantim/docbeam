@@ -143,6 +143,71 @@ describe('Destinations tree', () => {
   });
 });
 
+describe('the 20-folder limit (D-F1-81)', () => {
+  const REASON = 'A distribution can have at most 20 folders.';
+
+  it('cannot tick another folder once 20 are ticked, with the reason as its tooltip, and a ticked one can still be unticked', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    const full = new Set(['b-reg:f-irb']);
+    render(
+      <Destinations
+        stateOf={(d) => (full.has(`${d.binderId}:${d.folderId}`) ? 'on' : 'off')}
+        locked={(d) => !full.has(`${d.binderId}:${d.folderId}`)}
+        onToggle={onToggle}
+        onTeams={() => {}}
+      />,
+    );
+    await openCardio(user);
+    const irb = await screen.findByRole('checkbox', { name: /IRB approvals$/ });
+    await user.click(irb); // one of the 20: it can be unticked
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    await user.click(await screen.findByRole('button', { name: 'Expand ONC-118 Regulatory' }).catch(() => screen.getByRole('button', { name: 'Expand Oncology' })));
+  });
+
+  it('marks a folder that is not one of the 20 as off, shows the reason on hover, and does not tick it', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<Destinations stateOf={() => 'off'} locked={() => true} onToggle={onToggle} onTeams={() => {}} />);
+    await openCardio(user);
+    const irb = await screen.findByRole('checkbox', { name: /IRB approvals$/ });
+    expect(irb.getAttribute('aria-disabled')).toBe('true');
+    await user.hover(irb);
+    expect((await screen.findByRole('tooltip')).textContent).toBe(REASON);
+    await user.click(irb);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it('frees every folder again when one is unticked (the lock follows the page)', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    const { rerender } = render(<Destinations stateOf={() => 'off'} locked={() => true} onToggle={onToggle} onTeams={() => {}} />);
+    await openCardio(user);
+    const irb = await screen.findByRole('checkbox', { name: /IRB approvals$/ });
+    expect(irb.getAttribute('aria-disabled')).toBe('true');
+    rerender(<Destinations stateOf={() => 'off'} locked={() => false} onToggle={onToggle} onTeams={() => {}} />);
+    expect((await screen.findByRole('checkbox', { name: /IRB approvals$/ })).getAttribute('aria-disabled')).toBeNull();
+    await user.click(screen.getByRole('checkbox', { name: /IRB approvals$/ }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not tick a locked folder from the search results either, and says why', async () => {
+    answers['/folders/search?q=ir'] = { items: [{ id: 'f-irb', name: 'IRB approvals', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals', names: ['Cardio', 'CARDIO-301 Regulatory', 'IRB approvals'], teamId: 't-cardio', binderId: 'b-reg', folderIds: ['f-irb'] }], nextCursor: null };
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<Destinations stateOf={() => 'off'} locked={() => true} onToggle={onToggle} onTeams={() => {}} />);
+    await screen.findByText('Cardio');
+    await user.type(screen.getByRole('searchbox'), 'ir');
+    const result = await screen.findByRole('button', { name: /^Tick Cardio .* IRB approvals and show it in the tree$/ });
+    expect(result.getAttribute('aria-disabled')).toBe('true');
+    await user.hover(result);
+    expect((await screen.findByRole('tooltip')).textContent).toBe(REASON);
+    await user.click(result);
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(screen.queryByRole('checkbox', { name: /IRB approvals$/ })).toBeNull(); // the tree did not open to it
+  });
+});
+
 describe('the folder search (D-F1-67)', () => {
   const hit = (id: string, name: string, path: string, extra: Record<string, unknown> = {}) => ({ id, name, path, names: path.split(' / '), teamId: 't-cardio', binderId: 'b-reg', folderIds: [id], ...extra });
   const search = (q: string, page: unknown) => {

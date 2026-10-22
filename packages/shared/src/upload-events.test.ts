@@ -13,6 +13,13 @@ describe('parseUploadEvents', () => {
     ]);
   });
 
+  it('reads a key that ends in the file name, and one with spaces and a plus sign (S3 sends the key URL-encoded)', () => {
+    const key = `staging/${owner}/${file}/QA test A.pdf`;
+    expect(parseUploadEvents(body(`staging/${owner}/${file}/QA+test+A.pdf`))).toEqual([{ bucket: 'store', key, fileId: file }]);
+    expect(parseUploadEvents(body(`staging/${owner}/${file}/a%2Bb.pdf`))[0]?.key).toBe(`staging/${owner}/${file}/a+b.pdf`);
+    expect(parseUploadEvents(body(`staging/${owner}/${file}/a/b.pdf`))).toEqual([]); // a name never holds a slash
+  });
+
   it('accepts a multipart completion and a put', () => {
     expect(parseUploadEvents(body(`staging/${owner}/${file}`, 'ObjectCreated:CompleteMultipartUpload'))).toHaveLength(1);
     expect(parseUploadEvents(body(`staging/${owner}/${file}`, 'ObjectCreated:Put'))).toHaveLength(1);

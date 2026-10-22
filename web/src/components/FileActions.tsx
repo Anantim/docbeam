@@ -12,24 +12,29 @@ interface Props {
   offBecause?: string;
   onClick?: () => void;
   small?: boolean;
+  /**
+   * Which delivery this is, when the same file has several (the folder): added to the screen-reader name only, so two buttons that do
+   * the same thing for different deliveries are told apart (D-F1-81). The tooltip stays short.
+   */
+  context?: string;
 }
 
-export function PreviewButton({ name, offBecause, onClick, small = false }: Props) {
+export function PreviewButton({ name, offBecause, onClick, small = false, context }: Props) {
   const label = offBecause ? `Preview ${name}. ${offBecause}` : `Preview ${name}`;
   return (
     <Tooltip text={label}>
-      <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={label} disabled={!!offBecause} onClick={onClick}>
+      <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={context ? `${label} (${context})` : label} disabled={!!offBecause} onClick={onClick}>
         <EyeIcon />
       </button>
     </Tooltip>
   );
 }
 
-export function DownloadButton({ name, offBecause, onClick, small = false }: Props) {
+export function DownloadButton({ name, offBecause, onClick, small = false, context }: Props) {
   const label = offBecause ? `Download ${name}. ${offBecause}` : `Download ${name}`;
   return (
     <Tooltip text={label}>
-      <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={label} disabled={!!offBecause} onClick={onClick}>
+      <button className={`icon ${small ? 'small' : ''}`} type="button" aria-label={context ? `${label} (${context})` : label} disabled={!!offBecause} onClick={onClick}>
         <DownloadIcon />
       </button>
     </Tooltip>

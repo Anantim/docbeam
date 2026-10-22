@@ -2,7 +2,7 @@ import { ApiError } from '@docbeam/shared';
 import { sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Db } from '../db.js';
-import { cutPage, readPageQuery, TEAMS_DEFAULT_LIMIT, type Position } from '../paging.js';
+import { cutPage, encodeCursor, readPageQuery, TEAMS_DEFAULT_LIMIT, type Position } from '../paging.js';
 
 /** At most this many people in the Sender menu; a person is in a handful of teams, a team is a study group. */
 const MEMBERS_LIMIT = 200;
@@ -121,17 +121,29 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
     const q = typeof raw === 'string' ? raw.trim() : '';
     if (q.length < SEARCH_MIN || q.length > SEARCH_MAX) throw new ApiError(400, 'VALIDATION_ERROR', `The q parameter must be ${SEARCH_MIN} to ${SEARCH_MAX} characters.`);
     const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    const hits = await db.execute<SearchRow>(sql`
-      SELECT f.id, f.name, f.parent_folder_id, b.id AS binder_id, b.name AS binder_name, t.id AS team_id, t.name AS team_name
-        FROM folders f
-        JOIN binders b ON b.id = f.binder_id
-        JOIN teams t ON t.id = b.team_id
-        JOIN team_members m ON m.team_id = t.id AND m.user_id = ${userId}
-       WHERE f.name ILIKE ${pattern}
-         ${after ? sql`AND (f.name, f.id) > (${after.name}, ${after.id}::uuid)` : sql``}
-       ORDER BY f.name, f.id
+    // The order is the order of the path, team then binder then folder, each name in natural order: "Team 2" comes before "Team 10"
+    // (D-F1-81). The sort key of a name is the name in lower case with every run of digits padded to 12, so plain text order is
+    // natural order. The cursor holds the three keys and the id of the last row.
+    const natural = (column: string) =>
+      sql`(SELECT string_agg(CASE WHEN p[1] ~ '^[0-9]' THEN lpad(p[1], 12, '0') ELSE lower(p[1]) END, '') FROM regexp_matches(${sql.raw(column)}, '[0-9]+|[^0-9]+', 'g') AS p)`;
+    const [afterTeam, afterBinder, afterFolder] = (after?.name ?? '').split('\u0001');
+    const hits = await db.execute<SearchRow & { tk: string; bk: string; fk: string }>(sql`
+      WITH hit AS (
+        SELECT f.id, f.name, f.parent_folder_id, b.id AS binder_id, b.name AS binder_name, t.id AS team_id, t.name AS team_name,
+               ${natural('t.name')} AS tk, ${natural('b.name')} AS bk, ${natural('f.name')} AS fk
+          FROM folders f
+          JOIN binders b ON b.id = f.binder_id
+          JOIN teams t ON t.id = b.team_id
+          JOIN team_members m ON m.team_id = t.id AND m.user_id = ${userId}
+         WHERE f.name ILIKE ${pattern})
+      SELECT * FROM hit
+       ${after ? sql`WHERE (tk, bk, fk, id) > (${afterTeam ?? ''}, ${afterBinder ?? ''}, ${afterFolder ?? ''}, ${after.id}::uuid)` : sql``}
+       ORDER BY tk, bk, fk, id
        LIMIT ${limit + 1}`);
-    const { rows, nextCursor } = cutPage(hits.rows, limit, () => 0);
+    const more = hits.rows.length > limit;
+    const rows = hits.rows.slice(0, limit);
+    const last = rows.at(-1);
+    const nextCursor = more && last ? encodeCursor({ rank: 0, name: [last.tk, last.bk, last.fk].join('\u0001'), id: last.id }) : null;
 
     // The folders above each match, a level at a time (a few levels at most), to write the full path.
     const known = new Map<string, { name: string; parent: string | null }>(rows.map((r) => [r.id, { name: r.name, parent: r.parent_folder_id }]));

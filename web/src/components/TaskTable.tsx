@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import type { LiveClient } from '../live/socket.js';
-import { TASK_PAGE, trackingApi, type TaskKind, type TaskRow } from '../tracking/api.js';
+import { TASK_PAGE, trackingApi, type TaskKind, type TaskPage, type TaskRow } from '../tracking/api.js';
 import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
@@ -11,6 +11,7 @@ import { StatusChip } from './StatusChip.js';
 import { Tooltip } from './Tooltip.js';
 import { TypeBadge } from './TypeBadge.js';
 import { plural, taskKindOf, taskLook } from '../tracking/format.js';
+import { num } from '../text.js';
 import { pagesFor, visibleRange } from '../tracking/virtual.js';
 
 /** One delivery row: the file name with the folder path in small text under it (D-F1-46). The list of distributions uses the same height (`--row-h`). */
@@ -34,6 +35,13 @@ interface Props {
   viewportHeight?: number;
   /** In the side panel: the box takes the height that is left (CSS) and the rows scroll inside it, with a fade at the bottom edge (D-F1-26). */
   fill?: boolean;
+  /**
+   * The first page of all the deliveries, already asked for as the distribution opened (D-F1-81). The table uses it once for its first
+   * read of that page, so it does not ask again; every later read is its own.
+   */
+  first?: { current: Promise<TaskPage> | null };
+  /** True when that first page is also the first page of the selected status: every delivery has that status (all Completed). */
+  firstCovers?: boolean;
 }
 
 /** Space kept clear under a row that keyboard focus scrolls into view, so the fade at the bottom edge does not cover it. */
@@ -43,7 +51,9 @@ const FOCUS_PAD = 24;
  * The deliveries of one distribution, up to 2,000 rows, 100 loaded at a time. Only the rows in view are drawn
  * (TDD Step 3.4). Live pushes change a row in place; a reload keeps the old rows on screen until the new page arrives.
  */
-export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey, live, onPreview, onDownload, viewportHeight: fixedHeight = 480, fill = false }: Props) {
+export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey, live, onPreview, onDownload, viewportHeight: fixedHeight = 480, fill = false, first, firstCovers = false }: Props) {
+  const firstCoversRef = useRef(firstCovers);
+  firstCoversRef.current = firstCovers;
   const [pages, setPages] = useState<Map<number, TaskRow[]>>(new Map());
   // The height of the rows' box as the page lays it out (only when it fills); the number given is used until it is known.
   const [measured, setMeasured] = useState(0);
@@ -65,7 +75,10 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
       if (inflight.current.has(page)) return;
       inflight.current.add(page);
       try {
-        const out = await trackingApi.tasks(jobId, page, filter);
+        // The first read of the first page of everything may already be on its way (asked for with the distribution); it is used once.
+        const early = page === 1 && (filter === undefined || firstCoversRef.current) ? first?.current : null;
+        if (early && first) first.current = null;
+        const out = await (early ?? trackingApi.tasks(jobId, page, filter));
         if (generation.current !== gen) return;
         setTotal(out.total);
         setPages((prev) => new Map(prev).set(page, out.tasks));
@@ -78,7 +91,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
         inflight.current.delete(page);
       }
     },
-    [jobId, filter],
+    [jobId, filter, first],
   );
 
   // A different distribution or filter starts again from the top.
@@ -195,7 +208,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
   const moreBelow = shownTotal * ROW_HEIGHT > scrollTop + viewportHeight + 2;
 
   return (
-    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${total}`} aria-rowcount={shownTotal + 1}>
+    <div className={`ttable ${fill ? 'fill' : ''}`} role="table" aria-label={`Deliveries, ${num(total)}`} aria-rowcount={shownTotal + 1}>
       <div className="trow thead" role="row">
         <div role="columnheader">Deliveries</div>
         <div role="columnheader">Status</div>
@@ -309,21 +322,21 @@ const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { tas
       <div role="cell" className="tdetail">
         {hasReason && (
           <Tooltip text={tip} openOnClick>
-            <button className="icon" type="button" aria-label={kind === 'cancelled' ? 'Why this delivery was cancelled' : 'Why this delivery failed'}>
+            <button className="icon" type="button" aria-label={`${kind === 'cancelled' ? 'Why this delivery was cancelled' : 'Why this delivery failed'}: ${task.fileName} in ${task.destinationPath}`}>
               <InfoIcon />
             </button>
           </Tooltip>
         )}
         {task.status === 'completed' && (task.fileExpired ? (
           <Tooltip text="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder." openOnClick>
-            <button className="icon" type="button" aria-label="Why this file can't be opened">
+            <button className="icon" type="button" aria-label={`Why this file can't be opened: ${task.fileName} in ${task.destinationPath}`}>
               <InfoIcon />
             </button>
           </Tooltip>
         ) : (
           <div className="tbuttons">
-            <PreviewButton name={task.fileName} onClick={() => onPreview(task)} />
-            <DownloadButton name={task.fileName} onClick={() => onDownload(task)} />
+            <PreviewButton name={task.fileName} context={`in ${task.destinationPath}`} onClick={() => onPreview(task)} />
+            <DownloadButton name={task.fileName} context={`in ${task.destinationPath}`} onClick={() => onDownload(task)} />
           </div>
         ))}
       </div>

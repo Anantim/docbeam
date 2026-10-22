@@ -117,7 +117,7 @@ test('the copy icon: shown on row hover and focus, always in the panel; it copie
   const row = distRow(page).first();
   await expect(row).toBeVisible();
   const jobId = (await row.locator('.dist-id').getAttribute('data-job-id')) as string;
-  await expect(page.getByRole('button', { name: 'Copy link', exact: true })).toHaveCount(await distRow(page).count()); // one per row, none in the header
+  await expect(page.getByRole('button', { name: /^Copy link to [0-9a-f]{8}$/ })).toHaveCount(await distRow(page).count()); // one per row, named by its distribution (D-F1-81), none in the header
 
   const icon = row.getByRole('button', { name: 'Copy link' });
   expect(await tooltipOf(page, icon)).toBe('Copy link');

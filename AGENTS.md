@@ -15,7 +15,7 @@ Read these in order. They are the spec; do not invent behaviour that is not in t
 3. `docs/design/04-adrs.md`: every architecture decision and why.
 4. `docs/design/05-technical-design.md`: schemas, API contracts, repo layout, milestones and steps, concurrency, failure handling, testing strategy, launch plan.
 
-The client's original brief is not in the repository; the blueprint holds its requirements. Also available: `docs/design/diagrams/` (Eraser diagram code, detailed and simplified) and `docs/design/ui/Main.dc.html` (the UI mockup source from before the F1 round: its structure and copy are superseded where the D-F1 decisions say so; the current screens are the ones in `docs/testing/f1-evidence/after/` and the "F1: Reviewer feedback round" section of the technical design).
+The client's original brief is not in the repository; the blueprint holds its requirements. Also available: `docs/design/diagrams/` (Eraser diagram code, detailed and simplified) and `docs/design/ui/Main.dc.html` (the UI mockup source from before the F1 round: its structure and copy are superseded where the D-F1 decisions say so; the current screens are the pictures of the user-flow guide in `docs/user-flow/img/` (`docs/USER-FLOW-AND-APIS.md`) and the "F1: Reviewer feedback round" section of the technical design).
 
 `docs/DECISIONS.md` records design changes agreed during the build; it wins over everything in `docs/design/`. Otherwise, when documents disagree, the technical design wins, then the ADRs, then the blueprint, then the flows, then the brief. If something is unclear, missing or contradictory, stop and ask. Do not guess.
 

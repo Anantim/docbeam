@@ -4,7 +4,8 @@ import type { Destination } from '../destinations/selection.js';
 import { chainOf, MIN_SEARCH, searchUrl, type FolderHit, type SearchPage } from '../destinations/search.js';
 import { destinationFor, pageUrl, visibleIds, type Loaded, type TreeNode } from '../destinations/tree.js';
 import type { TickState } from '../distribute/mapping.js';
-import { plural } from '../text.js';
+import { BATCH_REASON } from '@docbeam/shared/browser';
+import { num, plural } from '../text.js';
 import { NoMatches } from './ListFilter.js';
 import { MoreRow } from './MoreRow.js';
 import { Notice } from './Notice.js';
@@ -23,6 +24,8 @@ interface Props {
   filesOf?: (destination: Destination) => { names: string[]; total: number };
   /** What a tick sends, for example "all 3 files" or "the 1 selected file": the words of each folder's tick label. */
   scopeTitle?: string;
+  /** True for a folder that can't be ticked because the distribution already has 20 folders (D-F1-81). A ticked folder can always be unticked. */
+  locked?: (destination: Destination) => boolean;
 }
 
 const folderNodes = (parent: TreeNode, folders: { id: string; name: string }[]): TreeNode[] =>
@@ -60,6 +63,8 @@ interface LineProps {
   /** The names of the files that go to this (ticked) folder, one per line, and how many files are in scope. */
   fileNames: string;
   fileTotal: number;
+  /** At the 20-folder limit and not one of the 20: the tick is off, with the reason as its tooltip. */
+  locked: boolean;
   onExpand: (node: TreeNode) => void;
   onToggle: (destination: Destination) => void;
 }
@@ -68,11 +73,11 @@ interface LineProps {
  * One row of the tree. It is memoised on plain values, so ticking one folder draws that row again and not every
  * row of the tree (F1 follow-up: 40 folders were 40 redraws per tick, now 1).
  */
-const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, scopeTitle, fileNames, fileTotal, onExpand, onToggle }: LineProps) {
+const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, scopeTitle, fileNames, fileTotal, locked, onExpand, onToggle }: LineProps) {
   const destination = destinationFor(node);
   const on = tick !== 'off';
   const names = fileNames === '' ? [] : fileNames.split('\n');
-  const count = names.length === fileTotal ? plural(names.length, 'file', 'files') : `${names.length} of ${fileTotal} files`;
+  const count = names.length === fileTotal ? plural(names.length, 'file', 'files') : `${num(names.length)} of ${plural(fileTotal, 'file', 'files')}`;
   return (
     <div className={`row ${on ? 'on' : ''}`} style={{ ['--level' as string]: level }}>
       {canExpand ? (
@@ -99,20 +104,23 @@ const TreeLine = memo(function TreeLine({ node, level, tick, isOpen, canExpand, 
         </Tooltip>
       ) : (
         <>
-          <button
-            type="button"
-            role="checkbox"
-            data-nav=""
-            aria-checked={tick === 'mixed' ? 'mixed' : on}
-            className="ck"
-            aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
-            onClick={() => destination && onToggle(destination)}
-          >
-            <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
-              {tick === 'on' ? <CheckIcon size={12} /> : null}
-              {tick === 'mixed' ? <MinusIcon size={12} /> : null}
-            </span>
-          </button>
+          <Tooltip text={locked ? BATCH_REASON.TOO_MANY_FOLDERS : undefined}>
+            <button
+              type="button"
+              role="checkbox"
+              data-nav=""
+              aria-checked={tick === 'mixed' ? 'mixed' : on}
+              aria-disabled={locked || undefined}
+              className="ck"
+              aria-label={`Send ${scopeTitle} to ${destination?.path ?? node.name}`}
+              onClick={() => destination && !locked && onToggle(destination)}
+            >
+              <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`}>
+                {tick === 'on' ? <CheckIcon size={12} /> : null}
+                {tick === 'mixed' ? <MinusIcon size={12} /> : null}
+              </span>
+            </button>
+          </Tooltip>
           <span className="tree-icon" aria-hidden="true">
             <FolderIcon />
           </span>
@@ -139,7 +147,7 @@ function Skeleton({ rows = 3, label }: { rows?: number; label: string }) {
   );
 }
 
-export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle = 'your files' }: Props) {
+export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle = 'your files', locked }: Props) {
   const [roots, setRoots] = useState<TreeNode[] | null>(null);
   const [rootsNext, setRootsNext] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(new Map());
@@ -345,10 +353,11 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
     const going = destination && tick !== 'off' ? filesOf?.(destination) : undefined;
     const fileNames = going ? going.names.join('\n') : '';
     const fileTotal = going?.total ?? 0;
+    const isLocked = destination !== null && destination !== undefined && locked?.(destination) === true;
 
     return (
       <div key={node.id} data-node={node.id}>
-        <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} fileNames={fileNames} fileTotal={fileTotal} onExpand={expand} onToggle={toggle} />
+        <TreeLine node={node} level={level} tick={tick} isOpen={isOpen} canExpand={canExpand} scopeTitle={scopeTitle} fileNames={fileNames} fileTotal={fileTotal} locked={isLocked} onExpand={expand} onToggle={toggle} />
         {isOpen && busy.has(node.id) && children === undefined && (
           <div className="nested" style={{ ['--level' as string]: level }}>
             <Skeleton rows={2} label="Loading this level" />
@@ -419,17 +428,27 @@ export function Destinations({ onToggle, onTeams, stateOf, filesOf, scopeTitle =
             {hits.map((hit) => {
               const destination = { binderId: hit.binderId, folderId: hit.id, path: hit.path };
               const tick = stateOf(destination);
+              const isLocked = locked?.(destination) === true;
               return (
-                <button key={hit.id} type="button" className={`result ${tick !== 'off' ? 'on' : ''}`} data-nav="" aria-label={`Tick ${hit.path} and show it in the tree`} onClick={() => void pick(hit)}>
-                  <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`} aria-hidden="true">
-                    {tick === 'on' ? <CheckIcon size={12} /> : null}
-                    {tick === 'mixed' ? <MinusIcon size={12} /> : null}
-                  </span>
-                  <span className="result-text">
-                    <span className="result-name">{hit.name}</span>
-                    <span className="result-path">{hit.names.slice(0, -1).join(' / ')}</span>
-                  </span>
-                </button>
+                <Tooltip key={hit.id} text={isLocked ? BATCH_REASON.TOO_MANY_FOLDERS : undefined} block>
+                  <button
+                    type="button"
+                    className={`result ${tick !== 'off' ? 'on' : ''}`}
+                    data-nav=""
+                    aria-disabled={isLocked || undefined}
+                    aria-label={`Tick ${hit.path} and show it in the tree`}
+                    onClick={() => !isLocked && void pick(hit)}
+                  >
+                    <span className={`box ${tick === 'mixed' ? 'mixed' : ''}`} aria-hidden="true">
+                      {tick === 'on' ? <CheckIcon size={12} /> : null}
+                      {tick === 'mixed' ? <MinusIcon size={12} /> : null}
+                    </span>
+                    <span className="result-text">
+                      <span className="result-name">{hit.name}</span>
+                      <span className="result-path">{hit.names.slice(0, -1).join(' / ')}</span>
+                    </span>
+                  </button>
+                </Tooltip>
               );
             })}
             {searchBusy && hits.length === 0 && <Skeleton rows={3} label="Searching folders" />}

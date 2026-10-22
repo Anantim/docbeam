@@ -23,7 +23,8 @@ export function iconButtonProblems(root: ParentNode): string[] {
     }
     if (b.getAttribute('role') === 'checkbox') continue;
     const tip = tooltipOf(b);
-    if (tip !== label) out.push(`button "${label}" needs a tooltip with the same text (the tooltip is ${JSON.stringify(tip)})`);
+    // The tooltip is the short form of the name: a name may go on to say which one it is ("Remove a.pdf", "Close note: 1 file not added.", D-F1-81).
+    if (tip === null || !label.startsWith(tip)) out.push(`button "${label}" needs a tooltip with the same text (the tooltip is ${JSON.stringify(tip)})`);
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { FILE_REASON, hexToBase64, isMultipart, LIMITS, partCount } from '@docbeam/shared/browser';
+import { FILE_REASON, hexToBase64, isMultipart, LIMITS, partCount, sameContentsAs } from '@docbeam/shared/browser';
 import { ApiFailure } from '../auth/errors.js';
 import type { Accepted } from '../distribute/files.js';
 import type { UploadApi, UploadGrant } from './api-types.js';
@@ -38,6 +38,17 @@ export interface PageFile {
   serverId?: string;
   /** Brought back after a reload (D-F1-66): it is on the server, and this page holds no copy of its bytes (so no local preview). */
   restored?: boolean;
+  /** The file's last-modified time on the person's disk, which with the name and size says "the same file again" (D-F1-81). */
+  lastModified?: number;
+  /** When the file's row was made on the server (ms): the 24 hours of POST /jobs count from here. Set when the link is issued. */
+  uploadedAt?: number;
+}
+
+/** A file the page took out of the list by itself, and why: the "not added" note says it (D-F1-78, D-F1-81). */
+export interface DroppedFile {
+  id: string;
+  name: string;
+  reason: string;
 }
 
 /** A file of a batch kept across a reload: what `restore` needs to look it up again. */
@@ -48,6 +59,7 @@ export interface RestoreEntry {
   sizeBytes: number;
   contentType: string;
   sha256?: string | undefined;
+  lastModified?: number | undefined;
   stored: boolean;
 }
 
@@ -98,6 +110,17 @@ interface Internal {
 const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === 'AbortError';
 
 /**
+ * The browser's online state and events, when there is a browser. The queue also runs in Node (the integration test), where there is
+ * no window and `navigator.onLine` does not exist, so nothing here assumes them.
+ */
+const host = globalThis as unknown as {
+  addEventListener?: (type: string, listener: () => void, options?: { once?: boolean }) => void;
+  removeEventListener?: (type: string, listener: () => void) => void;
+  navigator?: { onLine?: boolean };
+};
+const isOffline = (): boolean => host.navigator?.onLine === false;
+
+/**
  * The upload queue of Step 2.6: hashing in a worker, links in waves of 20, at most 4 uploads at once, multipart
  * with re-signing and resume, and a 2-second poll for files being checked. Nothing here touches React: the page
  * reads it through `subscribe` and `getSnapshot`.
@@ -125,6 +148,19 @@ export class UploadManager {
     this.now = deps.now ?? (() => Date.now());
     this.newId = deps.id ?? (() => crypto.randomUUID());
     this.sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    host.addEventListener?.('online', this.onOnline);
+  }
+
+  /** The browser is back online: files that were interrupted while it was away start again, from the parts already stored (D-F1-81). */
+  private readonly onOnline = (): void => {
+    for (const f of [...this.files]) if (f.status === 'interrupted') this.retry(f.id);
+    if (this.files.some((f) => f.status === 'checking')) this.startPolling();
+  };
+
+  /** Resolves at once when the browser is online, or when it comes back: a spell offline does not use up a file's retries. */
+  private whenOnline(): Promise<void> {
+    if (!isOffline() || !host.addEventListener) return Promise.resolve();
+    return new Promise((resolve) => host.addEventListener?.('online', () => resolve(), { once: true }));
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -134,16 +170,33 @@ export class UploadManager {
 
   getSnapshot = (): readonly PageFile[] => this.files;
 
-  private readonly infectedListeners = new Set<(file: { id: string; name: string }) => void>();
+  private readonly droppedListeners = new Set<(file: DroppedFile) => void>();
 
   /**
-   * Told when the scan finds malware in a file. The file has already been taken out of the list (the server deleted the stored
-   * object), so the page only has to forget its folder ticks and say why (D-F1-78).
+   * Told when the manager takes a file out of the list by itself: malware found by the scan (the server deleted the stored
+   * object), the same contents as another file, or more than 24 hours since the upload. The file has already left the list, so
+   * the page only has to forget its folder ticks and say why (D-F1-78, D-F1-81).
    */
-  onInfected = (listener: (file: { id: string; name: string }) => void): (() => void) => {
-    this.infectedListeners.add(listener);
-    return () => this.infectedListeners.delete(listener);
+  onDropped = (listener: (file: DroppedFile) => void): (() => void) => {
+    this.droppedListeners.add(listener);
+    return () => this.droppedListeners.delete(listener);
   };
+
+  private drop(file: PageFile, reason: string): void {
+    this.remove(file.id);
+    for (const l of this.droppedListeners) l({ id: file.id, name: file.name, reason });
+  }
+
+  /**
+   * Takes out every file that was uploaded more than 24 hours ago, with its note. The page calls it when it opens and about once
+   * a minute. A file with no upload yet (still being read or waiting for a link) has no age.
+   */
+  expire(): void {
+    const now = this.now();
+    for (const f of [...this.files]) {
+      if (f.uploadedAt !== undefined && now - f.uploadedAt > LIMITS.maxFileAgeMs) this.drop(f, FILE_REASON.TOO_OLD);
+    }
+  }
 
   /** True while a file is being read, waiting for a slot or uploading: the page asks before it is closed. */
   isRunning(): boolean {
@@ -156,6 +209,7 @@ export class UploadManager {
       file,
       name: file.name,
       sizeBytes: file.size,
+      lastModified: file.lastModified,
       contentType,
       status: 'hashing',
       progress: 0,
@@ -174,9 +228,9 @@ export class UploadManager {
    * back Checking, and one that is gone, refused, failed its check or was still uploading is dropped. Returns the page ids
    * that came back and how many were dropped. The page keeps the same ids, so the folder ticks still point at the files.
    */
-  async restore(entries: readonly RestoreEntry[]): Promise<{ restored: string[]; dropped: number; unreachable?: true }> {
+  async restore(entries: readonly RestoreEntry[]): Promise<{ restored: string[]; dropped: number; removed: DroppedFile[]; unreachable?: true }> {
     const candidates = entries.filter((e) => e.stored && e.serverId !== undefined);
-    const states = new Map<string, { uploaded: boolean; scanStatus: string }>();
+    const states = new Map<string, { uploaded: boolean; scanStatus: string; createdAt?: string | undefined }>();
     try {
       for (let i = 0; i < candidates.length; i += LIMITS.maxFileIdsPerQuery) {
         const chunk = candidates.slice(i, i + LIMITS.maxFileIdsPerQuery);
@@ -185,18 +239,36 @@ export class UploadManager {
     } catch {
       // The server could not be asked: nothing can be shown as ready that was not checked. The page keeps the stored batch for
       // the next reload instead of treating the files as lost (`unreachable`).
-      return { restored: [], dropped: entries.length, unreachable: true };
+      return { restored: [], dropped: entries.length, removed: [], unreachable: true };
     }
     // A second call for the same batch (React runs an effect twice in development) finds the first one's files already here: they
     // are not added again, and they count as restored.
     const here = new Set(this.files.map((f) => f.id));
     const already = candidates.filter((e) => here.has(e.id)).map((e) => e.id);
     const back: PageFile[] = [];
+    const removed: DroppedFile[] = [];
+    const now = this.now();
+    const contents = new Map<string, string>(); // sha256 -> the name of the file that holds it
+    for (const f of this.files) if (f.sha256) contents.set(f.sha256, f.name);
     for (const e of candidates) {
       if (here.has(e.id)) continue;
       const s = states.get(e.serverId as string);
       if (!s || !s.uploaded || s.scanStatus === 'infected' || s.scanStatus === 'failed') continue;
+      const uploadedAt = s.createdAt ? Date.parse(s.createdAt) : now;
+      // The same rules as on the page (D-F1-81): a file more than 24 hours old, or with the contents of one already here, stays out.
+      if (now - uploadedAt > LIMITS.maxFileAgeMs) {
+        removed.push({ id: e.id, name: e.name, reason: FILE_REASON.TOO_OLD });
+        continue;
+      }
+      const twin = e.sha256 ? contents.get(e.sha256) : undefined;
+      if (twin !== undefined) {
+        removed.push({ id: e.id, name: e.name, reason: sameContentsAs(twin) });
+        continue;
+      }
+      if (e.sha256) contents.set(e.sha256, e.name);
       back.push({
+        uploadedAt,
+        ...(e.lastModified !== undefined ? { lastModified: e.lastModified } : {}),
         id: e.id,
         file: new File([], e.name),
         name: e.name,
@@ -215,7 +287,7 @@ export class UploadManager {
     this.files = [...this.files, ...back];
     this.emit();
     if (back.some((f) => f.status === 'checking')) this.startPolling();
-    return { restored: [...already, ...back.map((f) => f.id)], dropped: entries.length - already.length - back.length };
+    return { restored: [...already, ...back.map((f) => f.id)], dropped: entries.length - already.length - back.length - removed.length, removed };
   }
 
   remove(id: string): void {
@@ -253,6 +325,7 @@ export class UploadManager {
 
   dispose(): void {
     this.disposed = true;
+    host.removeEventListener?.('online', this.onOnline);
     clearTimeout(this.pollTimer);
     for (const state of this.internal.values()) state.controller?.abort();
   }
@@ -293,6 +366,15 @@ export class UploadManager {
         if (this.internal.get(id)?.removed === false && Math.abs(fraction - (this.get(id)?.progress ?? 0)) >= 0.01) this.patch(id, { progress: fraction });
       });
       if (this.internal.get(id)?.removed !== false) return;
+      // The same contents as another file in the list, whatever the name: the newer one (later in the list) is taken out before
+      // it is uploaded, and the note names the other one (D-F1-81). If the newer one had already finished hashing, it goes now.
+      const twin = this.files.find((f) => f.id !== id && f.sha256 === result.sha256);
+      if (twin) {
+        const mine = this.get(id) as PageFile;
+        const mineIsNewer = this.files.indexOf(mine) > this.files.indexOf(twin);
+        if (mineIsNewer) return this.drop(mine, sameContentsAs(twin.name));
+        this.drop(twin, sameContentsAs(mine.name));
+      }
       this.patch(id, { sha256: result.sha256, status: 'waiting', progress: 0 });
       // The parts are kept beside the file, not in the snapshot.
       this.partHashes.set(id, result.parts);
@@ -347,7 +429,7 @@ export class UploadManager {
         }
         state.grant = grant;
         state.grantedAt = this.now();
-        this.patch(f.id, { serverId: grant.fileId });
+        this.patch(f.id, { serverId: grant.fileId, uploadedAt: state.grantedAt });
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Couldn't get upload links.";
@@ -372,7 +454,7 @@ export class UploadManager {
     if (!grant) throw new Interrupted('The server sent no upload link.');
     state.grant = grant;
     state.grantedAt = this.now();
-    this.patch(id, { serverId: grant.fileId });
+    this.patch(id, { serverId: grant.fileId, uploadedAt: state.grantedAt });
   }
 
   private async upload(id: string): Promise<void> {
@@ -421,6 +503,11 @@ export class UploadManager {
         });
       } catch (error) {
         if (isAbort(error)) throw error;
+        if (isOffline()) {
+          await this.whenOnline(); // offline: wait to be back, then the same try again
+          attempt -= 1;
+          continue;
+        }
         if (attempt < RETRY_GAPS_MS.length) {
           await this.sleep(RETRY_GAPS_MS[attempt] ?? 0);
           continue;
@@ -492,6 +579,11 @@ export class UploadManager {
           });
         } catch (error) {
           if (isAbort(error)) throw error;
+          if (isOffline()) {
+            await this.whenOnline();
+            attempt -= 1;
+            continue;
+          }
           if (attempt < RETRY_GAPS_MS.length) {
             await this.sleep(RETRY_GAPS_MS[attempt] ?? 0);
             continue;
@@ -554,8 +646,7 @@ export class UploadManager {
           if (!file || this.get(file.id)?.status !== 'checking') continue;
           if (s.scanStatus === 'clean' && s.uploaded) this.patch(file.id, { status: 'verified' });
           else if (s.scanStatus === 'infected') {
-            this.remove(file.id); // out of the list at once; the page is told below
-            for (const l of this.infectedListeners) l({ id: file.id, name: file.name });
+            this.drop(file, FILE_REASON.MALWARE); // out of the list at once; the page is told
           } else if (s.scanStatus === 'failed') {
             this.patch(file.id, { status: 'unchecked', message: FILE_REASON.SCAN_FAILED });
           }

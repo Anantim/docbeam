@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { shortId } from '../tracking/format.js';
 import { CheckIcon, CopyIcon } from './Icons.js';
 import { Tooltip } from './Tooltip.js';
 
@@ -38,7 +39,7 @@ export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) 
         type="button"
         tabIndex={tabbable ? 0 : -1}
         className={`icon small copy-link ${show} ${copied ? 'copied' : ''}`}
-        aria-label="Copy link"
+        aria-label={`Copy link to ${shortId(jobId)}`}
         onClick={(e) => {
           e.stopPropagation();
           void navigator.clipboard

@@ -29,7 +29,11 @@ Platform File Store [icon: aws-s3, color: orange]
 // Prepare files
 User > Web Client: Add files; tick folders (for the selected files, or for every file, including files added later)
 Web Client > Web Client: Read each file's first bytes (and a ZIP's part list): contents must match the extension, else 'not added' with the reason
+Web Client > Web Client: Not added (with the reason): same name, size and time as a file in the list; a name over 255 characters
 Web Client > Web Client: Compute SHA-256 of each file (and of each part for files over 100 MB)
+Web Client > Web Client: Same SHA-256 as another file (a renamed copy): the newer one is taken out before upload, with a note naming the other
+Web Client > Web Client: A file more than 24 h past its upload (checked on load and every minute) is taken out with a note
+Web Client > Web Client: At 20 folders ticked, no other folder can be ticked (tooltip: at most 20 folders)
 Web Client > Web Client: Keep the batch in sessionStorage (a reload restores stored, clean files via GET /files?ids=)
 
 // Get upload URLs (up to 20 files per request)
@@ -119,13 +123,13 @@ opt [label: Idempotency-Key already used, even by a request still running] {
   DocBeam API --> Web Client: 200 with the existing job
 }
 
-DocBeam API > DocBeam API: Check batch limits (100 files, 20 destinations, 2,000 deliveries, no duplicates, every destination a folder)
+DocBeam API > DocBeam API: Check batch limits (100 files, 20 folders, 2,000 deliveries, no duplicates, no two files with the same SHA-256, every destination a folder)
 
 opt [label: batch breaks a limit] {
   DocBeam API --> Web Client: 422 INVALID_BATCH, nothing is created
 }
 
-DocBeam API > DocBeam DB: Check files belong to user, are under 24 h old, are confirmed and clean, are in no other job, SHA-256 matches declared
+DocBeam API > DocBeam DB: Check files belong to user, are under 24 h old, are confirmed and clean, are in no other job, SHA-256 matches declared (each refusal names the file)
 
 opt [label: a file check fails] {
   DocBeam API --> Web Client: 422 FILE_TOO_OLD, 422 FILE_NOT_READY, 409 FILE_ALREADY_SUBMITTED or 422 CHECKSUM_MISMATCH, nothing is created

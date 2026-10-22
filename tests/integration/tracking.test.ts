@@ -379,6 +379,18 @@ describe('GET /jobs filters and the cursor (D-F1-21)', () => {
     expect(asRaj.destinations).toEqual(['Cardio / Regulatory']);
   });
 
+  it('uses one file order: the list row (first file and the "+N" popover) and the panel\'s deliveries both go by name (D-F1-81)', async () => {
+    const job = await insertJob([{ team: cardio, status: 'completed' }, { team: cardio, status: 'completed' }, { team: cardio, status: 'completed' }]);
+    // The names are the case seen on dev: "QA test A.pdf" was added first, but "QA test A copy.pdf" is first by name.
+    const names = ['Zeta plan.pdf', 'QA test A.pdf', 'QA test A copy.pdf'];
+    const rows = (await db.query('SELECT id FROM files WHERE job_id = $1 ORDER BY original_name', [job.jobId])).rows as Array<{ id: string }>;
+    for (const [i, row] of rows.entries()) await db.query('UPDATE files SET original_name = $2, created_at = created_at + ($3 * interval \'1 second\') WHERE id = $1', [row.id, names[i], i]);
+    const inList = (await get(priya, `/jobs?scope=all&limit=100&idPrefix=${job.jobId.slice(0, 8)}`)).body.items[0].fileNames as string[];
+    const inPanel = (await get(priya, `/jobs/${job.jobId}/tasks?page=1&limit=100`)).body.tasks.map((t: { fileName: string }) => t.fileName) as string[];
+    expect(inList).toEqual(inPanel);
+    expect(new Set(inList)).toEqual(new Set(names));
+  });
+
   it('only narrows: scope=mine and team still answer as before, and no filter shows a job the scope does not allow', async () => {
     expect(idsOf((await get(raj, '/jobs?scope=mine&limit=100')).body.items)).not.toContain(fromPriya.jobId);
     expect(idsOf(await list(sam, `sender=${ids[priya]}`))).toEqual([]); // Sam is in no team of Priya's

@@ -35,6 +35,15 @@ export const UPLOAD_STATUS_MEANING: Record<FileStatus, string> = {
   unchecked: FILE_REASON.SCAN_FAILED,
 };
 
+/**
+ * What the panel tells the sender when deliveries failed and Retry can no longer help, by the reason the API gives for the closed
+ * retry (D-F1-81). A distribution with nothing to retry says nothing.
+ */
+export const RETRY_ENDED: Record<string, string | undefined> = {
+  RETRY_WINDOW_CLOSED: 'Retry has ended (24 hours after this finished). Send the files again as a new distribution.',
+  JOB_CANCELLED: 'This distribution was cancelled. Send the files again as a new distribution.',
+};
+
 /** Why a file left the Files list on its own: the scan found malware and the stored file was deleted (D-F1-78). It goes in the "not added" box. */
 export const INFECTED_REASON = FILE_REASON.MALWARE;
 

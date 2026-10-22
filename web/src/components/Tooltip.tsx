@@ -10,6 +10,31 @@ const MARGIN = 8;
 const GAP = 6;
 const MAX_WIDTH = 320;
 
+/**
+ * A tooltip shows on hover, and on focus only when the keyboard moved the focus there (D-F1-81). Focus that the app moves (a dialog
+ * opening, the focus going back to a button after Esc or Close) shows nothing. The page notes when the last key that moves the
+ * focus was pressed: a focus that comes right after one is the keyboard's.
+ */
+const NAV_KEYS = new Set(['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+const KEY_FOCUS_MS = 300;
+let lastNavKeyAt = Number.NEGATIVE_INFINITY;
+/** Counts the focus-moving key presses, so one key press shows a tooltip once: focus that comes back to the same button later does not. */
+let navKeyCount = 0;
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', (event) => {
+    if (!NAV_KEYS.has(event.key)) return;
+    lastNavKeyAt = Date.now();
+    navKeyCount += 1;
+  }, true);
+}
+const keyboardMovedFocus = (): number | null => (Date.now() - lastNavKeyAt < KEY_FOCUS_MS ? navKeyCount : null);
+
+/** The event that closes every open tooltip at once, with no fade: a dialog opening sends it (D-F1-81). */
+const CLOSE_ALL = 'docbeam:close-tooltips';
+export const closeAllTooltips = (): void => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CLOSE_ALL));
+};
+
 interface Props {
   /** What it says. Nothing (undefined or empty) means no tooltip and no wrapper. */
   text: string | undefined;
@@ -45,6 +70,7 @@ export function Tooltip({ text, children, block = false, openOnClick = false, wi
   const tip = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const mouseDown = useRef(false);
+  const shownForKey = useRef(-1);
   const id = useId();
   const mounted = open || leaving;
 
@@ -96,6 +122,15 @@ export function Tooltip({ text, children, block = false, openOnClick = false, wi
   }, [open]);
 
   useEffect(() => stop, []);
+  useEffect(() => {
+    const closeNow = (): void => {
+      stop();
+      setOpen(false);
+      setLeaving(false);
+    };
+    window.addEventListener(CLOSE_ALL, closeNow);
+    return () => window.removeEventListener(CLOSE_ALL, closeNow);
+  }, []);
 
   // The wrapper stays even with no text (the text comes and goes, as for a disabled button), so the trigger is never remounted.
   const on = !!text;
@@ -122,13 +157,18 @@ export function Tooltip({ text, children, block = false, openOnClick = false, wi
           if (openOnClick && on) show();
         }}
         onFocus={(event) => {
-          // Keyboard focus shows it at once; focus that a click brought does not (the pointer already had its turn).
+          // Focus that a click brought does not show it (the pointer already had its turn).
           if (mouseDown.current) {
             mouseDown.current = false;
             return;
           }
-          // Something the code focuses (a heading with tabindex -1, where the focus lands after a send) is not a keyboard stop: no tooltip.
-          if (on && (event.target as HTMLElement).getAttribute('tabindex') !== '-1') show();
+          // Keyboard focus shows it at once. Focus the app moved (a dialog opening, focus returning after Esc or Close, a heading with
+          // tabindex -1 after a send) is not a keyboard stop: no tooltip (D-F1-81).
+          const key = keyboardMovedFocus();
+          if (on && key !== null && key !== shownForKey.current && (event.target as HTMLElement).getAttribute('tabindex') !== '-1') {
+            shownForKey.current = key;
+            show();
+          }
         }}
         onBlur={hide}
       >

@@ -366,7 +366,7 @@ test('the filter row: Status, Sender, Sent, Team; set filters show on their butt
   // Two filters at once; the address keeps both and a reload opens the same list.
   await pickFilter(page, 'Sender', 'Me');
   await expect(bar.getByRole('button', { name: 'Sender: Me' })).toHaveClass(/on/);
-  await expect(page).toHaveURL(/#\/status\?status=cancelled&sender=me$/);
+  await expect(page).toHaveURL(/#\/status\?status=cancelled&sender=[0-9a-f-]{36}$/); // the person's id, never the word "me" (D-F1-81)
   await page.reload();
   await expect(bar.getByRole('button', { name: 'Status: Cancelled' })).toBeVisible();
   await expect(bar.getByRole('button', { name: 'Sender: Me' })).toBeVisible();

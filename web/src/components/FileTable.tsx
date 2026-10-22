@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { UPLOAD_STATUS_MEANING } from '../explain.js';
 import { formatSize } from '../distribute/files.js';
+import { plural } from '../text.js';
 import type { Mapping } from '../distribute/mapping.js';
 import type { PageFile } from '../upload/manager.js';
 import { PreviewButton } from './FileActions.js';
@@ -76,6 +77,14 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
   const allOn = files.length > 0 && files.every((f) => selected.has(f.id));
   const someOn = !allOn && files.some((f) => selected.has(f.id));
   const rows = useRef<HTMLDivElement>(null);
+  // Two files may have the same name (different contents, D-F1-81): their buttons must still be told apart, so a name that is in the list more than once
+  // is followed by which one it is ("report.pdf (2 of 3 with this name)").
+  const sameName = new Map<string, string[]>();
+  for (const f of files) sameName.set(f.name, [...(sameName.get(f.name) ?? []), f.id]);
+  const named = (f: { id: string; name: string }): string => {
+    const ids = sameName.get(f.name) ?? [];
+    return ids.length > 1 ? `${f.name} (${ids.indexOf(f.id) + 1} of ${ids.length} with this name)` : f.name;
+  };
 
   // Up and Down move between rows; the rows are the tab stops of the grid (one Tab goes into it, arrows move in it).
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -152,7 +161,7 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                 {/* The row itself selects on a click or Enter; this box says what the selection is for, and is a click target
                     like the rest of the row (D-F1-23). */}
                 <Tooltip text="Select to choose folders for this file">
-                  <span className={`box ${on ? 'on' : ''}`} role="checkbox" aria-checked={on} aria-label="Select to choose folders for this file">
+                  <span className={`box ${on ? 'on' : ''}`} role="checkbox" aria-checked={on} aria-label={`Select ${named(f)} to choose folders for this file`}>
                     {on ? <CheckIcon size={12} /> : null}
                   </span>
                 </Tooltip>
@@ -189,24 +198,24 @@ export function FileTable({ files, listed = files, onClearFilter, mapping, selec
                   <span className="dot-text warn">None yet</span>
                 ) : (
                   <Popover
-                    label={paths.length === 1 ? '1 folder' : `${paths.length} folders`}
-                    ariaLabel={`Show the ${paths.length === 1 ? 'folder' : `${paths.length} folders`} of ${f.name}`}
-                    panelLabel={`Folders of ${f.name}`}
+                    label={plural(paths.length, 'folder', 'folders')}
+                    ariaLabel={`Show the ${paths.length === 1 ? 'folder' : plural(paths.length, 'folder', 'folders')} of ${named(f)}`}
+                    panelLabel={`Folders of ${named(f)}`}
                     items={paths}
                   />
                 )}
               </div>
               <div className="actions" role="gridcell">
-                <PreviewButton name={f.name} onClick={() => onPreview(f.id)} {...(f.restored ? { offBecause: 'It is not available after a reload.' } : {})} />
+                <PreviewButton name={named(f)} onClick={() => onPreview(f.id)} {...(f.restored ? { offBecause: 'It is not available after a reload.' } : {})} />
                 {canRetry && (
                   <Tooltip text={`Retry upload of ${f.name}`}>
-                    <button className="icon" type="button" aria-label={`Retry upload of ${f.name}`} onClick={() => onRetry(f.id)}>
+                    <button className="icon" type="button" aria-label={`Retry upload of ${named(f)}`} onClick={() => onRetry(f.id)}>
                       <RetryIcon />
                     </button>
                   </Tooltip>
                 )}
                 <Tooltip text={`Remove ${f.name}`}>
-                  <button className="icon" type="button" aria-label={`Remove ${f.name}`} onClick={() => onRemove(f.id)}>
+                  <button className="icon" type="button" aria-label={`Remove ${named(f)}`} onClick={() => onRemove(f.id)}>
                     <CloseIcon />
                   </button>
                 </Tooltip>

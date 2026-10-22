@@ -27,6 +27,8 @@ export interface FileState {
   fileId: string;
   uploaded: boolean;
   scanStatus: 'pending' | 'clean' | 'infected' | 'failed';
+  /** When the file's row was made, which is what the 24 hours of POST /jobs count from (ISO time). */
+  createdAt?: string;
 }
 
 export interface JobRequest {

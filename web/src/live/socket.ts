@@ -81,6 +81,16 @@ export class LiveClient {
     this.create = options.createSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike);
     this.backoff = options.backoffMs ?? [1_000, 2_000, 4_000, 8_000, 15_000];
     this.ackTimeout = options.ackTimeoutMs ?? 5_000;
+    // When the browser is back online the wait of the backoff is not needed: connect at once (D-F1-81).
+    if (typeof window !== 'undefined') window.addEventListener('online', () => this.reconnectNow());
+  }
+
+  /** Connects now if the connection is down and someone is signed in, instead of waiting for the next backoff. */
+  reconnectNow(): void {
+    if (!this.token || this.socket !== null) return;
+    clearTimeout(this.retry);
+    this.attempt = 0;
+    this.connect();
   }
 
   /** Call with the current access token. A different token reconnects at once; null disconnects for good. */

@@ -4,7 +4,8 @@ export interface UploadedObject {
   fileId: string;
 }
 
-const KEY = /^staging\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+// staging/{owner}/{fileId}, or staging/{owner}/{fileId}/{name} for an upload made after D-F1-81. Both are read.
+const KEY = /^staging\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/[^/]+)?$/i;
 
 interface S3EventBody {
   Event?: string;
@@ -13,7 +14,7 @@ interface S3EventBody {
 
 /**
  * The objects named by one queue message. S3 sends a test event when the notification is set up, and the
- * bucket may in future hold other prefixes: anything that is not `staging/{owner}/{fileId}` is left out.
+ * bucket may in future hold other prefixes: anything that is not `staging/{owner}/{fileId}` (or that with a name after it) is left out.
  */
 export function parseUploadEvents(body: string): UploadedObject[] {
   let parsed: S3EventBody;

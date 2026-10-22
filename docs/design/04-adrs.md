@@ -172,7 +172,7 @@ Context. A job's tasks finish over seconds to minutes, and the dashboard must up
 - A ws_connections table records which connection watches which job, because the WebSocket API has no built-in subscriptions.
 - Each connection record keeps the user token's expiry and the viewer's teams. Nothing is pushed to an expired connection, and an update about a delivery goes only to the sender and to viewers in that delivery's team. Someone removed from a team therefore stops getting updates within 15 minutes, when the page must reconnect and is checked again.
 - WS Handler Lambdas run on connect, subscribe and disconnect to keep that table accurate. Subscribe applies the same visibility rule as reading a job, and answers on the connection (subscribed, or not found), so the page knows when it may fetch.
-- The browser subscribes before fetching a job's tasks, and refetches after every reconnect, so no update is missed.
+- The browser subscribes, and asks for the job and its first page of deliveries at the same time (D-F1-81, which changed the earlier "subscribe, wait, then fetch"). A push only comes after the server has recorded the subscription, so when the subscribe answer is in and the job still had pending or in-progress work, the browser reads it once more; a finished job needs no second read. It refetches after every reconnect, so no update is missed.
 - A second API Gateway to configure and monitor.
 - The WS Handlers have reserved concurrency 3 to fit the dev connection budget. A burst beyond that is throttled, and the page retries, or fetches without the live connection.
 - The WebSocket stage keeps no access log, because that needs an account-wide CloudWatch role; the handler's own logs are used instead.

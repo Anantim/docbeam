@@ -30,9 +30,10 @@ test('1024 px and up: the page does not scroll; the title and filters stay; the 
     expect((await pageScroll(page)).max, `the page has nothing to scroll at ${width} px`).toBeLessThanOrEqual(1);
     const list = await scrollInfo(page, '.dist-scroll');
     expect(list.max, 'the list has more rows than fit').toBeGreaterThan(100);
-    // A visible scrollbar: the area always scrolls (`overflow-y: scroll`) and uses the app's one slim scrollbar. (The test
-    // browser is started with scrollbars hidden, so the bar itself cannot be measured here; the screenshots are of the same page.)
-    expect(await page.evaluate(`getComputedStyle(document.querySelector('.dist-scroll')).overflowY`)).toBe('scroll');
+    // A scrollbar only when there is something to scroll (`overflow-y: auto`, D-F1-81), with a stable gutter so the columns do not move, and the
+    // app's one slim scrollbar. (The test browser is started with scrollbars hidden, so the bar itself cannot be measured here.)
+    expect(await page.evaluate(`getComputedStyle(document.querySelector('.dist-scroll')).overflowY`)).toBe('auto');
+    expect(await page.evaluate(`getComputedStyle(document.querySelector('.dist-scroll')).scrollbarGutter`)).toBe('stable');
     expect(await page.evaluate(`getComputedStyle(document.querySelector('.dist-scroll')).scrollbarWidth`)).toBe('thin');
     const heading = (await page.getByRole('heading', { name: 'Distributions' }).boundingBox())!;
     const filters = (await page.getByRole('group', { name: 'Filters' }).boundingBox())!;

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { destinationKey, type Destination } from '../destinations/selection.js';
 import { keepSelected, pickRow, type Pick } from '../distribute/rows.js';
 import { acceptFiles, formatSize, type Rejected } from '../distribute/files.js';
+import { LIMITS } from '@docbeam/shared/browser';
 import {
   applyHeld,
   buildJobRequest,
+  chosenKeys,
   emptyMapping,
   readiness,
   removeFile,
@@ -15,7 +17,7 @@ import {
   type Mapping,
 } from '../distribute/mapping.js';
 import { loadBatch, saveBatch } from '../distribute/batch-store.js';
-import { INFECTED_REASON } from '../explain.js';
+import { num, plural } from '../text.js';
 import { Submission } from '../distribute/submit.js';
 import { submitJob } from '../upload/api.js';
 import { uploadManager } from '../upload/instance.js';
@@ -63,15 +65,23 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   // one still being read or uploaded, or one that failed and must be added again.
   useLeaveWarning(files.some((f) => !(f.status === 'checking' || f.status === 'verified')));
 
-  // A file with malware leaves the list by itself, with its selection and folder ticks, and the "not added" box says why (D-F1-78).
+  // A file the manager takes out by itself (malware, the same contents as another file, more than 24 hours since its upload) leaves
+  // the list with its selection and folder ticks, and the "not added" box says why (D-F1-78, D-F1-81).
   useEffect(
     () =>
-      manager.onInfected((gone) => {
+      manager.onDropped((gone) => {
         setMapping((m) => removeFile(m, gone.id));
-        setRejected((r) => [...r, { name: gone.name, reason: INFECTED_REASON }]);
+        setRejected((r) => [...r, { name: gone.name, reason: gone.reason }]);
       }),
     [manager],
   );
+
+  // A file passes 24 hours on the page: checked when the screen opens and about once a minute.
+  useEffect(() => {
+    manager.expire();
+    const timer = setInterval(() => manager.expire(), 60_000);
+    return () => clearInterval(timer);
+  }, [manager]);
 
   // The batch comes back after a reload: the files that are stored and clean, with their folder ticks. Saving waits until this
   // has been tried, so the empty page of the first moment does not wipe what is kept.
@@ -87,7 +97,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
       return;
     }
     let live = true;
-    void manager.restore(batch.files).then(({ restored, dropped, unreachable }) => {
+    void manager.restore(batch.files).then(({ restored, dropped, removed, unreachable }) => {
       if (!live) return;
       if (unreachable) {
         // The server could not be asked: the stored batch stays as it is for the next reload, and saving waits until a file is added.
@@ -95,7 +105,8 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         return;
       }
       setMapping(withTicks(new Set(restored)));
-      if (dropped > 0) notify(`${dropped} ${dropped === 1 ? 'file' : 'files'} couldn't be restored.`, 'error');
+      if (removed.length > 0) setRejected((r) => [...r, ...removed.map(({ name, reason }) => ({ name, reason }))]);
+      if (dropped > 0) notify(`${plural(dropped, 'file', 'files')} couldn't be restored.`, 'error');
       restoredOnce.current = true;
     });
     return () => {
@@ -111,14 +122,15 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const selectedFiles = files.filter((f) => selected.has(f.id));
   const state = readiness(mapping, [...files]);
   const summary = summarise(mapping, [...files]);
+  const chosen = useMemo(() => new Set(chosenKeys(mapping, [...files])), [mapping, files]);
 
   const scopeTitle =
     selectedFiles.length > 0
       ? selectedFiles.length === 1
         ? '1 selected file'
-        : `${selectedFiles.length} selected files`
+        : `${num(selectedFiles.length)} selected files`
       : files.length > 0
-        ? `all ${files.length} ${files.length === 1 ? 'file' : 'files'}`
+        ? `all ${plural(files.length, 'file', 'files')}`
         : 'all files';
 
   const pickFiles = useCallback(
@@ -127,7 +139,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
       // Each file's first bytes are read before it is added (D-F1-44), so this answers a moment later. Picks are handled one
       // after the other, so two quick drops each count the files the first one added and cannot go over the cap together.
       queue.current = queue.current.then(async () => {
-        const { accepted, rejected: refused } = await acceptFiles(manager.getSnapshot().length, picked);
+        const { accepted, rejected: refused } = await acceptFiles(manager.getSnapshot(), picked);
         if (refused.length > 0) setRejected((r) => [...r, ...refused]);
         if (accepted.length > 0) {
           manager.add(accepted);
@@ -212,7 +224,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             rejected={rejected}
             onDismiss={() => setRejected([])}
             tools={<ListFilter ref={fileFilterBox} value={fileFilter} onChange={setFileFilter} label="Filter files" className="files-filter" disabled={files.length === 0} />}
-            hint={fileFilter.trim() !== '' ? `Showing ${listed.length} of ${files.length}` : undefined}
+            hint={fileFilter.trim() !== '' ? `Showing ${num(listed.length)} of ${num(files.length)}` : undefined}
           >
             <FileTable
               files={files}
@@ -235,6 +247,8 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             onToggle={onToggleDestination}
             onTeams={onTeams}
             scopeTitle={scopeTitle}
+            // At 20 folders the others can't be ticked (D-F1-81); a folder that is one of the 20 still can, and every one can be unticked.
+            locked={(d) => chosen.size >= LIMITS.maxDestinationsPerJob && !chosen.has(destinationKey(d))}
             stateOf={(d) => tickState(mapping, [...scopeIds], destinationKey(d))}
             filesOf={(d) => {
               // The files in scope (the selected ones, or all) that go to this folder.
@@ -259,7 +273,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
 
       {askingClear && (
         <ConfirmDialog
-          heading={`Remove all ${files.length} ${files.length === 1 ? 'file' : 'files'} and their folder ticks?`}
+          heading={files.length === 1 ? 'Remove this file and its folder ticks?' : `Remove all ${num(files.length)} files and their folder ticks?`}
           confirmLabel="Clear"
           cancelLabel="Keep them"
           onConfirm={() => {

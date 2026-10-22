@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { num } from '../text.js';
 import { Popover } from './Popover.js';
 import { Tooltip } from './Tooltip.js';
 
@@ -60,7 +61,7 @@ export function TeamChips({ teams }: { teams: readonly string[] }) {
             <Chip name={n} />
           </span>
         ))}
-        {hidden > 0 && <Popover label={`+${hidden}`} ariaLabel={`Show all ${names.length} teams`} panelLabel="Teams" items={names} align="end" />}
+        {hidden > 0 && <Popover label={`+${num(hidden)}`} ariaLabel={`Show all ${num(names.length)} teams`} panelLabel="Teams" items={names} align="end" />}
       </span>
     </span>
   );

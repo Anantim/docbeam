@@ -44,10 +44,10 @@ export interface ObjectStore {
  * and control characters taken out; `filename*` carries the real name, percent-encoded (RFC 6266 and 5987).
  */
 export function contentDisposition(fileName: string, mode: 'download' | 'preview'): string {
-  if (mode === 'preview') return 'inline';
   const fallback = fileName.replace(/[^\x20-\x7e]|["\\/;]/g, '_') || 'file';
   const encoded = encodeURIComponent(fileName).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+  // A preview opens inline and still carries the name, so a viewer with no title for the file shows it (D-F1-81).
+  return `${mode === 'preview' ? 'inline' : 'attachment'}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }
 
 /** The header the browser must send with each part so that S3 checks the part's SHA-256. */

@@ -60,11 +60,11 @@ export function registerJobReadRoutes(app: FastifyInstance, db: Db, { platform }
     const out = new Map<string, { fileNames: string[]; destinations: string[] }>();
     if (jobIds.length === 0) return out;
     // The names, not only the counts: the list shows the first file and the first two folders and lists the rest in a
-    // popover (D-F1-40). A distribution has at most 100 files and 20 folders, so the lists are small. Files are in the
-    // order they were added; folders by path.
+    // popover (D-F1-40). A distribution has at most 100 files and 20 folders, so the lists are small. Files are by name, the
+    // same order as the deliveries of the panel (D-F1-81); folders by path.
     const result = await db.execute<{ job_id: string; file_names: string[]; destinations: string[] }>(sql`
       SELECT v.job_id,
-             array_agg(v.name ORDER BY v.added, v.name) FILTER (WHERE v.name IS NOT NULL) AS file_names,
+             array_agg(v.name ORDER BY v.name, v.file_id) FILTER (WHERE v.name IS NOT NULL) AS file_names,
              (SELECT array_agg(DISTINCT t2.destination_path ORDER BY t2.destination_path)
                 FROM tasks t2 JOIN jobs j2 ON j2.id = t2.job_id
                WHERE t2.job_id = v.job_id AND (j2.submitted_by_user_id = ${userId} OR t2.team_id = ANY(${pgArray(teams, 'uuid')}))) AS destinations

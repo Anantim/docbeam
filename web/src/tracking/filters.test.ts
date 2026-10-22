@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { filtersFromParams, filtersToQuery, isUnfiltered, jobsQuery, sameFilters, sentSince } from './filters.js';
+import { applicableFilters, filtersFromParams, filtersToQuery, isUnfiltered, jobsQuery, needsChoices, sameFilters, sentSince, withoutUnjudged } from './filters.js';
+
+describe('the filters that apply to a person (D-F1-81)', () => {
+  const me = 'u-me';
+  const choices = { meId: me, memberIds: ['u-a', me], teamIds: ['t1', 't2'] };
+  it('keeps a team the person is in (when in several) and a sender in their teams, and turns "me" into their id', () => {
+    expect(applicableFilters({ team: 't2', sender: 'u-a', status: 'completed' }, choices)).toEqual({ team: 't2', sender: 'u-a', status: 'completed' });
+    expect(applicableFilters({ sender: 'me' }, choices)).toEqual({ sender: me });
+  });
+  it('drops a team that is not theirs, a team when they are in only one, and a stranger', () => {
+    expect(applicableFilters({ team: 'other' }, choices)).toEqual({});
+    expect(applicableFilters({ team: 't1' }, { ...choices, teamIds: ['t1'] })).toEqual({});
+    expect(applicableFilters({ sender: 'stranger', sent: 'today' }, choices)).toEqual({ sent: 'today' });
+  });
+  it('knows which filters need the teams to be judged, and what stands until they are in', () => {
+    expect(needsChoices({ status: 'completed' }, me)).toBe(false);
+    expect(needsChoices({ sender: me }, me)).toBe(false);
+    expect(needsChoices({ sender: 'me' }, me)).toBe(false);
+    expect(needsChoices({ sender: 'u-a' }, me)).toBe(true);
+    expect(needsChoices({ team: 't1' }, me)).toBe(true);
+    expect(withoutUnjudged({ team: 't1', sender: 'u-a', status: 'cancelled' }, me)).toEqual({ status: 'cancelled' });
+  });
+});
 
 const USER = '3f1c2a9e-84d5-4b6a-9c11-0a5f6d7e8b90';
 const TEAM = 'efa09ad5-68e8-5761-bc3c-3acbcf971c75';

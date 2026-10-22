@@ -19,9 +19,9 @@ export function registerFileRoutes(app: FastifyInstance, db: Db): void {
     }
 
     const rows = await db
-      .select({ id: files.id, uploadedAt: files.uploadedAt, scanStatus: files.scanStatus })
+      .select({ id: files.id, uploadedAt: files.uploadedAt, scanStatus: files.scanStatus, createdAt: files.createdAt })
       .from(files)
       .where(and(eq(files.ownerUserId, principal.userId), inArray(files.id, wanted)));
-    return rows.map((r) => ({ fileId: r.id, uploaded: r.uploadedAt !== null, scanStatus: r.scanStatus }));
+    return rows.map((r) => ({ fileId: r.id, uploaded: r.uploadedAt !== null, scanStatus: r.scanStatus, createdAt: r.createdAt.toISOString() }));
   });
 }

@@ -85,7 +85,7 @@ describe('TaskTable at the size the side panel gives it (D-F1-15)', () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={640} />);
     await screen.findByText(name(0));
-    expect(screen.getByRole('table', { name: 'Deliveries, 2000' })).toBeTruthy(); // the count is in the accessible name (D-F1-30)
+    expect(screen.getByRole('table', { name: 'Deliveries, 2,000' })).toBeTruthy(); // the count is in the accessible name (D-F1-30)
     expect(screen.getByRole('region', { name: 'Delivery rows, scrolls' })).toBeTruthy();
   });
 
@@ -226,12 +226,12 @@ describe('the attempts and the reason in the tooltip, nothing under the chip (D-
     expect(chipOf(4).textContent).toBe('Cancelled');
     expect(tooltipOf(chipOf(4))).toBe('Cancelled by the sender before it was delivered.');
     // The info icon says the same; nothing is written under a chip and no raw code or platform text appears.
-    expect(tooltipOf(within(rowOf(3)).getByRole('button', { name: 'Why this delivery failed' }))).toBe("The file never finished uploading, so it couldn't be delivered.");
-    expect(tooltipOf(within(rowOf(4)).getByRole('button', { name: 'Why this delivery was cancelled' }))).toBe('Cancelled by the sender before it was delivered.');
+    expect(tooltipOf(within(rowOf(3)).getByRole('button', { name: /^Why this delivery failed: / }))).toBe("The file never finished uploading, so it couldn't be delivered.");
+    expect(tooltipOf(within(rowOf(4)).getByRole('button', { name: /^Why this delivery was cancelled: / }))).toBe('Cancelled by the sender before it was delivered.');
     expect(document.querySelector('.tattempt-note, .reason, .code')).toBeNull();
     expect(document.body.textContent).not.toMatch(/RETRIES_EXHAUSTED|FILE_NOT_UPLOADED|raw platform text/);
     // Details: Preview and Download on the delivered row only.
-    expect(within(rowOf(0)).getByRole('button', { name: `Preview ${name(0)}` })).toBeTruthy();
+    expect(within(rowOf(0)).getByRole('button', { name: new RegExp(`^Preview ${name(0)}`) })).toBeTruthy();
     expect(within(rowOf(2)).queryByRole('button', { name: /^Preview/ })).toBeNull();
     expect(document.querySelector('.tdetail .muted')).toBeNull(); // no "In the queue", "Delivering now" or "File expired" words
   });
@@ -291,15 +291,15 @@ describe('TaskTable in the panel: fade and focus (D-F1-26)', () => {
     expect(box.scrollTop).toBe(0);
     // Row 7 is drawn (a little beyond the box) but its top, 7 rows down, is below the 320 px box. A mouse click moves nothing.
     fireEvent.pointerDown(box);
-    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(7)}` }));
+    fireEvent.focusIn(screen.getByRole('button', { name: new RegExp(`^Preview ${name(7)}`) }));
     expect(box.scrollTop).toBe(0);
     fireEvent.keyDown(box, { key: 'Tab' }); // keyboard focus does
-    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(7)}` }));
+    fireEvent.focusIn(screen.getByRole('button', { name: new RegExp(`^Preview ${name(7)}`) }));
     expect(box.scrollTop).toBe(7 * ROW_HEIGHT + ROW_HEIGHT + 24 - 320); // its bottom plus the room kept under it, at the box's bottom
     // And back up: focus in a row above the box scrolls up to it.
     fireEvent.scroll(box, { target: { scrollTop: 720 } });
     await screen.findByText(name(15));
-    fireEvent.focusIn(screen.getByRole('button', { name: `Preview ${name(12)}` }));
+    fireEvent.focusIn(screen.getByRole('button', { name: new RegExp(`^Preview ${name(12)}`) }));
     expect(box.scrollTop).toBe(12 * ROW_HEIGHT);
   });
 });
@@ -309,7 +309,7 @@ describe('TaskTable', () => {
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} viewportHeight={320} />);
     await screen.findByText(name(0));
-    expect(screen.getByRole('table', { name: `Deliveries, ${TOTAL}` }).getAttribute('aria-rowcount')).toBe(String(TOTAL + 1));
+    expect(screen.getByRole('table', { name: `Deliveries, ${TOTAL.toLocaleString('en-US')}` }).getAttribute('aria-rowcount')).toBe(String(TOTAL + 1));
     const drawn = screen.getAllByRole('row').length - 1; // minus the header
     expect(drawn).toBeGreaterThan(4);
     expect(drawn).toBeLessThan(30);
@@ -410,11 +410,11 @@ describe('TaskTable', () => {
     });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
-    const expired = await screen.findByRole('button', { name: "Why this file can't be opened" });
+    const expired = await screen.findByRole('button', { name: /^Why this file can't be opened: / });
     expect(tooltipOf(expired)).toMatch(/more than 33 days old/);
 
-    const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
-    const preview = screen.getByRole('button', { name: `Preview ${name(1)}` }) as HTMLButtonElement;
+    const download = screen.getByRole('button', { name: new RegExp(`^Download ${name(1)}`) }) as HTMLButtonElement;
+    const preview = screen.getByRole('button', { name: new RegExp(`^Preview ${name(1)}`) }) as HTMLButtonElement;
     expect(download.disabled).toBe(false);
     expect(preview.disabled).toBe(false);
     expect(tooltipOf(download)).toBe(`Download ${name(1)}`);
