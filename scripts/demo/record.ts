@@ -196,6 +196,13 @@ try {
   await notAdded.waitFor();
   await say('The type comes from the contents, not the name. A picture renamed to .pdf is not added.', 3000);
   await click(notAdded.getByRole('button', { name: 'Close' }));
+  // The same file dropped a second time (same name, size and time) is not added either (D-F1-81).
+  await page.getByLabel('Choose files').setInputFiles(pdfs[0] as string);
+  const again = page.locator('.notice').filter({ hasText: 'This file is already in the list.' });
+  await again.waitFor();
+  await again.scrollIntoViewIfNeeded();
+  await say('The same file a second time is not added: it is already in the list. A renamed copy with the same contents is refused too.', 3500);
+  await click(again.getByRole('button', { name: 'Close' }));
   await page.getByLabel('Choose files').setInputFiles(join(FILES, 'EICAR test file.docx')); // a real DOCX with the test string inside (scripts/eicar-docx.ts)
   // The scan finds the test string: the file leaves the list by itself, and the "not added" box says why (D-F1-78).
   const malware = page.locator('.notice').filter({ hasText: 'Malware was found' });
