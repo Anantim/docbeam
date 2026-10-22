@@ -664,7 +664,7 @@ sequenceDiagram
 | 6 | The status chip | `GET /jobs` → `items[].status` (the word and the colour are chosen in the browser) |
 | 7 | Sent | `GET /jobs` → `items[].createdAt` (written as "Today, 12:41" in the browser) |
 | 8 | Files | `GET /jobs` → `items[].fileNames[0]` (the first file; the rest are the "+N") |
-| 9 | Destinations | `GET /jobs` → `items[].destinations` (the first two folder names, from the paths) |
+| 9 | Destinations | `GET /jobs` → `items[].destinations` (the first two folders, each as "team · folder" from its path; the full path is the tooltip) |
 
 ![Opening Status](user-flow/img/net-5b-list.png)
 

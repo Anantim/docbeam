@@ -527,7 +527,7 @@ try {
     { n: 6, target: page.locator('.dist-table tbody tr').first().locator('.status-chip'), label: 'GET /jobs → items[].status (a word and a colour chosen in the browser)' },
     { n: 7, target: page.locator('.dist-table tbody tr').first().locator('time'), label: 'GET /jobs → items[].createdAt (written as "Today, 12:41" in the browser)' },
     { n: 8, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').first(), label: 'GET /jobs → items[].fileNames[0] (the first file; the rest are the +N)' },
-    { n: 9, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').nth(1), label: 'GET /jobs → items[].destinations (the first two folder names)' },
+    { n: 9, target: page.locator('.dist-table tbody tr').first().locator('.cell-text').nth(1), label: 'GET /jobs → items[].destinations (the first two folders as "team · folder"; the full path on hover)' },
   ]);
 
   setStep('5-filter');

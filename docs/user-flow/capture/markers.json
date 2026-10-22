@@ -166,7 +166,7 @@
     },
     {
       "n": 2,
-      "label": "GET /jobs/{jobId} → submittedBy.name, createdAt · the team note: GET /teams (your team names)"
+      "label": "GET /jobs/{jobId} → submittedBy.name, createdAt · a team member's note names the teams in destinations[] (the folder paths): no extra call"
     },
     {
       "n": 3,
@@ -210,11 +210,11 @@
     },
     {
       "n": 3,
-      "label": "GET /jobs/{jobId}/tasks → failureCode, turned into a sentence in the browser"
+      "label": "GET /jobs/{jobId}/tasks → status \"failed\""
     },
     {
       "n": 4,
-      "label": "GET /jobs/{jobId}/tasks → status \"failed\""
+      "label": "GET /jobs/{jobId}/tasks → failureCode, turned into a sentence in the browser"
     }
   ],
   "05e-list-error": [
@@ -234,7 +234,7 @@
     },
     {
       "n": 2,
-      "label": "GET /jobs/{jobId} → isSender false, submittedBy.name · the note names Raj's teams (GET /teams)"
+      "label": "GET /jobs/{jobId} → isSender false, submittedBy.name · the note names the teams in destinations[] (the folder paths of the deliveries Raj may see): no extra call"
     },
     {
       "n": 3,
