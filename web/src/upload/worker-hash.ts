@@ -30,7 +30,7 @@ export function createWorkerHasher(): (file: Blob, multipart: boolean, onProgres
       const onError = () => {
         finish();
         worker = undefined;
-        reject(new Error('Could not read the file.'));
+        reject(new Error("Couldn't read the file."));
       };
       w.addEventListener('message', onMessage);
       w.addEventListener('error', onError);

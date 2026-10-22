@@ -41,15 +41,18 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (err instanceof ApiError) {
       return reply.status(err.statusCode).send(errorBody(err.code, err.message));
     }
+    // A message of the library underneath (a schema failure, a broken JSON body, a body that is too large) is for the logs, not for
+    // the person: they get a plain sentence (D-F1-78).
     if ('validation' in err && err.validation) {
-      return reply.status(400).send(errorBody('VALIDATION_ERROR', err.message));
+      return reply.status(400).send(errorBody('VALIDATION_ERROR', 'The request is not valid.'));
     }
     const status = err.statusCode ?? 500;
     if (status >= 500) {
       request.log.error({ err }, 'request failed');
       return reply.status(500).send(errorBody('INTERNAL_ERROR', 'Something went wrong.'));
     }
-    return reply.status(status).send(errorBody(status === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', err.message));
+    if (status === 404) return reply.status(404).send(errorBody('NOT_FOUND', 'Not found.'));
+    return reply.status(status).send(errorBody('VALIDATION_ERROR', status === 413 ? 'The request is too large.' : 'The request is not valid.'));
   });
 
   app.setNotFoundHandler((_request, reply) => reply.status(404).send(errorBody('NOT_FOUND', 'Not found.')));

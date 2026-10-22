@@ -6,7 +6,6 @@ import {
   applyHeld,
   buildJobRequest,
   emptyMapping,
-  isUsable,
   readiness,
   removeFile,
   scopeOf,
@@ -16,11 +15,13 @@ import {
   type Mapping,
 } from '../distribute/mapping.js';
 import { loadBatch, saveBatch } from '../distribute/batch-store.js';
+import { INFECTED_REASON } from '../explain.js';
 import { Submission } from '../distribute/submit.js';
 import { submitJob } from '../upload/api.js';
 import { uploadManager } from '../upload/instance.js';
 import type { UploadManager } from '../upload/manager.js';
 import { AddFiles } from './AddFiles.js';
+import { ConfirmDialog } from './ConfirmDialog.js';
 import { Destinations } from './Destinations.js';
 import { FileTable } from './FileTable.js';
 import { ListFilter, matchesFilter } from './ListFilter.js';
@@ -53,13 +54,24 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
   const fileFilterBox = useRef<HTMLInputElement>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const [asking, setAsking] = useState(false);
+  const [askingClear, setAskingClear] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const submit = useMemo(() => submission ?? new Submission(submitJob), [submission]);
 
   // A reload keeps the files that are already on the server (D-F1-66), so the browser asks first only when a file would be lost:
   // one still being read or uploaded, or one that failed and must be added again.
-  useLeaveWarning(files.some((f) => !(f.status === 'checking' || f.status === 'verified' || f.status === 'infected')));
+  useLeaveWarning(files.some((f) => !(f.status === 'checking' || f.status === 'verified')));
+
+  // A file with malware leaves the list by itself, with its selection and folder ticks, and the "not added" box says why (D-F1-78).
+  useEffect(
+    () =>
+      manager.onInfected((gone) => {
+        setMapping((m) => removeFile(m, gone.id));
+        setRejected((r) => [...r, { name: gone.name, reason: INFECTED_REASON }]);
+      }),
+    [manager],
+  );
 
   // The batch comes back after a reload: the files that are stored and clean, with their folder ticks. Saving waits until this
   // has been tried, so the empty page of the first moment does not wipe what is kept.
@@ -79,11 +91,11 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
       if (!live) return;
       if (unreachable) {
         // The server could not be asked: the stored batch stays as it is for the next reload, and saving waits until a file is added.
-        notify('Your files could not be checked. Reload to try again.', 'error');
+        notify("Your files couldn't be checked. Reload to try again.", 'error');
         return;
       }
       setMapping(withTicks(new Set(restored)));
-      if (dropped > 0) notify(`${dropped} ${dropped === 1 ? 'file' : 'files'} could not be restored`, 'error');
+      if (dropped > 0) notify(`${dropped} ${dropped === 1 ? 'file' : 'files'} couldn't be restored.`, 'error');
       restoredOnce.current = true;
     });
     return () => {
@@ -94,20 +106,19 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
     if (restoredOnce.current || files.length > 0) saveBatch(files, mapping);
   }, [files, mapping]);
 
-  const usable = files.filter(isUsable);
   const scope = scopeOf([...files], selected);
   const scopeIds = new Set(scope);
-  const selectedUsable = usable.filter((f) => selected.has(f.id));
+  const selectedFiles = files.filter((f) => selected.has(f.id));
   const state = readiness(mapping, [...files]);
   const summary = summarise(mapping, [...files]);
 
   const scopeTitle =
-    selectedUsable.length > 0
-      ? selectedUsable.length === 1
+    selectedFiles.length > 0
+      ? selectedFiles.length === 1
         ? '1 selected file'
-        : `${selectedUsable.length} selected files`
-      : usable.length > 0
-        ? `all ${usable.length} ${usable.length === 1 ? 'file' : 'files'}`
+        : `${selectedFiles.length} selected files`
+      : files.length > 0
+        ? `all ${files.length} ${files.length === 1 ? 'file' : 'files'}`
         : 'all files';
 
   const pickFiles = useCallback(
@@ -213,7 +224,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
               mapping={mapping}
               selected={selected}
               onPick={(id, mods) => setPick((p) => pickRow(p, order, id, mods))}
-              onToggleAll={() => setPick((p) => ({ selected: selectedUsable.length === usable.length ? new Set() : new Set(usable.map((f) => f.id)), anchor: p.anchor }))}
+              onToggleAll={() => setPick((p) => ({ selected: selectedFiles.length === files.length ? new Set() : new Set(files.map((f) => f.id)), anchor: p.anchor }))}
               onPreview={setPreviewId}
               onRetry={(id) => manager.retry(id)}
               onRemove={onRemoveFile}
@@ -228,7 +239,7 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
             filesOf={(d) => {
               // The files in scope (the selected ones, or all) that go to this folder.
               const key = destinationKey(d);
-              const inScope = files.filter((f) => isUsable(f) && scopeIds.has(f.id));
+              const inScope = files.filter((f) => scopeIds.has(f.id));
               return { names: inScope.filter((f) => (mapping.files[f.id] ?? []).includes(key)).map((f) => f.name), total: inScope.length };
             }}
           />
@@ -241,9 +252,25 @@ export function Distribute({ onTeams, notify, onSent, manager = uploadManager, s
         sending={sending}
         error={sendError}
         canClear={files.length > 0 || mapping.held.length > 0 || rejected.length > 0}
-        onClear={clearAll}
+        // With files on the page, Clear asks first (D-F1-78). With only the "not added" box or ticks held for later, it clears at once.
+        onClear={() => (files.length > 0 ? setAskingClear(true) : clearAll())}
         onSend={() => setAsking(true)}
       />
+
+      {askingClear && (
+        <ConfirmDialog
+          heading={`Remove all ${files.length} ${files.length === 1 ? 'file' : 'files'} and their folder ticks?`}
+          confirmLabel="Clear"
+          cancelLabel="Keep them"
+          onConfirm={() => {
+            setAskingClear(false);
+            clearAll();
+          }}
+          onCancel={() => setAskingClear(false)}
+        >
+          <p>The files are taken off the page. Nothing has been sent.</p>
+        </ConfirmDialog>
+      )}
 
       {asking && (
         <SendDialog

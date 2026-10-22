@@ -305,7 +305,7 @@ sequenceDiagram
     B->>G: GET /files?ids=a,b,c
     G-->>B: [{fileId, uploaded, scanStatus}]
   end
-  Note over B: scanStatus clean → Ready, infected → Refused, failed → Failed
+  Note over B: scanStatus clean → Ready, infected → taken out of the list and named in the "not added" note, failed → Failed
 ```
 
 ![Files on the Distribute screen](user-flow/img/02-files.png)
@@ -356,10 +356,10 @@ sequenceDiagram
 |---|---|---|
 | `scanStatus` `pending` | **Scanning** | 02 · 3 |
 | `scanStatus` `clean` and `uploaded` true | **Ready** | 02 · 3 |
-| `scanStatus` `infected` | **Refused**; the reason is the chip tooltip (from the page's one reason map) | 02b · 1 |
-| `scanStatus` `failed` | **Failed** ("The scan could not run.") | — |
+| `scanStatus` `infected` | the file leaves the list by itself, with its selection and folder ticks, and the "not added" note names it: "Malware was found. The file was deleted." (the same sentence the upload-events worker stores) | 02b · 1 |
+| `scanStatus` `failed` | **Failed** ("The scan couldn't run.") | — |
 
-![A file refused by the scan](user-flow/img/02b-refused.png)
+![A file with malware taken out of the list, and the note that says why](user-flow/img/02b-refused.png)
 
 *How the page learns the state:* it **polls** this route; there is no push for uploads, because nobody has a live connection yet (the WebSocket is only for distributions that exist). The Upload Events Lambda does the work in the background: it reads the stored object's size and fingerprint, checks them against the record, scans it with ClamAV, reads the first bytes to confirm the type (`detected_type`), and either tags the object clean or deletes it and records `file.refused` (ADR-016).
 

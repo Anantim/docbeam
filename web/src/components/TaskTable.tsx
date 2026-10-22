@@ -5,6 +5,7 @@ import { applyTaskUpdate } from '../tracking/apply.js';
 import { failureMeaning, TASK_STATUS_MEANING } from '../explain.js';
 import { DownloadButton, PreviewButton } from './FileActions.js';
 import { InfoIcon } from './Icons.js';
+import { Notice } from './Notice.js';
 import { matchesFilter, NoMatches } from './ListFilter.js';
 import { StatusChip } from './StatusChip.js';
 import { Tooltip } from './Tooltip.js';
@@ -72,7 +73,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
         setFirstLoaded(true);
       } catch {
         // Said the same way for every cause; the reason a request failed is not for this page to show (D-F1-62).
-        if (generation.current === gen) setError('Deliveries could not be loaded');
+        if (generation.current === gen) setError("The deliveries couldn't be loaded.");
       } finally {
         inflight.current.delete(page);
       }
@@ -200,11 +201,7 @@ export function TaskTable({ jobId, status, query = '', onClearFilter, reloadKey,
         <div role="columnheader">Status</div>
         <div role="columnheader">Details</div>
       </div>
-      {error && (
-        <div role="alert" className="alert tmargin">
-          {error} · <button className="link" type="button" onClick={retryLoad}>Try again</button>
-        </div>
-      )}
+      {error && <Notice className="in-card" heading={error} onRetry={retryLoad} />}
       {!firstLoaded && !error && (
         // Under the real header: rows in the same grid, with bars the shape of the file and folder, the status chip,
         // the attempts and the two icon buttons (D-F1-22).
@@ -319,7 +316,7 @@ const TaskCells = memo(function TaskCells({ task, onPreview, onDownload }: { tas
         )}
         {task.status === 'completed' && (task.fileExpired ? (
           <Tooltip text="The uploaded file is more than 33 days old and has been deleted from storage. The delivered copy is still in the folder." openOnClick>
-            <button className="icon" type="button" aria-label="Why this file cannot be opened">
+            <button className="icon" type="button" aria-label="Why this file can't be opened">
               <InfoIcon />
             </button>
           </Tooltip>

@@ -16,16 +16,13 @@ export interface Mapping {
 
 export const emptyMapping: Mapping = { destinations: {}, files: {}, held: [] };
 
-/** A file that was refused for malware can never be sent, so it is outside every count and every mapping. */
-export const isUsable = (f: Pick<PageFile, 'status'>): boolean => f.status !== 'infected';
-
 export type TickState = 'on' | 'off' | 'mixed';
 
-/** The files a tick applies to: the selected ones, or all usable files when none are selected. */
+/** The files a tick applies to: the selected ones, or all files when none are selected. */
 export function scopeOf(files: PageFile[], selected: ReadonlySet<string>): string[] {
-  const usable = files.filter(isUsable).map((f) => f.id);
-  const chosen = usable.filter((id) => selected.has(id));
-  return chosen.length > 0 ? chosen : usable;
+  const all = files.map((f) => f.id);
+  const chosen = all.filter((id) => selected.has(id));
+  return chosen.length > 0 ? chosen : all;
 }
 
 export function tickState(mapping: Mapping, scope: string[], key: string): TickState {
@@ -38,7 +35,7 @@ export function tickState(mapping: Mapping, scope: string[], key: string): TickS
 /** The distinct destinations in use, and how many files go to each. */
 export function destinationCounts(mapping: Mapping, files: PageFile[]): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const f of files.filter(isUsable)) {
+  for (const f of files) {
     for (const key of mapping.files[f.id] ?? []) counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
@@ -61,12 +58,12 @@ export interface Summary {
 export function summarise(mapping: Mapping, files: PageFile[]): Summary {
   const counts = destinationCounts(mapping, files);
   const teams = new Set([...counts.keys()].map((k) => describeDestination(mapping.destinations[k]?.path ?? '').team));
-  const mapped = files.filter(isUsable).filter((f) => (mapping.files[f.id]?.length ?? 0) > 0).length;
+  const mapped = files.filter((f) => (mapping.files[f.id]?.length ?? 0) > 0).length;
   return { files: mapped, folders: counts.size, deliveries: deliveryCount(mapping, files), teams: teams.size };
 }
 
 export function deliveryCount(mapping: Mapping, files: PageFile[]): number {
-  return files.filter(isUsable).reduce((sum, f) => sum + (mapping.files[f.id]?.length ?? 0), 0);
+  return files.reduce((sum, f) => sum + (mapping.files[f.id]?.length ?? 0), 0);
 }
 
 /**
@@ -82,7 +79,7 @@ export function toggleDestination(mapping: Mapping, files: PageFile[], selected:
     return { ...mapping, destinations: { ...mapping.destinations, [key]: destination }, held: [...mapping.held, key] };
   }
   // With nothing selected the tick is for all files, now and later: it also joins or leaves the held list.
-  const forAll = !files.some((f) => isUsable(f) && selected.has(f.id));
+  const forAll = !files.some((f) => selected.has(f.id));
   const next: Mapping = { ...mapping, destinations: { ...mapping.destinations }, files: { ...mapping.files } };
   if (tickState(mapping, scope, key) === 'on') {
     for (const id of scope) next.files[id] = (next.files[id] ?? []).filter((k) => k !== key);
@@ -105,7 +102,7 @@ export function toggleDestination(mapping: Mapping, files: PageFile[], selected:
  */
 export function applyHeld(mapping: Mapping, files: PageFile[]): Mapping {
   if (mapping.held.length === 0) return mapping;
-  const fresh = files.filter(isUsable).filter((f) => mapping.files[f.id] === undefined);
+  const fresh = files.filter((f) => mapping.files[f.id] === undefined);
   if (fresh.length === 0) return mapping;
   const next: Mapping = { destinations: mapping.destinations, files: { ...mapping.files }, held: mapping.held };
   for (const f of fresh) next.files[f.id] = [...mapping.held];
@@ -129,8 +126,7 @@ export interface Readiness {
 
 /** The one place the batch is checked: at Send. The first problem found is the reason. */
 export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
-  const infected = files.filter((f) => f.status === 'infected').length;
-  const usable = files.filter(isUsable);
+  const usable = files;
   const failed = usable.filter((f) => f.status === 'refused' || f.status === 'interrupted' || f.status === 'unchecked').length;
   const waiting = usable.filter((f) => f.status !== 'verified').length - failed;
   const unmapped = usable.filter((f) => (mapping.files[f.id]?.length ?? 0) === 0).length;
@@ -138,8 +134,7 @@ export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
 
   let reason: string | null = null;
   // What blocks Send, by name and by number (D-F1-60): the same words as the chips on the file rows.
-  if (usable.length === 0 && infected === 0) reason = 'Add a file first';
-  else if (infected > 0) reason = `Remove ${plural(infected, 'refused file', 'refused files')}`;
+  if (usable.length === 0) reason = 'Add a file first';
   else if (failed > 0) reason = `Retry or remove ${plural(failed, 'failed file', 'failed files')}`;
   else if (waiting > 0) reason = `Wait for ${plural(waiting, 'file', 'files')} to finish scanning`;
   else if (unmapped > 0) reason = `Choose folders for ${plural(unmapped, 'file', 'files')}`;
@@ -148,7 +143,7 @@ export function readiness(mapping: Mapping, files: PageFile[]): Readiness {
 }
 
 function buildBatch(mapping: Mapping, files: PageFile[]): { request: JobBody | null; result: BatchResult } {
-  const sendable = files.filter((f) => isUsable(f) && f.serverId && f.sha256);
+  const sendable = files.filter((f) => f.serverId && f.sha256);
   const request: JobBody = {
     files: sendable.map((f) => ({ fileId: f.serverId as string, sha256: f.sha256 as string })),
     mappings: sendable.map((f) => ({

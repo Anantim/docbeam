@@ -192,8 +192,8 @@ describe('the attempts and the reason in the tooltip, nothing under the chip (D-
   });
 
   it('the tip is the reason from the one map, then the attempts where they apply', () => {
-    expect(deliveryTip({ attemptCount: 5, ...retried }, 'failed')).toBe('The platform did not respond after 5 attempts.');
-    expect(deliveryTip({ attemptCount: 1, failureCode: 'FILE_NOT_UPLOADED' }, 'failed')).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(deliveryTip({ attemptCount: 5, ...retried }, 'failed')).toBe("The platform didn't respond after 5 attempts.");
+    expect(deliveryTip({ attemptCount: 1, failureCode: 'FILE_NOT_UPLOADED' }, 'failed')).toBe("The file never finished uploading, so it couldn't be delivered.");
     expect(deliveryTip({ attemptCount: 3, failureCode: 'SOMETHING_NEW' }, 'failed')).toBe('The delivery did not go through. Failed after 3 attempts.');
     expect(deliveryTip({ attemptCount: 1, failureCode: 'CANCELLED' }, 'cancelled')).toBe('Cancelled by the sender before it was delivered.');
     expect(deliveryTip({ attemptCount: 3, failureCode: null }, 'in_progress')).toBe('Trying again. Attempt 3 of 5.');
@@ -221,12 +221,12 @@ describe('the attempts and the reason in the tooltip, nothing under the chip (D-
     expect(chipOf(1).textContent).toBe('Retrying'); // in-progress colour
     expect(chipOf(1).getAttribute('data-tone')).toBe('busy');
     expect(tooltipOf(chipOf(1))).toBe('Trying again. Attempt 3 of 5.');
-    expect(tooltipOf(chipOf(2))).toBe('The platform did not respond after 5 attempts.');
-    expect(tooltipOf(chipOf(3))).toBe('The file never finished uploading, so it could not be delivered.'); // no "after N attempts" for a permanent one
+    expect(tooltipOf(chipOf(2))).toBe("The platform didn't respond after 5 attempts.");
+    expect(tooltipOf(chipOf(3))).toBe("The file never finished uploading, so it couldn't be delivered."); // no "after N attempts" for a permanent one
     expect(chipOf(4).textContent).toBe('Cancelled');
     expect(tooltipOf(chipOf(4))).toBe('Cancelled by the sender before it was delivered.');
     // The info icon says the same; nothing is written under a chip and no raw code or platform text appears.
-    expect(tooltipOf(within(rowOf(3)).getByRole('button', { name: 'Why this delivery failed' }))).toBe('The file never finished uploading, so it could not be delivered.');
+    expect(tooltipOf(within(rowOf(3)).getByRole('button', { name: 'Why this delivery failed' }))).toBe("The file never finished uploading, so it couldn't be delivered.");
     expect(tooltipOf(within(rowOf(4)).getByRole('button', { name: 'Why this delivery was cancelled' }))).toBe('Cancelled by the sender before it was delivered.');
     expect(document.querySelector('.tattempt-note, .reason, .code')).toBeNull();
     expect(document.body.textContent).not.toMatch(/RETRIES_EXHAUSTED|FILE_NOT_UPLOADED|raw platform text/);
@@ -334,7 +334,7 @@ describe('TaskTable', () => {
     await screen.findByText(name(2));
     push(failedPush(2, '2026-10-16T10:00:05.000Z'));
     const chip = (await screen.findByText('Failed')).closest('.status-chip') as Element;
-    expect(tooltipOf(chip)).toBe('The platform did not respond after 5 attempts.'); // the one reason map (D-F1-60)
+    expect(tooltipOf(chip)).toBe("The platform didn't respond after 5 attempts."); // the one reason map (D-F1-60)
     expect(document.body.textContent).not.toMatch(/RETRIES_EXHAUSTED|the platform did not answer/); // no raw code, no platform text
     // Cut-short text shows in full.
     expect(tooltipOf(screen.getByText(name(2)))).toBe(name(2));
@@ -410,7 +410,7 @@ describe('TaskTable', () => {
     });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
-    const expired = await screen.findByRole('button', { name: 'Why this file cannot be opened' });
+    const expired = await screen.findByRole('button', { name: "Why this file can't be opened" });
     expect(tooltipOf(expired)).toMatch(/more than 33 days old/);
 
     const download = screen.getByRole('button', { name: `Download ${name(1)}` }) as HTMLButtonElement;
@@ -429,13 +429,13 @@ describe('TaskTable', () => {
     expect(screen.queryByRole('button', { name: new RegExp(`(Download|Preview) ${name(2)}`) })).toBeNull();
   });
 
-  it('shows "Deliveries could not be loaded · Try again" when the request fails, never the reason, and Try again loads the rows (D-F1-62)', async () => {
+  it('shows "The deliveries couldn\'t be loaded." with Try again when the request fails, never the reason, and Try again loads the rows (D-F1-62, D-F1-78)', async () => {
     api.tasks.mockRejectedValueOnce(new Error('boom: connect ECONNREFUSED 10.0.0.1'));
     api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 1, tasks: [row(0, { status: 'completed', attemptCount: 1 })] });
     const { live } = fakeLive();
     render(<TaskTable jobId="job" status="all" reloadKey={0} live={live} {...files} />);
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Deliveries could not be loaded · Try again');
+    expect(alert.textContent).toBe("The deliveries couldn't be loaded.Try again");
     expect(document.body.textContent).not.toContain('ECONNREFUSED');
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByText(name(0));

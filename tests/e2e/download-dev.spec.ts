@@ -109,9 +109,11 @@ test('a download bar runs past 2:00 and shows the expired text', async ({ page }
   await signIn(page, PRIYA);
   await page.goto(`/#/status/${jobBoth}`);
   await rowOf(page, BOTH).first().getByRole('button', { name: `Download ${BOTH}` }).click();
-  const bar = page.getByRole('status').filter({ hasText: BOTH });
-  await expect(bar).toContainText('is downloading. Its link works for this one file for another');
+  const bar = page.locator('.notice').filter({ hasText: BOTH }); // an info note while it counts down, an error note after
+  await expect(bar).toContainText('is downloading.');
+  await expect(bar).toContainText('Its link works for this one file for another');
   await page.screenshot({ path: evidence('download-bar-counting-down') });
-  await expect(bar).toContainText(`The link for ${BOTH} has expired and storage now refuses it. Click Download for a fresh one.`, { timeout: 150_000 });
+  await expect(bar).toContainText(`The link for ${BOTH} has expired.`, { timeout: 150_000 });
+  await expect(bar).toContainText('Storage now refuses it. Click Download for a fresh one.');
   await page.screenshot({ path: evidence('download-bar-expired') });
 });

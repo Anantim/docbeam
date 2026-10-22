@@ -46,10 +46,6 @@ describe('scope and tick state', () => {
     expect(scopeOf(files, new Set(['b']))).toEqual(['b']);
   });
 
-  it('leaves out a file refused for malware', () => {
-    expect(scopeOf([file('a'), file('x', 'infected')], none)).toEqual(['a']);
-  });
-
   it('is on when every file in scope has the folder, mixed when some do, off when none', () => {
     const d = dest(1);
     const some = tick(emptyMapping, files, new Set(['a']), d);
@@ -109,10 +105,9 @@ describe('folders ticked before any file (D-F1-4)', () => {
     expect(m.files.a).toEqual([key(dest(1))]);
   });
 
-  it('waits while there is no usable file, and leaves a file that already has folders alone', () => {
+  it('waits while there is no file, and leaves a file that already has folders alone', () => {
     const held = toggleDestination(emptyMapping, [], none, dest(1));
     expect(applyHeld(held, [])).toBe(held);
-    expect(applyHeld(held, [file('x', 'infected')])).toBe(held);
     const mapped = { ...held, files: { a: [key(dest(2))] } };
     expect(applyHeld(mapped, [file('a')])).toBe(mapped);
   });
@@ -195,8 +190,6 @@ describe('readiness', () => {
     const partly = tick(emptyMapping, verified, new Set(['a']), d);
     expect(readiness(partly, verified).reason).toBe('Choose folders for 1 file');
     expect(readiness(emptyMapping, verified).reason).toBe('Choose folders for 2 files');
-    const bad = [file('a'), file('x', 'infected')];
-    expect(readiness(tick(emptyMapping, bad, none, d), bad).reason).toBe('Remove 1 refused file');
   });
 
   it('has no reason when Send is on', () => {
@@ -204,13 +197,6 @@ describe('readiness', () => {
     const r = readiness(tick(emptyMapping, files, none, d), files);
     expect(r.ready).toBe(true);
     expect(r.reason).toBeNull();
-  });
-
-  it('is off while a file is refused for malware, and says so', () => {
-    const files = [file('a'), file('x', 'infected')];
-    const r = readiness(tick(emptyMapping, files, none, d), files);
-    expect(r.ready).toBe(false);
-    expect(r.reason).toBe('Remove 1 refused file');
   });
 
   it('is on when every file is verified and mapped', () => {

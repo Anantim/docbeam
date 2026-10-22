@@ -30,18 +30,17 @@ const isStored = (f: PageFile): boolean => f.serverId !== undefined && (f.status
 /** Writes the batch, or removes it when there is nothing on the page (after Send, Clear or Remove of the last file). */
 export function saveBatch(files: readonly PageFile[], mapping: Mapping): void {
   try {
-    const usable = files.filter((f) => f.status !== 'infected');
-    if (usable.length === 0 && mapping.held.length === 0) {
+    if (files.length === 0 && mapping.held.length === 0) {
       sessionStorage.removeItem(KEY);
       return;
     }
-    const ids = new Set(usable.map((f) => f.id));
+    const ids = new Set(files.map((f) => f.id));
     const kept: Mapping = {
       destinations: mapping.destinations,
       files: Object.fromEntries(Object.entries(mapping.files).filter(([id]) => ids.has(id))),
       held: mapping.held,
     };
-    const stored: StoredFile[] = usable.map((f) => ({
+    const stored: StoredFile[] = files.map((f) => ({
       id: f.id,
       ...(f.serverId ? { serverId: f.serverId } : {}),
       name: f.name,

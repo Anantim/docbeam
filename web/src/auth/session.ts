@@ -56,7 +56,7 @@ function stored(): string | null {
 
 function apply(token: string, share: boolean): void {
   const claims = decodeClaims(token);
-  if (!claims) throw new AuthError('The server sent a token that cannot be read.');
+  if (!claims) throw new AuthError("The server sent a token that can't be read.");
   store(token);
   set({ status: 'signedIn', token, claims });
   schedule(claims.exp);
@@ -237,9 +237,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     } else if (refreshed === 'ok') {
       res = await send();
     } else {
-      throw new ApiFailure(503, 'The server could not be reached. Try again in a moment.');
+      throw new ApiFailure(503, "The server couldn't be reached. Try again in a moment.");
     }
-    if (res.status === 401) throw new ApiFailure(401, 'The server could not check your sign-in. Try again in a moment.');
+    if (res.status === 401) throw new ApiFailure(401, "The server couldn't check your sign-in. Try again in a moment.");
   }
   if (!res.ok) {
     const body = await readBody(res);

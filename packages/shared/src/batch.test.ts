@@ -77,7 +77,7 @@ describe('validateBatch', () => {
     for (const folderId of [null, undefined, '']) {
       const b = batch(1, 1);
       b.mappings[0]!.destinations.push({ binderId: id(1000), folderId });
-      expect(validateBatch(b)).toEqual({ ok: false, reason: 'Choose a folder. Files cannot go to a binder.' });
+      expect(validateBatch(b)).toEqual({ ok: false, reason: "Choose a folder. Files can't go to a binder." });
     }
   });
 

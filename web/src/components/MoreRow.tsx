@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
+import { Notice } from './Notice.js';
 
 interface Props {
   busy: boolean;
@@ -39,12 +40,7 @@ export function MoreRow({ busy, failed, onMore, className, style, auto = true, s
       {busy ? (
         <span role="status">Loading more…</span>
       ) : failed ? (
-        <>
-          Could not load more.{' '}
-          <button className="link" type="button" onClick={onMore}>
-            Try again
-          </button>
-        </>
+        <Notice className="in-tree" heading="Couldn't load more." onRetry={onMore} />
       ) : (
         <button className="link" type="button" onClick={onMore}>
           Show more

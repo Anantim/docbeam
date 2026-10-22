@@ -15,7 +15,7 @@ export function registerFileRoutes(app: FastifyInstance, db: Db): void {
     const { ids } = request.query as { ids?: string };
     const wanted = (ids ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     if (wanted.length === 0 || wanted.length > LIMITS.maxFileIdsPerQuery || !wanted.every((id) => UUID_PATTERN.test(id))) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `ids must hold 1 to ${LIMITS.maxFileIdsPerQuery} file ids.`);
+      throw new ApiError(400, 'VALIDATION_ERROR', `The ids must hold 1 to ${LIMITS.maxFileIdsPerQuery} file ids.`);
     }
 
     const rows = await db

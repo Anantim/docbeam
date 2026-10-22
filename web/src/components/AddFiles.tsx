@@ -1,8 +1,8 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
-import { AlertIcon, CloseIcon, UploadIcon } from './Icons.js';
-import { Tooltip } from './Tooltip.js';
+import { UploadIcon } from './Icons.js';
+import { Notice } from './Notice.js';
 import { useMoreBelow } from './useMoreBelow.js';
 
 const ACCEPT = ALLOWED_FILE_TYPES.flatMap((t) => t.extensions).join(',');
@@ -28,6 +28,13 @@ interface Props {
  */
 export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, hint }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  const notice = useRef<HTMLDivElement>(null);
+  // When the box gains an entry and is out of view (the list is scrolled), it scrolls into view, smoothly.
+  const shown = useRef(0);
+  useEffect(() => {
+    if (rejected.length > shown.current) notice.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    shown.current = rejected.length;
+  }, [rejected.length]);
   const [over, setOver] = useState(false);
   const { ref: scroll, more } = useMoreBelow<HTMLDivElement>();
 
@@ -69,30 +76,18 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, 
       <div className={`files-wrap fadewrap ${more ? 'more-below' : ''}`}>
       <div className="files-scroll" ref={scroll}>
       {rejected.length > 0 && (
-        // Calm: a light box with an error-coloured edge and icon, the file name in normal text and the reason muted. One
-        // button closes the whole box; it stays until it is closed or the page is cleared (D-F1-35).
-        <div className="not-added" role="alert">
-          <span className="not-added-icon" aria-hidden="true">
-            <AlertIcon size={16} />
-          </span>
-          <div className="not-added-body">
-            <strong>
-              {rejected.length} {rejected.length === 1 ? 'file' : 'files'} not added
-            </strong>
-            <ul>
-              {rejected.map((r, i) => (
-                <li key={`${r.name}-${i}`}>
-                  <span className="not-added-name">{r.name}</span> <span className="not-added-reason">{r.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Tooltip text="Close">
-            <button className="icon small" type="button" aria-label="Close" onClick={onDismiss}>
-              <CloseIcon />
-            </button>
-          </Tooltip>
-        </div>
+        // The one note style (D-F1-78): the file name in normal text and the reason muted, the newest at the bottom. One button
+        // closes the whole box; it stays until it is closed or the page is cleared (D-F1-35). A file with malware is added here
+        // too, and the box scrolls into view when it gains an entry.
+        <Notice ref={notice} className="in-card" heading={`${rejected.length} ${rejected.length === 1 ? 'file' : 'files'} not added.`} onClose={onDismiss}>
+          <ul className="notice-list">
+            {rejected.map((r, i) => (
+              <li key={`${r.name}-${i}`}>
+                <span className="notice-name">{r.name}</span> <span className="notice-detail">{r.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </Notice>
       )}
       {empty ? (
         <div className="state drop-state">

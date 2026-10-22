@@ -36,7 +36,7 @@ export function useJob(jobId: string, live: LiveClient) {
     } catch (e) {
       if (current.current !== id) return;
       if (e instanceof ApiFailure && e.status === 404) setState({ status: 'notFound' });
-      else setState({ status: 'error', message: e instanceof ApiFailure ? e.message : 'The distribution could not be loaded.' });
+      else setState({ status: 'error', message: e instanceof ApiFailure ? e.message : "The distribution couldn't be loaded." });
     }
   }, [jobId]);
 

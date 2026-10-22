@@ -18,7 +18,8 @@ DocBeam API --> Web Client: One link per file
 Web Client > Object Store: Upload each file once
 Object Store > Upload Checks: File stored
 Upload Checks > Upload Checks: Check size and fingerprint, scan for malware with ClamAV, confirm the type from the contents
-Upload Checks --> Web Client: Ready, failed (Retry), or refused (malware file deleted)
+Upload Checks --> Web Client: Ready, failed (Retry), or malware: file deleted, removed from the list with a note
+Web Client > Web Client: Clear (with files) and sign out (while a file is uploading) ask first
 
 // Send
 User > Web Client: Press Send and confirm 'Send N files to M folders?'

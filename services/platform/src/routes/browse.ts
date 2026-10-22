@@ -119,7 +119,7 @@ export function registerBrowseRoutes(app: FastifyInstance, db: Db): void {
     const { limit, after } = readPageQuery(request.query);
     const raw = (request.query as Record<string, unknown>)['q'];
     const q = typeof raw === 'string' ? raw.trim() : '';
-    if (q.length < SEARCH_MIN || q.length > SEARCH_MAX) throw new ApiError(400, 'VALIDATION_ERROR', `q must be ${SEARCH_MIN} to ${SEARCH_MAX} characters.`);
+    if (q.length < SEARCH_MIN || q.length > SEARCH_MAX) throw new ApiError(400, 'VALIDATION_ERROR', `The q parameter must be ${SEARCH_MIN} to ${SEARCH_MAX} characters.`);
     const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     const hits = await db.execute<SearchRow>(sql`
       SELECT f.id, f.name, f.parent_folder_id, b.id AS binder_id, b.name AS binder_name, t.id AS team_id, t.name AS team_name

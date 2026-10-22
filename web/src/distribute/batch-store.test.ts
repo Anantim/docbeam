@@ -32,8 +32,8 @@ describe('the stored batch (D-F1-66)', () => {
     expect(batch.mapping.destinations.k).toEqual(dest);
   });
 
-  it('keeps a file that is being scanned as stored, and leaves a refused one out', () => {
-    saveBatch([file('p1', 'checking', 's1'), file('p2', 'infected', 's2')], mapping);
+  it('keeps a file that is being scanned as stored', () => {
+    saveBatch([file('p1', 'checking', 's1')], mapping);
     expect(loadBatch()!.files.map((f) => [f.id, f.stored])).toEqual([['p1', true]]);
   });
 

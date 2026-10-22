@@ -143,7 +143,7 @@ describe('Preview', () => {
     it('says so when the link cannot be read', async () => {
       vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 403, blob: async () => new Blob([]) })));
       show({ name: 'amendment.docx', contentType: DOCX, blob: undefined, url: LINK });
-      expect(await screen.findByText(/could not be shown/)).toBeTruthy();
+      expect(await screen.findByText(/couldn't be shown/)).toBeTruthy();
     });
   });
 

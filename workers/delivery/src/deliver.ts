@@ -1,5 +1,6 @@
 import { GetObjectCommand, HeadObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
+  FAILURE_REASON,
   finishTask,
   pushTaskUpdate,
   type Connectable,
@@ -194,7 +195,7 @@ export async function deliverTask(deps: Deps, taskId: string, receiveCount: numb
       head = await deps.s3.send(new HeadObjectCommand({ Bucket: deps.bucket, Key: task.s3_key, ChecksumMode: 'ENABLED' }));
     } catch (error) {
       if (!isNotFound(error)) throw error;
-      await finishAndPush(deps, task, fail('FILE_NOT_UPLOADED', 'The file is no longer in the store.'));
+      await finishAndPush(deps, task, fail('FILE_NOT_UPLOADED', FAILURE_REASON.FILE_NOT_UPLOADED));
       return { kind: 'done' };
     }
 
@@ -202,7 +203,7 @@ export async function deliverTask(deps: Deps, taskId: string, receiveCount: numb
     const stored = head.ChecksumSHA256;
     const missing = stored === undefined && !deps.checksumOptional;
     if (missing || (stored !== undefined && stored !== task.s3_checksum)) {
-      await finishAndPush(deps, task, fail('CHECKSUM_MISMATCH', 'The stored file does not match its declared checksum.'));
+      await finishAndPush(deps, task, fail('CHECKSUM_MISMATCH', FAILURE_REASON.CHECKSUM_MISMATCH));
       return { kind: 'done' };
     }
 

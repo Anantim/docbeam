@@ -65,7 +65,7 @@ describe('every icon-only button has an aria-label and a tooltip with the same t
   });
 
   it('in the Documents table, for every file state', () => {
-    const files = [file('ok', 'verified'), file('wait', 'uploading'), file('bad', 'refused'), file('stop', 'interrupted'), file('virus', 'infected')];
+    const files = [file('ok', 'verified'), file('wait', 'uploading'), file('bad', 'refused'), file('stop', 'interrupted')];
     const { container } = render(
       <FileTable
         files={files}

@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { test } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, ANANTIM, CARDIO_IRB, docx, CARDIO_PROTOCOL, eicarDocx, openListedDistribution, pdf, pickFilter, RAJ, removeSeeded, seedJob, send, signIn, sql, tick } from './helpers.js';
+import { addPdfs, ANANTIM, CARDIO_IRB, clearPage, docx, CARDIO_PROTOCOL, eicarDocx, openListedDistribution, pdf, pickFilter, RAJ, removeSeeded, seedJob, send, signIn, sql, tick } from './helpers.js';
 
 // Takes a screenshot of every screen and dialog at 1440, 1280 and 1024 px wide (F1). It does not assert anything and
 // only runs when SHOT_DIR is set: SHOT_DIR=docs/testing/f1-evidence/after npx playwright test screens
@@ -49,14 +49,14 @@ test.describe('screens', () => {
     await tick(page, CARDIO_IRB);
     await tick(page, CARDIO_PROTOCOL);
     await shot('04-distribute-folders-before-files');
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
 
     // The file states: Scanning, Failed (a scan that could not run, with Retry), Refused (malware: final).
     const state = (name: string) => page.locator('.frow', { hasText: name }).locator('.status-chip');
     await page.getByLabel('Choose files').setInputFiles([pdf('scanning-now.pdf')]);
     await state('scanning-now.pdf').filter({ hasText: 'Scanning' }).waitFor({ timeout: 60_000 });
     await shot('05a-file-scanning', true);
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
     await page.route('**/api/files?**', async (route) => {
       const ids = (new URL(route.request().url()).searchParams.get('ids') ?? '').split(',').filter(Boolean);
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ids.map((fileId) => ({ fileId, uploaded: true, scanStatus: 'failed' }))) });
@@ -64,14 +64,15 @@ test.describe('screens', () => {
     await page.getByLabel('Choose files').setInputFiles([pdf('could-not-scan.pdf')]);
     await state('could-not-scan.pdf').filter({ hasText: 'Failed' }).waitFor({ timeout: 60_000 });
     await shot('05b-file-failed-with-retry', true);    await page.unroute('**/api/files?**');
-    await page.getByRole('button', { name: 'Clear' }).click();
-    await page.getByLabel('Choose files').setInputFiles([{ name: 'eicar-test.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
-    await state('eicar-test.docx').filter({ hasText: 'Refused' }).waitFor({ timeout: 90_000 });
-    await shot('05c-file-refused-malware', true);    // A refused file that was not added at all (a type that is not allowed): the calm "not added" box.
+    await clearPage(page);
+    // A file with malware leaves the list by itself and is named in the "not added" box (D-F1-78), with a type that is not allowed.
+    await page.getByLabel('Choose files').setInputFiles([pdf('beside-the-virus.pdf'), { name: 'eicar-test.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
+    await page.locator('.notice').filter({ hasText: 'Malware was found' }).waitFor({ timeout: 90_000 });
+    await shot('05c-file-malware-removed-with-note', true);
     await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
-    await page.locator('.not-added').waitFor();
+    await page.locator('.notice').filter({ hasText: '2 files not added.' }).waitFor();
     await shot('05d-not-added-box', true);
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
     await addPdfs(page, 3, 'shot');
     await shot('05-distribute-files-no-folders');
     const rows = page.locator('.frow:not(.thead) .fname');
@@ -190,7 +191,7 @@ test.describe('screens', () => {
     await page.getByRole('dialog').waitFor();
     await shot('17-send-question-on-long-scrolled-page', true);
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
     await page.getByRole('button', { name: 'Status' }).click();
     await page.locator('.dist-table tbody tr').first().waitFor();
 
@@ -309,7 +310,7 @@ test.describe('screens', () => {
     await shot('05e-distribute-deep-tree-few-files');
     await page.reload(); // the tree is short again (and the two files come back: the batch survives a reload, D-F1-66)
     await page.getByRole('heading', { name: 'New distribution' }).waitFor();
-    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await clearPage(page);
     await addPdfs(page, 14, 'many');
     await shot('05f-distribute-many-files-tree');
   });
@@ -426,13 +427,13 @@ test.describe('screens', () => {
     await page.keyboard.press('Escape');
 
     // Files whose contents are not what their names say: the "not added" box says what they are (D-F1-44).
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearPage(page);
     await page.getByLabel('Choose files').setInputFiles([
       { name: 'Protocol amendment.docx', mimeType: 'application/octet-stream', buffer: pdf('x.pdf').buffer },
       { name: 'Site photo.pdf', mimeType: 'application/pdf', buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]) },
       { name: 'Budget.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ program') },
     ]);
-    await page.locator('.not-added').waitFor();
+    await page.locator('.notice').filter({ hasText: 'not added' }).waitFor();
     await shotAt('05i-not-added-contents-do-not-match-the-name');
   });
 

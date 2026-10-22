@@ -40,6 +40,29 @@ describe('registerErrorHandler', () => {
     expect(res.json().error.code).toBe('VALIDATION_ERROR');
   });
 
+  it('never sends a library message to a person: a schema failure and a broken JSON body read as plain sentences (D-F1-78)', async () => {
+    const server = await app();
+    const schema = await server.inject({ method: 'POST', url: '/strict', payload: {} });
+    expect(schema.json().error.message).toBe('The request is not valid.');
+    const broken = await server.inject({ method: 'POST', url: '/strict', headers: { 'content-type': 'application/json' }, payload: '{"name": ' });
+    expect(broken.statusCode).toBe(400);
+    expect(broken.json().error.message).toBe('The request is not valid.');
+    for (const res of [schema, broken]) {
+      const text = res.json().error.message as string;
+      expect(text).toMatch(/^[A-Z].*\.$/); // a sentence
+      expect(text).not.toMatch(/body|must have|undefined|Unexpected|JSON/); // nothing of the library's own words
+    }
+  });
+
+  it('says a body that is too large in plain words', async () => {
+    const server = Fastify({ logger: false, bodyLimit: 10 });
+    registerErrorHandler(server);
+    server.post('/big', async () => ({ ok: true }));
+    const res = await server.inject({ method: 'POST', url: '/big', headers: { 'content-type': 'application/json' }, payload: JSON.stringify({ a: 'x'.repeat(100) }) });
+    expect(res.statusCode).toBe(413);
+    expect(res.json().error.message).toBe('The request is too large.');
+  });
+
   it('answers unknown routes with 404 NOT_FOUND', async () => {
     const res = await (await app()).inject({ url: '/nope' });
     expect(res.statusCode).toBe(404);

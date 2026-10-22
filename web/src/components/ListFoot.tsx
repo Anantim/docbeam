@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Notice } from './Notice.js';
 
 interface Props {
   /** The server gave a cursor for a next page. */
@@ -54,12 +55,8 @@ export function ListFoot({ hasMore, busy, failed, onMore, lookAhead = 280 }: Pro
   }
   if (failed) {
     return (
-      <div ref={ref} className="state small list-foot" role="status" aria-live="polite">
-        <span>Couldn't load more</span>
-        <span aria-hidden="true">·</span>
-        <button className="link" type="button" onClick={onMore}>
-          Try again
-        </button>
+      <div ref={ref}>
+        <Notice className="in-card" heading="Couldn't load more." onRetry={onMore} />
       </div>
     );
   }

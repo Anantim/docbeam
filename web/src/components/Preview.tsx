@@ -16,7 +16,7 @@ const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 async function fetchBlob(url: string | undefined): Promise<Blob> {
   if (!url) throw new Error('No file to show.');
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`The file could not be read (${res.status}).`);
+  if (!res.ok) throw new Error(`The file couldn't be read (${res.status}).`);
   return res.blob();
 }
 
@@ -56,7 +56,7 @@ export function Preview({ name, contentType, sizeBytes, blob, url: link, meta, n
     let cancelled = false;
     let url: string | undefined;
     const show = (v: View) => !cancelled && setView(v);
-    const fail = () => show({ kind: 'message', text: 'This file could not be shown. It may be damaged.' });
+    const fail = () => show({ kind: 'message', text: "This file couldn't be shown. It may be damaged." });
 
     const isOffice = contentType === DOCX || contentType === XLSX;
     if (isOffice && sizeBytes > OFFICE_PREVIEW_MAX_BYTES) {

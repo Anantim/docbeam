@@ -18,17 +18,21 @@ export function mmss(ms: number): string {
 /** True while a live link still works. After that the banner reads as an ended link. */
 export const isLive = (b: LinkBanner, now: number): boolean => b.kind === 'live' && b.expiresAt > now;
 
-export function bannerText(b: LinkBanner, now: number): string {
+/** What the note says: a short first line, and what else there is to know under it (D-F1-78). */
+export function bannerParts(b: LinkBanner, now: number): { heading: string; detail?: string } {
   switch (b.kind) {
     case 'live':
       return b.expiresAt > now
-        ? `${b.file} is downloading. Its link works for this one file for another ${mmss(b.expiresAt - now)}.`
-        : `The link for ${b.file} has expired and storage now refuses it. Click Download for a fresh one.`;
+        ? { heading: `${b.file} is downloading.`, detail: `Its link works for this one file for another ${mmss(b.expiresAt - now)}.` }
+        : { heading: `The link for ${b.file} has expired.`, detail: 'Storage now refuses it. Click Download for a fresh one.' };
     case 'gone':
-      return `${b.file} is no longer available: it was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder.`;
+      return {
+        heading: `${b.file} is no longer available.`,
+        detail: 'It was uploaded more than 33 days ago and storage has deleted it. The delivered copy is still in each destination folder.',
+      };
     case 'denied':
-      return 'That file is not available to you.';
+      return { heading: "That file isn't available to you." };
     case 'failed':
-      return b.message;
+      return { heading: b.message };
   }
 }

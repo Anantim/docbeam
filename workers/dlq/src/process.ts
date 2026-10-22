@@ -1,4 +1,6 @@
 import {
+  FAILURE_REASON,
+  FILE_REASON,
   failPendingTasks,
   finishTask,
   parseUploadEvents,
@@ -47,8 +49,8 @@ async function taskDlq(deps: Deps, body: string): Promise<void> {
     deps.log.error('task dead letter has no task id');
     return;
   }
-  const { rows } = await deps.db.query<{ job_id: string; last_error: string | null; destination_path: string | null; original_name: string }>(
-    `SELECT t.job_id, t.last_error, t.destination_path, f.original_name
+  const { rows } = await deps.db.query<{ job_id: string; destination_path: string | null; original_name: string }>(
+    `SELECT t.job_id, t.destination_path, f.original_name
        FROM tasks t JOIN files f ON f.id = t.file_id WHERE t.id = $1`,
     [taskId],
   );
@@ -57,9 +59,8 @@ async function taskDlq(deps: Deps, body: string): Promise<void> {
     deps.log.warn('task dead letter for an unknown task', { taskId });
     return;
   }
-  const reason = `${task.original_name} to ${task.destination_path ?? 'the destination'}: The platform did not accept it after 5 attempts.${
-    task.last_error ? ` Last error: ${task.last_error}` : ''
-  }`;
+  // The same sentence the web app shows. The last error stays in the task's own `last_error` column, not in the reason.
+  const reason = `${task.original_name} to ${task.destination_path ?? 'the destination'}: ${FAILURE_REASON.RETRIES_EXHAUSTED}`;
   const finished = await finishTask(deps.db, {
     taskId,
     jobId: task.job_id,
@@ -94,7 +95,7 @@ async function jobDlq(deps: Deps, body: string): Promise<void> {
   const result = await failPendingTasks(deps.db, {
     jobId,
     failureCode: 'FANOUT_FAILED',
-    detail: 'The distribution could not be started. Retry the failed deliveries.',
+    detail: FAILURE_REASON.FANOUT_FAILED,
   });
   deps.log.warn('job failed: fan-out exhausted', { jobId, tasks: result.tasks.length, jobClosed: result.jobClosed });
   await pushTaskUpdates(
@@ -128,9 +129,9 @@ async function uploadDlq(deps: Deps, body: string): Promise<void> {
        INSERT INTO audit_events (actor_id, action, detail)
        SELECT NULL, 'file.refused',
               jsonb_build_object('fileId', id, 'fileName', original_name, 'ownerUserId', owner_user_id,
-                                 'reason', 'SCAN_FAILED', 'detail', 'The file could not be checked after 5 attempts.')
+                                 'reason', 'SCAN_FAILED', 'detail', $3::text)
          FROM failed`,
-      [object.fileId, object.key],
+      [object.fileId, object.key, FILE_REASON.SCAN_FAILED],
     );
     deps.log.warn('file could not be checked', { fileId: object.fileId, changed: out.rowCount });
   }

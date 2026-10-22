@@ -28,12 +28,12 @@ for (const width of [1440, 1280, 1024]) {
         await expect(sub.locator('.panel-note-label')).toHaveText('Showing only deliveries to'); // the panel has loaded
         await expect(sub.locator('.panel-note .sr')).toHaveText(`Showing only deliveries to ${teams.length === 1 ? teams[0] : `${teams.slice(0, -1).join(', ')} and ${teams[teams.length - 1]}`}`);
         // The chips, sorted A to Z, all shown for up to 3 teams: no "+N".
-        await expect(sub.locator('.team-chip')).toHaveText([...teams]);
-        await expect(sub.locator('button.team-chip.more')).toHaveCount(0);
+        await expect(sub.locator('.team-chips .chip')).toHaveText([...teams]);
+        await expect(sub.locator('.team-chips .count-link')).toHaveCount(0);
         // One line: the whole line is as tall as one chip row, and the chips are not cut off by the panel.
         expect(Math.round((await sub.boundingBox())!.height), 'one line').toBeLessThan(36);
         const edge = (await page.getByRole('complementary').boundingBox())!;
-        const last = (await sub.locator('.team-chip').last().boundingBox())!;
+        const last = (await sub.locator('.team-chips .chip').last().boundingBox())!;
         expect(last.x + last.width, 'inside the panel').toBeLessThanOrEqual(edge.x + edge.width);
         if (SHOTS) await page.getByRole('complementary').screenshot({ path: `${SHOTS}/panel-teams-${teams.length}-${width}.png` });
       }

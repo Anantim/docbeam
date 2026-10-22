@@ -137,7 +137,8 @@ describe('Destinations tree', () => {
     expect(screen.getByText('ONC-118 Regulatory')).toBeTruthy();
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'z');
-    expect(screen.getByText('No binders or folders match.')).toBeTruthy();
+    expect(screen.getByText('No matches')).toBeTruthy(); // one wording everywhere, with a "Clear filter" link (D-F1-78)
+    expect(screen.getByRole('button', { name: 'Clear filter' })).toBeTruthy();
     expect(apiFetch.mock.calls.some((c) => String(c[0]).startsWith('/folders/search'))).toBe(false);
   });
 });
@@ -205,12 +206,13 @@ describe('the folder search (D-F1-67)', () => {
 
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'nomatch');
-    expect(await screen.findByText('No folders match.')).toBeTruthy();
+    expect(await screen.findByText('No matches')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear filter' })).toBeTruthy();
 
     await user.clear(screen.getByRole('searchbox'));
     delete answers['/folders/search?q=broken'];
     await user.type(screen.getByRole('searchbox'), 'broken');
-    expect((await screen.findByRole('alert')).textContent).toContain('Could not search.');
+    expect((await screen.findByRole('alert')).textContent).toContain("Couldn't search.");
     search('broken', { items: [hit('f3', 'Broken one', 'Cardio / R / Broken one')], nextCursor: null });
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByRole('button', { name: /Broken one/ });
@@ -283,7 +285,7 @@ describe('Destinations tree, paged levels (D-F1-6)', () => {
     await user.click(await screen.findByRole('button', { name: 'Expand Archive' }));
     await screen.findByText('Batch 002');
     await user.click(screen.getByRole('button', { name: 'Show more' }));
-    await screen.findByText('Could not load more.');
+    await screen.findByText("Couldn't load more.");
     expect(screen.getByText('Batch 002')).toBeTruthy(); // what was loaded stays
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByText('Loading more…');

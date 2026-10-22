@@ -209,18 +209,21 @@ describe('checking', () => {
     manager.dispose();
   });
 
-  it('marks a file infected, and one that could not be checked', async () => {
+  it("takes an infected file out of the list and tells the page, and marks one that couldn't be checked (D-F1-78)", async () => {
     const manager = newManager();
+    const told: Array<{ id: string; name: string }> = [];
+    manager.onInfected((f) => told.push(f));
     manager.add([pdf('virus.pdf'), pdf('odd.pdf')]);
     await settle();
+    const virusId = snap(manager, 0).id;
     scan.s1 = 'infected';
     scan.s2 = 'failed';
     await vi.advanceTimersByTimeAsync(POLL_MS);
-    const a = snap(manager, 0);
-    const b = snap(manager, 1);
-    expect(a.status).toBe('infected');
-    expect(a.message).toContain('Malware');
+    expect(manager.getSnapshot().map((f) => f.name)).toEqual(['odd.pdf']); // the infected one is gone from the list
+    expect(told).toEqual([{ id: virusId, name: 'virus.pdf' }]);
+    const b = snap(manager, 0);
     expect(b.status).toBe('unchecked');
+    expect(b.message).toBe("The scan couldn't run.");
     manager.dispose();
   });
 });

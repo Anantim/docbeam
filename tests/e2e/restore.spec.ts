@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { addPdfs, CARDIO_IRB, ONC_ETHICS, PRIYA, pdf, send, signIn, tick } from './helpers.js';
+import { addPdfs, CARDIO_IRB, clearPage, ONC_ETHICS, PRIYA, pdf, send, signIn, tick } from './helpers.js';
 
 // The batch survives a reload (D-F1-66): files already uploaded and scanned come back Ready with their folder ticks; a file that
 // was mid-upload cannot, and the page says so; after Send or Clear nothing comes back.
@@ -22,7 +22,7 @@ test('ready files come back after a reload with their folders, and can be sent',
   // A restored file has no copy of its bytes in this page: its Preview says so.
   await expect(page.locator('.frow', { hasText: names[0] as string }).getByRole('button', { name: /^Preview/ })).toBeDisabled();
   // Nothing was lost, so nothing is said about files that could not be restored.
-  await expect(page.getByRole('alert').filter({ hasText: 'could not be restored' })).toHaveCount(0);
+  await expect(page.getByRole('alert').filter({ hasText: "couldn't be restored" })).toHaveCount(0);
 
   // Remove one and reload: the other still comes back, the removed one does not.
   await page.getByRole('button', { name: `Remove ${names[0]}` }).click();
@@ -40,7 +40,7 @@ test('a file that was still uploading is not restored, and the page says how man
   await expect(page.locator('.frow', { hasText: 'midway-upload.pdf' })).toBeVisible();
   page.on('dialog', (d) => void d.accept()); // the browser asks before leaving: a file would be lost
   await page.reload(); // the held request goes with the page (taking the route off first lets it through)
-  await expect(page.getByRole('alert').filter({ hasText: '1 file could not be restored' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: "1 file couldn't be restored." })).toBeVisible();
   await expect(page.locator('.frow', { hasText: 'midway-upload.pdf' })).toHaveCount(0);
   await expect(page.locator('.frow', { hasText: 'kept-' })).toBeVisible();
 });
@@ -57,7 +57,7 @@ test('after Send and after Clear nothing comes back', async ({ page }) => {
   await expect(page.locator('.frow')).toHaveCount(0);
 
   await addPdfs(page, 1, 'cleared');
-  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await clearPage(page);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await page.getByRole('button', { name: 'Distribute' }).click();

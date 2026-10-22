@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { env } from '../integration/helpers.js';
-import { addPdfs, CARDIO_IRB, docx, eicarDocx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick, tooltipOf } from './helpers.js';
+import { addPdfs, CARDIO_IRB, clearPage, docx, eicarDocx, makePdf, pdf, CARDIO_PROTOCOL, chip, PRIYA, RAJ, readCounts, send, signIn, tick, tooltipOf } from './helpers.js';
 
 // M2, Upload and distribute, as a regression pack (flow 2): pick, upload, scan, map, review, send.
 // (The 101 MiB multipart upload, the platform stopped mid-run and the SIGTERM drain are covered by the
@@ -50,21 +50,21 @@ test('folders can be ticked before any file is added, and every file added while
   await expect(page.getByText('Ready', { exact: true })).toHaveCount(3, { timeout: 90_000 });
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
   await expect(page.locator('.send-reason')).toHaveText('');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('a file type that is not allowed is listed in one calm "not added" box with one Close button; it stays until closed or the page is cleared (D-F1-35)', async ({ page }) => {
   await signIn(page, PRIYA);
   await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
-  const notAdded = page.locator('.not-added');
-  await expect(notAdded).toContainText('1 file not added'); // singular
-  await expect(notAdded.locator('.not-added-name')).toHaveText('setup.exe');
-  await expect(notAdded.locator('.not-added-reason')).toHaveText('This type is not allowed. Use PDF, DOCX, XLSX, PNG or JPG.');
+  const notAdded = page.locator('.notice');
+  await expect(notAdded).toContainText('1 file not added.'); // singular
+  await expect(notAdded.locator('.notice-name')).toHaveText('setup.exe');
+  await expect(notAdded.locator('.notice-list .notice-detail')).toHaveText('This type is not allowed. Use PDF, DOCX, XLSX, PNG or JPG.');
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
   await expect(notAdded.getByRole('button')).toHaveCount(1); // one button for the whole box, none per line
   // A second refused file is added to the same box (plural), and nothing dismisses it on its own.
   await page.getByLabel('Choose files').setInputFiles([{ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') }]);
-  await expect(notAdded).toContainText('2 files not added');
+  await expect(notAdded).toContainText('2 files not added.');
   await page.waitForTimeout(1500);
   await expect(notAdded).toHaveCount(1);
   await notAdded.getByRole('button', { name: 'Close' }).click();
@@ -72,26 +72,38 @@ test('a file type that is not allowed is listed in one calm "not added" box with
   // It also goes when the page is cleared.
   await page.getByLabel('Choose files').setInputFiles([{ name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
   await expect(notAdded).toHaveCount(1);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('button', { name: 'Clear' }).click(); // only the box and no file: it clears at once, without a question
   await expect(notAdded).toHaveCount(0);
 });
 
-test('a malware test file is refused by the scan, can never be sent, and only its owner has the audit event (in the API; the page shows none)', async ({ page }) => {
+test('malware test files leave the list by themselves, are named in the one "not added" box with a wrong-type file, and good files still go; the audit record keeps the refusal for its owner only (D-F1-78)', async ({ page }) => {
   await signIn(page, PRIYA);
-  const name = `eicar-${randomUUID().slice(0, 6)}.docx`; // a real DOCX with the test string inside: the bare text named .pdf is not added (D-F1-44)
-  await page.getByLabel('Choose files').setInputFiles([{ name, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: await eicarDocx() }]);
-  const eicar = row(page, name);
-  await expect(eicar.locator('.status-chip')).toHaveText('Refused', { timeout: 90_000 });
-  expect(await tooltipOf(page, eicar.locator('.status-chip'))).toBe('Malware was found. The file was deleted and cannot be sent.'); // the reason is the chip's tooltip (D-F1-60)
-  await expect(eicar.locator('.status-chip')).toHaveAttribute('data-tone', 'bad');
-  await expect(eicar.locator('.struck')).toBeVisible(); // its name is struck through
-  await expect(eicar.getByRole('checkbox')).toHaveCount(0); // it cannot be selected
-  await expect(eicar).toContainText('Will not be sent');
+  const one = `eicar-${randomUUID().slice(0, 6)}.docx`; // a real DOCX with the test string inside: the bare text named .pdf is not added (D-F1-44)
+  const two = `eicar-${randomUUID().slice(0, 6)}.docx`;
+  await addPdfs(page, 2, 'beside-eicar');
+  const eicar = await eicarDocx();
+  const docx = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  await page.getByLabel('Choose files').setInputFiles([{ name: one, mimeType: docx, buffer: eicar }, { name: two, mimeType: docx, buffer: eicar }, { name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
+  const box = page.locator('.notice').filter({ hasText: 'not added' });
+  await expect(box.getByText('3 files not added.')).toBeVisible({ timeout: 90_000 }); // setup.exe at once, the two EICAR files after the scan
+  await expect(box.locator('.notice-name')).toHaveCount(3);
+  await expect(box.locator('.notice-name').first()).toHaveText('setup.exe'); // the wrong type was refused at once; the newest are at the bottom
+  await expect(box.locator('.notice-list li', { hasText: one }).locator('.notice-detail')).toHaveText('Malware was found. The file was deleted.');
+  await expect(box.locator('.notice-list li', { hasText: two }).locator('.notice-detail')).toHaveText('Malware was found. The file was deleted.');
+  await expect(box.getByRole('button')).toHaveCount(1); // one Close for the whole box
+  await expect(row(page, one)).toHaveCount(0); // no "Refused" row, no struck-through name, no locked tick box
+  await expect(page.getByText('Refused')).toHaveCount(0);
+  await expect(page.getByText('Will not be sent')).toHaveCount(0);
+  // The counts are the good files only, and Send is on by the usual rules (no "Remove N refused files").
+  await expect(page.locator('.frow:not(.thead)')).toHaveCount(2);
   const sendBtn = page.getByRole('button', { name: 'Send', exact: true });
-  await expect(sendBtn).toBeDisabled();
-  await expect(page.locator('.send-reason')).toHaveText('Remove 1 refused file'); // it is the only file
-  await page.getByRole('button', { name: `Remove ${name}` }).click();
-  await expect(row(page, name)).toHaveCount(0);
+  await expect(page.locator('.send-reason')).toHaveText('Choose folders for 2 files');
+  await tick(page, CARDIO_IRB);
+  await expect(sendBtn).toBeEnabled();
+  await sendBtn.click();
+  await expect(page.getByRole('dialog', { name: 'Send 2 files to 1 folder?' })).toBeVisible(); // the two good files
+  await page.keyboard.press('Escape');
+  await clearPage(page);
 
   // The web app has no audit view (D-F1-13): a refused file shows only in the Distribute file list, and Status has no Upload events.
   await page.getByRole('button', { name: 'Status' }).click();
@@ -107,7 +119,7 @@ test('a malware test file is refused by the scan, can never be sent, and only it
   const refusals = async (email: string): Promise<number> => {
     const res = await page.request.get('/api/audit?action=file.refused', { headers: { authorization: `Bearer ${await login(email)}` } });
     expect(res.status()).toBe(200);
-    return ((await res.json()).events as Array<{ detail: { reason?: string } }>).filter((e) => JSON.stringify(e).includes(name)).length;
+    return ((await res.json()).events as Array<{ detail: { reason?: string } }>).filter((e) => JSON.stringify(e).includes(one)).length;
   };
   expect(await refusals(PRIYA)).toBeGreaterThan(0);
   expect(await refusals(RAJ)).toBe(0);
@@ -133,7 +145,7 @@ test('ticking a folder applies to the selected file only, until none is selected
   await expect(row(page, b as string)).toHaveAttribute('aria-selected', 'true');
   await page.getByLabel('Select all to choose their folders').click();
   await expect(dest.locator('.card-hint')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
   await expect(page.locator('.frow:not(.thead)')).toHaveCount(0);
 });
 
@@ -171,7 +183,7 @@ test('a file shows how many folders it goes to, with the list on demand; Preview
   await page.keyboard.press('Escape');
   await expect(ask).toHaveCount(0);
   await expect(page.locator('.frow[data-id]')).toHaveCount(2); // nothing was sent
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('before sending, the preview shows a real multi-page PDF, a DOCX and an image, with no footer line (D-F1-23)', async ({ page }) => {
@@ -209,7 +221,7 @@ test('before sending, the preview shows a real multi-page PDF, a DOCX and an ima
   await expect(image).toBeVisible();
   expect(await image.evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth)).toBeGreaterThan(0); // it decoded
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('a distribution can have at most 20 destinations', async ({ page }) => {
@@ -241,7 +253,7 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
 
   await tickFolder(11, 'Regulatory', 'RA'); // untick it: valid again
   await expect(page.locator('.send-reason')).not.toHaveText('A distribution can have at most 20 destinations.');
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await clearPage(page);
 });
 
 test('the browser asks before a page that would lose a file is closed (a file still uploading), and not otherwise (D-F1-66)', async ({ page }) => {
@@ -259,7 +271,7 @@ test('the browser asks before a page that would lose a file is closed (a file st
 
   // With nothing on the page there is nothing to lose, so no question. (A stored, clean file is not lost either: it comes back after a reload.)
   await page.unroute(/localhost:4566/);
-  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  await clearPage(page);
   let again = false;
   page.on('dialog', (d) => {
     again = true;

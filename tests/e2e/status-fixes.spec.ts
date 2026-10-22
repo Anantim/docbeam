@@ -29,7 +29,7 @@ test('while the sign-in is over the page behind the dialog shows no error, and a
   // Nothing behind the dialog says the sign-in has ended or that something could not be loaded: the requests wait (D-F1-14).
   await page.waitForTimeout(500);
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(page.getByText(/could not be loaded/i)).toHaveCount(0);
+  await expect(page.getByText(/couldn't be loaded/i)).toHaveCount(0);
 
   // Sign in again. The requests that waited are sent again: the distribution and the list are back.
   await page.unroute('**/api/jobs**');

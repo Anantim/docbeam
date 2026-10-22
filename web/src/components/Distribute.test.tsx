@@ -50,6 +50,18 @@ class FakeManager {
     return () => this.listeners.delete(l);
   };
   getSnapshot = () => this.files;
+  infectedListeners = new Set<(file: { id: string; name: string }) => void>();
+  onInfected = (l: (file: { id: string; name: string }) => void) => {
+    this.infectedListeners.add(l);
+    return () => this.infectedListeners.delete(l);
+  };
+  /** The scan found malware: like the real manager, the file leaves the list, and the page is told. */
+  infect(id: string) {
+    const gone = this.files.find((f) => f.id === id);
+    if (!gone) return;
+    this.set(this.files.filter((f) => f.id !== id));
+    for (const l of this.infectedListeners) l({ id: gone.id, name: gone.name });
+  }
   set(files: PageFile[]) {
     this.files = files;
     for (const l of this.listeners) l();
@@ -223,16 +235,12 @@ describe('Distribute', () => {
     expect(picked()).toEqual(['false', 'false', 'false', 'false']);
   });
 
-  it('names the file states: Scanning (with "Scanning for malware" as tooltip and name), Failed for an upload storage refused or a scan that could not run (Retry kept), Refused for malware only (no Retry, the tick locked) (D-F1-38)', () => {
-    const manager = new FakeManager([
-      pageFile('scan.pdf', 'checking'),
-      pageFile('stored.pdf', 'refused'),
-      pageFile('noscan.pdf', 'unchecked'),
-      pageFile('virus.pdf', 'infected'),
-    ]);
+  it("names the file states: Scanning (blue, with \"Scanning for malware\" as tooltip and name), Failed for an upload storage refused or a scan that couldn't run (Retry kept); malware is not a state at all (D-F1-78)", () => {
+    const manager = new FakeManager([pageFile('scan.pdf', 'checking'), pageFile('stored.pdf', 'refused'), pageFile('noscan.pdf', 'unchecked')]);
     screenWith(manager);
     const chip = (n: string) => screen.getByText(n).closest('[role="row"]')!.querySelector('.status-chip') as HTMLElement;
     expect(chip('scan.pdf').textContent).toBe('Scanning');
+    expect(chip('scan.pdf').getAttribute('data-tone')).toBe('busy'); // working, like Uploading: blue, not amber
     expect(tooltipOf(chip('scan.pdf'))).toBe('Scanning for malware');
     expect(chip('scan.pdf').getAttribute('aria-label')).toBe('Scanning for malware');
     expect(screen.queryByText('Checking')).toBeNull();
@@ -240,7 +248,7 @@ describe('Distribute', () => {
     expect(document.querySelector('.fmsg')).toBeNull();
     for (const [name, reason] of [
       ['stored.pdf', 'Storage did not accept the upload.'],
-      ['noscan.pdf', 'The scan could not run.'],
+      ['noscan.pdf', "The scan couldn't run."],
     ] as const) {
       expect(chip(name).textContent).toBe('Failed');
       expect(tooltipOf(chip(name))).toBe(reason);
@@ -250,13 +258,8 @@ describe('Distribute', () => {
       expect(screen.getByRole('button', { name: `Retry upload of ${name}` })).toBeTruthy(); // the visible action: Retry
       expect(screen.getByRole('button', { name: `Remove ${name}` })).toBeTruthy();
     }
-    expect(chip('virus.pdf').textContent).toBe('Refused');
-    expect(tooltipOf(chip('virus.pdf'))).toBe('Malware was found. The file was deleted and cannot be sent.');
-    expect(chip('virus.pdf').getAttribute('aria-label')).toBe('Malware was found. The file was deleted and cannot be sent.');
-    expect(screen.getByRole('button', { name: 'Remove virus.pdf' })).toBeTruthy(); // the visible action on a Refused file: remove
-    expect(screen.queryByRole('button', { name: 'Retry upload of virus.pdf' })).toBeNull(); // final: no Retry
-    expect(screen.getByRole('img', { name: /virus\.pdf was refused for malware and cannot be selected or sent/ })).toBeTruthy(); // the tick locked
-    expect(screen.getAllByText('Refused')).toHaveLength(1); // "Refused" is only for malware
+    expect(screen.queryByText('Refused')).toBeNull(); // no "Refused" row any more: a file with malware is taken out of the list
+    expect(document.querySelector('.ck.locked, .struck')).toBeNull();
   });
 
   it('names what the tick boxes are for: the row box "Select to choose folders for this file", the header box "Select all to choose their folders" (D-F1-23)', async () => {
@@ -332,7 +335,7 @@ describe('Distribute', () => {
     expect(screen.getByRole('dialog', { name: 'Send 2 files to 1 folder?' })).toBeTruthy();
   });
 
-  it('gives each reason in words beside the buttons: no folders, still checking, failed, refused; and none when Send is on', async () => {
+  it('gives each reason in words beside the buttons: no folders, still checking, failed; and none when Send is on', async () => {
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     screenWith(manager);
@@ -342,8 +345,6 @@ describe('Distribute', () => {
     await waitFor(() => expect(reason()).toBe('Wait for 1 file to finish scanning'));
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'interrupted')]);
     await waitFor(() => expect(reason()).toBe('Retry or remove 1 failed file'));
-    manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'infected')]);
-    await waitFor(() => expect(reason()).toBe('Remove 1 refused file'));
     manager.set([pageFile('a.pdf', 'verified')]);
     await tickTop(user, 'all 1 file');
     await waitFor(() => expect(reason()).toBe(''));
@@ -369,10 +370,6 @@ describe('Distribute', () => {
     manager.set([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'unchecked')]);
     await waitFor(() => expect(asks()).toBe(true));
 
-    // A file refused for malware is not kept and is not worth a question.
-    manager.set([pageFile('a.pdf', 'infected')]);
-    await waitFor(() => expect(asks()).toBe(false));
-
     manager.set([]);
     await waitFor(() => expect(asks()).toBe(false));
   });
@@ -391,7 +388,7 @@ describe('Distribute', () => {
       expect(await screen.findByText('a.pdf')).toBeTruthy();
       expect(screen.getByText('b.pdf')).toBeTruthy();
       expect(screen.queryByText('c.pdf')).toBeNull(); // it was mid-upload
-      await waitFor(() => expect(notify).toHaveBeenCalledWith('1 file could not be restored', 'error'));
+      await waitFor(() => expect(notify).toHaveBeenCalledWith("1 file couldn't be restored.", 'error'));
       // The ticks of the files that came back are kept; the one that did not has none.
       const saved = JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string);
       expect(Object.keys(saved.mapping.files).sort()).toEqual(['p1', 'p2']);
@@ -404,7 +401,7 @@ describe('Distribute', () => {
       const manager = new FakeManager([]);
       manager.restore.mockResolvedValueOnce({ restored: [], dropped: 1, unreachable: true } as never);
       screenWith(manager);
-      await waitFor(() => expect(notify).toHaveBeenCalledWith('Your files could not be checked. Reload to try again.', 'error'));
+      await waitFor(() => expect(notify).toHaveBeenCalledWith("Your files couldn't be checked. Reload to try again.", 'error'));
       expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1); // not wiped by the empty page
     });
 
@@ -424,12 +421,13 @@ describe('Distribute', () => {
       expect(notify).not.toHaveBeenCalled();
     });
 
-    it('keeps the batch up to date while files are added and ticked, and forgets it after Clear', async () => {
+    it('keeps the batch up to date while files are added and ticked, and forgets it after Clear (once confirmed)', async () => {
       const user = userEvent.setup();
       const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
       screenWith(manager);
       await waitFor(() => expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1));
       await user.click(screen.getByRole('button', { name: 'Clear' }));
+      await user.click(within(screen.getByRole('dialog', { name: 'Remove all 1 file and their folder ticks?' })).getByRole('button', { name: 'Clear' }));
       await waitFor(() => expect(sessionStorage.getItem('docbeam.batch.v1')).toBeNull());
     });
 
@@ -510,8 +508,8 @@ describe('Distribute', () => {
     const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
     fireEvent.change(input, { target: { files: [new File(['%PDF-1.7\n%%EOF\n'], 'report.docx'), new File([png], 'photo.pdf'), new File(['MZ-program'], 'setup.pdf')] } });
     const box = await screen.findByRole('alert');
-    await waitFor(() => expect(within(box).getByText('3 files not added')).toBeTruthy());
-    expect([...box.querySelectorAll('.not-added-reason')].map((e) => e.textContent)).toEqual([
+    await waitFor(() => expect(within(box).getByText('3 files not added.')).toBeTruthy());
+    expect([...box.querySelectorAll('.notice-list .notice-detail')].map((e) => e.textContent)).toEqual([
       'The contents are a PDF, but the name says .docx.',
       'The contents are a PNG, but the name says .pdf.',
       "This isn't a real PDF file.",
@@ -526,19 +524,154 @@ describe('Distribute', () => {
     const input = screen.getByLabelText('Choose files');
     fireEvent.change(input, { target: { files: [new File(['x'], 'setup.exe')] } });
     const box = await screen.findByRole('alert');
-    expect(within(box).getByText('1 file not added')).toBeTruthy();
+    expect(within(box).getByText('1 file not added.')).toBeTruthy();
     expect(within(box).getAllByRole('button')).toHaveLength(1);
     fireEvent.change(input, { target: { files: [new File(['x'], 'notes.txt')] } });
-    expect(await within(screen.getByRole('alert')).findByText('2 files not added')).toBeTruthy();
-    expect(box.querySelector('.not-added-name')?.textContent).toBe('setup.exe'); // the name in normal text
-    expect(box.querySelector('.not-added-reason')?.textContent).toContain('This type is not allowed'); // the reason apart
+    expect(await within(screen.getByRole('alert')).findByText('2 files not added.')).toBeTruthy();
+    expect(box.querySelector('.notice-name')?.textContent).toBe('setup.exe'); // the name in normal text
+    expect(box.querySelector('.notice-list .notice-detail')?.textContent).toContain('This type is not allowed'); // the reason apart
     await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Close' }));
     expect(screen.queryByText(/files? not added/)).toBeNull();
-    // Cleared with the page.
+    // Cleared with the page (with a file on it, Clear asks first).
     fireEvent.change(input, { target: { files: [new File(['x'], 'setup.exe')] } });
-    expect(await screen.findByText('1 file not added')).toBeTruthy();
+    expect(await screen.findByText('1 file not added.')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear' }));
     expect(screen.queryByText(/files? not added/)).toBeNull();
+  });
+});
+
+describe('Clear asks first when there are files (D-F1-78)', () => {
+  it('asks "Remove all N files and their folder ticks?", with the focus on "Keep them"; "Keep them" changes nothing and gives the focus back to Clear', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
+    screenWith(manager);
+    await tickTop(user, 'all 2 files');
+    const clear = screen.getByRole('button', { name: 'Clear' });
+    await user.click(clear);
+    const ask = screen.getByRole('dialog', { name: 'Remove all 2 files and their folder ticks?' });
+    expect(document.activeElement?.textContent).toBe('Keep them');
+    expect(manager.clear).not.toHaveBeenCalled();
+    await user.click(within(ask).getByRole('button', { name: 'Keep them' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(manager.clear).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('.frow[data-id]')).toHaveLength(2);
+    expect(document.activeElement).toBe(clear); // back on the control that opened it
+  });
+
+  it('"Clear" in the question clears the files, the ticks and the "not added" box', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    await tickTop(user, 'all 1 file');
+    fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['x'], 'setup.exe')] } });
+    await screen.findByText('1 file not added.');
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(within(screen.getByRole('dialog', { name: 'Remove all 1 file and their folder ticks?' })).getByRole('button', { name: 'Clear' }));
+    expect(manager.clear).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/not added/)).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('clears at once, without asking, when there is only the "not added" box and no file', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([]);
+    screenWith(manager);
+    fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['x'], 'setup.exe')] } });
+    await screen.findByText('1 file not added.');
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(/not added/)).toBeNull();
+  });
+});
+
+describe('where the focus goes when a dialog closes (D-F1-78)', () => {
+  it('the question before Send: "Cancel" puts it back on Send; after a send, with the page cleared, on the page heading', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    await tickTop(user, 'all 1 file');
+    const send = screen.getByRole('button', { name: 'Send' });
+    await user.click(send);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).toBe(send);
+    await user.click(send);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Sent'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'New distribution' })));
+  });
+
+  it('the preview: Close puts it back on the Preview button', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    const open = screen.getByRole('button', { name: /^Preview a\.pdf/ });
+    await user.click(open);
+    const dialog = await screen.findByRole('dialog', { name: 'File preview' });
+    await user.click(within(dialog).getByRole('button', { name: 'Close preview' }));
+    expect(document.activeElement).toBe(open);
+  });
+});
+
+describe('a file with malware leaves the list by itself (D-F1-78)', () => {
+  const INFECTED = 'Malware was found. The file was deleted.';
+  const reasons = () => [...document.querySelectorAll('.notice-list li')].map((li) => li.textContent);
+
+  it('takes the file out, with its selection and folder ticks, updates every count, and says why in the "not added" box', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('good.pdf', 'verified'), pageFile('virus.docx', 'verified'), pageFile('other.pdf', 'verified')]);
+    screenWith(manager);
+    await user.click(screen.getByText('virus.docx')); // selected
+    await tickTop(user, '1 selected file');
+    expect(screen.getByText('Choose folders for 2 files')).toBeTruthy();
+
+    act(() => manager.infect(manager.files.find((f) => f.name === 'virus.docx')!.id));
+
+    expect(screen.queryByText('virus.docx', { selector: '.fname-text' })).toBeNull(); // not a row any more
+    expect(document.querySelectorAll('.frow[data-id]')).toHaveLength(2);
+    const box = screen.getByRole('alert');
+    expect(within(box).getByText('1 file not added.')).toBeTruthy();
+    expect(reasons()).toEqual([`virus.docx ${INFECTED}`]);
+    expect(screen.getByText('Choose folders for 2 files')).toBeTruthy(); // the counts follow
+    expect(screen.queryByText(/Refused|Will not be sent|Remove 1 refused file/)).toBeNull();
+    expect(document.querySelector('.ck.locked')).toBeNull(); // no locked tick box any more
+    expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true); // by the usual rules: folders are missing
+  });
+
+  it('leaves Send to the usual rules: good files that are mapped can be sent while a malware note is shown', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('good.pdf', 'verified'), pageFile('virus.docx', 'verified')]);
+    const submit = screenWith(manager);
+    act(() => manager.infect(manager.files.find((f) => f.name === 'virus.docx')!.id));
+    await tickTop(user, 'all 1 file');
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(screen.getByRole('dialog', { name: /^Send 1 file to 1 folder/ })).toBeTruthy();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+  });
+
+  it('adds to the same box as a wrong-extension file, the newest at the bottom, with one Close; two infected files and one wrong type end up together', async () => {
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.docx', 'verified'), pageFile('c.xlsx', 'verified')]);
+    screenWith(manager);
+    fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['x'], 'setup.exe')] } });
+    expect(await screen.findByText('1 file not added.')).toBeTruthy();
+    act(() => manager.infect(manager.files.find((f) => f.name === 'b.docx')!.id));
+    act(() => manager.infect(manager.files.find((f) => f.name === 'c.xlsx')!.id));
+    const box = screen.getByRole('alert');
+    expect(within(box).getByText('3 files not added.')).toBeTruthy();
+    expect([...box.querySelectorAll('.notice-name')].map((e) => e.textContent)).toEqual(['setup.exe', 'b.docx', 'c.xlsx']); // newest last
+    expect(within(box).getAllByRole('button')).toHaveLength(1); // one Close for the whole box
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('scrolls the box into view, smoothly, when it gains an entry', () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('virus.pdf', 'verified')]);
+    screenWith(manager);
+    act(() => manager.infect(manager.files.find((f) => f.name === 'virus.pdf')!.id));
+    expect(scrolled).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
   });
 });
 
@@ -631,6 +764,7 @@ describe('the Filter… box over the file list (D-F1-41)', () => {
     act(() => manager.set(many(16).slice(0, 15)));
     expect((screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement).disabled).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear' }));
     expect((screen.getByRole('textbox', { name: 'Filter files' }) as HTMLInputElement).disabled).toBe(true);
   });
 });

@@ -40,8 +40,8 @@ test('permanent failure, retried failure, cancelled, retrying and completed rows
         expect(await tooltipOf(page, info), `${file} info icon`).toBe(text);
       }
     };
-    await says('Permanent.pdf', 'The file never finished uploading, so it could not be delivered.');
-    await says('Retried.pdf', 'The platform did not respond after 5 attempts.');
+    await says('Permanent.pdf', "The file never finished uploading, so it couldn't be delivered.");
+    await says('Retried.pdf', "The platform didn't respond after 5 attempts.");
     await says('Cancelled.pdf', 'Cancelled by the sender before it was delivered.');
     await says('Retrying.pdf', 'Trying again. Attempt 3 of 5.');
     await says('Done.pdf', 'Delivered to the folder in the platform.');
@@ -59,7 +59,7 @@ test('permanent failure, retried failure, cancelled, retrying and completed rows
     // A click on the info icon shows it too, and Esc closes it (and then the panel, which Esc closes as well).
     await page.mouse.move(0, 0);
     await row('Permanent.pdf').getByRole('button', { name: 'Why this delivery failed' }).click();
-    await expect(page.getByRole('tooltip')).toHaveText('The file never finished uploading, so it could not be delivered.');
+    await expect(page.getByRole('tooltip')).toHaveText("The file never finished uploading, so it couldn't be delivered.");
     await page.keyboard.press('Escape');
     await expect(page.getByRole('tooltip').filter({ hasText: 'never finished uploading' })).toHaveCount(0);
   } finally {

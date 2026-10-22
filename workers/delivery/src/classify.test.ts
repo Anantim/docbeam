@@ -1,3 +1,4 @@
+import { FAILURE_REASON, type FailureCode } from '@docbeam/shared';
 import { describe, expect, it } from 'vitest';
 import { classifyPlatformAnswer, retryGapSeconds } from './classify.js';
 
@@ -12,8 +13,8 @@ describe('classifyPlatformAnswer', () => {
     [404, 'DESTINATION_NOT_FOUND', 'DESTINATION_NOT_FOUND'],
     [422, 'CHECKSUM_MISMATCH', 'CHECKSUM_MISMATCH'],
     [422, 'UNSUPPORTED_TYPE', 'UNSUPPORTED_TYPE'],
-  ])('%i %s is permanent: %s', (status, code, failure) => {
-    expect(classifyPlatformAnswer(status, code)).toMatchObject({ kind: 'permanent', code: failure });
+  ])('%i %s is permanent: %s, with the one sentence of its code as the reason (D-F1-78)', (status, code, failure) => {
+    expect(classifyPlatformAnswer(status, code)).toMatchObject({ kind: 'permanent', code: failure, detail: FAILURE_REASON[failure as FailureCode] });
   });
 
   it.each([

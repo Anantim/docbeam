@@ -1,7 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { logout } from '../auth/session.js';
 import { initials, type Claims } from '../auth/token.js';
+import { plural } from '../text.js';
 import type { View } from '../tracking/route.js';
+import type { PageFile, UploadManager } from '../upload/manager.js';
+import { ConfirmDialog } from './ConfirmDialog.js';
 import { LogoutIcon } from './Icons.js';
 import { Logo } from './Logo.js';
 import { TeamList } from './TeamList.js';
@@ -19,14 +22,25 @@ interface Props {
   onView: (view: View) => void;
   /** My distributions that are still running, shown as a badge on Status. */
   running?: number;
+  /** The upload queue, to know whether signing out would lose a file. With none, signing out never asks. */
+  manager?: Pick<UploadManager, 'subscribe' | 'getSnapshot'>;
   children: ReactNode;
 }
 
 /** "1 distribution still running", "3 distributions still running": the badge's tooltip and its accessible name (D-F1-72). */
 export const runningText = (n: number): string => `${n} ${n === 1 ? 'distribution' : 'distributions'} still running`;
 
-/** The app shell: the two tabs, the person, and sign out. */
-export function Shell({ claims, teams, view, onView, running = 0, children }: Props) {
+const NO_FILES: readonly PageFile[] = [];
+const NO_UPLOADS = { subscribe: () => () => undefined, getSnapshot: () => NO_FILES };
+
+/**
+ * The app shell: the two tabs, the person, and sign out. Signing out while a file is still being read or uploaded (the files the
+ * leave warning protects) asks first, because the files would be lost (D-F1-78).
+ */
+export function Shell({ claims, teams, view, onView, running = 0, manager = NO_UPLOADS, children }: Props) {
+  const files = useSyncExternalStore(manager.subscribe, manager.getSnapshot);
+  const atRisk = files.filter((f) => !(f.status === 'checking' || f.status === 'verified')).length;
+  const [asking, setAsking] = useState(false);
   return (
     <>
       <header className="top">
@@ -62,13 +76,24 @@ export function Shell({ claims, teams, view, onView, running = 0, children }: Pr
             </div>
           </div>
           <Tooltip text="Sign out">
-            <button className="icon" type="button" aria-label="Sign out" onClick={() => void logout()}>
+            <button className="icon" type="button" aria-label="Sign out" onClick={() => (atRisk > 0 ? setAsking(true) : void logout())}>
               <LogoutIcon />
             </button>
           </Tooltip>
         </div>
       </header>
       {children}
+      {asking && atRisk > 0 && (
+        <ConfirmDialog
+          heading={`Sign out and stop ${plural(atRisk, 'upload', 'uploads')}?`}
+          confirmLabel="Sign out"
+          cancelLabel="Stay"
+          onConfirm={() => void logout()}
+          onCancel={() => setAsking(false)}
+        >
+          <p>Files that are still being read or uploaded are lost when you sign out.</p>
+        </ConfirmDialog>
+      )}
     </>
   );
 }

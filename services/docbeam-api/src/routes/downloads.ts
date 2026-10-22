@@ -50,7 +50,7 @@ export function parseMode(body: unknown): DownloadMode {
   const mode = body && typeof body === 'object' ? (body as { mode?: unknown }).mode : undefined;
   if (mode === undefined) return 'download';
   if (mode === 'download' || mode === 'preview') return mode;
-  throw new ApiError(400, 'VALIDATION_ERROR', 'mode must be download or preview.');
+  throw new ApiError(400, 'VALIDATION_ERROR', 'The mode must be download or preview.');
 }
 
 export function registerDownloadRoutes(app: FastifyInstance, db: Db, { store, platform }: { store: ObjectStore; platform: PlatformClient }): void {

@@ -76,9 +76,11 @@ test('Priya previews a PDF, a DOCX and an XLSX in the page and downloads the PDF
   const saved = page.waitForEvent('download');
   await rowOf(page, PDF).getByRole('button', { name: `Download ${PDF}` }).click();
   expect((await saved).suggestedFilename()).toBe(PDF);
-  await expect(page.getByRole('status').filter({ hasText: `${PDF} is downloading. Its link works for this one file for another` })).toBeVisible();
+  const note = page.getByRole('status').filter({ hasText: `${PDF} is downloading.` });
+  await expect(note).toBeVisible();
+  await expect(note.locator('.notice-detail')).toContainText('Its link works for this one file for another');
   await shot(page, 'priya-download-pdf-saved');
-  await page.getByRole('button', { name: 'Dismiss' }).click();
+  await note.getByRole('button', { name: 'Close' }).click(); // the same small Close icon as every note (D-F1-78)
   await expect(page.getByRole('status').filter({ hasText: 'is downloading' })).toHaveCount(0);
 
   // The sender's own links are recorded: two previews of office files, one of the PDF, one download.
@@ -114,7 +116,7 @@ test('a file older than 33 days shows the expired note and no buttons', async ({
   await sql(`UPDATE files SET uploaded_at = now() - interval '40 days' WHERE job_id = $1 AND original_name = $2`, [jobId, DOCX]);
   await signIn(page, PRIYA);
   await page.goto(`/#/status/${jobId}`);
-  await expect(rowOf(page, DOCX).getByRole('button', { name: 'Why this file cannot be opened' })).toBeVisible(); // an info icon, no words
+  await expect(rowOf(page, DOCX).getByRole('button', { name: "Why this file can't be opened" })).toBeVisible(); // an info icon, no words
   await expect(rowOf(page, DOCX).getByRole('button', { name: /^(Preview|Download)/ })).toHaveCount(0);
   await expect(rowOf(page, PDF).getByRole('button', { name: `Preview ${PDF}` })).toBeVisible();
   expect(jobIdOf(page)).toBe(jobId);

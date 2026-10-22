@@ -48,7 +48,7 @@ export function CopyLinkButton({ jobId, notify, show, tabbable = true }: Props) 
               clearTimeout(timer.current);
               timer.current = setTimeout(() => setCopied(false), COPIED_MS);
             })
-            .catch(() => notify('The link could not be copied.', 'error'));
+            .catch(() => notify("The link couldn't be copied.", 'error'));
         }}
       >
         {/* Both icons are always there and cross-fade over 120 ms (D-F1-47). */}

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { AuthError, login } from '../auth/session.js';
 import { Logo } from './Logo.js';
 import { PasswordField } from './PasswordField.js';
+import { Notice } from './Notice.js';
 import { PauseNote } from './PauseNote.js';
 
 /**
@@ -43,12 +44,7 @@ export function AuthCard() {
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={(e) => void submit(e)}>
           <h2>Sign in</h2>
-          {error && (
-            <div role="alert" className="alert">
-              {error}
-              <PauseNote />
-            </div>
-          )}
+          {error && <Notice heading={error} detail={<PauseNote />} />}
           <div className="dialog-field">
             <label htmlFor="em">Work email</label>
             <input id="em" className="field" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />

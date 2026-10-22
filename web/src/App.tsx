@@ -126,6 +126,7 @@ export function App() {
         view={view}
         onView={(v) => go({ view: v, jobId: v === 'status' ? route.jobId : null, filters: v === 'status' ? route.filters : NO_FILTERS })}
         running={running}
+        manager={uploadManager}
       >
         {/* Distribute stays mounted while another screen shows, so a prepared batch survives a look at Status. */}
         <div className="view" hidden={view !== 'distribute'}>

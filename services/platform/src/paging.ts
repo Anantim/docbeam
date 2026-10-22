@@ -47,9 +47,9 @@ export function readPageQuery(query: unknown, defaultLimit: number = DEFAULT_LIM
   let limit = defaultLimit;
   if (q['limit'] !== undefined) {
     const raw = q['limit'];
-    if (typeof raw !== 'string' || !/^\d{1,4}$/.test(raw)) throw new ApiError(400, 'VALIDATION_ERROR', `limit must be a whole number from 1 to ${MAX_LIMIT}.`);
+    if (typeof raw !== 'string' || !/^\d{1,4}$/.test(raw)) throw new ApiError(400, 'VALIDATION_ERROR', `The limit must be a whole number from 1 to ${MAX_LIMIT}.`);
     limit = Number(raw);
-    if (limit < 1 || limit > MAX_LIMIT) throw new ApiError(400, 'VALIDATION_ERROR', `limit must be a whole number from 1 to ${MAX_LIMIT}.`);
+    if (limit < 1 || limit > MAX_LIMIT) throw new ApiError(400, 'VALIDATION_ERROR', `The limit must be a whole number from 1 to ${MAX_LIMIT}.`);
   }
   const cursor = q['cursor'];
   if (cursor !== undefined && (typeof cursor !== 'string' || cursor === '')) throw badCursor();

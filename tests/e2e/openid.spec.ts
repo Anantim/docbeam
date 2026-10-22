@@ -71,7 +71,7 @@ const trigger = (page: Page) => page.getByRole('button', { name: 'Open by ID' })
 const card = (page: Page) => page.getByRole('form', { name: 'Open a distribution by ID' });
 const box = (page: Page) => card(page).getByLabel('Distribution ID or link');
 const openButton = (page: Page) => card(page).getByRole('button', { name: 'Open', exact: true });
-const notFound = (page: Page) => page.getByRole('heading', { name: 'Distribution not found' });
+const notFound = (page: Page) => page.locator('.notice').filter({ hasText: 'Distribution not found.' });
 /** The list's own empty state (nothing sent yet, or nothing sent to my teams). */
 const emptyState = (page: Page) => page.locator('.card.state');
 
@@ -150,7 +150,7 @@ test('the 8 characters from the list open the distribution; an unknown one and a
   await openButton(page).click();
   await expect(notFound(page)).toBeVisible();
   await expect(card(page)).toHaveCount(0); // it closed on opening
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(1); // the not-found note is the only one: the form shows no note of its own
 });
 
 test('a full unknown id and a full link show only the not-found panel', async ({ page }) => {
@@ -162,14 +162,14 @@ test('a full unknown id and a full link show only the not-found panel', async ({
   await openButton(page).click();
   await expect(page).toHaveURL(new RegExp(`#/status/${unknown}$`));
   await expect(notFound(page)).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(1);
   const another = randomUUID();
   await openCard(page);
   await box(page).fill(`http://localhost:5173/#/status/${another.toUpperCase()}`);
   await box(page).press('Enter');
   await expect(page).toHaveURL(new RegExp(`#/status/${another}$`));
   await expect(notFound(page)).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(1);
 });
 
 test('a person with no distributions sees the empty state on first load, not "not found"', async ({ page }) => {
@@ -179,7 +179,7 @@ test('a person with no distributions sees the empty state on first load, not "no
   await expect(notFound(page)).toHaveCount(0);
   await expect(page.getByText('No distributions yet')).toBeVisible();
   await pickFilter(page, 'Sender', 'Me'); // with a filter set the empty list says no distribution matches
-  await expect(page.getByText('No distribution matches these filters')).toBeVisible();
+  await expect(page.getByText('No matches', { exact: true })).toBeVisible();
   await expect(notFound(page)).toHaveCount(0);
 });
 

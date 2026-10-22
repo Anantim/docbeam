@@ -18,7 +18,15 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  // `chromium` runs every spec. The three width projects run only `widths.spec.ts` (the main screens, with a check that the page
+  // never scrolls sideways) at the width of a phone, a tablet and a laptop (D-F1-78).
+  projects: [
+    { name: 'chromium', testIgnore: /widths\.spec\.ts/, use: { browserName: 'chromium' } },
+    { name: 'phone-375', testMatch: /widths\.spec\.ts/, use: { browserName: 'chromium', viewport: { width: 375, height: 800 } } },
+    { name: 'tablet-768', testMatch: /widths\.spec\.ts/, use: { browserName: 'chromium', viewport: { width: 768, height: 900 } } },
+    { name: 'small-laptop-1024', testMatch: /widths\.spec\.ts/, use: { browserName: 'chromium', viewport: { width: 1024, height: 768 } } },
+    { name: 'laptop-1440', testMatch: /widths\.spec\.ts/, use: { browserName: 'chromium', viewport: { width: 1440, height: 900 } } },
+  ],
   webServer: {
     command: 'npm run dev -w @docbeam/web',
     url: 'http://localhost:5173',
