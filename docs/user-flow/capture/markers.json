@@ -62,11 +62,7 @@
   "02b-refused": [
     {
       "n": 1,
-      "label": "GET /files → scanStatus \"infected\"; the reason is the chip tooltip (computed in the browser)"
-    },
-    {
-      "n": 2,
-      "label": "press → removes it from the page · no call (the server already deleted the object)"
+      "label": "GET /files → scanStatus \"infected\"; the file is taken out of the list and named here (computed in the browser, no call of its own)"
     }
   ],
   "03-destinations": [
@@ -182,11 +178,11 @@
     },
     {
       "n": 5,
-      "label": "press → POST /files/{fileId}/downloads, then S3 GET (chapter 7)"
+      "label": "GET /jobs/{jobId}/tasks → tasks[].status · changed live by WS task_update"
     },
     {
       "n": 6,
-      "label": "GET /jobs/{jobId}/tasks → tasks[].status · changed live by WS task_update"
+      "label": "press → POST /files/{fileId}/downloads, then S3 GET (chapter 7)"
     },
     {
       "n": 7,
@@ -206,11 +202,11 @@
   "05d-failed-and-retry": [
     {
       "n": 1,
-      "label": "GET /jobs/{jobId} → counts → \"Completed with errors\""
+      "label": "GET /jobs/{jobId} → retry.open and retry.retryable · press → POST /jobs/{jobId}/retry"
     },
     {
       "n": 2,
-      "label": "GET /jobs/{jobId} → retry.open and retry.retryable · press → POST /jobs/{jobId}/retry"
+      "label": "GET /jobs/{jobId} → counts → \"Completed with errors\""
     },
     {
       "n": 3,
@@ -224,7 +220,7 @@
   "05e-list-error": [
     {
       "n": 1,
-      "label": "GET /jobs 503 → the page says it in its own words (never the server text)"
+      "label": "GET /jobs 503 → the page shows the one note style, with Try again"
     },
     {
       "n": 2,

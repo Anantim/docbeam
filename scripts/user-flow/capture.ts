@@ -607,9 +607,10 @@ try {
   await page.keyboard.press('Escape');
   await page.route('**/api/jobs?**', mockJson(503, { error: { code: 'PLATFORM_UNAVAILABLE', message: 'The platform is not answering. Try again in a moment.' } }, 'provoked: the capture made this answer a 503, as when the platform is not answering'));
   await page.reload();
-  await page.getByText("The list couldn't be loaded.").waitFor();
+  const listNote = page.locator('.notice').filter({ has: page.getByRole('button', { name: 'Try again' }) });
+  await listNote.waitFor();
   await shot(page, '05e-list-error', [
-    { n: 1, target: page.getByText("The list couldn't be loaded."), label: 'GET /jobs 503 → the page says it in its own words (never the server text)' },
+    { n: 1, target: listNote, label: 'GET /jobs 503 → the page shows the one note style, with Try again' },
     { n: 2, target: page.getByRole('button', { name: 'Try again' }), label: 'press → GET /jobs again' },
   ]);
   await page.unroute('**/api/jobs?**');
