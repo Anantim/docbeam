@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-22T00:42:41.184Z",
+  "capturedAt": "2026-10-22T06:54:00.916Z",
   "note": "Recorded by scripts/user-flow/capture.ts on the local stack. Tokens, signatures, cookies and passwords are masked.",
   "records": [
     {
@@ -9,7 +9,7 @@
       "method": "POST",
       "path": "/auth/refresh",
       "status": 401,
-      "ms": 48,
+      "ms": 69,
       "bytes": 60,
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Sign in again.\"}}"
     },
@@ -20,7 +20,7 @@
       "method": "POST",
       "path": "/auth/login",
       "status": 401,
-      "ms": 231,
+      "ms": 225,
       "bytes": 77,
       "req": "{\"email\":\"priya.shah@example.com\",\"password\":\"<masked>\"}",
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Email or password is incorrect.\"}}"
@@ -32,7 +32,7 @@
       "method": "POST",
       "path": "/auth/login",
       "status": 200,
-      "ms": 245,
+      "ms": 262,
       "bytes": 754,
       "req": "{\"email\":\"priya.shah@example.com\",\"password\":\"<masked>\"}",
       "res": "{\"accessToken\":\"<masked>\",\"expiresIn\":900}"
@@ -52,7 +52,7 @@
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 66,
+      "ms": 51,
       "bytes": 155,
       "res": "{\"items\":[{\"id\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"name\":\"Cardio\"},{\"id\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"name\":\"Oncology\"}],\"nextCursor\":null}"
     },
@@ -63,7 +63,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 83,
+      "ms": 68,
       "bytes": 13,
       "res": "{\"running\":0}"
     },
@@ -74,9 +74,9 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 83,
-      "bytes": 9360,
-      "res": "{\"items\":[{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"Held one mviszvwp.pdf\",\"Held two mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b88463f6-fa1d-4292-a541-c26938e5630d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:31:34.882Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":2},\"status\":\"cancelled\"},{\"fileCount\":3,\"destinationCount\":2,\"fileNames\":[\"Protocol amendment mviszvwp.pdf\",\"Consent form mviszvwp.pdf\",\"Lab certification mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"jobId\":\"2ef6b591-d63c-4440-850a-3764c4770f3d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:30:21.132Z\",\"taskCount\":6,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":6,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4d6297-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"29c3a3c7-3127-44a6-b71d-5b3dcbc2ba90\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:38.215Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-0d39be-1.pdf\",\"e2e-e8a6da-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"ab59bad3-eb3f-4f78-bfe6-5334ec9f9e25\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:06.161Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-a8a18e-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"647cfca3-aabf-4990-8121-0052311be1ec\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:17:48.332Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-a4a782-1.pdf\",\"e2e-07315a-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"a2fa417d-ad06-45f0-99ab-10fc2479f35e\",\"submittedBy\":{\"use"
+      "ms": 68,
+      "bytes": 9345,
+      "res": "{\"items\":[{\"fileCount\":1,\"destinationCount\":2,\"fileNames\":[\"quarterly-regulatory-binder-update-for-the-cardio-study-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-e561a5.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Cardio / CARDIO-301 Regulatory / Protocol amendments\"],\"jobId\":\"049db628-fdd2-4eae-8310-262f55167856\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:47:09.714Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"chip-70c26b-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"4108c3f4-bd6f-4c0f-a84f-639f230b46eb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:58.131Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-8f53bf-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"5e53c57f-9942-4616-9aed-90e282aae024\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:53.477Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4c4354-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"eb793c43-2461-48a5-968c-b4a91b58056a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:47.740Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-840e57-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"642b351e-6298-471a-a4d6-01d55b6cef2a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:45:57.120Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-b30d81-1.pdf\",\"e2e-c5b05c-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b1cc1014-749a-486d-ab56-06ee5ecc84fb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45"
     },
     {
       "id": 8,
@@ -85,7 +85,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 7,
+      "ms": 4,
       "bytes": 13,
       "res": "{\"running\":0}"
     },
@@ -104,7 +104,7 @@
       "method": "POST",
       "path": "/auth/refresh",
       "status": 200,
-      "ms": 42,
+      "ms": 35,
       "bytes": 754,
       "res": "{\"accessToken\":\"<masked>\",\"expiresIn\":900}"
     },
@@ -115,7 +115,7 @@
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 29,
+      "ms": 27,
       "bytes": 155,
       "res": "{\"items\":[{\"id\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"name\":\"Cardio\"},{\"id\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"name\":\"Oncology\"}],\"nextCursor\":null}"
     },
@@ -126,7 +126,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 29,
+      "ms": 27,
       "bytes": 13,
       "res": "{\"running\":0}"
     },
@@ -137,9 +137,9 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 38,
-      "bytes": 9360,
-      "res": "{\"items\":[{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"Held one mviszvwp.pdf\",\"Held two mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b88463f6-fa1d-4292-a541-c26938e5630d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:31:34.882Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":2},\"status\":\"cancelled\"},{\"fileCount\":3,\"destinationCount\":2,\"fileNames\":[\"Protocol amendment mviszvwp.pdf\",\"Consent form mviszvwp.pdf\",\"Lab certification mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"jobId\":\"2ef6b591-d63c-4440-850a-3764c4770f3d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:30:21.132Z\",\"taskCount\":6,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":6,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4d6297-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"29c3a3c7-3127-44a6-b71d-5b3dcbc2ba90\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:38.215Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-0d39be-1.pdf\",\"e2e-e8a6da-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"ab59bad3-eb3f-4f78-bfe6-5334ec9f9e25\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:06.161Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-a8a18e-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"647cfca3-aabf-4990-8121-0052311be1ec\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:17:48.332Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-a4a782-1.pdf\",\"e2e-07315a-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"a2fa417d-ad06-45f0-99ab-10fc2479f35e\",\"submittedBy\":{\"use"
+      "ms": 37,
+      "bytes": 9345,
+      "res": "{\"items\":[{\"fileCount\":1,\"destinationCount\":2,\"fileNames\":[\"quarterly-regulatory-binder-update-for-the-cardio-study-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-e561a5.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Cardio / CARDIO-301 Regulatory / Protocol amendments\"],\"jobId\":\"049db628-fdd2-4eae-8310-262f55167856\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:47:09.714Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"chip-70c26b-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"4108c3f4-bd6f-4c0f-a84f-639f230b46eb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:58.131Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-8f53bf-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"5e53c57f-9942-4616-9aed-90e282aae024\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:53.477Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4c4354-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"eb793c43-2461-48a5-968c-b4a91b58056a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:47.740Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-840e57-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"642b351e-6298-471a-a4d6-01d55b6cef2a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:45:57.120Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-b30d81-1.pdf\",\"e2e-c5b05c-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b1cc1014-749a-486d-ab56-06ee5ecc84fb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45"
     },
     {
       "id": 14,
@@ -158,7 +158,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 22,
+      "ms": 31,
       "bytes": 223,
       "res": "{\"items\":[{\"userId\":\"e2cd21ba-b771-4960-b3f4-754a00330782\",\"name\":\"Anantim Patil\"},{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},{\"userId\":\"c217fd05-e83d-405f-aca7-30240ad99a71\",\"name\":\"Raj Mehta\"}]}"
     },
@@ -169,7 +169,7 @@
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 19,
+      "ms": 28,
       "bytes": 155,
       "res": "{\"items\":[{\"id\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"name\":\"Cardio\"},{\"id\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"name\":\"Oncology\"}],\"nextCursor\":null}"
     },
@@ -178,21 +178,21 @@
       "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 42,
-      "bytes": 155
+      "ms": 24,
+      "bytes": 223,
+      "res": "{\"items\":[{\"userId\":\"e2cd21ba-b771-4960-b3f4-754a00330782\",\"name\":\"Anantim Patil\"},{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},{\"userId\":\"c217fd05-e83d-405f-aca7-30240ad99a71\",\"name\":\"Raj Mehta\"}]}"
     },
     {
       "id": 18,
       "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 42,
-      "bytes": 223,
-      "res": "{\"items\":[{\"userId\":\"e2cd21ba-b771-4960-b3f4-754a00330782\",\"name\":\"Anantim Patil\"},{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},{\"userId\":\"c217fd05-e83d-405f-aca7-30240ad99a71\",\"name\":\"Raj Mehta\"}]}"
+      "ms": 24,
+      "bytes": 155
     },
     {
       "id": 19,
@@ -201,7 +201,7 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 401,
-      "ms": 72,
+      "ms": 78,
       "bytes": 60,
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Sign in again.\"}}",
       "note": "provoked: the capture made this answer a 401, as when the refresh token has ended"
@@ -213,7 +213,7 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 401,
-      "ms": 70,
+      "ms": 74,
       "bytes": 60,
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Sign in again.\"}}",
       "note": "provoked: the capture made this answer a 401, as when the refresh token has ended"
@@ -225,7 +225,7 @@
       "method": "POST",
       "path": "/auth/refresh",
       "status": 401,
-      "ms": 57,
+      "ms": 53,
       "bytes": 60,
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Sign in again.\"}}",
       "note": "provoked: the capture made this answer a 401, as when the refresh token has ended"
@@ -237,7 +237,7 @@
       "method": "POST",
       "path": "/auth/refresh",
       "status": 401,
-      "ms": 53,
+      "ms": 55,
       "bytes": 60,
       "res": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Sign in again.\"}}",
       "note": "provoked: the capture made this answer a 401, as when the refresh token has ended"
@@ -249,7 +249,7 @@
       "method": "POST",
       "path": "/auth/login",
       "status": 200,
-      "ms": 270,
+      "ms": 238,
       "bytes": 754,
       "req": "{\"email\":\"priya.shah@example.com\",\"password\":\"<masked>\"}",
       "res": "{\"accessToken\":\"<masked>\",\"expiresIn\":900}"
@@ -264,85 +264,85 @@
     },
     {
       "id": 25,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 190,
+      "ms": 41,
       "bytes": 13
     },
     {
       "id": 26,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 191,
-      "bytes": 9360,
-      "res": "{\"items\":[{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"Held one mviszvwp.pdf\",\"Held two mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b88463f6-fa1d-4292-a541-c26938e5630d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:31:34.882Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":2},\"status\":\"cancelled\"},{\"fileCount\":3,\"destinationCount\":2,\"fileNames\":[\"Protocol amendment mviszvwp.pdf\",\"Consent form mviszvwp.pdf\",\"Lab certification mviszvwp.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"jobId\":\"2ef6b591-d63c-4440-850a-3764c4770f3d\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:30:21.132Z\",\"taskCount\":6,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":6,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4d6297-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"29c3a3c7-3127-44a6-b71d-5b3dcbc2ba90\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:38.215Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-0d39be-1.pdf\",\"e2e-e8a6da-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"ab59bad3-eb3f-4f78-bfe6-5334ec9f9e25\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:18:06.161Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-a8a18e-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"647cfca3-aabf-4990-8121-0052311be1ec\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:17:48.332Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-a4a782-1.pdf\",\"e2e-07315a-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"a2fa417d-ad06-45f0-99ab-10fc2479f35e\",\"submittedBy\":{\"use"
+      "ms": 42,
+      "bytes": 9345,
+      "res": "{\"items\":[{\"fileCount\":1,\"destinationCount\":2,\"fileNames\":[\"quarterly-regulatory-binder-update-for-the-cardio-study-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-e561a5.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Cardio / CARDIO-301 Regulatory / Protocol amendments\"],\"jobId\":\"049db628-fdd2-4eae-8310-262f55167856\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:47:09.714Z\",\"taskCount\":2,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":2,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"chip-70c26b-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"4108c3f4-bd6f-4c0f-a84f-639f230b46eb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:58.131Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-8f53bf-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"5e53c57f-9942-4616-9aed-90e282aae024\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:53.477Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-4c4354-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"eb793c43-2461-48a5-968c-b4a91b58056a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:46:47.740Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":1,\"destinationCount\":1,\"fileNames\":[\"e2e-840e57-1.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"642b351e-6298-471a-a4d6-01d55b6cef2a\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:45:57.120Z\",\"taskCount\":1,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":1,\"failed\":0,\"cancelled\":0},\"status\":\"completed\"},{\"fileCount\":2,\"destinationCount\":1,\"fileNames\":[\"e2e-b30d81-1.pdf\",\"e2e-c5b05c-2.pdf\"],\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\"],\"jobId\":\"b1cc1014-749a-486d-ab56-06ee5ecc84fb\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45"
     },
     {
       "id": 27,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 191,
-      "bytes": 9360
+      "ms": 42,
+      "bytes": 9345
     },
     {
       "id": 28,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 207,
-      "bytes": 9360
+      "ms": 42,
+      "bytes": 9345
     },
     {
       "id": 29,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 171,
+      "ms": 17,
       "bytes": 223,
       "res": "{\"items\":[{\"userId\":\"e2cd21ba-b771-4960-b3f4-754a00330782\",\"name\":\"Anantim Patil\"},{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},{\"userId\":\"c217fd05-e83d-405f-aca7-30240ad99a71\",\"name\":\"Raj Mehta\"}]}"
     },
     {
       "id": 30,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 172,
+      "ms": 16,
       "bytes": 155
     },
     {
       "id": 31,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 171,
+      "ms": 16,
       "bytes": 13
     },
     {
       "id": 32,
-      "step": "1-sign-out",
+      "step": "1-session-dialog",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 171,
-      "bytes": 9360
+      "ms": 21,
+      "bytes": 9345
     },
     {
       "id": 33,
@@ -351,7 +351,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 32,
+      "ms": 12,
       "bytes": 13
     },
     {
@@ -371,7 +371,7 @@
       "method": "POST",
       "path": "/auth/refresh",
       "status": 401,
-      "ms": 35,
+      "ms": 19,
       "bytes": 60
     },
     {
@@ -381,7 +381,7 @@
       "method": "POST",
       "path": "/auth/login",
       "status": 200,
-      "ms": 276,
+      "ms": 238,
       "bytes": 754,
       "req": "{\"email\":\"priya.shah@example.com\",\"password\":\"<masked>\"}",
       "res": "{\"accessToken\":\"<masked>\",\"expiresIn\":900}"
@@ -401,37 +401,37 @@
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 39,
+      "ms": 32,
       "bytes": 155
     },
     {
       "id": 39,
-      "step": "2-add-files",
+      "step": "1-sign-out",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 54,
-      "bytes": 9360
+      "ms": 31,
+      "bytes": 9345
     },
     {
       "id": 40,
-      "step": "2-add-files",
+      "step": "1-sign-out",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 54,
+      "ms": 31,
       "bytes": 13
     },
     {
       "id": 41,
-      "step": "2-add-files",
+      "step": "1-sign-out",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 9,
+      "ms": 3,
       "bytes": 13
     },
     {
@@ -441,10 +441,10 @@
       "method": "POST",
       "path": "/uploads",
       "status": 201,
-      "ms": 73,
+      "ms": 79,
       "bytes": 1224,
-      "req": "{\"files\":[{\"name\":\"Protocol amendment mvitd0zu.pdf\",\"sizeBytes\":409,\"contentType\":\"application/pdf\",\"sha256\":\"68d92396ee94e7630a20fa2c466e0c745b5e137650f81220baae80f6edfe8cf0\"}]}",
-      "res": "{\"uploads\":[{\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"aNkjlu6U52MKIPosRm4MdFteE3ZQ+BIguq6A9u3+jPA=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T003930Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/7da63472-70c3-4059-8369-3df26752a11b\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
+      "req": "{\"files\":[{\"name\":\"Protocol amendment mvj6mkjs.pdf\",\"sizeBytes\":409,\"contentType\":\"application/pdf\",\"sha256\":\"0de73734f0ee08535cc29c6e6ded5c7abbe0528725eb9c13a1183bec94d681db\"}]}",
+      "res": "{\"uploads\":[{\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"Dec3NPDuCFNcwpxube1cervgUocl65wToRg77JTWgds=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T065050Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
     },
     {
       "id": 43,
@@ -453,7 +453,7 @@
       "method": "POST",
       "url": "localhost:4566/docbeam-local-object-store",
       "status": 204,
-      "ms": 29,
+      "ms": 35,
       "bytes": 0
     },
     {
@@ -463,10 +463,10 @@
       "method": "POST",
       "path": "/uploads",
       "status": 201,
-      "ms": 45,
+      "ms": 55,
       "bytes": 2435,
-      "req": "{\"files\":[{\"name\":\"Consent form mvitd0zu.pdf\",\"sizeBytes\":403,\"contentType\":\"application/pdf\",\"sha256\":\"8d12ce1381fde78da05c1c4010eb2d98741ec2ec5d6f5920dd70f4792e7e575c\"},{\"name\":\"Lab certification mvitd0zu.pdf\",\"sizeBytes\":408,\"contentType\":\"application/pdf\",\"sha256\":\"376ebb6c67b6782baed520dfbf223217f6f880b511b8bd184b90dcb4a1257a71\"}]}",
-      "res": "{\"uploads\":[{\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"jRLOE4H9542gXBxAEOstmHQewuxdb1kg3XD0eS5+V1w=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T003930Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/e4343692-92c6-4034-a47d-f3311a971cee\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}},{\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"N267bGe2eCuu1SDfvyIyF/b4gLURuL0YS5DctKElenE=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T003930Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
+      "req": "{\"files\":[{\"name\":\"Consent form mvj6mkjs.pdf\",\"sizeBytes\":403,\"contentType\":\"application/pdf\",\"sha256\":\"5af9882839a03c96bfa38bb703f0b32137d1f34f2322ba5847aee86216b26f1f\"},{\"name\":\"Lab certification mvj6mkjs.pdf\",\"sizeBytes\":408,\"contentType\":\"application/pdf\",\"sha256\":\"c480593477af6992d23492b5b620c425f37661738d48246b9a312724f005d180\"}]}",
+      "res": "{\"uploads\":[{\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"WvmIKDmgPJa/o4u3A/CzITfR808jIrpYR67oYhaybx8=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T065050Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}},{\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/pdf\",\"x-amz-checksum-sha256\":\"xIBZNHevaZLSNJK1tiDEJfN2YXONSCRrmjEnJPAF0YA=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T065050Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
     },
     {
       "id": 45,
@@ -475,7 +475,7 @@
       "method": "POST",
       "url": "localhost:4566/docbeam-local-object-store",
       "status": 204,
-      "ms": 58,
+      "ms": 59,
       "bytes": 0
     },
     {
@@ -493,11 +493,11 @@
       "step": "2-add-files",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=7da63472-70c3-4059-8369-3df26752a11b,e4343692-92c6-4034-a47d-f3311a971cee,2497ba8b-d4f2-4f1e-9d62-78cbe25031d2",
+      "path": "/files?ids=f77348fc-01c2-4865-b5ae-46e6723e55f2,82f9b6e6-062c-471f-b229-3dbcdf298caf,12b4487c-f230-407c-95dd-5e6bb508dd5f",
       "status": 200,
-      "ms": 18,
+      "ms": 42,
       "bytes": 262,
-      "res": "[{\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"uploaded\":true,\"scanStatus\":\"clean\"},{\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"uploaded\":true,\"scanStatus\":\"clean\"},{\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"uploaded\":true,\"scanStatus\":\"clean\"}]"
+      "res": "[{\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"uploaded\":true,\"scanStatus\":\"clean\"},{\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"uploaded\":true,\"scanStatus\":\"clean\"},{\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"uploaded\":true,\"scanStatus\":\"clean\"}]"
     },
     {
       "id": 48,
@@ -508,8 +508,8 @@
       "status": 201,
       "ms": 17,
       "bytes": 1356,
-      "req": "{\"files\":[{\"name\":\"eicar.docx\",\"sizeBytes\":756,\"contentType\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"sha256\":\"b67ba21e3f4079df54925926e9b6fb801174b0c5a61747b70c4a4160cfecc610\"}]}",
-      "res": "{\"uploads\":[{\"fileId\":\"251dc50e-89db-4aab-a2a0-b50711e91d8f\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"x-amz-checksum-sha256\":\"tnuiHj9Aed9Uklkm6bb7gBF0sMWmF0e3DEpBYM/sxhA=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T003934Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/251dc50e-89db-4aab-a2a0-b50711e91d8f\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
+      "req": "{\"files\":[{\"name\":\"eicar.docx\",\"sizeBytes\":756,\"contentType\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"sha256\":\"8dfdd1af38ab05bf55f3c54c5abe349613479ef2bfb94d7bb675bfc4f9d21f9e\"}]}",
+      "res": "{\"uploads\":[{\"fileId\":\"344d7b68-9422-42a0-97b1-a636878d1b1a\",\"post\":{\"url\":\"http://localhost:4566/docbeam-local-object-store\",\"fields\":{\"Content-Type\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"x-amz-checksum-sha256\":\"jf3RrzirBb9V88VMWr40lhNHnvK/uU17tnW/xPnSH54=\",\"bucket\":\"docbeam-local-object-store\",\"X-Amz-Algorithm\":\"AWS4-HMAC-SHA256\",\"X-Amz-Credential\":\"<masked>\",\"X-Amz-Date\":\"20261022T065054Z\",\"key\":\"staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/344d7b68-9422-42a0-97b1-a636878d1b1a\",\"Policy\":\"<masked>\",\"X-Amz-Signature\":\"<masked>\"}}}]}"
     },
     {
       "id": 49,
@@ -518,7 +518,7 @@
       "method": "POST",
       "url": "localhost:4566/docbeam-local-object-store",
       "status": 204,
-      "ms": 31,
+      "ms": 28,
       "bytes": 0
     },
     {
@@ -526,11 +526,11 @@
       "step": "2-malware",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=251dc50e-89db-4aab-a2a0-b50711e91d8f",
+      "path": "/files?ids=344d7b68-9422-42a0-97b1-a636878d1b1a",
       "status": 200,
-      "ms": 20,
+      "ms": 39,
       "bytes": 92,
-      "res": "[{\"fileId\":\"251dc50e-89db-4aab-a2a0-b50711e91d8f\",\"uploaded\":false,\"scanStatus\":\"infected\"}]"
+      "res": "[{\"fileId\":\"344d7b68-9422-42a0-97b1-a636878d1b1a\",\"uploaded\":false,\"scanStatus\":\"infected\"}]"
     },
     {
       "id": 51,
@@ -539,7 +539,7 @@
       "method": "POST",
       "path": "/uploads",
       "status": 201,
-      "ms": 31,
+      "ms": 22,
       "bytes": 114
     },
     {
@@ -547,21 +547,21 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "POST",
-      "path": "/files/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a/multipart-uploads",
+      "path": "/files/77088e9e-92a5-48c4-8b04-00a93a7929ff/multipart-uploads",
       "status": 201,
-      "ms": 32,
+      "ms": 22,
       "bytes": 5234,
-      "req": "{\"parts\":[{\"partNumber\":1,\"sha256\":\"0021f7b56e11cd5819267830a4cbbad615ef6f71f1c1ccaf33606739a71add8f\"},{\"partNumber\":2,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":3,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":4,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":5,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":6,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":7,\"sha256\":\"832de666224a72925c2eb569bc2fb46609c0afd094d63675cd01004c8c72f670\"}]}",
-      "res": "{\"uploadId\":\"I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY\",\"parts\":[{\"partNumber\":1,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=1&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart\"},{\"partNumber\":2,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=2&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart\"},{\"partNumber\":3,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=3&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart\"},{\"partNumber\":4,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=4&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart\"},{\"partNumber\":5,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X"
+      "req": "{\"parts\":[{\"partNumber\":1,\"sha256\":\"ef0a514b3e6d2f9e8b151d3d7d45305ca76f0365643c79d2eef1a0aedfccc4bf\"},{\"partNumber\":2,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":3,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":4,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":5,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":6,\"sha256\":\"080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e\"},{\"partNumber\":7,\"sha256\":\"832de666224a72925c2eb569bc2fb46609c0afd094d63675cd01004c8c72f670\"}]}",
+      "res": "{\"uploadId\":\"ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf\",\"parts\":[{\"partNumber\":1,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=1&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart\"},{\"partNumber\":2,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=2&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart\"},{\"partNumber\":3,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=3&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart\"},{\"partNumber\":4,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=4&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart\"},{\"partNumber\":5,\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X"
     },
     {
       "id": 53,
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=1&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=1&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 175,
+      "ms": 159,
       "bytes": 0
     },
     {
@@ -569,9 +569,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=2&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=2&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 163,
+      "ms": 156,
       "bytes": 0
     },
     {
@@ -579,9 +579,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=3&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=3&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 158,
+      "ms": 175,
       "bytes": 0
     },
     {
@@ -589,9 +589,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=4&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=4&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 378,
+      "ms": 173,
       "bytes": 0
     },
     {
@@ -599,9 +599,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=5&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=5&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 146,
+      "ms": 155,
       "bytes": 0
     },
     {
@@ -609,9 +609,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=6&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=6&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 150,
+      "ms": 146,
       "bytes": 0
     },
     {
@@ -619,9 +619,9 @@
       "step": "2-multipart",
       "kind": "s3",
       "method": "PUT",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T003941Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=7&uploadId=I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY&x-id=UploadPart",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/77088e9e-92a5-48c4-8b04-00a93a7929ff?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065102Z&X-Amz-Expires=900&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host%3Bx-amz-checksum-sha256&partNumber=7&uploadId=ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf&x-id=UploadPart",
       "status": 200,
-      "ms": 99,
+      "ms": 262,
       "bytes": 0
     },
     {
@@ -629,30 +629,30 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "POST",
-      "path": "/files/1a42800d-c43a-4937-9de4-ec6a8e0e8e1a/multipart-uploads/I_oEECQaXRyh297d1lfE7Lr902YfDKUTbDR6kxzHzZSVSbx-rQrhqK0ccjMgKXnAUXjW5fdPAA-z-J1tRHlSQ3YWh1uEjWrDkhvIlhoJXK5pTSwgEl34GxANUJjT7jfY/complete",
+      "path": "/files/77088e9e-92a5-48c4-8b04-00a93a7929ff/multipart-uploads/ojsZUyT8L9VWeE26Z8dIYMMqeMEH_uzwI_O8766HuwIdKOCy4qG748Sxx2XRnRPB153d_2fNs1w6MG8BAG5Ei4mahJncNX4jwufm6NZKJenjQN9FaqTdbMu2yaGZGluf/complete",
       "status": 200,
-      "ms": 179,
+      "ms": 338,
       "bytes": 49,
-      "req": "{\"parts\":[{\"partNumber\":1,\"etag\":\"\\\"d624de524310c90479dc06fbccf83d75\\\"\"},{\"partNumber\":2,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":3,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":4,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":5,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":6,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":7,\"etag\":\"\\\"8720dc0834adbdbaf4a51593ac5fd405\\\"\"}]}",
-      "res": "{\"fileId\":\"1a42800d-c43a-4937-9de4-ec6a8e0e8e1a\"}"
+      "req": "{\"parts\":[{\"partNumber\":1,\"etag\":\"\\\"d654f1dfef1cf4cd4b2de2aa483ce5a5\\\"\"},{\"partNumber\":2,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":3,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":4,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":5,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":6,\"etag\":\"\\\"2c7ab85a893283e98c931e9511add182\\\"\"},{\"partNumber\":7,\"etag\":\"\\\"8720dc0834adbdbaf4a51593ac5fd405\\\"\"}]}",
+      "res": "{\"fileId\":\"77088e9e-92a5-48c4-8b04-00a93a7929ff\"}"
     },
     {
       "id": 61,
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
-      "ms": 7,
+      "ms": 6,
       "bytes": 91,
-      "res": "[{\"fileId\":\"1a42800d-c43a-4937-9de4-ec6a8e0e8e1a\",\"uploaded\":false,\"scanStatus\":\"pending\"}]"
+      "res": "[{\"fileId\":\"77088e9e-92a5-48c4-8b04-00a93a7929ff\",\"uploaded\":false,\"scanStatus\":\"pending\"}]"
     },
     {
       "id": 62,
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
       "ms": 8,
       "bytes": 91
@@ -662,9 +662,9 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
-      "ms": 8,
+      "ms": 7,
       "bytes": 91
     },
     {
@@ -672,7 +672,7 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
       "ms": 7,
       "bytes": 91
@@ -682,9 +682,9 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
-      "ms": 7,
+      "ms": 6,
       "bytes": 91
     },
     {
@@ -692,9 +692,9 @@
       "step": "2-multipart",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=1a42800d-c43a-4937-9de4-ec6a8e0e8e1a",
+      "path": "/files?ids=77088e9e-92a5-48c4-8b04-00a93a7929ff",
       "status": 200,
-      "ms": 24,
+      "ms": 29,
       "bytes": 88
     },
     {
@@ -712,7 +712,7 @@
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 51,
+      "ms": 66,
       "bytes": 155
     },
     {
@@ -720,9 +720,9 @@
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=7da63472-70c3-4059-8369-3df26752a11b,e4343692-92c6-4034-a47d-f3311a971cee,2497ba8b-d4f2-4f1e-9d62-78cbe25031d2",
+      "path": "/files?ids=f77348fc-01c2-4865-b5ae-46e6723e55f2,82f9b6e6-062c-471f-b229-3dbcdf298caf,12b4487c-f230-407c-95dd-5e6bb508dd5f",
       "status": 200,
-      "ms": 52,
+      "ms": 65,
       "bytes": 262
     },
     {
@@ -730,50 +730,50 @@
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 51,
-      "bytes": 9360
+      "ms": 65,
+      "bytes": 13
     },
     {
       "id": 71,
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/files?ids=f77348fc-01c2-4865-b5ae-46e6723e55f2,82f9b6e6-062c-471f-b229-3dbcdf298caf,12b4487c-f230-407c-95dd-5e6bb508dd5f",
       "status": 200,
-      "ms": 51,
-      "bytes": 13
+      "ms": 65,
+      "bytes": 262
     },
     {
       "id": 72,
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=7da63472-70c3-4059-8369-3df26752a11b,e4343692-92c6-4034-a47d-f3311a971cee,2497ba8b-d4f2-4f1e-9d62-78cbe25031d2",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 51,
-      "bytes": 262
+      "ms": 65,
+      "bytes": 9345
     },
     {
       "id": 73,
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 80,
-      "bytes": 9360
+      "ms": 68,
+      "bytes": 13
     },
     {
       "id": 74,
       "step": "2-reload",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 80,
-      "bytes": 13
+      "ms": 69,
+      "bytes": 9345
     },
     {
       "id": 75,
@@ -782,7 +782,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 17,
+      "ms": 13,
       "bytes": 13
     },
     {
@@ -792,7 +792,7 @@
       "method": "GET",
       "path": "/teams/efa09ad5-68e8-5761-bc3c-3acbcf971c75/binders",
       "status": 200,
-      "ms": 26,
+      "ms": 19,
       "bytes": 183,
       "res": "{\"items\":[{\"id\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"name\":\"CARDIO-301 Regulatory\"},{\"id\":\"1461d266-6cc8-579e-a6b1-10afe174a22b\",\"name\":\"CARDIO-301 Site files\"}],\"nextCursor\":null}"
     },
@@ -814,7 +814,7 @@
       "method": "GET",
       "path": "/folders/315216c3-9159-5660-89ec-8d0c54d623db/contents",
       "status": 200,
-      "ms": 11,
+      "ms": 8,
       "bytes": 3057,
       "res": "{\"folders\":[{\"id\":\"07369b65-e853-51e7-82d9-f49188c859fe\",\"name\":\"2026\"}],\"documents\":[{\"id\":\"05dec1da-42b5-436b-9165-efcf20043dcf\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 19:10:28.857783+00\"},{\"id\":\"10be64f4-c4c6-405e-bd1c-fa9c7db7b9fd\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 16:23:06.552209+00\"},{\"id\":\"1766e989-0bcb-4019-a9b0-f7167f98797c\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 16:23:06.546236+00\"},{\"id\":\"21609b67-5c07-45f7-a565-c02b98eebaf2\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-21 23:43:04.485665+00\"},{\"id\":\"382652be-5762-45e0-91e5-ab9874489c94\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 00:30:47.592192+00\"},{\"id\":\"3d2e0592-20fd-4953-9982-c7c4840319ba\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-21 06:34:58.037573+00\"},{\"id\":\"4ee3329d-c93c-43f9-80f7-104d101b4aba\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 18:40:14.806949+00\"},{\"id\":\"556fafc5-d659-4092-8e79-e30f12a04cf4\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-21 03:14:09.632285+00\"},{\"id\":\"56b11d20-372a-44b9-8406-a1fbdbffcedf\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 06:21:10.741593+00\"},{\"id\":\"5ecbd3ea-f754-4544-b3c9-ab2ec1bc671e\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 23:06:52.980941+00\"},{\"id\":\"60ec1878-250b-4c64-b790-e65a5cc1320b\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 22:02:09.351833+00\"},{\"id\":\"66206304-8a24-496f-ba63-897c0a6752fb\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-21 08:17:20.95842+00\"},{\"id\":\"76fec8bd-5e65-408a-9c4a-bf5585876a58\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 23:06:53.038942+00\"},{\"id\":\"7de27cbc-b706-42f5-ba34-4eb878d3d141\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-21 08:17:20.971343+00\"},{\"id\":\"897ad3f9-b702-4aba-b0c9-f7dd4636f26d\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 19:10:28.832857+00\"},{\"id\":\"94a08f66-6e94-4ecd-8de9-b424352464fa\",\"name\":\"a.pdf\",\"sizeBytes\":52,\"contentType\":\"application/pdf\",\"createdAt\":\"2026-10-20 06:2"
     },
@@ -825,7 +825,7 @@
       "method": "GET",
       "path": "/folders/search?q=ethics",
       "status": 200,
-      "ms": 46,
+      "ms": 29,
       "bytes": 371,
       "res": "{\"items\":[{\"id\":\"e4631be3-2aef-5382-a03a-41c7318b7784\",\"name\":\"Ethics committee\",\"path\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"names\":[\"Oncology\",\"ONC-118 Regulatory\",\"Ethics committee\"],\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderIds\":[\"e4631be3-2aef-5382-a03a-41c7318b7784\"]}],\"nextCursor\":null}"
     },
@@ -836,7 +836,7 @@
       "method": "GET",
       "path": "/folders/search?q=2026",
       "status": 200,
-      "ms": 13,
+      "ms": 23,
       "bytes": 420,
       "res": "{\"items\":[{\"id\":\"07369b65-e853-51e7-82d9-f49188c859fe\",\"name\":\"2026\",\"path\":\"Cardio / CARDIO-301 Regulatory / Protocol amendments / 2026\",\"names\":[\"Cardio\",\"CARDIO-301 Regulatory\",\"Protocol amendments\",\"2026\"],\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderIds\":[\"315216c3-9159-5660-89ec-8d0c54d623db\",\"07369b65-e853-51e7-82d9-f49188c859fe\"]}],\"nextCursor\":null}"
     },
@@ -847,7 +847,7 @@
       "method": "GET",
       "path": "/folders/search?q=ethics",
       "status": 200,
-      "ms": 23,
+      "ms": 24,
       "bytes": 371,
       "res": "{\"items\":[{\"id\":\"e4631be3-2aef-5382-a03a-41c7318b7784\",\"name\":\"Ethics committee\",\"path\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"names\":[\"Oncology\",\"ONC-118 Regulatory\",\"Ethics committee\"],\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderIds\":[\"e4631be3-2aef-5382-a03a-41c7318b7784\"]}],\"nextCursor\":null}"
     },
@@ -858,7 +858,7 @@
       "method": "GET",
       "path": "/teams/a6578412-8359-50f6-94ff-69da1b8974c0/binders",
       "status": 200,
-      "ms": 11,
+      "ms": 12,
       "bytes": 175,
       "res": "{\"items\":[{\"id\":\"f1fc5fbc-8ab4-5882-83bc-7ce035f83cdf\",\"name\":\"ONC-118 Pharmacy\"},{\"id\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"name\":\"ONC-118 Regulatory\"}],\"nextCursor\":null}"
     },
@@ -869,7 +869,7 @@
       "method": "GET",
       "path": "/binders/5058b459-cc4a-52ec-94e3-8ba85ed1991c/contents",
       "status": 200,
-      "ms": 41,
+      "ms": 71,
       "bytes": 190,
       "res": "{\"folders\":[{\"id\":\"e4631be3-2aef-5382-a03a-41c7318b7784\",\"name\":\"Ethics committee\"},{\"id\":\"156c4e98-ad19-58d1-bd6e-96d541b7c9d9\",\"name\":\"Investigator CVs\"}],\"documents\":[],\"nextCursor\":null}"
     },
@@ -879,7 +879,7 @@
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent",
-      "res": "{\"action\":\"subscribe\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"action\":\"subscribe\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 85,
@@ -887,7 +887,7 @@
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent",
-      "res": "{\"action\":\"subscribe\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"action\":\"subscribe\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 86,
@@ -896,10 +896,10 @@
       "method": "POST",
       "path": "/jobs",
       "status": 201,
-      "ms": 156,
+      "ms": 176,
       "bytes": 62,
-      "req": "{\"files\":[{\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"sha256\":\"68d92396ee94e7630a20fa2c466e0c745b5e137650f81220baae80f6edfe8cf0\"},{\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"sha256\":\"8d12ce1381fde78da05c1c4010eb2d98741ec2ec5d6f5920dd70f4792e7e575c\"},{\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"sha256\":\"376ebb6c67b6782baed520dfbf223217f6f880b511b8bd184b90dcb4a1257a71\"}],\"mappings\":[{\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]},{\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]},{\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]}]}",
-      "res": "{\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"taskCount\":6}"
+      "req": "{\"files\":[{\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"sha256\":\"0de73734f0ee08535cc29c6e6ded5c7abbe0528725eb9c13a1183bec94d681db\"},{\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"sha256\":\"5af9882839a03c96bfa38bb703f0b32137d1f34f2322ba5847aee86216b26f1f\"},{\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"sha256\":\"c480593477af6992d23492b5b620c425f37661738d48246b9a312724f005d180\"}],\"mappings\":[{\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]},{\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]},{\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"},{\"binderId\":\"5058b459-cc4a-52ec-94e3-8ba85ed1991c\",\"folderId\":\"e4631be3-2aef-5382-a03a-41c7318b7784\"}]}]}",
+      "res": "{\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"taskCount\":6}"
     },
     {
       "id": 87,
@@ -907,7 +907,7 @@
       "kind": "ws",
       "frame": "subscribed",
       "direction": "received",
-      "res": "{\"type\":\"subscribed\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"type\":\"subscribed\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 88,
@@ -915,7 +915,7 @@
       "kind": "ws",
       "frame": "subscribed",
       "direction": "received",
-      "res": "{\"type\":\"subscribed\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"type\":\"subscribed\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 89,
@@ -924,8 +924,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 179,
-      "bytes": 9485
+      "ms": 185,
+      "bytes": 9471
     },
     {
       "id": 90,
@@ -934,7 +934,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 52,
+      "ms": 41,
       "bytes": 223
     },
     {
@@ -942,20 +942,20 @@
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 52,
-      "bytes": 9485
+      "ms": 41,
+      "bytes": 155
     },
     {
       "id": 92,
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20&cursor=WyIyMDI2LTEwLTIyVDAwOjA0OjU2LjkzMzkwMloiLCI5N2Y2MzI4Mi1mMGQ5LTQ2MDktODVhYi00MDJiZmNjNjZjNDYiXQ",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 52,
-      "bytes": 9311
+      "ms": 41,
+      "bytes": 9471
     },
     {
       "id": 93,
@@ -964,7 +964,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 51,
+      "ms": 40,
       "bytes": 223
     },
     {
@@ -972,20 +972,20 @@
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 52,
-      "bytes": 155
+      "ms": 47,
+      "bytes": 9471
     },
     {
       "id": 95,
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs?scope=all&limit=20&cursor=WyIyMDI2LTEwLTIyVDA2OjMzOjU2LjcwOTI3MVoiLCJmMTYxMGMxNi1jZWY5LTRhOTgtYmFkYi04ODNmOGNhYmE2NjciXQ",
       "status": 200,
-      "ms": 57,
-      "bytes": 9485
+      "ms": 49,
+      "bytes": 10669
     },
     {
       "id": 96,
@@ -994,7 +994,7 @@
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 58,
+      "ms": 48,
       "bytes": 155
     },
     {
@@ -1002,32 +1002,32 @@
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 48,
+      "ms": 44,
       "bytes": 601,
-      "res": "{\"asOf\":\"2026-10-22T00:40:34.420Z\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:40:34.234Z\",\"completedAt\":null,\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":6,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":0},\"status\":\"pending\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":true,\"waiting\":6}}"
+      "res": "{\"asOf\":\"2026-10-22T06:51:55.335Z\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:51:55.130Z\",\"completedAt\":null,\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":6,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":0},\"status\":\"pending\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":true,\"waiting\":6}}"
     },
     {
       "id": 98,
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&idPrefix=3029c22a",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 34,
-      "bytes": 573
+      "ms": 54,
+      "bytes": 601,
+      "res": "{\"asOf\":\"2026-10-22T06:51:55.343Z\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:51:55.130Z\",\"completedAt\":null,\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":6,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":0},\"status\":\"pending\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":true,\"waiting\":6}}"
     },
     {
       "id": 99,
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs?scope=all&idPrefix=64a9b426",
       "status": 200,
-      "ms": 62,
-      "bytes": 601,
-      "res": "{\"asOf\":\"2026-10-22T00:40:34.433Z\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:40:34.234Z\",\"completedAt\":null,\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":6,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":0},\"status\":\"pending\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":true,\"waiting\":6}}"
+      "ms": 45,
+      "bytes": 573
     },
     {
       "id": 100,
@@ -1036,7 +1036,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 89,
+      "ms": 57,
       "bytes": 13
     },
     {
@@ -1044,22 +1044,22 @@
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 19,
+      "ms": 22,
       "bytes": 2566,
-      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"2a7f3638-6e07-4f0f-95b1-e5315d508282\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"026dd427-c298-4cd1-b5c3-1b97188494e0\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4eeb93b9-db37-42d0-8b06-8f041420d48b\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4e96e98e-f777-4c58-9b42-b9966496fe8e\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"39be1ac1-e63f-49de-ae96-93425898a4a0\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"a0310b9e-93c1-4741-971d-6cdb423cde40\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T"
+      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"9d729e4b-c3ee-48bf-8286-4fcdc0426a2e\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"9997a320-3808-4ce8-b940-ab6df28afed6\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"41c094b3-f239-4d77-ac67-dadf9eb9daff\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"3c7ed90b-e739-48e2-bf5d-f0f899e51e04\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"2ffd71de-7af7-4d9d-9bea-c8c9dd703818\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4299da72-39e9-4f95-8afc-d1b426a2ef9f\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T"
     },
     {
       "id": 102,
       "step": "4-post-jobs",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 19,
+      "ms": 21,
       "bytes": 2566,
-      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"2a7f3638-6e07-4f0f-95b1-e5315d508282\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"026dd427-c298-4cd1-b5c3-1b97188494e0\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4eeb93b9-db37-42d0-8b06-8f041420d48b\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4e96e98e-f777-4c58-9b42-b9966496fe8e\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"39be1ac1-e63f-49de-ae96-93425898a4a0\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:40:34.234Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"a0310b9e-93c1-4741-971d-6cdb423cde40\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T"
+      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"9d729e4b-c3ee-48bf-8286-4fcdc0426a2e\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"9997a320-3808-4ce8-b940-ab6df28afed6\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"41c094b3-f239-4d77-ac67-dadf9eb9daff\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"3c7ed90b-e739-48e2-bf5d-f0f899e51e04\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"2ffd71de-7af7-4d9d-9bea-c8c9dd703818\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:51:55.130Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4299da72-39e9-4f95-8afc-d1b426a2ef9f\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"pending\",\"attemptCount\":0,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T"
     },
     {
       "id": 103,
@@ -1081,7 +1081,7 @@
       "method": "POST",
       "path": "/jobs",
       "status": 422,
-      "ms": 10,
+      "ms": 9,
       "bytes": 89,
       "req": "{\"files\":[{\"fileId\":\"00000000-0000-4000-8000-000000000001\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}],\"mappings\":[{\"fileId\":\"00000000-0000-4000-8000-000000000001\",\"destinations\":[]}]}",
       "res": "{\"error\":{\"code\":\"INVALID_BATCH\",\"message\":\"Every file needs at least one destination.\"}}",
@@ -1094,7 +1094,7 @@
       "method": "POST",
       "path": "/jobs",
       "status": 400,
-      "ms": 10,
+      "ms": 7,
       "bytes": 89,
       "req": "{\"files\":[{\"fileId\":\"00000000-0000-4000-8000-000000000001\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}],\"mappings\":[]}",
       "res": "{\"error\":{\"code\":\"IDEMPOTENCY_KEY_REQUIRED\",\"message\":\"Send an Idempotency-Key header.\"}}",
@@ -1107,7 +1107,7 @@
       "method": "GET",
       "path": "/jobs/00000000-0000-4000-8000-000000000002",
       "status": 404,
-      "ms": 14,
+      "ms": 9,
       "bytes": 75,
       "res": "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"That distribution was not found.\"}}",
       "note": "sent by the capture script: a distribution that does not exist"
@@ -1119,8 +1119,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 34,
-      "bytes": 9485
+      "ms": 47,
+      "bytes": 9471
     },
     {
       "id": 108,
@@ -1129,7 +1129,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 8,
+      "ms": 9,
       "bytes": 13
     },
     {
@@ -1149,8 +1149,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 52,
-      "bytes": 9485
+      "ms": 72,
+      "bytes": 9471
     },
     {
       "id": 111,
@@ -1159,7 +1159,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 2,
+      "ms": 5,
       "bytes": 13
     },
     {
@@ -1169,7 +1169,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 7,
+      "ms": 6,
       "bytes": 13
     },
     {
@@ -1178,7 +1178,7 @@
       "kind": "ws",
       "frame": "task_update",
       "direction": "received",
-      "res": "{\"type\":\"task_update\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"taskId\":\"2a7f3638-6e07-4f0f-95b1-e5315d508282\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T00:41:37.668Z\",\"counts\":{\"pending\":1,\"in_progress\":4,\"completed\":1,\"failed\":0,\"cancelled\":0}}"
+      "res": "{\"type\":\"task_update\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"taskId\":\"2ffd71de-7af7-4d9d-9bea-c8c9dd703818\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T06:52:58.652Z\",\"counts\":{\"pending\":1,\"in_progress\":0,\"completed\":5,\"failed\":0,\"cancelled\":0}}"
     },
     {
       "id": 114,
@@ -1186,7 +1186,7 @@
       "kind": "ws",
       "frame": "task_update",
       "direction": "received",
-      "res": "{\"type\":\"task_update\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"taskId\":\"4eeb93b9-db37-42d0-8b06-8f041420d48b\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T00:41:37.679Z\",\"counts\":{\"pending\":0,\"in_progress\":1,\"completed\":5,\"failed\":0,\"cancelled\":0}}"
+      "res": "{\"type\":\"task_update\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"taskId\":\"4299da72-39e9-4f95-8afc-d1b426a2ef9f\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T06:52:58.661Z\",\"counts\":{\"pending\":1,\"in_progress\":0,\"completed\":5,\"failed\":0,\"cancelled\":0}}"
     },
     {
       "id": 115,
@@ -1194,7 +1194,7 @@
       "kind": "ws",
       "frame": "task_update",
       "direction": "received",
-      "res": "{\"type\":\"task_update\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"taskId\":\"39be1ac1-e63f-49de-ae96-93425898a4a0\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T00:41:37.711Z\",\"counts\":{\"pending\":0,\"in_progress\":1,\"completed\":5,\"failed\":0,\"cancelled\":0}}"
+      "res": "{\"type\":\"task_update\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"taskId\":\"41c094b3-f239-4d77-ac67-dadf9eb9daff\",\"status\":\"completed\",\"attemptCount\":1,\"updatedAt\":\"2026-10-22T06:52:58.670Z\",\"counts\":{\"pending\":1,\"in_progress\":0,\"completed\":5,\"failed\":0,\"cancelled\":0}}"
     },
     {
       "id": 116,
@@ -1222,11 +1222,11 @@
       "step": "5-live",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 45,
+      "ms": 29,
       "bytes": 2578,
-      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"2a7f3638-6e07-4f0f-95b1-e5315d508282\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:41:37.668Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"026dd427-c298-4cd1-b5c3-1b97188494e0\",\"fileId\":\"e4343692-92c6-4034-a47d-f3311a971cee\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:41:37.694Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4eeb93b9-db37-42d0-8b06-8f041420d48b\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:41:37.679Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4e96e98e-f777-4c58-9b42-b9966496fe8e\",\"fileId\":\"2497ba8b-d4f2-4f1e-9d62-78cbe25031d2\",\"fileName\":\"Lab certification mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:41:37.704Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"39be1ac1-e63f-49de-ae96-93425898a4a0\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T00:41:37.711Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"a0310b9e-93c1-4741-971d-6cdb423cde40\",\"fileId\":\"7da63472-70c3-4059-8369-3df26752a11b\",\"fileName\":\"Protocol amendment mvitd0zu.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":"
+      "res": "{\"page\":1,\"limit\":100,\"total\":6,\"tasks\":[{\"taskId\":\"9d729e4b-c3ee-48bf-8286-4fcdc0426a2e\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:52:58.741Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"9997a320-3808-4ce8-b940-ab6df28afed6\",\"fileId\":\"82f9b6e6-062c-471f-b229-3dbcdf298caf\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:52:58.675Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"41c094b3-f239-4d77-ac67-dadf9eb9daff\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:52:58.670Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"3c7ed90b-e739-48e2-bf5d-f0f899e51e04\",\"fileId\":\"12b4487c-f230-407c-95dd-5e6bb508dd5f\",\"fileName\":\"Lab certification mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:52:58.681Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"2ffd71de-7af7-4d9d-9bea-c8c9dd703818\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"teamId\":\"efa09ad5-68e8-5761-bc3c-3acbcf971c75\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":\"2026-10-22T06:52:58.652Z\",\"fileExpired\":false,\"fileType\":\"application/pdf\"},{\"taskId\":\"4299da72-39e9-4f95-8afc-d1b426a2ef9f\",\"fileId\":\"f77348fc-01c2-4865-b5ae-46e6723e55f2\",\"fileName\":\"Protocol amendment mvj6mkjs.pdf\",\"destinationPath\":\"Oncology / ONC-118 Regulatory / Ethics committee\",\"teamId\":\"a6578412-8359-50f6-94ff-69da1b8974c0\",\"status\":\"completed\",\"attemptCount\":1,\"failureCode\":null,\"failureReason\":null,\"updatedAt\":"
     },
     {
       "id": 120,
@@ -1235,7 +1235,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 30,
+      "ms": 47,
       "bytes": 13
     },
     {
@@ -1245,8 +1245,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 30,
-      "bytes": 9487
+      "ms": 47,
+      "bytes": 9473
     },
     {
       "id": 122,
@@ -1255,7 +1255,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 8,
+      "ms": 7,
       "bytes": 13
     },
     {
@@ -1263,20 +1263,20 @@
       "step": "5-list",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 25,
-      "bytes": 155
+      "ms": 26,
+      "bytes": 223
     },
     {
       "id": 124,
       "step": "5-list",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/teams?limit=100",
       "status": 200,
       "ms": 25,
-      "bytes": 223
+      "bytes": 155
     },
     {
       "id": 125,
@@ -1285,28 +1285,28 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 25,
-      "bytes": 9487
+      "ms": 23,
+      "bytes": 9473
     },
     {
       "id": 126,
       "step": "5-list",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 25,
-      "bytes": 155
+      "ms": 23,
+      "bytes": 223
     },
     {
       "id": 127,
       "step": "5-list",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 25,
-      "bytes": 223
+      "ms": 23,
+      "bytes": 155
     },
     {
       "id": 128,
@@ -1315,8 +1315,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 25,
-      "bytes": 9487
+      "ms": 23,
+      "bytes": 9473
     },
     {
       "id": 129,
@@ -1325,7 +1325,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 14,
+      "ms": 17,
       "bytes": 13
     },
     {
@@ -1335,8 +1335,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&status=completed&limit=20",
       "status": 200,
-      "ms": 65,
-      "bytes": 9658
+      "ms": 69,
+      "bytes": 9290
     },
     {
       "id": 131,
@@ -1344,7 +1344,7 @@
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent",
-      "res": "{\"action\":\"subscribe\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"action\":\"subscribe\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 132,
@@ -1359,7 +1359,7 @@
       "kind": "ws",
       "frame": "subscribed",
       "direction": "received",
-      "res": "{\"type\":\"subscribed\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\"}"
+      "res": "{\"type\":\"subscribed\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\"}"
     },
     {
       "id": 134,
@@ -1373,20 +1373,20 @@
       "step": "5-open",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 22,
+      "ms": 19,
       "bytes": 626,
-      "res": "{\"asOf\":\"2026-10-22T00:41:42.056Z\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T00:40:34.234Z\",\"completedAt\":\"2026-10-22T00:41:37.752Z\",\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":6,\"failed\":0,\"cancelled\":0},\"status\":\"completed\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":false,\"waiting\":0}}"
+      "res": "{\"asOf\":\"2026-10-22T06:53:03.194Z\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"submittedBy\":{\"userId\":\"a3cf6c1d-1a43-43a2-876f-25775f45663d\",\"name\":\"Priya Shah\"},\"createdAt\":\"2026-10-22T06:51:55.130Z\",\"completedAt\":\"2026-10-22T06:52:58.741Z\",\"cancelledAt\":null,\"isSender\":true,\"destinations\":[\"Cardio / CARDIO-301 Regulatory / IRB approvals\",\"Oncology / ONC-118 Regulatory / Ethics committee\"],\"taskCount\":6,\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":6,\"failed\":0,\"cancelled\":0},\"status\":\"completed\",\"fileCount\":3,\"retry\":{\"open\":false,\"retryable\":0,\"reason\":\"NOTHING_TO_RETRY\"},\"cancel\":{\"open\":false,\"waiting\":0}}"
     },
     {
       "id": 136,
       "step": "5-open",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 58,
+      "ms": 54,
       "bytes": 626
     },
     {
@@ -1394,9 +1394,9 @@
       "step": "5-open",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 43,
+      "ms": 44,
       "bytes": 2578
     },
     {
@@ -1404,9 +1404,9 @@
       "step": "5-open",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 42,
+      "ms": 44,
       "bytes": 2578
     },
     {
@@ -1416,8 +1416,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 44,
-      "bytes": 9487
+      "ms": 42,
+      "bytes": 9473
     },
     {
       "id": 140,
@@ -1426,7 +1426,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 7,
+      "ms": 15,
       "bytes": 13
     },
     {
@@ -1436,7 +1436,7 @@
       "method": "POST",
       "path": "/uploads",
       "status": 201,
-      "ms": 44,
+      "ms": 37,
       "bytes": 1224
     },
     {
@@ -1446,7 +1446,7 @@
       "method": "POST",
       "url": "localhost:4566/docbeam-local-object-store",
       "status": 204,
-      "ms": 37,
+      "ms": 42,
       "bytes": 0
     },
     {
@@ -1456,7 +1456,7 @@
       "method": "POST",
       "path": "/uploads",
       "status": 201,
-      "ms": 53,
+      "ms": 59,
       "bytes": 1224
     },
     {
@@ -1474,9 +1474,9 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/files?ids=f940bd4c-e113-4d02-b411-f2c04e02248f,91b311d2-76fa-4428-be20-6a83739c2d57",
+      "path": "/files?ids=bd5b590b-8619-4965-aedf-cde86ec2036f,74608835-d3f4-4267-ba8a-80b7e251b70f",
       "status": 200,
-      "ms": 21,
+      "ms": 22,
       "bytes": 175
     },
     {
@@ -1500,10 +1500,10 @@
       "method": "POST",
       "path": "/jobs",
       "status": 201,
-      "ms": 159,
+      "ms": 113,
       "bytes": 62,
-      "req": "{\"files\":[{\"fileId\":\"f940bd4c-e113-4d02-b411-f2c04e02248f\",\"sha256\":\"eb86a7b974f89b648d2a7c14b8419eacb2b33a03aebfab6c6bef64def49aeb9a\"},{\"fileId\":\"91b311d2-76fa-4428-be20-6a83739c2d57\",\"sha256\":\"73b36ebad89cabcacff69213312a09767248b8a8cba3820dde1fced4c7c33873\"}],\"mappings\":[{\"fileId\":\"f940bd4c-e113-4d02-b411-f2c04e02248f\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"}]},{\"fileId\":\"91b311d2-76fa-4428-be20-6a83739c2d57\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"}]}]}",
-      "res": "{\"jobId\":\"3f189e1f-61f2-4de5-ba09-8286956efe90\",\"taskCount\":2}"
+      "req": "{\"files\":[{\"fileId\":\"bd5b590b-8619-4965-aedf-cde86ec2036f\",\"sha256\":\"8e81e5123731ea724738ee4e8ff9286ea3f1eeeaf394b43e59d156449a0d164f\"},{\"fileId\":\"74608835-d3f4-4267-ba8a-80b7e251b70f\",\"sha256\":\"2a65a55c4ba49af21cda67af717f99ae7d4db4aefb69bfcd8fea1f52e53e3f07\"}],\"mappings\":[{\"fileId\":\"bd5b590b-8619-4965-aedf-cde86ec2036f\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"}]},{\"fileId\":\"74608835-d3f4-4267-ba8a-80b7e251b70f\",\"destinations\":[{\"binderId\":\"adc5d38c-70fc-52dc-b705-8db4e0148dc0\",\"folderId\":\"f262f30b-399d-5b49-a207-af1a56a85623\"}]}]}",
+      "res": "{\"jobId\":\"63691e7e-b53d-4732-8ca2-8f6ec7d770f3\",\"taskCount\":2}"
     },
     {
       "id": 149,
@@ -1526,68 +1526,68 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 175,
-      "bytes": 9514
+      "ms": 133,
+      "bytes": 9500
     },
     {
       "id": 152,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 56,
-      "bytes": 223
+      "ms": 38,
+      "bytes": 155
     },
     {
       "id": 153,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 63,
-      "bytes": 155
+      "ms": 39,
+      "bytes": 223
     },
     {
       "id": 154,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 68,
-      "bytes": 223
+      "ms": 44,
+      "bytes": 9500
     },
     {
       "id": 155,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20&cursor=WyIyMDI2LTEwLTIyVDAwOjA1OjAyLjY0NjIxMloiLCJlYjViYjg4Yy03YjU5LTQ5NzYtYTY0MS0wMzZmMjNiNDM3NGMiXQ",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 68,
-      "bytes": 9259
+      "ms": 44,
+      "bytes": 155
     },
     {
       "id": 156,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 69,
-      "bytes": 155
+      "ms": 44,
+      "bytes": 223
     },
     {
       "id": 157,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs?scope=all&limit=20&cursor=WyIyMDI2LTEwLTIyVDA2OjM1OjM2LjQ2NDA4OFoiLCJjNGU1OTIwYS1mMGJiLTQzZTYtODZlYi1hMzI2MGM5NDNjNjYiXQ",
       "status": 200,
-      "ms": 69,
-      "bytes": 9514
+      "ms": 46,
+      "bytes": 10668
     },
     {
       "id": 158,
@@ -1596,17 +1596,17 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 80,
-      "bytes": 9514
+      "ms": 46,
+      "bytes": 9500
     },
     {
       "id": 159,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3",
       "status": 200,
-      "ms": 67,
+      "ms": 40,
       "bytes": 550
     },
     {
@@ -1614,9 +1614,9 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&idPrefix=3f189e1f",
+      "path": "/jobs?scope=all&idPrefix=63691e7e",
       "status": 200,
-      "ms": 56,
+      "ms": 31,
       "bytes": 475
     },
     {
@@ -1624,9 +1624,9 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3",
       "status": 200,
-      "ms": 101,
+      "ms": 52,
       "bytes": 550
     },
     {
@@ -1634,29 +1634,29 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90/tasks?page=1&limit=100",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 42,
-      "bytes": 866
+      "ms": 82,
+      "bytes": 13
     },
     {
       "id": 163,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 41,
-      "bytes": 13
+      "ms": 23,
+      "bytes": 866
     },
     {
       "id": 164,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90/tasks?page=1&limit=100",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 62,
+      "ms": 23,
       "bytes": 866
     },
     {
@@ -1666,7 +1666,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 34,
+      "ms": 23,
       "bytes": 13
     },
     {
@@ -1675,16 +1675,16 @@
       "kind": "ws",
       "frame": "job_update",
       "direction": "received",
-      "res": "{\"type\":\"job_update\",\"jobId\":\"3f189e1f-61f2-4de5-ba09-8286956efe90\",\"updatedAt\":\"2026-10-22T00:41:49.016Z\",\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":2}}"
+      "res": "{\"type\":\"job_update\",\"jobId\":\"63691e7e-b53d-4732-8ca2-8f6ec7d770f3\",\"updatedAt\":\"2026-10-22T06:53:09.941Z\",\"counts\":{\"pending\":0,\"in_progress\":0,\"completed\":0,\"failed\":0,\"cancelled\":2}}"
     },
     {
       "id": 167,
       "step": "5-cancel",
       "kind": "api",
       "method": "POST",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90/cancel",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3/cancel",
       "status": 202,
-      "ms": 38,
+      "ms": 45,
       "bytes": 15,
       "res": "{\"cancelled\":2}"
     },
@@ -1693,9 +1693,9 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3",
       "status": 200,
-      "ms": 72,
+      "ms": 65,
       "bytes": 594
     },
     {
@@ -1703,9 +1703,9 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90/tasks?page=1&limit=100",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 73,
+      "ms": 57,
       "bytes": 1116
     },
     {
@@ -1713,40 +1713,40 @@
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 49,
-      "bytes": 9516
+      "ms": 76,
+      "bytes": 13
     },
     {
       "id": 171,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 17,
-      "bytes": 13
+      "ms": 78,
+      "bytes": 9502
     },
     {
       "id": 172,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3f189e1f-61f2-4de5-ba09-8286956efe90",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 48,
-      "bytes": 594
+      "ms": 72,
+      "bytes": 9502
     },
     {
       "id": 173,
       "step": "5-cancel",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/63691e7e-b53d-4732-8ca2-8f6ec7d770f3",
       "status": 200,
-      "ms": 18,
-      "bytes": 9516
+      "ms": 72,
+      "bytes": 594
     },
     {
       "id": 174,
@@ -1755,7 +1755,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 3,
+      "ms": 6,
       "bytes": 13
     },
     {
@@ -1799,29 +1799,29 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/teams",
       "status": 200,
-      "ms": 33,
-      "bytes": 13
+      "ms": 68,
+      "bytes": 155
     },
     {
       "id": 181,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 35,
-      "bytes": 9528
+      "ms": 68,
+      "bytes": 223
     },
     {
       "id": 182,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/teams",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 35,
+      "ms": 67,
       "bytes": 155
     },
     {
@@ -1829,20 +1829,20 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 35,
-      "bytes": 223
+      "ms": 67,
+      "bytes": 13
     },
     {
       "id": 184,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 35,
-      "bytes": 155
+      "ms": 67,
+      "bytes": 9514
     },
     {
       "id": 185,
@@ -1851,7 +1851,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 34,
+      "ms": 67,
       "bytes": 13
     },
     {
@@ -1861,7 +1861,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 35,
+      "ms": 67,
       "bytes": 223
     },
     {
@@ -1869,20 +1869,20 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 36,
-      "bytes": 9528
+      "ms": 67,
+      "bytes": 155
     },
     {
       "id": 188,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 36,
-      "bytes": 155
+      "ms": 81,
+      "bytes": 9514
     },
     {
       "id": 189,
@@ -1891,8 +1891,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 36,
-      "bytes": 9528
+      "ms": 87,
+      "bytes": 9514
     },
     {
       "id": 190,
@@ -1901,17 +1901,17 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 118,
-      "bytes": 9528
+      "ms": 87,
+      "bytes": 9514
     },
     {
       "id": 191,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 108,
+      "ms": 166,
       "bytes": 609
     },
     {
@@ -1921,7 +1921,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 42,
+      "ms": 29,
       "bytes": 13
     },
     {
@@ -1929,9 +1929,9 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 43,
+      "ms": 30,
       "bytes": 2652
     },
     {
@@ -1939,9 +1939,9 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100",
       "status": 200,
-      "ms": 42,
+      "ms": 29,
       "bytes": 2652
     },
     {
@@ -1951,7 +1951,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 27,
+      "ms": 58,
       "bytes": 13
     },
     {
@@ -1961,8 +1961,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 29,
-      "bytes": 9528
+      "ms": 61,
+      "bytes": 9514
     },
     {
       "id": 197,
@@ -1971,7 +1971,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 14,
+      "ms": 13,
       "bytes": 13
     },
     {
@@ -1980,16 +1980,16 @@
       "kind": "ws",
       "frame": "job_update",
       "direction": "received",
-      "res": "{\"type\":\"job_update\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"updatedAt\":\"2026-10-22T00:41:52.171Z\",\"counts\":{\"pending\":2,\"in_progress\":0,\"completed\":4,\"failed\":0,\"cancelled\":0}}"
+      "res": "{\"type\":\"job_update\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"updatedAt\":\"2026-10-22T06:53:13.165Z\",\"counts\":{\"pending\":2,\"in_progress\":0,\"completed\":4,\"failed\":0,\"cancelled\":0}}"
     },
     {
       "id": 199,
       "step": "5-retry",
       "kind": "api",
       "method": "POST",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/retry",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/retry",
       "status": 202,
-      "ms": 72,
+      "ms": 55,
       "bytes": 13,
       "res": "{\"retried\":2}"
     },
@@ -1998,9 +1998,9 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 86,
+      "ms": 67,
       "bytes": 605
     },
     {
@@ -2008,7 +2008,7 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100",
       "status": 200,
       "ms": 65,
       "bytes": 2574
@@ -2020,7 +2020,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 105,
+      "ms": 71,
       "bytes": 13
     },
     {
@@ -2030,17 +2030,17 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 101,
-      "bytes": 9518
+      "ms": 65,
+      "bytes": 9504
     },
     {
       "id": 204,
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 101,
+      "ms": 65,
       "bytes": 606
     },
     {
@@ -2064,7 +2064,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 33,
+      "ms": 80,
       "bytes": 13
     },
     {
@@ -2072,9 +2072,9 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 34,
+      "ms": 10,
       "bytes": 2578
     },
     {
@@ -2084,7 +2084,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 50,
+      "ms": 10,
       "bytes": 13
     },
     {
@@ -2094,8 +2094,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 50,
-      "bytes": 9516
+      "ms": 10,
+      "bytes": 9502
     },
     {
       "id": 211,
@@ -2112,23 +2112,13 @@
       "step": "5-retry",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 16,
-      "bytes": 2578
-    },
-    {
-      "id": 213,
-      "step": "5-retry",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
-      "status": 200,
-      "ms": 37,
+      "ms": 33,
       "bytes": 626
     },
     {
-      "id": 214,
+      "id": 213,
       "step": "5-list-error",
       "kind": "ws",
       "frame": "connect",
@@ -2136,31 +2126,7 @@
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 215,
-      "step": "5-list-error",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 503,
-      "ms": 32,
-      "bytes": 107,
-      "res": "{\"error\":{\"code\":\"PLATFORM_UNAVAILABLE\",\"message\":\"The platform is not answering. Try again in a moment.\"}}",
-      "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
-    },
-    {
-      "id": 216,
-      "step": "5-list-error",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 503,
-      "ms": 31,
-      "bytes": 107,
-      "res": "{\"error\":{\"code\":\"PLATFORM_UNAVAILABLE\",\"message\":\"The platform is not answering. Try again in a moment.\"}}",
-      "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
-    },
-    {
-      "id": 217,
+      "id": 214,
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
@@ -2172,15 +2138,49 @@
       "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
     },
     {
-      "id": 218,
+      "id": 215,
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 503,
-      "ms": 47,
+      "ms": 30,
+      "bytes": 107,
+      "res": "{\"error\":{\"code\":\"PLATFORM_UNAVAILABLE\",\"message\":\"The platform is not answering. Try again in a moment.\"}}",
+      "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
+    },
+    {
+      "id": 216,
+      "step": "5-list-error",
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs?scope=all&limit=20",
+      "status": 503,
+      "ms": 29,
+      "bytes": 107,
+      "res": "{\"error\":{\"code\":\"PLATFORM_UNAVAILABLE\",\"message\":\"The platform is not answering. Try again in a moment.\"}}",
+      "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
+    },
+    {
+      "id": 217,
+      "step": "5-list-error",
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs?scope=all&limit=20",
+      "status": 503,
+      "ms": 28,
       "bytes": 107,
       "note": "provoked: the capture made this answer a 503, as when the platform is not answering"
+    },
+    {
+      "id": 218,
+      "step": "5-list-error",
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs/running",
+      "status": 200,
+      "ms": 69,
+      "bytes": 13
     },
     {
       "id": 219,
@@ -2189,7 +2189,7 @@
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 61,
+      "ms": 79,
       "bytes": 155
     },
     {
@@ -2199,7 +2199,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 59,
+      "ms": 77,
       "bytes": 223
     },
     {
@@ -2209,7 +2209,7 @@
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 62,
+      "ms": 77,
       "bytes": 155
     },
     {
@@ -2217,83 +2217,73 @@
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 52,
-      "bytes": 13
+      "ms": 69,
+      "bytes": 155
     },
     {
       "id": 223,
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 52,
-      "bytes": 223
+      "ms": 114,
+      "bytes": 13
     },
     {
       "id": 224,
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 63,
-      "bytes": 155
+      "ms": 116,
+      "bytes": 223
     },
     {
       "id": 225,
       "step": "5-list-error",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 61,
-      "bytes": 13
+      "ms": 101,
+      "bytes": 9502
     },
     {
       "id": 226,
-      "step": "5-list-error",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 149,
-      "bytes": 9516
-    },
-    {
-      "id": 227,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 15,
+      "ms": 17,
       "bytes": 13
+    },
+    {
+      "id": 227,
+      "step": "6-raj",
+      "kind": "api",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "status": 401,
+      "ms": 65,
+      "bytes": 60
     },
     {
       "id": 228,
       "step": "6-raj",
       "kind": "api",
       "method": "POST",
-      "path": "/auth/refresh",
-      "status": 401,
-      "ms": 72,
-      "bytes": 60
-    },
-    {
-      "id": 229,
-      "step": "6-raj",
-      "kind": "api",
-      "method": "POST",
       "path": "/auth/login",
       "status": 200,
-      "ms": 261,
+      "ms": 282,
       "bytes": 751
     },
     {
-      "id": 230,
+      "id": 229,
       "step": "6-raj",
       "kind": "ws",
       "frame": "connect",
@@ -2301,51 +2291,51 @@
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 231,
+      "id": 230,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 39,
+      "ms": 38,
       "bytes": 91
+    },
+    {
+      "id": 231,
+      "step": "6-raj",
+      "kind": "ws",
+      "frame": "subscribe",
+      "direction": "sent"
     },
     {
       "id": 232,
       "step": "6-raj",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/running",
-      "status": 200,
-      "ms": 42,
-      "bytes": 13
+      "kind": "ws",
+      "frame": "subscribe",
+      "direction": "sent"
     },
     {
       "id": 233,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 43,
-      "bytes": 9210
+      "ms": 88,
+      "bytes": 13
     },
     {
       "id": 234,
       "step": "6-raj",
-      "kind": "ws",
-      "frame": "subscribe",
-      "direction": "sent"
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs?scope=all&limit=20",
+      "status": 200,
+      "ms": 88,
+      "bytes": 9346
     },
     {
       "id": 235,
-      "step": "6-raj",
-      "kind": "ws",
-      "frame": "subscribe",
-      "direction": "sent"
-    },
-    {
-      "id": 236,
       "step": "6-raj",
       "kind": "ws",
       "frame": "connect",
@@ -2353,20 +2343,30 @@
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 237,
+      "id": 236,
       "step": "6-raj",
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent"
     },
     {
-      "id": 238,
+      "id": 237,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 67,
+      "ms": 35,
+      "bytes": 91
+    },
+    {
+      "id": 238,
+      "step": "6-raj",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams?limit=100",
+      "status": 200,
+      "ms": 73,
       "bytes": 91
     },
     {
@@ -2376,7 +2376,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 67,
+      "ms": 73,
       "bytes": 223
     },
     {
@@ -2384,20 +2384,17 @@
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 66,
-      "bytes": 91
+      "ms": 69,
+      "bytes": 13
     },
     {
       "id": 241,
       "step": "6-raj",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/running",
-      "status": 200,
-      "ms": 65,
-      "bytes": 13
+      "kind": "ws",
+      "frame": "subscribed",
+      "direction": "received"
     },
     {
       "id": 242,
@@ -2406,38 +2403,38 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 67,
-      "bytes": 9210
+      "ms": 73,
+      "bytes": 9346
     },
     {
       "id": 243,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 65,
-      "bytes": 223
+      "ms": 69,
+      "bytes": 91
     },
     {
       "id": 244,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 65,
-      "bytes": 13
+      "ms": 71,
+      "bytes": 223
     },
     {
       "id": 245,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 65,
-      "bytes": 91
+      "ms": 68,
+      "bytes": 13
     },
     {
       "id": 246,
@@ -2446,15 +2443,18 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 65,
-      "bytes": 9210
+      "ms": 85,
+      "bytes": 9346
     },
     {
       "id": 247,
       "step": "6-raj",
-      "kind": "ws",
-      "frame": "subscribed",
-      "direction": "received"
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs?scope=all&limit=20",
+      "status": 200,
+      "ms": 84,
+      "bytes": 9346
     },
     {
       "id": 248,
@@ -2463,47 +2463,47 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 162,
-      "bytes": 9210
+      "ms": 85,
+      "bytes": 9346
     },
     {
       "id": 249,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 162,
-      "bytes": 9210
+      "ms": 135,
+      "bytes": 461
     },
     {
       "id": 250,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 112,
-      "bytes": 461
+      "ms": 38,
+      "bytes": 13
     },
     {
       "id": 251,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 18,
-      "bytes": 13
+      "ms": 57,
+      "bytes": 1307
     },
     {
       "id": 252,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 38,
+      "ms": 56,
       "bytes": 1307
     },
     {
@@ -2511,33 +2511,23 @@
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 38,
-      "bytes": 1307
+      "ms": 27,
+      "bytes": 13
     },
     {
       "id": 254,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 15,
-      "bytes": 13
+      "ms": 36,
+      "bytes": 9346
     },
     {
       "id": 255,
-      "step": "6-raj",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 41,
-      "bytes": 9210
-    },
-    {
-      "id": 256,
       "step": "6-raj",
       "kind": "api",
       "method": "GET",
@@ -2547,27 +2537,27 @@
       "bytes": 13
     },
     {
-      "id": 257,
+      "id": 256,
       "step": "6-sam",
       "kind": "api",
       "method": "POST",
       "path": "/auth/refresh",
       "status": 401,
-      "ms": 98,
+      "ms": 69,
       "bytes": 60
     },
     {
-      "id": 258,
+      "id": 257,
       "step": "6-sam",
       "kind": "api",
       "method": "POST",
       "path": "/auth/login",
       "status": 200,
-      "ms": 249,
+      "ms": 308,
       "bytes": 746
     },
     {
-      "id": 259,
+      "id": 258,
       "step": "6-sam",
       "kind": "ws",
       "frame": "connect",
@@ -2575,34 +2565,41 @@
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 260,
+      "id": 259,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
       "path": "/teams",
       "status": 200,
-      "ms": 86,
+      "ms": 38,
       "bytes": 90
+    },
+    {
+      "id": 260,
+      "step": "6-sam",
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs/running",
+      "status": 200,
+      "ms": 46,
+      "bytes": 13
     },
     {
       "id": 261,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 87,
-      "bytes": 13
+      "ms": 47,
+      "bytes": 1154
     },
     {
       "id": 262,
       "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 102,
-      "bytes": 1154
+      "kind": "ws",
+      "frame": "subscribe",
+      "direction": "sent"
     },
     {
       "id": 263,
@@ -2615,42 +2612,45 @@
       "id": 264,
       "step": "6-sam",
       "kind": "ws",
-      "frame": "subscribe",
-      "direction": "sent"
-    },
-    {
-      "id": 265,
-      "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/running",
-      "status": 200,
-      "ms": 108,
-      "bytes": 0
-    },
-    {
-      "id": 266,
-      "step": "6-sam",
-      "kind": "ws",
       "frame": "connect",
       "direction": "sent",
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 267,
+      "id": 265,
       "step": "6-sam",
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent"
+    },
+    {
+      "id": 266,
+      "step": "6-sam",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams",
+      "status": 200,
+      "ms": 61,
+      "bytes": 90
+    },
+    {
+      "id": 267,
+      "step": "6-sam",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams/members",
+      "status": 200,
+      "ms": 60,
+      "bytes": 151
     },
     {
       "id": 268,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/teams",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 75,
+      "ms": 60,
       "bytes": 90
     },
     {
@@ -2660,7 +2660,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 73,
+      "ms": 59,
       "bytes": 13
     },
     {
@@ -2668,20 +2668,20 @@
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 73,
-      "bytes": 151
+      "ms": 60,
+      "bytes": 1154
     },
     {
       "id": 271,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 74,
-      "bytes": 1154
+      "ms": 62,
+      "bytes": 151
     },
     {
       "id": 272,
@@ -2690,7 +2690,7 @@
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 74,
+      "ms": 62,
       "bytes": 90
     },
     {
@@ -2698,40 +2698,38 @@
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 73,
-      "bytes": 151
+      "ms": 62,
+      "bytes": 13
     },
     {
       "id": 274,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 70,
-      "bytes": 13
+      "ms": 64,
+      "bytes": 1154
     },
     {
       "id": 275,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 73,
-      "bytes": 90
+      "ms": 62,
+      "bytes": 1154
     },
     {
       "id": 276,
       "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 74,
-      "bytes": 1154
+      "kind": "ws",
+      "frame": "subscribe_error",
+      "direction": "received",
+      "res": "{\"type\":\"subscribe_error\",\"jobId\":\"64a9b426-23bf-4520-90b4-b4acb0a3a379\",\"code\":\"NOT_FOUND\"}"
     },
     {
       "id": 277,
@@ -2740,40 +2738,22 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 71,
+      "ms": 74,
       "bytes": 1154
     },
     {
       "id": 278,
       "step": "6-sam",
-      "kind": "ws",
-      "frame": "subscribe_error",
-      "direction": "received",
-      "res": "{\"type\":\"subscribe_error\",\"jobId\":\"3029c22a-966c-487c-9dbe-34b555d86c92\",\"code\":\"NOT_FOUND\"}"
-    },
-    {
-      "id": 279,
-      "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 73,
-      "bytes": 1154
-    },
-    {
-      "id": 280,
-      "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 404,
-      "ms": 35,
+      "ms": 36,
       "bytes": 75,
       "res": "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"That distribution was not found.\"}}"
     },
     {
-      "id": 281,
+      "id": 279,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
@@ -2783,51 +2763,66 @@
       "bytes": 13
     },
     {
+      "id": 280,
+      "step": "6-sam",
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs?scope=all&idPrefix=64a9b426",
+      "status": 200,
+      "ms": 10,
+      "bytes": 30
+    },
+    {
+      "id": 281,
+      "step": "6-sam",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams/members",
+      "status": 200,
+      "ms": 5068,
+      "bytes": 0
+    },
+    {
       "id": 282,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&idPrefix=3029c22a",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 9,
-      "bytes": 30
+      "ms": 5068,
+      "bytes": 0
     },
     {
       "id": 283,
       "step": "6-sam",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 1801,
+      "ms": 1320,
       "bytes": 0
     },
     {
       "id": 284,
-      "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/teams?limit=100",
-      "status": 200,
-      "ms": 1801,
-      "bytes": 0
+      "step": "7-preview",
+      "kind": "ws",
+      "frame": "subscribe",
+      "direction": "sent"
     },
     {
       "id": 285,
-      "step": "6-sam",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 1801,
-      "bytes": 0
+      "step": "7-preview",
+      "kind": "ws",
+      "frame": "subscribe",
+      "direction": "sent"
     },
     {
       "id": 286,
       "step": "7-preview",
       "kind": "ws",
-      "frame": "subscribe",
-      "direction": "sent"
+      "frame": "connect",
+      "direction": "sent",
+      "url": "ws://localhost:3004/?token=<masked>"
     },
     {
       "id": 287,
@@ -2839,57 +2834,59 @@
     {
       "id": 288,
       "step": "7-preview",
-      "kind": "ws",
-      "frame": "connect",
-      "direction": "sent",
-      "url": "ws://localhost:3004/?token=<masked>"
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams/members",
+      "status": 200,
+      "ms": 112,
+      "bytes": 223
     },
     {
       "id": 289,
       "step": "7-preview",
-      "kind": "ws",
-      "frame": "subscribe",
-      "direction": "sent"
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams",
+      "status": 200,
+      "ms": 114,
+      "bytes": 155
     },
     {
       "id": 290,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/teams",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 79,
+      "ms": 113,
       "bytes": 155
     },
     {
       "id": 291,
       "step": "7-preview",
-      "kind": "api",
-      "method": "GET",
-      "path": "/teams?limit=100",
-      "status": 200,
-      "ms": 79,
-      "bytes": 155
+      "kind": "ws",
+      "frame": "subscribed",
+      "direction": "received"
     },
     {
       "id": 292,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 79,
-      "bytes": 223
+      "ms": 113,
+      "bytes": 13
     },
     {
       "id": 293,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/teams/members",
       "status": 200,
-      "ms": 79,
-      "bytes": 13
+      "ms": 113,
+      "bytes": 223
     },
     {
       "id": 294,
@@ -2898,8 +2895,8 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 80,
-      "bytes": 9516
+      "ms": 117,
+      "bytes": 9502
     },
     {
       "id": 295,
@@ -2908,35 +2905,38 @@
       "method": "GET",
       "path": "/teams?limit=100",
       "status": 200,
-      "ms": 80,
+      "ms": 115,
       "bytes": 155
     },
     {
       "id": 296,
       "step": "7-preview",
-      "kind": "ws",
-      "frame": "subscribed",
-      "direction": "received"
+      "kind": "api",
+      "method": "GET",
+      "path": "/jobs/running",
+      "status": 200,
+      "ms": 114,
+      "bytes": 13
     },
     {
       "id": 297,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/teams/members",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 80,
-      "bytes": 223
+      "ms": 232,
+      "bytes": 9502
     },
     {
       "id": 298,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 80,
-      "bytes": 13
+      "ms": 230,
+      "bytes": 9502
     },
     {
       "id": 299,
@@ -2945,71 +2945,51 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 81,
-      "bytes": 9516
+      "ms": 230,
+      "bytes": 9502
     },
     {
       "id": 300,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 81,
-      "bytes": 9516
+      "ms": 135,
+      "bytes": 626
     },
     {
       "id": 301,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 85,
-      "bytes": 9516
+      "ms": 17,
+      "bytes": 13
     },
     {
       "id": 302,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 130,
-      "bytes": 626
+      "ms": 34,
+      "bytes": 2578
     },
     {
       "id": 303,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 23,
-      "bytes": 13
+      "ms": 32,
+      "bytes": 2578
     },
     {
       "id": 304,
-      "step": "7-preview",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
-      "status": 200,
-      "ms": 34,
-      "bytes": 2578
-    },
-    {
-      "id": 305,
-      "step": "7-preview",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
-      "status": 200,
-      "ms": 54,
-      "bytes": 2578
-    },
-    {
-      "id": 306,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
@@ -3019,71 +2999,71 @@
       "bytes": 13
     },
     {
-      "id": 307,
+      "id": 305,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 39,
-      "bytes": 9516
+      "ms": 49,
+      "bytes": 9502
     },
     {
-      "id": 308,
+      "id": 306,
       "step": "7-preview",
       "kind": "api",
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 11,
+      "ms": 13,
       "bytes": 13
     },
     {
-      "id": 309,
+      "id": 307,
       "step": "7-preview",
       "kind": "api",
       "method": "POST",
-      "path": "/files/e4343692-92c6-4034-a47d-f3311a971cee/downloads",
+      "path": "/files/82f9b6e6-062c-471f-b229-3dbcdf298caf/downloads",
       "status": 201,
-      "ms": 29,
+      "ms": 47,
       "bytes": 678,
       "req": "{\"mode\":\"preview\"}",
-      "res": "{\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/e4343692-92c6-4034-a47d-f3311a971cee?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T004204Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject\",\"expiresAt\":\"2026-10-22T00:44:04.544Z\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"contentType\":\"application/pdf\",\"sizeBytes\":403}"
+      "res": "{\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065324Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject\",\"expiresAt\":\"2026-10-22T06:55:24.336Z\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"contentType\":\"application/pdf\",\"sizeBytes\":403}"
     },
     {
-      "id": 310,
+      "id": 308,
       "step": "7-preview",
       "kind": "s3",
       "method": "GET",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/e4343692-92c6-4034-a47d-f3311a971cee?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T004204Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065324Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject",
       "status": 200,
-      "ms": 13,
+      "ms": 12,
+      "bytes": 0
+    },
+    {
+      "id": 309,
+      "step": "7-download",
+      "kind": "api",
+      "method": "POST",
+      "path": "/files/82f9b6e6-062c-471f-b229-3dbcdf298caf/downloads",
+      "status": 201,
+      "ms": 35,
+      "bytes": 758,
+      "req": "{\"mode\":\"download\"}",
+      "res": "{\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065356Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22Consent%20form%20mvj6mkjs.pdf%22%3B%20filename%2A%3DUTF-8%27%27Consent%2520form%2520mvj6mkjs.pdf&x-amz-checksum-mode=ENABLED&x-id=GetObject\",\"expiresAt\":\"2026-10-22T06:55:56.665Z\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"contentType\":\"application/pdf\",\"sizeBytes\":403}"
+    },
+    {
+      "id": 310,
+      "step": "7-download",
+      "kind": "s3",
+      "method": "GET",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065356Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22Consent%20form%20mvj6mkjs.pdf%22%3B%20filename%2A%3DUTF-8%27%27Consent%2520form%2520mvj6mkjs.pdf&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+      "status": 200,
+      "ms": 14,
       "bytes": 0
     },
     {
       "id": 311,
-      "step": "7-download",
-      "kind": "api",
-      "method": "POST",
-      "path": "/files/e4343692-92c6-4034-a47d-f3311a971cee/downloads",
-      "status": 201,
-      "ms": 37,
-      "bytes": 758,
-      "req": "{\"mode\":\"download\"}",
-      "res": "{\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/e4343692-92c6-4034-a47d-f3311a971cee?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T004236Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22Consent%20form%20mvitd0zu.pdf%22%3B%20filename%2A%3DUTF-8%27%27Consent%2520form%2520mvitd0zu.pdf&x-amz-checksum-mode=ENABLED&x-id=GetObject\",\"expiresAt\":\"2026-10-22T00:44:36.931Z\",\"fileName\":\"Consent form mvitd0zu.pdf\",\"contentType\":\"application/pdf\",\"sizeBytes\":403}"
-    },
-    {
-      "id": 312,
-      "step": "7-download",
-      "kind": "s3",
-      "method": "GET",
-      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/e4343692-92c6-4034-a47d-f3311a971cee?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T004236Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22Consent%20form%20mvitd0zu.pdf%22%3B%20filename%2A%3DUTF-8%27%27Consent%2520form%2520mvitd0zu.pdf&x-amz-checksum-mode=ENABLED&x-id=GetObject",
-      "status": 200,
-      "ms": 16,
-      "bytes": 0
-    },
-    {
-      "id": 313,
       "step": "7-expired",
       "kind": "ws",
       "frame": "connect",
@@ -3091,18 +3071,38 @@
       "url": "ws://localhost:3004/?token=<masked>"
     },
     {
-      "id": 314,
+      "id": 312,
       "step": "7-expired",
       "kind": "ws",
       "frame": "subscribe",
       "direction": "sent"
     },
     {
-      "id": 315,
+      "id": 313,
+      "step": "7-expired",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams",
+      "status": 200,
+      "ms": 54,
+      "bytes": 155
+    },
+    {
+      "id": 314,
       "step": "7-expired",
       "kind": "ws",
       "frame": "subscribed",
       "direction": "received"
+    },
+    {
+      "id": 315,
+      "step": "7-expired",
+      "kind": "api",
+      "method": "GET",
+      "path": "/teams?limit=100",
+      "status": 200,
+      "ms": 60,
+      "bytes": 155
     },
     {
       "id": 316,
@@ -3111,7 +3111,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 58,
+      "ms": 60,
       "bytes": 223
     },
     {
@@ -3119,9 +3119,9 @@
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/teams",
+      "path": "/teams?limit=100",
       "status": 200,
-      "ms": 58,
+      "ms": 158,
       "bytes": 155
     },
     {
@@ -3129,10 +3129,10 @@
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 58,
-      "bytes": 155
+      "ms": 158,
+      "bytes": 9502
     },
     {
       "id": 319,
@@ -3141,7 +3141,7 @@
       "method": "GET",
       "path": "/teams/members",
       "status": 200,
-      "ms": 55,
+      "ms": 159,
       "bytes": 223
     },
     {
@@ -3149,20 +3149,20 @@
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 72,
-      "bytes": 9516
+      "ms": 159,
+      "bytes": 13
     },
     {
       "id": 321,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/teams?limit=100",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 70,
-      "bytes": 155
+      "ms": 159,
+      "bytes": 9502
     },
     {
       "id": 322,
@@ -3171,7 +3171,7 @@
       "method": "GET",
       "path": "/jobs/running",
       "status": 200,
-      "ms": 73,
+      "ms": 157,
       "bytes": 13
     },
     {
@@ -3181,101 +3181,81 @@
       "method": "GET",
       "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 190,
-      "bytes": 9516
+      "ms": 159,
+      "bytes": 9502
     },
     {
       "id": 324,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 192,
-      "bytes": 13
+      "ms": 162,
+      "bytes": 9502
     },
     {
       "id": 325,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379",
       "status": 200,
-      "ms": 192,
-      "bytes": 9516
+      "ms": 115,
+      "bytes": 626
     },
     {
       "id": 326,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 192,
-      "bytes": 9516
+      "ms": 20,
+      "bytes": 13
     },
     {
       "id": 327,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 150,
-      "bytes": 626
+      "ms": 43,
+      "bytes": 2576
     },
     {
       "id": 328,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/running",
+      "path": "/jobs/64a9b426-23bf-4520-90b4-b4acb0a3a379/tasks?page=1&limit=100&status=completed",
       "status": 200,
-      "ms": 28,
-      "bytes": 13
+      "ms": 43,
+      "bytes": 2576
     },
     {
       "id": 329,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs/running",
       "status": 200,
-      "ms": 41,
-      "bytes": 2576
+      "ms": 32,
+      "bytes": 13
     },
     {
       "id": 330,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
-      "path": "/jobs/3029c22a-966c-487c-9dbe-34b555d86c92/tasks?page=1&limit=100&status=completed",
+      "path": "/jobs?scope=all&limit=20",
       "status": 200,
-      "ms": 41,
-      "bytes": 2576
+      "ms": 50,
+      "bytes": 9502
     },
     {
       "id": 331,
-      "step": "7-expired",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs?scope=all&limit=20",
-      "status": 200,
-      "ms": 26,
-      "bytes": 9516
-    },
-    {
-      "id": 332,
-      "step": "7-expired",
-      "kind": "api",
-      "method": "GET",
-      "path": "/jobs/running",
-      "status": 200,
-      "ms": 26,
-      "bytes": 13
-    },
-    {
-      "id": 333,
       "step": "7-expired",
       "kind": "api",
       "method": "GET",
@@ -3285,13 +3265,35 @@
       "bytes": 13
     },
     {
+      "id": 332,
+      "step": "7-expired",
+      "kind": "api",
+      "method": "POST",
+      "path": "/files/82f9b6e6-062c-471f-b229-3dbcdf298caf/downloads",
+      "status": 201,
+      "ms": 74,
+      "bytes": 678,
+      "req": "{\"mode\":\"preview\"}",
+      "res": "{\"url\":\"http://localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065358Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject\",\"expiresAt\":\"2026-10-22T06:55:58.974Z\",\"fileName\":\"Consent form mvj6mkjs.pdf\",\"contentType\":\"application/pdf\",\"sizeBytes\":403}"
+    },
+    {
+      "id": 333,
+      "step": "7-expired",
+      "kind": "s3",
+      "method": "GET",
+      "url": "localhost:4566/docbeam-local-object-store/staging/a3cf6c1d-1a43-43a2-876f-25775f45663d/82f9b6e6-062c-471f-b229-3dbcdf298caf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=<masked>&X-Amz-Date=20261022T065358Z&X-Amz-Expires=120&X-Amz-Signature=<masked>&X-Amz-SignedHeaders=host&response-content-disposition=inline&response-content-type=application%2Fpdf&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+      "status": 200,
+      "ms": 8,
+      "bytes": 0
+    },
+    {
       "id": 334,
       "step": "7-expired",
       "kind": "api",
       "method": "POST",
-      "path": "/files/e4343692-92c6-4034-a47d-f3311a971cee/downloads",
+      "path": "/files/f77348fc-01c2-4865-b5ae-46e6723e55f2/downloads",
       "status": 410,
-      "ms": 16,
+      "ms": 14,
       "bytes": 127,
       "req": "{\"mode\":\"download\"}",
       "res": "{\"error\":{\"code\":\"FILE_EXPIRED\",\"message\":\"This file is no longer available. The delivered copy is still in the team folder.\"}}",

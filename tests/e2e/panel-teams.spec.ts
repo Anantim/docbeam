@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ANANTIM, CARDIO_IRB, ONC_ETHICS, PRIYA, RAJ, removeSeeded, seedJob, signIn } from './helpers.js';
 
-// The team chips on the "Sent by" line (D-F1-77, which replaced the sentence of D-F1-52 and D-F1-53): " · Showing only
+// The team chips on the "Sent by" line (D-F1-77, which replaced the sentence of D-F1-52 and D-F1-53): " · Showing
 // deliveries to" and the teams as pills on the one line with the time; up to 3 teams are all shown.
 
 const SHOTS = process.env.SHOT_DIR;
@@ -25,8 +25,8 @@ for (const width of [1440, 1280, 1024]) {
         if (await page.getByRole('button', { name: 'Sign out' }).isVisible()) await page.getByRole('button', { name: 'Sign out' }).click();
         await openAs(page, email, jobId);
         const sub = page.locator('.panel-sub');
-        await expect(sub.locator('.panel-note-label')).toHaveText('Showing only deliveries to'); // the panel has loaded
-        await expect(sub.locator('.panel-note .sr')).toHaveText(`Showing only deliveries to ${teams.length === 1 ? teams[0] : `${teams.slice(0, -1).join(', ')} and ${teams[teams.length - 1]}`}`);
+        await expect(sub.locator('.panel-note-label')).toHaveText('Showing deliveries to'); // the panel has loaded
+        await expect(sub.locator('.panel-note .sr')).toHaveText(`Showing deliveries to ${teams.length === 1 ? teams[0] : `${teams.slice(0, -1).join(', ')} and ${teams[teams.length - 1]}`}`);
         // The chips, sorted A to Z, all shown for up to 3 teams: no "+N".
         await expect(sub.locator('.team-chips .chip')).toHaveText([...teams]);
         await expect(sub.locator('.team-chips .count-link')).toHaveCount(0);

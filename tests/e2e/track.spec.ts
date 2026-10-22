@@ -89,7 +89,7 @@ test('a team viewer sees only their team\'s rows, live; an outsider gets not fou
       await raj.getByRole('button', { name: 'Status' }).click();
       await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
       await expect(raj.locator('.panel-lead')).toContainText('Sent by Priya Shah');
-      await expect(raj.locator('.panel-sub .panel-note .sr')).toHaveText('Showing only deliveries to Cardio');
+      await expect(raj.locator('.panel-sub .panel-note .sr')).toHaveText('Showing deliveries to Cardio');
       await expect(raj.locator('.ttable .status-chip')).toHaveCount(2);
       await expect(raj.locator('.ttable')).toContainText(CARDIO_IRB);
       await expect(raj.locator('.ttable')).not.toContainText('Oncology');
