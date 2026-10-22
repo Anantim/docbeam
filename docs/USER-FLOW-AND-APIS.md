@@ -278,7 +278,7 @@ The access token is short (15 minutes) and lives in `sessionStorage`, so stealin
 
 ### What the user does and sees
 
-The person drops files on the page or presses **Add files**. Each file appears as a row. The page first reads the file's opening bytes and refuses anything that is not what its name says (a picture renamed `.pdf` is not added; the reason shows in a box). Accepted files go through **Uploading**, **Scanning** and **Ready**. A file refused by the virus scan shows **Refused** and can only be removed. A big file goes up in pieces. If the page is reloaded, files that are already uploaded and scanned come back.
+The person drops files on the page or presses **Add files**. Each file appears as a row. The page first reads the file's opening bytes and refuses anything that is not what its name says (a picture renamed `.pdf` is not added; the reason shows in a box). Accepted files go through **Uploading**, **Scanning** and **Ready**. A file in which the virus scan finds malware leaves the list by itself and is named in the same box, with "Malware was found. The file was deleted." A big file goes up in pieces. If the page is reloaded, files that are already uploaded and scanned come back.
 
 ### The calls
 
@@ -386,7 +386,7 @@ sequenceDiagram
 ![A 105 MB file](user-flow/img/net-2b-multipart.png)
 
 * **`POST /files/{fileId}/multipart-uploads`** — *fires* when a big file's upload starts. *Request:* the SHA-256 of every part. *Answer, 201:* `{"uploadId":"jsXsGnZh…","parts":[{"partNumber":1,"url":"http://localhost:4566/…?X-Amz-Algorithm=…&X-Amz-Expires=900&X-Amz-Signature=<masked>&partNumber=1&uploadId=…"}, …],"abortUrl":"…"}`. Each part link is signed for one part and one fingerprint and lasts 15 minutes.
-* **`S3 PUT (presigned part)`** — *fires* once per part, with the fingerprint in the `x-amz-checksum-sha256` header; S3 checks it. *Answer:* `200` and an `ETag` header the page must keep. A part that fails is tried again (2, 4 and 8 seconds apart); a part that was refused ends the file as **Refused**; a broken connection leaves it **Interrupted**, and **Retry** continues from the parts already stored.
+* **`S3 PUT (presigned part)`** — *fires* once per part, with the fingerprint in the `x-amz-checksum-sha256` header; S3 checks it. *Answer:* `200` and an `ETag` header the page must keep. A part that fails is tried again (2, 4 and 8 seconds apart); a part that was refused ends the file as **Failed**, with **Retry**; a broken connection leaves it **Interrupted**, and **Retry** continues from the parts already stored.
 * **`POST /files/{fileId}/multipart-uploads/{uploadId}/parts`** — *fires* when the links are 13 minutes old and parts remain: it asks for fresh links for the parts not yet started. *Request:* `{"parts":[{"partNumber":4,"sha256":"…"},…]}`. *Answer:* `{"parts":[{"partNumber":4,"url":"…"},…]}`. The recording is a few seconds long, so this call did not need to fire; its shape is as above.
 * **`POST /files/{fileId}/multipart-uploads/{uploadId}/complete`** — *fires* after the last part. *Request:* `{"parts":[{"partNumber":1,"etag":"\"dbcc6b6c…\""}, …]}`. *Answer, 200:* `{"fileId":"c1f081d2-…"}`. S3 joins the parts; the scan follows as for a small file.
 * **`S3 DELETE (multipart abort link)`** — *fires* when a multipart file is removed while it is still going: the page calls the `abortUrl` from the start answer so S3 does not keep the stored parts. It is a plain `DELETE` to S3 with no answer the page reads.
