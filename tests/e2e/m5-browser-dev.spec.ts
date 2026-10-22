@@ -4,7 +4,7 @@ import { closeSync, mkdtempSync, openSync, rmSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { CARDIO_IRB, ON_DEV, PRIYA, readCounts, send, signIn, tick } from './helpers.js';
+import { CARDIO_IRB, counts, ON_DEV, PRIYA, readCounts, send, signIn, tick } from './helpers.js';
 
 // M5 manual checks (5.14), run in a real browser against dev (npm run test:e2e:dev): a slow connection, a multipart
 // upload that loses its network and carries on, the WebSocket coming back, and PNG and JPG previews.
@@ -208,7 +208,7 @@ test('WebSocket reconnect: the page loses its connection for 30 s mid-run and ca
   await network(page, { offline: true });
   await page.waitForTimeout(30_000);
   // Offline, the page cannot fetch either: it shows "The distribution couldn't be loaded." instead of the counts.
-  const during = (await readCounts(page))[0]; // undefined while that message is shown
+  const during = (await counts(page).isVisible()) ? (await readCounts(page))[0] : undefined; // undefined while that message is shown
   const serverNow = await apiDelivered();
   console.log(`websocket: page showed ${shownBefore} delivered before the drop and ${during ?? 'no counts (error message)'} after 30 s offline; the server had ${serverNow}`);
   expect(serverNow, 'the run kept going while the page was offline').toBeGreaterThan(shownBefore);
