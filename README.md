@@ -4,7 +4,7 @@
 
 DocBeam is a batch document distribution app for clinical trial teams. It is a portfolio project: designed first (`docs/design/`), then built in six milestones, and shown running on AWS (Sydney) from Terraform. Prod is written but never deployed.
 
-> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (also as [webm](docs/demo/docbeam-demo.webm); 4 minutes 51 seconds; recorded by a script, `scripts/demo/record.ts`, **locally** (docker compose, seeded) on the final-round build on 2026-10-22: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
+> **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) (also as [webm](docs/demo/docbeam-demo.webm); 4 minutes 52 seconds; recorded by a script, `scripts/demo/record.ts`, **locally** (docker compose, seeded) on the final code (D-F1-81) on 2026-10-22: 1280x720, a visible cursor and a caption for each step; the plan is [docs/DEMO-SCRIPT.md](docs/DEMO-SCRIPT.md)). Dev is torn down after each round of work, so the site it shows is not up.
 
 ## At a glance
 
@@ -158,7 +158,7 @@ After M5 a reviewer asked for a calmer, clearer tool. What changed (details: [do
 - **No sign-up in the web app (D-F1-17).** The study administrator sets accounts up (the seed script). `POST /auth/register` stays in the Auth Service and is switched off at the gateway by `public_registration_enabled`.
 - **Browsing is paged.** The four platform browse routes take `limit` and an opaque `cursor`; the tree loads 20 rows and more on scroll; the list of distributions loads 20 at a time as you scroll (the next page is asked for when its scroll area comes within about five rows of the end, with "Loading more…" while it comes and "That's everything" at the end; no page numbers and no "Show more", D-F1-49). The copy icon after a distribution ID copies its link.
 - **Measured on dev:** see "At a glance" at the top for the latest numbers. Ticking one of 40 folders draws one row (was 40).
-- **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) and [webm](docs/demo/docbeam-demo.webm), 4 minutes 51 seconds, recorded locally on the final-round build on 2026-10-22 (the infected file leaves the list with a note, the one Notice style, D-F1-78) (the mp4 is made from the webm with ffmpeg) by `scripts/demo/record.ts`; the recorder can also record dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
+- **Demo video:** [docs/demo/docbeam-demo.mp4](docs/demo/docbeam-demo.mp4) and [webm](docs/demo/docbeam-demo.webm), 4 minutes 52 seconds, recorded locally on the final code (D-F1-81) on 2026-10-22 (the infected file leaves the list with a note, the one Notice style, D-F1-78) (the mp4 is made from the webm with ffmpeg) by `scripts/demo/record.ts`; the recorder can also record dev. Screenshots of every screen at 1440, 1280 and 1024 px: [docs/testing/f1-evidence/after/](docs/testing/f1-evidence/after/).
 
 ![The Distribute screen](docs/testing/f1-evidence/after/07-distribute-ready-to-send-1280.png)
 
