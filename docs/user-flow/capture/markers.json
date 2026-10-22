@@ -156,7 +156,7 @@
     },
     {
       "n": 9,
-      "label": "GET /jobs → items[].destinations (the first two folder names)"
+      "label": "GET /jobs → items[].destinations (the first two folders as \"team · folder\"; the full path on hover)"
     }
   ],
   "05b-panel": [
@@ -210,11 +210,11 @@
     },
     {
       "n": 3,
-      "label": "GET /jobs/{jobId}/tasks → status \"failed\""
+      "label": "GET /jobs/{jobId}/tasks → failureCode, turned into a sentence in the browser"
     },
     {
       "n": 4,
-      "label": "GET /jobs/{jobId}/tasks → failureCode, turned into a sentence in the browser"
+      "label": "GET /jobs/{jobId}/tasks → status \"failed\""
     }
   ],
   "05e-list-error": [

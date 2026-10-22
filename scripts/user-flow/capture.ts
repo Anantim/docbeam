@@ -304,7 +304,8 @@ async function tick(page: Page, path: string): Promise<void> {
 
 // ---------------------------------------------------------------------------------------------------------------- the journey
 
-const browser = await chromium.launch();
+// The new headless mode (channel 'chromium') has the PDF viewer; the default headless shell draws no PDF, so the preview picture was blank (D-F1-73).
+const browser = await chromium.launch({ channel: 'chromium' });
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, baseURL: BASE, permissions: ['clipboard-read', 'clipboard-write'], acceptDownloads: true });
 const page = await context.newPage();
 watch(page);
@@ -377,8 +378,8 @@ try {
   setStep('2-add-files');
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Distribute' }).click();
   from = lastId();
-  const tag = Date.now().toString(36);
-  const small = [pdf(`Protocol amendment ${tag}.pdf`), pdf(`Consent form ${tag}.pdf`), pdf(`Lab certification ${tag}.pdf`)];
+  // Real-looking names, so the pictures show what a coordinator would see; each is used once in a run, and a run starts on a clean stack.
+  const small = [pdf('Protocol amendment 3.pdf'), pdf('Consent form v3.pdf'), pdf('Lab certification.pdf')];
   await page.getByLabel('Choose files').setInputFiles(small);
   await page.getByText('Ready', { exact: true }).nth(2).waitFor({ timeout: 120_000 });
   await page.waitForTimeout(800);
@@ -399,10 +400,14 @@ try {
   // The first-bytes check of the browser and the scan of the server, on the EICAR test file: the file leaves the list by itself.
   setStep('2-malware');
   from = lastId();
-  execFileSync('node', ['--no-warnings', 'scripts/eicar-docx.ts', join(CAP, 'eicar.docx')], { cwd: ROOT, stdio: 'pipe' });
-  await page.getByLabel('Choose files').setInputFiles(join(CAP, 'eicar.docx'));
+  // The infected file has an ordinary name: the scan, not the name, is what finds it.
+  const infected = join(CAP, 'Site visit report.docx');
+  execFileSync('node', ['--no-warnings', 'scripts/eicar-docx.ts', infected], { cwd: ROOT, stdio: 'pipe' });
+  await page.getByLabel('Choose files').setInputFiles(infected);
   await page.locator('.notice').filter({ hasText: 'Malware was found' }).waitFor({ timeout: 120_000 });
-  rmSync(join(CAP, 'eicar.docx'), { force: true });
+  rmSync(infected, { force: true });
+  await page.mouse.move(5, 5); // no tooltip of the pointer's last place in the picture
+  await page.locator('.tooltip:not(.leaving)').first().waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined);
   await shot(page, '02b-refused', [
     { n: 1, target: page.locator('.notice').filter({ hasText: 'Malware was found' }), label: 'GET /files → scanStatus "infected"; the file is taken out of the list and named here (computed in the browser, no call of its own)' },
   ]);
@@ -411,7 +416,7 @@ try {
   // A multipart upload: a file over the threshold goes in parts, each with its own link.
   setStep('2-multipart');
   from = lastId();
-  const big = bigPdf(`Big binder ${tag}.pdf`);
+  const big = bigPdf('Regulatory binder update.pdf');
   await page.getByLabel('Choose files').setInputFiles(big.path);
   await page.locator('.frow', { hasText: big.name }).locator('.status-chip', { hasText: 'Ready' }).waitFor({ timeout: 300_000 });
   await figure(page, 'net-2b-multipart', 'A 105 MB file: multipart start, one PUT per part, complete, then the scan', since(from).filter((r) => !(r.kind === 'api' && r.path?.startsWith('/files?'))).slice(0, 30));
@@ -420,7 +425,7 @@ try {
   // The abort link: a multipart upload removed while it is running.
   setStep('2-multipart-abort');
   from = lastId();
-  const big2 = bigPdf(`Abandoned ${tag}.pdf`);
+  const big2 = bigPdf('Pharmacy manual draft.pdf');
   await page.getByLabel('Choose files').setInputFiles(big2.path);
   await page.locator('.frow', { hasText: big2.name }).locator('.status-chip', { hasText: 'Uploading' }).waitFor({ timeout: 120_000 });
   await page.getByRole('button', { name: `Remove ${big2.name}` }).click();
@@ -559,7 +564,7 @@ try {
   setStep('5-cancel');
   await page.keyboard.press('Escape');
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Distribute' }).click();
-  const held = [pdf(`Held one ${tag}.pdf`), pdf(`Held two ${tag}.pdf`)];
+  const held = [pdf('Site delegation log.pdf'), pdf('Training record.pdf')];
   await page.getByLabel('Choose files').setInputFiles(held);
   await page.getByText('Ready', { exact: true }).nth(1).waitFor({ timeout: 120_000 });
   await tick(page, IRB);
@@ -687,7 +692,8 @@ try {
   await page.reload();
   await page.locator(ROWS).first().waitFor();
   from = lastId();
-  await page.locator(ROWS).first().getByRole('button', { name: /^Download|^Preview|Why this file can't be opened/ }).first().click().catch(() => undefined);
+  // No preview is left open over the panel: the expired row must be in view.
+  await page.getByRole('dialog', { name: 'File preview' }).waitFor({ state: 'detached', timeout: 10_000 });
   await page.waitForTimeout(1200);
   await shot(page, '07c-expired', [
     { n: 1, target: page.getByRole('button', { name: "Why this file can't be opened" }).first(), label: 'GET /jobs/{jobId}/tasks → fileExpired true · POST /files/{fileId}/downloads would answer 410' },
