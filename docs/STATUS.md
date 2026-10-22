@@ -1,6 +1,6 @@
 # DocBeam status
 
-Updated 2026-10-21, end of the **F1 round** (the reviewer's feedback), its dev round and the open items that followed. **Dev AWS is DOWN** (torn down 2026-10-21, 02:54 UTC). Prod is code only and was never applied.
+Updated 2026-10-22, after the **final round** (D-F1-77, D-F1-78): the project is final and frozen except for real bugs. **Dev AWS is UP** for the reviewer (healthy 2026-10-22, 02:51 UTC, 08:21 IST, from `main` at `12b6bb1520d2`); tear it down with the `dev-teardown` workflow when the review is done. Prod is code only and was never applied.
 
 **How to read this file.** The section "Current state" is true today. Everything under "History" is the account from when it was written, labelled with its date; where something in it has since been resolved, the line says so.
 
