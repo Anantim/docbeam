@@ -44,19 +44,29 @@ function runtimeFromEnv(): Promise<WsDeps> {
       });
     }
 
+    // The caller's teams are kept for 60 seconds, as the DocBeam API keeps them: opening a distribution twice in a minute asks the
+    // platform once. A member who was just removed can watch for up to a minute longer; the connection is checked again at every
+    // new token, so the longest is the same as before plus this minute (D-F1-81).
+    const teamCache = new Map<string, { teams: string[]; expires: number }>();
+    const TEAMS_CACHE_MS = 60_000;
+
     // One poster per management address. API Gateway gives the address in the event; locally env sets it.
     const posters = new Map<string, Poster>();
     return {
       db: pool as unknown as WsDeps['db'],
       verify,
       async teamsOf(userId) {
+        const hit = teamCache.get(userId);
+        if (hit && hit.expires > Date.now()) return hit.teams;
         let res = await fetchTeams(userId);
         if (res.status === 401) {
           tokens.invalidate();
           res = await fetchTeams(userId);
         }
         if (res.status !== 200) throw new Error(`The platform answered ${res.status}.`);
-        return ((await res.json()) as { teamIds?: string[] }).teamIds ?? [];
+        const teams = ((await res.json()) as { teamIds?: string[] }).teamIds ?? [];
+        teamCache.set(userId, { teams, expires: Date.now() + TEAMS_CACHE_MS });
+        return teams;
       },
       posterFor(event) {
         const { domainName, stage } = event.requestContext;

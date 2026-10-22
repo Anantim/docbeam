@@ -341,6 +341,23 @@ describe('GET /folders/search (D-F1-67)', () => {
     const small = await search(loader.token, 'RA', '&limit=3');
     expect(small.body.items).toHaveLength(3);
   });
+
+  it('lists the matches by path, team then binder then folder, the same order as the tree, and "Show more" continues in that order (D-F1-81)', async () => {
+    const loader = await login('load.user@example.com');
+    const seen: Hit[] = [];
+    let cursor: string | null = null;
+    for (let guard = 0; guard < 20; guard += 1) {
+      const page = await search(loader.token, 'RA', `&limit=7${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      seen.push(...page.body.items);
+      cursor = page.body.nextCursor;
+      if (!cursor) break;
+    }
+    const teamNames = seen.map((h) => h.names[0] as string);
+    expect(teamNames[0]).toBe('Load Team 01'); // not "Load Team 35, 44, 14, 27…"
+    const number = (n: string) => Number(/(\d+)$/.exec(n)?.[1]);
+    expect(teamNames.map(number)).toEqual([...teamNames.map(number)].sort((a, b) => a - b)); // 2 before 10: natural number order
+    expect(new Set(seen.map((h) => h.id)).size).toBe(seen.length); // no folder twice across pages
+  });
 });
 
 describe('service routes (ADR-013)', () => {

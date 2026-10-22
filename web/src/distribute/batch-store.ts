@@ -16,6 +16,8 @@ export interface StoredFile {
   /** The type found in the file's contents. */
   contentType: string;
   sha256?: string;
+  /** The last-modified time of the file on disk, so the same file picked again after a reload is still seen as the same (D-F1-81). */
+  lastModified?: number;
   /** The upload had finished (stored, being scanned or clean). Anything else was mid-upload and cannot be restored. */
   stored: boolean;
 }
@@ -47,6 +49,7 @@ export function saveBatch(files: readonly PageFile[], mapping: Mapping): void {
       sizeBytes: f.sizeBytes,
       contentType: f.contentType,
       ...(f.sha256 ? { sha256: f.sha256 } : {}),
+      ...(f.lastModified !== undefined ? { lastModified: f.lastModified } : {}),
       stored: isStored(f),
     }));
     sessionStorage.setItem(KEY, JSON.stringify({ files: stored, mapping: kept } satisfies StoredBatch));

@@ -102,7 +102,8 @@ function newManager(): UploadManager {
     api,
     transport,
     hash: async (file, multipart) => ({
-      sha256: 'a'.repeat(64),
+      // Each file has its own contents, so no two of them are taken for copies (D-F1-81); `same-*` files share theirs.
+      sha256: (file instanceof File && file.name.startsWith('same') ? 'same' : file instanceof File ? file.name : 'x').padEnd(64, '-'),
       parts: multipart ? Array.from({ length: Math.ceil(file.size / PART) }, () => 'b'.repeat(64)) : [],
     }),
     now: () => clock,
@@ -211,8 +212,8 @@ describe('checking', () => {
 
   it("takes an infected file out of the list and tells the page, and marks one that couldn't be checked (D-F1-78)", async () => {
     const manager = newManager();
-    const told: Array<{ id: string; name: string }> = [];
-    manager.onInfected((f) => told.push(f));
+    const told: Array<{ id: string; name: string; reason: string }> = [];
+    manager.onDropped((f) => told.push(f));
     manager.add([pdf('virus.pdf'), pdf('odd.pdf')]);
     await settle();
     const virusId = snap(manager, 0).id;
@@ -220,7 +221,7 @@ describe('checking', () => {
     scan.s2 = 'failed';
     await vi.advanceTimersByTimeAsync(POLL_MS);
     expect(manager.getSnapshot().map((f) => f.name)).toEqual(['odd.pdf']); // the infected one is gone from the list
-    expect(told).toEqual([{ id: virusId, name: 'virus.pdf' }]);
+    expect(told).toEqual([{ id: virusId, name: 'virus.pdf', reason: 'Malware was found. The file was deleted.' }]);
     const b = snap(manager, 0);
     expect(b.status).toBe('unchecked');
     expect(b.message).toBe("The scan couldn't run.");
@@ -401,14 +402,181 @@ describe('multipart', () => {
   });
 });
 
+describe('copies, age and offline (D-F1-81)', () => {
+  const HOUR = 3_600_000;
+  const dropped = (manager: UploadManager) => {
+    const told: Array<{ id: string; name: string; reason: string }> = [];
+    manager.onDropped((f) => told.push(f));
+    return told;
+  };
+
+  it('takes a renamed copy out of the list after it is read, never uploads it, and names the file it copies', async () => {
+    const manager = newManager();
+    const told = dropped(manager);
+    // Two files with the same contents under different names (the test hasher gives every `same*` file the same fingerprint).
+    manager.add([pdf('same A.pdf'), pdf('same A (copy).pdf'), pdf('other.pdf')]);
+    await settle();
+    expect(manager.getSnapshot().map((f) => f.name)).toEqual(['same A.pdf', 'other.pdf']); // the newer one left
+    expect(told).toEqual([{ id: 'p2', name: 'same A (copy).pdf', reason: 'Same contents as same A.pdf, already in the list.' }]);
+    expect(api.requestUploads.mock.calls.flatMap((c) => (c[0] as UploadRequest[]).map((r) => r.name))).toEqual(['same A.pdf', 'other.pdf']); // it was never uploaded
+    manager.dispose();
+  });
+
+  it('takes the newer file out even when it finished being read first', async () => {
+    // The first file takes longer to read than the second, so the second is hashed first and is already waiting when the first arrives.
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((resolve) => (release = resolve));
+    const manager = new UploadManager({
+      api,
+      transport,
+      hash: async (file) => {
+        if ((file as File).name === 'same first.pdf') await slow;
+        return { sha256: 'same'.padEnd(64, '-'), parts: [] };
+      },
+      now: () => clock,
+      id: (() => {
+        let n = 0;
+        return () => `q${++n}`;
+      })(),
+      sleep: async () => undefined,
+    });
+    const told = dropped(manager);
+    manager.add([pdf('same first.pdf'), pdf('same second.pdf')]);
+    await settle();
+    release();
+    await settle();
+    expect(manager.getSnapshot().map((f) => f.name)).toEqual(['same first.pdf']); // the one added first stays
+    expect(told.map((t) => t.reason)).toEqual(['Same contents as same first.pdf, already in the list.']);
+    manager.dispose();
+  });
+
+  it('keeps two files of the same name when their contents differ', async () => {
+    const manager = new UploadManager({
+      api,
+      transport,
+      hash: async (file) => ({ sha256: String((file as File).size).padEnd(64, '-'), parts: [] }),
+      now: () => clock,
+      sleep: async () => undefined,
+    });
+    const told = dropped(manager);
+    manager.add([pdf('report.pdf', 10), pdf('report.pdf', 20)]);
+    await settle();
+    expect(told).toEqual([]);
+    expect(manager.getSnapshot().map((f) => [f.name, f.sizeBytes])).toEqual([['report.pdf', 10], ['report.pdf', 20]]);
+    manager.dispose();
+  });
+
+  it('takes a file out when 24 hours have passed since its upload, with its note, and keeps a younger one', async () => {
+    const manager = newManager();
+    const told = dropped(manager);
+    manager.add([pdf('old.pdf')]);
+    await settle();
+    clock += 20 * HOUR;
+    manager.add([pdf('new.pdf')]);
+    await settle();
+    manager.expire();
+    expect(manager.getSnapshot()).toHaveLength(2); // 20 hours is not enough
+    clock += 5 * HOUR; // old.pdf is now 25 hours old, new.pdf 5
+    manager.expire();
+    expect(manager.getSnapshot().map((f) => f.name)).toEqual(['new.pdf']);
+    expect(told).toEqual([{ id: 'p1', name: 'old.pdf', reason: 'Uploaded more than 24 hours ago. Add it again.' }]);
+    manager.dispose();
+  });
+
+  it('does not give a file that has not been uploaded yet an age', async () => {
+    transport.hold = true;
+    const manager = newManager();
+    manager.add([pdf('a.pdf')]);
+    clock += 30 * HOUR; // while it is still being read
+    manager.expire();
+    expect(manager.getSnapshot()).toHaveLength(1);
+    manager.dispose();
+  });
+
+  it('puts back a restored file that is more than 24 hours old as a note, and one that copies another, and keeps the rest', async () => {
+    api.fileStates.mockImplementation(async (ids: string[]) =>
+      ids.map((fileId) => ({ fileId, uploaded: true, scanStatus: 'clean' as const, createdAt: new Date(clock - (fileId === 's-old' ? 25 : 1) * HOUR).toISOString() })),
+    );
+    const manager = newManager();
+    const entry = (id: string, serverId: string, sha: string) => ({ id, serverId, name: `${id}.pdf`, sizeBytes: 10, contentType: 'application/pdf', sha256: sha.padEnd(64, '-'), stored: true });
+    const out = await manager.restore([entry('p1', 's-ok', 'one'), entry('p2', 's-old', 'two'), entry('p3', 's-copy', 'one'), entry('p4', 's-new', 'four')]);
+    expect(out.restored).toEqual(['p1', 'p4']);
+    expect(out.removed).toEqual([
+      { id: 'p2', name: 'p2.pdf', reason: 'Uploaded more than 24 hours ago. Add it again.' },
+      { id: 'p3', name: 'p3.pdf', reason: 'Same contents as p1.pdf, already in the list.' },
+    ]);
+    expect(out.dropped).toBe(0);
+    expect(snap(manager, 0).uploadedAt).toBe(clock - HOUR); // the age comes from the server's time for the file
+    manager.dispose();
+  });
+
+  describe('offline', () => {
+    const listeners: Array<() => void> = [];
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'addEventListener');
+    beforeEach(() => {
+      listeners.length = 0;
+      Object.defineProperty(globalThis, 'addEventListener', {
+        configurable: true,
+        value: (type: string, l: () => void) => {
+          if (type === 'online') listeners.push(l);
+        },
+      });
+    });
+    afterEach(() => {
+      if (original) Object.defineProperty(globalThis, 'addEventListener', original);
+      else delete (globalThis as { addEventListener?: unknown }).addEventListener;
+      Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: undefined });
+    });
+    const goOffline = () => Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: false });
+    const comeBack = () => {
+      Object.defineProperty(globalThis.navigator, 'onLine', { configurable: true, value: true });
+      for (const l of [...listeners]) l();
+    };
+
+    it('does not use up a file\'s retries while the browser is offline, and carries on when it is back', async () => {
+      goOffline();
+      let broken = true;
+      transport.answer = () => (broken ? new TransportError('Failed to fetch') : { status: 204, body: '' });
+      const manager = newManager();
+      manager.add([pdf('a.pdf')]);
+      await settle();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(snap(manager, 0).status).toBe('uploading'); // still waiting, not "interrupted" after three tries
+      expect(sleeps).toEqual([]);
+      broken = false;
+      comeBack();
+      await settle();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(snap(manager, 0).status).toBe('checking');
+      manager.dispose();
+    });
+
+    it('starts a file that was interrupted again when the browser is back', async () => {
+      let broken = true;
+      transport.answer = () => (broken ? new TransportError('Failed to fetch') : { status: 204, body: '' });
+      const manager = newManager();
+      manager.add([pdf('a.pdf')]);
+      await settle();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(snap(manager, 0).status).toBe('interrupted'); // online, so the three tries ran out
+      broken = false;
+      comeBack();
+      await settle();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(snap(manager, 0).status).toBe('checking');
+      manager.dispose();
+    });
+  });
+});
+
 describe('restore after a reload (D-F1-66)', () => {
-  const entry = (id: string, serverId: string, stored = true) => ({ id, serverId, name: `${id}.pdf`, sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.repeat(64), stored });
+  const entry = (id: string, serverId: string, stored = true) => ({ id, serverId, name: `${id}.pdf`, sizeBytes: 10, contentType: 'application/pdf', sha256: id.padEnd(64, '-'), stored });
 
   it('brings back files that are stored and clean as Ready, and ones still being scanned as Checking, with the same page ids', async () => {
     scan = { s2: 'pending' };
     const manager = newManager();
     const out = await manager.restore([entry('p1', 's1'), entry('p2', 's2')]);
-    expect(out).toEqual({ restored: ['p1', 'p2'], dropped: 0 });
+    expect(out).toEqual({ restored: ['p1', 'p2'], dropped: 0, removed: [] });
     expect(manager.getSnapshot().map((f) => [f.id, f.status, f.restored, f.serverId])).toEqual([
       ['p1', 'verified', true, 's1'],
       ['p2', 'checking', true, 's2'],
@@ -427,7 +595,7 @@ describe('restore after a reload (D-F1-66)', () => {
     );
     const manager = newManager();
     const out = await manager.restore([entry('p1', 's1'), entry('p2', 's2'), entry('p3', 's3'), entry('p4', 's4'), entry('p5', 's5'), entry('p6', 's6', false)]);
-    expect(out).toEqual({ restored: ['p5'], dropped: 5 });
+    expect(out).toEqual({ restored: ['p5'], dropped: 5, removed: [] });
     expect(manager.getSnapshot().map((f) => f.id)).toEqual(['p5']);
     expect(api.fileStates).toHaveBeenCalledTimes(1);
     expect(api.fileStates.mock.calls[0]?.[0]).toEqual(['s1', 's2', 's3', 's4', 's5']); // the one that was mid-upload is not asked about
@@ -437,7 +605,7 @@ describe('restore after a reload (D-F1-66)', () => {
   it('brings back nothing when the server cannot be asked', async () => {
     api.fileStates.mockRejectedValue(new Error('down'));
     const manager = newManager();
-    expect(await manager.restore([entry('p1', 's1'), entry('p2', 's2')])).toEqual({ restored: [], dropped: 2, unreachable: true });
+    expect(await manager.restore([entry('p1', 's1'), entry('p2', 's2')])).toEqual({ restored: [], dropped: 2, removed: [], unreachable: true });
     expect(manager.getSnapshot()).toEqual([]);
     manager.dispose();
   });

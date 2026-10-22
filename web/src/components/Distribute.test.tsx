@@ -34,7 +34,7 @@ const pageFile = (name: string, status: FileStatus): PageFile => ({
   progress: status === 'verified' ? 1 : 0.4,
   partsDone: 0,
   partCount: 0,
-  sha256: 'a'.repeat(64),
+  sha256: name.padEnd(64, '-'), // each file has its own contents (two with the same are refused, D-F1-81)
   serverId: `server-${name}`,
 });
 
@@ -50,17 +50,22 @@ class FakeManager {
     return () => this.listeners.delete(l);
   };
   getSnapshot = () => this.files;
-  infectedListeners = new Set<(file: { id: string; name: string }) => void>();
-  onInfected = (l: (file: { id: string; name: string }) => void) => {
-    this.infectedListeners.add(l);
-    return () => this.infectedListeners.delete(l);
+  droppedListeners = new Set<(file: { id: string; name: string; reason: string }) => void>();
+  onDropped = (l: (file: { id: string; name: string; reason: string }) => void) => {
+    this.droppedListeners.add(l);
+    return () => this.droppedListeners.delete(l);
   };
-  /** The scan found malware: like the real manager, the file leaves the list, and the page is told. */
-  infect(id: string) {
+  expire = vi.fn();
+  /** The manager took a file out by itself (malware, same contents, too old): the file leaves the list, and the page is told. */
+  drop(id: string, reason: string) {
     const gone = this.files.find((f) => f.id === id);
     if (!gone) return;
     this.set(this.files.filter((f) => f.id !== id));
-    for (const l of this.infectedListeners) l({ id: gone.id, name: gone.name });
+    for (const l of this.droppedListeners) l({ id: gone.id, name: gone.name, reason });
+  }
+  /** The scan found malware. */
+  infect(id: string) {
+    this.drop(id, 'Malware was found. The file was deleted.');
   }
   set(files: PageFile[]) {
     this.files = files;
@@ -73,7 +78,7 @@ class FakeManager {
   restore = vi.fn(async (entries: Array<{ id: string; name: string; stored: boolean }>) => {
     const back = entries.filter((e) => e.stored).map((e) => ({ ...pageFile(e.name, 'verified'), id: e.id, restored: true }));
     this.set([...this.files, ...back]);
-    return { restored: back.map((f) => f.id), dropped: entries.length - back.length };
+    return { restored: back.map((f) => f.id), dropped: entries.length - back.length, removed: [] as Array<{ id: string; name: string; reason: string }> };
   });
 }
 
@@ -212,7 +217,7 @@ describe('Distribute', () => {
     expect(picked()).toEqual(['true', 'false', 'false', 'false']);
     await user.click(row('c.pdf')); // a stays: no Ctrl needed
     expect(picked()).toEqual(['true', 'false', 'true', 'false']);
-    await user.click(within(row('d.pdf')).getByRole('checkbox', { name: 'Select to choose folders for this file' })); // the tick box too
+    await user.click(within(row('d.pdf')).getByRole('checkbox', { name: 'Select d.pdf to choose folders for this file' })); // the tick box too
     expect(picked()).toEqual(['true', 'false', 'true', 'true']);
     await user.click(row('c.pdf')); // a second click takes only that file off
     expect(picked()).toEqual(['true', 'false', 'false', 'true']);
@@ -266,21 +271,21 @@ describe('Distribute', () => {
     const user = userEvent.setup();
     const manager = new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]);
     screenWith(manager);
-    const rowBoxes = screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' });
-    expect(rowBoxes).toHaveLength(2);
+    const rowBoxes = screen.getAllByRole('checkbox', { name: /^Select .+ to choose folders for this file$/ });
+    expect(rowBoxes.map((b) => b.getAttribute('aria-label'))).toEqual(['Select a.pdf to choose folders for this file', 'Select b.pdf to choose folders for this file']); // told apart (D-F1-81)
     for (const box of rowBoxes) {
-      expect(tooltipOf(box)).toBe('Select to choose folders for this file');
+      expect(tooltipOf(box)).toBe('Select to choose folders for this file'); // the tooltip stays short; the name says which file
       expect(box.getAttribute('aria-checked')).toBe('false');
     }
     const header = screen.getByRole('checkbox', { name: 'Select all to choose their folders' });
     expect(tooltipOf(header)).toBe('Select all to choose their folders');
     // Selection behaves as before: a click on the box selects the row, the header box selects all.
     await user.click(rowBoxes[0] as HTMLElement);
-    expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' })[0]?.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getAllByRole('checkbox', { name: /^Select .+ to choose folders for this file$/ })[0]?.getAttribute('aria-checked')).toBe('true');
     expect(within(screen.getByRole('region', { name: 'Destinations' })).queryByText(/selected files?/)).toBeNull(); // no label (D-F1-45)
     await user.click(header);
     expect(within(screen.getByRole('region', { name: 'Destinations' })).queryByText(/selected files?/)).toBeNull();
-    expect(screen.getAllByRole('checkbox', { name: 'Select to choose folders for this file' }).every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true);
+    expect(screen.getAllByRole('checkbox', { name: /^Select .+ to choose folders for this file$/ }).every((b) => b.getAttribute('aria-checked') === 'true')).toBe(true);
   });
 
   it('shows a muted count beside each ticked folder ("3 files", "2 of 3 files", "1 file"), none beside an unticked one, and a popover lists those files (D-F1-37)', async () => {
@@ -375,7 +380,7 @@ describe('Distribute', () => {
   });
 
   describe('the batch comes back after a reload (D-F1-66)', () => {
-    const stored = (name: string, id: string, stored = true) => ({ id, serverId: `srv-${id}`, name, sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.repeat(64), stored });
+    const stored = (name: string, id: string, stored = true) => ({ id, serverId: `srv-${id}`, name, sizeBytes: 10, contentType: 'application/pdf', sha256: id.padEnd(64, '-'), stored });
     const keep = (batch: unknown) => sessionStorage.setItem('docbeam.batch.v1', JSON.stringify(batch));
     const dest = { binderId: 'b1', folderId: 'f1', path: 'Cardio / CARDIO-301 Regulatory / IRB approvals' };
 
@@ -399,7 +404,7 @@ describe('Distribute', () => {
       const batch = { files: [stored('a.pdf', 'p1')], mapping: { destinations: { k1: dest }, files: { p1: ['k1'] }, held: [] } };
       keep(batch);
       const manager = new FakeManager([]);
-      manager.restore.mockResolvedValueOnce({ restored: [], dropped: 1, unreachable: true } as never);
+      manager.restore.mockResolvedValueOnce({ restored: [], dropped: 1, removed: [], unreachable: true } as never);
       screenWith(manager);
       await waitFor(() => expect(notify).toHaveBeenCalledWith("Your files couldn't be checked. Reload to try again.", 'error'));
       expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1); // not wiped by the empty page
@@ -427,7 +432,7 @@ describe('Distribute', () => {
       screenWith(manager);
       await waitFor(() => expect(JSON.parse(sessionStorage.getItem('docbeam.batch.v1') as string).files).toHaveLength(1));
       await user.click(screen.getByRole('button', { name: 'Clear' }));
-      await user.click(within(screen.getByRole('dialog', { name: 'Remove all 1 file and their folder ticks?' })).getByRole('button', { name: 'Clear' }));
+      await user.click(within(screen.getByRole('dialog', { name: 'Remove this file and its folder ticks?' })).getByRole('button', { name: 'Clear' }));
       await waitFor(() => expect(sessionStorage.getItem('docbeam.batch.v1')).toBeNull());
     });
 
@@ -461,8 +466,8 @@ describe('Distribute', () => {
     expect(submit).toHaveBeenCalledWith(
       {
         files: [
-          { fileId: 'server-a.pdf', sha256: 'a'.repeat(64) },
-          { fileId: 'server-b.pdf', sha256: 'a'.repeat(64) },
+          { fileId: 'server-a.pdf', sha256: 'a.pdf'.padEnd(64, '-') },
+          { fileId: 'server-b.pdf', sha256: 'b.pdf'.padEnd(64, '-') },
         ],
         mappings: [
           { fileId: 'server-a.pdf', destinations: [{ binderId: 'b-reg', folderId: 'f-irb' }] },
@@ -530,7 +535,7 @@ describe('Distribute', () => {
     expect(await within(screen.getByRole('alert')).findByText('2 files not added.')).toBeTruthy();
     expect(box.querySelector('.notice-name')?.textContent).toBe('setup.exe'); // the name in normal text
     expect(box.querySelector('.notice-list .notice-detail')?.textContent).toContain('This type is not allowed'); // the reason apart
-    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Close' }));
+    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: /^Close note: / }));
     expect(screen.queryByText(/files? not added/)).toBeNull();
     // Cleared with the page (with a file on it, Clear asks first).
     fireEvent.change(input, { target: { files: [new File(['x'], 'setup.exe')] } });
@@ -567,7 +572,7 @@ describe('Clear asks first when there are files (D-F1-78)', () => {
     fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['x'], 'setup.exe')] } });
     await screen.findByText('1 file not added.');
     await user.click(screen.getByRole('button', { name: 'Clear' }));
-    await user.click(within(screen.getByRole('dialog', { name: 'Remove all 1 file and their folder ticks?' })).getByRole('button', { name: 'Clear' }));
+    await user.click(within(screen.getByRole('dialog', { name: 'Remove this file and its folder ticks?' })).getByRole('button', { name: 'Clear' }));
     expect(manager.clear).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/not added/)).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -672,6 +677,100 @@ describe('a file with malware leaves the list by itself (D-F1-78)', () => {
     screenWith(manager);
     act(() => manager.infect(manager.files.find((f) => f.name === 'virus.pdf')!.id));
     expect(scrolled).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+  });
+});
+
+describe('copies, old files, long names and the Clear question (D-F1-81)', () => {
+  const reasons = () => [...document.querySelectorAll('.notice-list li')].map((li) => li.textContent);
+
+  it('puts a file the manager takes out for its contents or its age in the "not added" box, with its folder ticks and selection gone', async () => {
+    const user = userEvent.setup();
+    const manager = new FakeManager([pageFile('Lab certification.pdf', 'verified'), pageFile('Lab certification (copy).pdf', 'verified'), pageFile('Old letter.pdf', 'verified')]);
+    screenWith(manager);
+    await tickTop(user, 'all 3 files');
+    act(() => manager.drop(manager.files.find((f) => f.name === 'Lab certification (copy).pdf')!.id, 'Same contents as Lab certification.pdf, already in the list.'));
+    act(() => manager.drop(manager.files.find((f) => f.name === 'Old letter.pdf')!.id, 'Uploaded more than 24 hours ago. Add it again.'));
+    expect(reasons()).toEqual([
+      'Lab certification (copy).pdf Same contents as Lab certification.pdf, already in the list.',
+      'Old letter.pdf Uploaded more than 24 hours ago. Add it again.',
+    ]);
+    expect(screen.getByText('2 files not added.')).toBeTruthy();
+    expect(document.querySelectorAll('.frow[data-id]')).toHaveLength(1);
+    expect(screen.getAllByRole('checkbox', { name: /Send all 1 file to / }).length).toBeGreaterThan(0); // the counts follow
+  });
+
+  it('checks the age when the screen opens and about once a minute', () => {
+    vi.useFakeTimers();
+    const manager = new FakeManager([pageFile('a.pdf', 'verified')]);
+    screenWith(manager);
+    expect(manager.expire).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(60_000);
+    expect(manager.expire).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(120_000);
+    expect(manager.expire).toHaveBeenCalledTimes(4);
+    vi.useRealTimers();
+  });
+
+  it('puts the files the manager could not bring back after a reload (old, or copies) in the box', async () => {
+    sessionStorage.setItem('docbeam.batch.v1', JSON.stringify({ files: [{ id: 'p1', serverId: 's1', name: 'a.pdf', sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.padEnd(64, '-'), stored: true }], mapping: { destinations: {}, files: {}, held: [] } }));
+    const manager = new FakeManager([]);
+    manager.restore.mockResolvedValueOnce({ restored: [], dropped: 0, removed: [{ id: 'p1', name: 'a.pdf', reason: 'Uploaded more than 24 hours ago. Add it again.' }] });
+    screenWith(manager);
+    await waitFor(() => expect(reasons()).toEqual(['a.pdf Uploaded more than 24 hours ago. Add it again.']));
+  });
+
+  it('puts a name longer than 255 characters in the box with its reason, and does not add the file', async () => {
+    const manager = new FakeManager([]);
+    screenWith(manager);
+    const name = `${'a'.repeat(252)}.pdf`;
+    fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['%PDF-1.7\n'], name)] } });
+    expect(await screen.findByText('1 file not added.')).toBeTruthy();
+    expect(reasons()).toEqual([`${name} The name is longer than 255 characters.`]);
+    expect(manager.add).not.toHaveBeenCalled();
+  });
+
+  it('does not add the same file twice: it goes in the box with "This file is already in the list."', async () => {
+    const manager = new FakeManager([{ ...pageFile('report.pdf', 'verified'), lastModified: 5, sizeBytes: 9 }]);
+    screenWith(manager);
+    fireEvent.change(screen.getByLabelText('Choose files'), { target: { files: [new File(['%PDF-1.7\n'], 'report.pdf', { lastModified: 5 })] } });
+    expect(await screen.findByText('1 file not added.')).toBeTruthy();
+    expect(reasons()).toEqual(['report.pdf This file is already in the list.']);
+    expect(manager.add).not.toHaveBeenCalled();
+  });
+
+  it('cannot tick a 21st folder (the reason says "folders"), and unticking one frees the others', async () => {
+    const original = answers['/binders/b-reg/contents'];
+    answers['/binders/b-reg/contents'] = { folders: Array.from({ length: 21 }, (_, i) => ({ id: `f${i}`, name: `Folder ${String(i + 1).padStart(2, '0')}` })), documents: [], nextCursor: null };
+    const user = userEvent.setup();
+    screenWith(new FakeManager([pageFile('a.pdf', 'verified')]));
+    await folderTick(user, /Folder 01$/);
+    for (let i = 1; i <= 20; i += 1) await user.click(screen.getByRole('checkbox', { name: new RegExp(`Folder ${String(i).padStart(2, '0')}$`) }));
+    const twentyFirst = screen.getByRole('checkbox', { name: /Folder 21$/ });
+    expect(twentyFirst.getAttribute('aria-disabled')).toBe('true');
+    await user.hover(twentyFirst);
+    expect((await screen.findByRole('tooltip')).textContent).toBe('A distribution can have at most 20 folders.');
+    await user.click(twentyFirst);
+    expect(twentyFirst.getAttribute('aria-checked')).toBe('false'); // not ticked
+    await user.click(screen.getByRole('checkbox', { name: /Folder 05$/ })); // untick one
+    expect(screen.getByRole('checkbox', { name: /Folder 21$/ }).getAttribute('aria-disabled')).toBeNull();
+    await user.click(screen.getByRole('checkbox', { name: /Folder 21$/ }));
+    expect(screen.getByRole('checkbox', { name: /Folder 21$/ }).getAttribute('aria-checked')).toBe('true');
+    answers['/binders/b-reg/contents'] = original;
+  });
+
+  it('asks "Remove this file and its folder ticks?" for one file, and "Remove all N files…" for several (with a separator)', async () => {
+    const user = userEvent.setup();
+    screenWith(new FakeManager([pageFile('a.pdf', 'verified')]));
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByRole('dialog', { name: 'Remove this file and its folder ticks?' })).toBeTruthy();
+    cleanup();
+    screenWith(new FakeManager([pageFile('a.pdf', 'verified'), pageFile('b.pdf', 'verified')]));
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByRole('dialog', { name: 'Remove all 2 files and their folder ticks?' })).toBeTruthy();
+    cleanup();
+    screenWith(new FakeManager(Array.from({ length: 1000 }, (_, i) => pageFile(`f${i}.pdf`, 'verified'))));
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByRole('dialog', { name: 'Remove all 1,000 files and their folder ticks?' })).toBeTruthy();
   });
 });
 

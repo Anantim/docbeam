@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ApiError, errorBody, LIMITS, validateBatch } from '@docbeam/shared';
+import { ApiError, errorBody, fileProblem, LIMITS, validateBatch } from '@docbeam/shared';
 import { and, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -29,6 +29,8 @@ export interface FileState {
   uploadedAt: Date | null;
   scanStatus: string;
   createdAt: Date;
+  /** The name the file was added with, so an error can say which file it is about (D-F1-81). */
+  originalName: string;
 }
 
 /**
@@ -46,14 +48,14 @@ export function firstFileProblem(
     const row = byId.get(wanted.fileId);
     if (!row || row.ownerUserId !== userId) return new ApiError(422, 'INVALID_BATCH', 'A file in the distribution was not found.');
     if (now.getTime() - row.createdAt.getTime() > LIMITS.maxFileAgeMs) {
-      return new ApiError(422, 'FILE_TOO_OLD', 'A file was uploaded more than 24 hours ago. Add it again.');
+      return new ApiError(422, 'FILE_TOO_OLD', fileProblem.tooOld(row.originalName));
     }
     if (row.uploadedAt === null || row.scanStatus !== 'clean') {
-      return new ApiError(422, 'FILE_NOT_READY', 'A file has not finished uploading and being checked.');
+      return new ApiError(422, 'FILE_NOT_READY', fileProblem.notReady(row.originalName));
     }
-    if (row.jobId !== null) return new ApiError(409, 'FILE_ALREADY_SUBMITTED', 'A file is already part of another distribution.');
+    if (row.jobId !== null) return new ApiError(409, 'FILE_ALREADY_SUBMITTED', fileProblem.alreadySubmitted(row.originalName));
     if (row.checksumSha256 !== wanted.sha256.toLowerCase()) {
-      return new ApiError(422, 'CHECKSUM_MISMATCH', 'A file does not match the fingerprint it was uploaded with.');
+      return new ApiError(422, 'CHECKSUM_MISMATCH', fileProblem.checksum(row.originalName));
     }
   }
   return null;
@@ -81,8 +83,8 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
   async function loadFiles(ids: string[]): Promise<FileState[]> {
     const result = await db.execute<{
       id: string; owner_user_id: string; job_id: string | null; checksum_sha256: string;
-      uploaded_at: Date | null; scan_status: string; created_at: Date;
-    }>(sql`SELECT id, owner_user_id, job_id, checksum_sha256, uploaded_at, scan_status, created_at
+      uploaded_at: Date | null; scan_status: string; created_at: Date; original_name: string;
+    }>(sql`SELECT id, owner_user_id, job_id, checksum_sha256, uploaded_at, scan_status, created_at, original_name
              FROM files WHERE id = ANY(${pgArray(ids, 'uuid')})`);
     return result.rows.map((r) => ({
       id: r.id,
@@ -92,6 +94,7 @@ export function registerJobRoutes(app: FastifyInstance, db: Db, { platform, queu
       uploadedAt: r.uploaded_at,
       scanStatus: r.scan_status,
       createdAt: new Date(r.created_at),
+      originalName: r.original_name,
     }));
   }
 

@@ -159,33 +159,53 @@ describe('POST /jobs', () => {
     expect(await count('SELECT count(*) FROM files WHERE id = ANY($1) AND job_id IS NOT NULL', [[a.fileId, b.fileId]])).toBe(0);
   });
 
-  it('answers 422 FILE_NOT_READY for a file that was never uploaded', async () => {
+  it('answers 422 INVALID_BATCH for two files with the same contents, with the shared sentence, and creates nothing (D-F1-81)', async () => {
+    const [a, b] = [await readyFile(), await readyFile()];
+    const reply = await submit([a, { fileId: b.fileId, sha256: a.sha256.toUpperCase() }], [[dest()], [dest()]]);
+    expect(reply.status).toBe(422);
+    expect(reply.body.error).toMatchObject({ code: 'INVALID_BATCH', message: 'Two files in this distribution have the same contents.' });
+    expect(await count('SELECT count(*) FROM files WHERE id = ANY($1) AND job_id IS NOT NULL', [[a.fileId, b.fileId]])).toBe(0);
+  });
+
+  it('says "folders" for more than 20 folders (D-F1-81)', async () => {
+    const file = await readyFile();
+    const many = Array.from({ length: 21 }, (_, i) => ({ binderId: regulatory.id, folderId: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}` }));
+    const reply = await submit([file], [many]);
+    expect(reply.status).toBe(422);
+    expect(reply.body.error.message).toBe('A distribution can have at most 20 folders.');
+  });
+
+  it('answers 422 FILE_NOT_READY for a file that was never uploaded, naming it', async () => {
     const reply = await submit([await unconfirmedFile()], [[dest()]]);
     expect(reply.status).toBe(422);
     expect(reply.body.error.code).toBe('FILE_NOT_READY');
+    expect(reply.body.error.message).toBe('never.pdf has not finished uploading and being checked.');
   });
 
-  it('answers 422 FILE_TOO_OLD for a file uploaded more than 24 hours ago', async () => {
+  it('answers 422 FILE_TOO_OLD for a file uploaded more than 24 hours ago, naming it', async () => {
     const file = await readyFile();
     await db.query(`UPDATE files SET created_at = now() - interval '25 hours' WHERE id = $1`, [file.fileId]);
     const reply = await submit([file], [[dest()]]);
     expect(reply.status).toBe(422);
     expect(reply.body.error.code).toBe('FILE_TOO_OLD');
+    expect(reply.body.error.message).toBe('protocol.pdf was uploaded more than 24 hours ago. Add it again.');
   });
 
-  it('answers 409 FILE_ALREADY_SUBMITTED when the file is in another job', async () => {
+  it('answers 409 FILE_ALREADY_SUBMITTED when the file is in another job, naming it', async () => {
     const file = await readyFile();
     expect((await submit([file], [[dest()]])).status).toBe(201);
     const again = await submit([file], [[dest(amendments)]]);
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('FILE_ALREADY_SUBMITTED');
+    expect(again.body.error.message).toBe('protocol.pdf is already part of another distribution.');
   });
 
-  it('answers 422 CHECKSUM_MISMATCH for a different fingerprint', async () => {
+  it('answers 422 CHECKSUM_MISMATCH for a different fingerprint, naming the file', async () => {
     const file = await readyFile();
     const reply = await submit([{ ...file, sha256: 'f'.repeat(64) }], [[dest()]]);
     expect(reply.status).toBe(422);
     expect(reply.body.error.code).toBe('CHECKSUM_MISMATCH');
+    expect(reply.body.error.message).toBe('protocol.pdf does not match the fingerprint it was uploaded with.');
     expect(await count('SELECT count(*) FROM files WHERE id = $1 AND job_id IS NOT NULL', [file.fileId])).toBe(0);
   });
 

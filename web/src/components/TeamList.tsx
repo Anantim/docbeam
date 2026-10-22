@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { num, plural } from '../text.js';
 import { Popover } from './Popover.js';
 
 interface Props {
@@ -68,7 +69,7 @@ export function TeamList({ names, panelLabel, end = '', align = 'start', room = 
       };
       const parts = names.map(part);
       const sep = part(', ');
-      const plus = part(`+${Math.max(1, names.length)}`);
+      const plus = part(`+${num(Math.max(1, names.length))}`);
       const tail = part(end);
       document.body.appendChild(probe);
       const widths = parts.map((p) => p.offsetWidth);
@@ -91,8 +92,8 @@ export function TeamList({ names, panelLabel, end = '', align = 'start', room = 
       {hidden > 0 && (
         <span className="teamlist-more">
           <Popover
-            label={`+${hidden}`}
-            ariaLabel={`Show all ${names.length} ${names.length === 1 ? 'team' : 'teams'}`}
+            label={`+${num(hidden)}`}
+            ariaLabel={`Show all ${plural(names.length, 'team', 'teams')}`}
             panelLabel={panelLabel}
             items={names}
             align={align}

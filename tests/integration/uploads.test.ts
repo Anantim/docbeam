@@ -66,7 +66,8 @@ describe('POST /uploads and the single-part form', () => {
       scan_status: 'pending',
       uploaded_at: null,
       job_id: null,
-      s3_key: `staging/${owner.id}/${first.fileId}`,
+      // The key ends in the file's name (D-F1-81), so a viewer with no title for a PDF shows the name.
+      s3_key: `staging/${owner.id}/${first.fileId}/a.pdf`,
     });
     expect((await fileRow(second.fileId)).original_name).toBe('b.pdf');
 
@@ -77,6 +78,25 @@ describe('POST /uploads and the single-part form', () => {
     expect(head.ContentLength).toBe(a.length);
     // LocalStack 4.14 does not enforce or report the checksum of a presigned POST, so S3's refusal of a
     // swapped body is proved on dev (M2-TESTING 3). The Upload Events Lambda hashes the bytes itself as well.
+  });
+
+  it('stores a file under a key that ends in its safe name, whatever it is called (D-F1-81)', async () => {
+    const data = pdf('named');
+    const reply = await requestUploads(owner.token, [
+      { name: '../Protocol amendment 3 "final".pdf', sizeBytes: data.length, contentType: 'application/pdf', sha256: sha(data) },
+    ]);
+    expect(reply.status).toBe(201);
+    const grant = reply.body.uploads[0];
+    const row = await fileRow(grant.fileId);
+    expect(row.original_name).toBe('../Protocol amendment 3 "final".pdf'); // the name is shown as it was added
+    expect(row.s3_key).toBe(`staging/${owner.id}/${grant.fileId}/_Protocol amendment 3 _final_.pdf`);
+    expect((await postForm(grant.post, data)).status).toBe(204);
+    expect((await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: row.s3_key }))).ContentLength).toBe(data.length);
+  });
+
+  it('refuses a name longer than 255 characters', async () => {
+    const reply = await requestUploads(owner.token, [{ name: `${'a'.repeat(252)}.pdf`, sizeBytes: 10, contentType: 'application/pdf', sha256: 'a'.repeat(64) }]);
+    expect(reply.status).toBe(400);
   });
 
   it('refuses a body that is larger than the declared size', async () => {

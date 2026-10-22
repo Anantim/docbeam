@@ -60,7 +60,7 @@ export const files = pgTable(
     detectedType: text('detected_type'),
     /** Declared when the upload link is requested. */
     checksumSha256: text('checksum_sha256').notNull(),
-    /** staging/{owner_user_id}/{file_id} */
+    /** staging/{owner_user_id}/{file_id}/{safe name}; before D-F1-81 staging/{owner_user_id}/{file_id}. Always read from here, never built. */
     s3Key: text('s3_key').notNull(),
     /** Files over 100 MB only. */
     multipartUploadId: text('multipart_upload_id'),

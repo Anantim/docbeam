@@ -39,7 +39,7 @@ const file = (id: string, status: PageFile['status']): PageFile => ({
   progress: 1,
   partsDone: 0,
   partCount: 0,
-  sha256: 'a'.repeat(64),
+  sha256: id.padEnd(64, '-'),
   serverId: `server-${id}`,
 });
 const mapping = {

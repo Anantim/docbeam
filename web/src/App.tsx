@@ -5,19 +5,22 @@ import { Distribute } from './components/Distribute.js';
 import { SessionDialog } from './components/SessionDialog.js';
 import { Shell } from './components/Shell.js';
 import { StatusPage } from './components/StatusPage.js';
-import { Toasts, type Toast } from './components/Toasts.js';
+import { addToast, Toasts, type Toast } from './components/Toasts.js';
 import type { Claims } from './auth/token.js';
 import { liveClient } from './live/instance.js';
 import type { Counts } from './tracking/api.js';
-import { NO_FILTERS, type Filters } from './tracking/filters.js';
+import { filtersToQuery, NO_FILTERS, type Filters } from './tracking/filters.js';
 import { hashFor, parseHash, type Route, type View } from './tracking/route.js';
 import { usePagedJobs } from './tracking/usePagedJobs.js';
 import { useRunningCount } from './tracking/useRunningCount.js';
 import { clearBatch } from './distribute/batch-store.js';
 import { uploadManager } from './upload/instance.js';
 
+/** The title of the page as the server sent it: the sign-in page keeps it. */
+const SIGN_IN_TITLE = document.title;
+
 /** The page position lives in the URL hash, so a reload (or a shared link) opens the same screen and distribution. */
-function useRoute(): [Route, (next: Route) => void] {
+function useRoute(): [Route, (next: Route) => void, (next: Route) => void] {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   useEffect(() => {
     const onChange = (): void => setRoute(parseHash(window.location.hash));
@@ -29,14 +32,25 @@ function useRoute(): [Route, (next: Route) => void] {
     if (window.location.hash === hash) setRoute(next);
     else window.location.hash = hash;
   }, []);
-  return [route, go];
+  // Puts the address in place of the current one, with no new history entry: for an address that held filters that do not apply (D-F1-81).
+  const replace = useCallback((next: Route): void => {
+    window.history.replaceState(window.history.state, '', hashFor(next));
+    setRoute(next);
+  }, []);
+  return [route, go, replace];
+}
+
+/** The tab title that goes with the page: "Status · DocBeam", "3d63d20e · Status · DocBeam" while a distribution is open (D-F1-81). */
+export function pageTitle(route: Route): string {
+  if (route.view === 'distribute') return 'Distribute · DocBeam';
+  return route.jobId ? `${route.jobId.slice(0, 8)} · Status · DocBeam` : 'Status · DocBeam';
 }
 
 export function App() {
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.getSnapshot);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
-  const [route, go] = useRoute();
+  const [route, go, replace] = useRoute();
   // Counts the sign-ins made from the 12-hour dialog. Every list and the open distribution read again when it changes.
   const [signedInAgain, setSignedInAgain] = useState(0);
   // The distribution that was just sent: its panel takes the focus when it opens (and only for that one).
@@ -46,11 +60,12 @@ export function App() {
   const lastClaims = useRef<Claims | null>(null);
   if (session.status === 'signedIn') lastClaims.current = session.claims;
 
+  // A success toast fades by itself; an error toast stays until it is closed; at most 3 show, the oldest goes first (D-F1-81).
   const notify = useCallback((text: string, kind: Toast['kind'] = 'ok') => {
     const id = next.current++;
-    setToasts((t) => [...t, { id, text, kind }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
+    setToasts((t) => addToast(t, { id, text, kind }));
   }, []);
+  const closeToast = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 
   // A signed-out page keeps nothing: files picked by the last user are dropped from the queue.
   const signedOut = session.status === 'signedOut';
@@ -107,6 +122,22 @@ export function App() {
 
   const openJob = useCallback((jobId: string | null): void => go({ view: 'status', jobId, filters: routeRef.current.filters }), [go]);
   const setFilters = useCallback((filters: Filters): void => go({ view: 'status', jobId: routeRef.current.jobId, filters }), [go]);
+  const sanitiseFilters = useCallback((filters: Filters): void => replace({ view: 'status', jobId: routeRef.current.jobId, filters }), [replace]);
+
+  // The tab title follows the page while someone is signed in; the sign-in page keeps the title it has.
+  const signedInNow = session.status === 'signedIn' || session.status === 'ended';
+  useEffect(() => {
+    if (signedInNow) document.title = pageTitle(route);
+    else document.title = SIGN_IN_TITLE;
+  }, [signedInNow, route]);
+
+  // An address with anything in it that the list does not know (a status or a time that is not one of the choices, an old scope) is
+  // written again as the filters it really means, replacing the address.
+  useEffect(() => {
+    if (route.view !== 'status' || !signedInNow) return;
+    const raw = window.location.hash.split('?', 2)[1] ?? '';
+    if (raw !== filtersToQuery(route.filters)) replace(route);
+  }, [route, signedInNow, replace]);
 
   if (session.status === 'booting') return null;
   if (session.status === 'signedOut') {
@@ -146,6 +177,7 @@ export function App() {
             jobId={route.jobId}
             filters={route.filters}
             onFilters={setFilters}
+            onSanitise={sanitiseFilters}
             onOpen={openJob}
             all={all}
             onLive={onLive}
@@ -164,7 +196,7 @@ export function App() {
           }}
         />
       )}
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onClose={closeToast} />
     </>
   );
 }

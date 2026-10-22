@@ -1,4 +1,4 @@
-import { ALLOWED_FILE_TYPES, contentTypeForFileName, detectFileType, LIMITS, type ByteSource } from '@docbeam/shared/browser';
+import { ALLOWED_FILE_TYPES, contentTypeForFileName, detectFileType, FILE_REASON, LIMITS, type ByteSource } from '@docbeam/shared/browser';
 
 export interface Rejected {
   name: string;
@@ -20,7 +20,16 @@ export function fileSource(file: Blob): ByteSource {
   return { size: file.size, read: async (start, end) => new Uint8Array(await file.slice(start, end).arrayBuffer()) };
 }
 
-const withArticle = (label: string): string => `${label === 'XLSX' ? 'an' : 'a'} ${label}`;
+/** What the page knows of a file already in the list, to tell "the same file again" from a new one. */
+export interface ListedFile {
+  name: string;
+  sizeBytes: number;
+  lastModified?: number | undefined;
+}
+
+const sameFileKey = (name: string, size: number, lastModified: number | undefined): string => `${name}|${size}|${lastModified ?? ''}`;
+
+const withArticle =(label: string): string => `${label === 'XLSX' ? 'an' : 'a'} ${label}`;
 
 /**
  * Applies the client-side rules of Step 2.6 to what the user picked: an allowed type by extension (the browser's own `type`
@@ -28,24 +37,32 @@ const withArticle = (label: string): string => `${label === 'XLSX' ? 'an' : 'a'}
  * XLSX, the file list at the end of the ZIP) must show the type its name says (D-F1-44): a renamed program, a PDF named
  * .docx or a cut-off file is not added, and the reason says which.
  */
-export async function acceptFiles(existingCount: number, picked: File[]): Promise<PickResult> {
+export async function acceptFiles(existing: readonly ListedFile[], picked: File[]): Promise<PickResult> {
   const accepted: Accepted[] = [];
   const rejected: Rejected[] = [];
-  let room = LIMITS.maxFilesPerJob - existingCount;
+  let room = LIMITS.maxFilesPerJob - existing.length;
+  // The same name, size and last-modified time as a file already in the list, or earlier in this pick, is the same file again (D-F1-81).
+  const seen = new Set(existing.map((f) => sameFileKey(f.name, f.sizeBytes, f.lastModified)));
   for (const file of picked) {
     const contentType = contentTypeForFileName(file.name);
+    const key = sameFileKey(file.name, file.size, file.lastModified);
     if (contentType === null) {
       rejected.push({ name: file.name, reason: 'This type is not allowed. Use PDF, DOCX, XLSX, PNG or JPG.' });
+    } else if (file.name.length > LIMITS.maxFileNameChars) {
+      rejected.push({ name: file.name, reason: FILE_REASON.NAME_TOO_LONG });
     } else if (file.size === 0) {
       rejected.push({ name: file.name, reason: 'The file is empty.' });
     } else if (file.size > LIMITS.maxFileBytes) {
       rejected.push({ name: file.name, reason: 'The file is over 1 GB.' });
+    } else if (seen.has(key)) {
+      rejected.push({ name: file.name, reason: FILE_REASON.ALREADY_IN_LIST });
     } else if (room <= 0) {
       rejected.push({ name: file.name, reason: `A distribution can have at most ${LIMITS.maxFilesPerJob} files.` });
     } else {
       const found = await detectFileType(fileSource(file)).catch(() => null);
       if (found === contentType) {
         accepted.push({ file, contentType });
+        seen.add(key);
         room -= 1;
       } else if (found === null) {
         rejected.push({ name: file.name, reason: `This isn't a real ${typeLabel(contentType)} file.` });

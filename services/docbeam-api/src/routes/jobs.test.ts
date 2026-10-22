@@ -12,6 +12,7 @@ const file = (over: Partial<FileState> = {}): FileState => ({
   uploadedAt: new Date('2026-10-15T11:59:00Z'),
   scanStatus: 'clean',
   createdAt: new Date('2026-10-15T11:58:00Z'),
+  originalName: 'Protocol amendment 3.pdf',
   ...over,
 });
 const wanted = [{ fileId: 'f1', sha256: hex('a') }];
@@ -60,6 +61,14 @@ describe('firstFileProblem', () => {
       statusCode: 422,
       code: 'CHECKSUM_MISMATCH',
     });
+  });
+
+  it('names the file in every per-file message (D-F1-81)', () => {
+    const name = 'Protocol amendment 3.pdf';
+    expect(firstFileProblem(wanted, [file({ createdAt: new Date('2026-10-14T11:59:59Z') })], 'u1', now)?.message).toBe(`${name} was uploaded more than 24 hours ago. Add it again.`);
+    expect(firstFileProblem(wanted, [file({ scanStatus: 'pending' })], 'u1', now)?.message).toBe(`${name} has not finished uploading and being checked.`);
+    expect(firstFileProblem(wanted, [file({ jobId: 'j1' })], 'u1', now)?.message).toBe(`${name} is already part of another distribution.`);
+    expect(firstFileProblem([{ fileId: 'f1', sha256: hex('b') }], [file()], 'u1', now)?.message).toBe(`${name} does not match the fingerprint it was uploaded with.`);
   });
 
   it('reports the first problem in the order of the files', () => {

@@ -1,12 +1,14 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { logout } from '../auth/session.js';
 import { initials, type Claims } from '../auth/token.js';
-import { plural } from '../text.js';
+import { num, plural } from '../text.js';
 import type { View } from '../tracking/route.js';
 import type { PageFile, UploadManager } from '../upload/manager.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { LogoutIcon } from './Icons.js';
 import { Logo } from './Logo.js';
+import { Notice } from './Notice.js';
+import { useOnline } from './useOnline.js';
 import { TeamList } from './TeamList.js';
 import { Tooltip } from './Tooltip.js';
 
@@ -28,7 +30,7 @@ interface Props {
 }
 
 /** "1 distribution still running", "3 distributions still running": the badge's tooltip and its accessible name (D-F1-72). */
-export const runningText = (n: number): string => `${n} ${n === 1 ? 'distribution' : 'distributions'} still running`;
+export const runningText = (n: number): string => `${plural(n, 'distribution', 'distributions')} still running`;
 
 const NO_FILES: readonly PageFile[] = [];
 const NO_UPLOADS = { subscribe: () => () => undefined, getSnapshot: () => NO_FILES };
@@ -41,6 +43,7 @@ export function Shell({ claims, teams, view, onView, running = 0, manager = NO_U
   const files = useSyncExternalStore(manager.subscribe, manager.getSnapshot);
   const atRisk = files.filter((f) => !(f.status === 'checking' || f.status === 'verified')).length;
   const [asking, setAsking] = useState(false);
+  const online = useOnline();
   return (
     <>
       <header className="top">
@@ -55,7 +58,7 @@ export function Shell({ claims, teams, view, onView, running = 0, manager = NO_U
               {id === 'status' && running > 0 && (
                 <Tooltip text={runningText(running)}>
                   <span className="tab-badge" role="img" aria-label={runningText(running)}>
-                    {running}
+                    {num(running)}
                   </span>
                 </Tooltip>
               )}
@@ -82,6 +85,12 @@ export function Shell({ claims, teams, view, onView, running = 0, manager = NO_U
           </Tooltip>
         </div>
       </header>
+      {!online && (
+        // One quiet note under the header while the browser is offline; it goes by itself when the browser is back (D-F1-81).
+        <div className="offline-note">
+          <Notice tone="info" heading="You're offline. Uploads and live updates carry on when you're back." />
+        </div>
+      )}
       {children}
       {asking && atRisk > 0 && (
         <ConfirmDialog

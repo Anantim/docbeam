@@ -1,5 +1,5 @@
 import type { Counts } from '../tracking/api.js';
-import { plural } from '../text.js';
+import { num, plural } from '../text.js';
 import { Tooltip } from './Tooltip.js';
 
 const pct = (n: number, total: number): number => (total > 0 ? (n / total) * 100 : 0);
@@ -16,7 +16,7 @@ export function barText(counts: Counts, total: number): string {
     [counts.completed, 'completed'],
     [counts.pending, 'pending'],
   ];
-  const said = parts.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`);
+  const said = parts.filter(([n]) => n > 0).map(([n, word]) => `${num(n)} ${word}`);
   return said.length > 0 ? `${plural(total, 'delivery', 'deliveries')}: ${said.join(', ')}` : plural(total, 'delivery', 'deliveries');
 }
 

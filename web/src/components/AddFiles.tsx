@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ALLOWED_FILE_TYPES } from '@docbeam/shared/browser';
 import type { Rejected } from '../distribute/files.js';
+import { plural } from '../text.js';
 import { UploadIcon } from './Icons.js';
 import { Notice } from './Notice.js';
 import { useMoreBelow } from './useMoreBelow.js';
@@ -79,7 +80,7 @@ export function AddFiles({ onPick, rejected, onDismiss, empty, children, tools, 
         // The one note style (D-F1-78): the file name in normal text and the reason muted, the newest at the bottom. One button
         // closes the whole box; it stays until it is closed or the page is cleared (D-F1-35). A file with malware is added here
         // too, and the box scrolls into view when it gains an entry.
-        <Notice ref={notice} className="in-card" heading={`${rejected.length} ${rejected.length === 1 ? 'file' : 'files'} not added.`} onClose={onDismiss}>
+        <Notice ref={notice} className="in-card" heading={`${plural(rejected.length, 'file', 'files')} not added.`} onClose={onDismiss}>
           <ul className="notice-list">
             {rejected.map((r, i) => (
               <li key={`${r.name}-${i}`}>

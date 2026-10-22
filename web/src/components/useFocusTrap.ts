@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
+import { closeAllTooltips } from './Tooltip.js';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -13,6 +14,7 @@ export function useFocusTrap(box: RefObject<HTMLElement | null>, initial?: RefOb
   useEffect(() => {
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    closeAllTooltips(); // a tooltip that was open under the dialog goes at once, with no fade (D-F1-81)
     initial?.current?.focus();
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Tab' || !box.current) return;

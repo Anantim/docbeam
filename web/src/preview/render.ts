@@ -47,7 +47,7 @@ export function sheetHtml(sheet: SheetModel): string {
     .join('');
   const cut =
     sheet.rowCount > sheet.rows.length || sheet.columnCount > width
-      ? `<div class="note">Showing the first ${sheet.rows.length} rows and ${width} columns of ${sheet.rowCount} rows and ${sheet.columnCount} columns.</div>`
+      ? `<div class="note">Showing the first ${sheet.rows.length.toLocaleString('en-US')} rows and ${width.toLocaleString('en-US')} columns of ${sheet.rowCount.toLocaleString('en-US')} rows and ${sheet.columnCount.toLocaleString('en-US')} columns.</div>`
       : '';
   return srcdocFor(`<table><thead>${head}</thead><tbody>${body}</tbody></table>${cut}`, SHEET_STYLE);
 }

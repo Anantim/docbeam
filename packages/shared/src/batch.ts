@@ -1,6 +1,7 @@
 // The batch rules of POST /jobs (TDD "Submission checks"). The API and the web app both use this, so the
 // page stops a bad batch before the server would. Pure code: no Node imports.
 import { LIMITS } from './limits.js';
+import { BATCH_REASON } from './reasons.js';
 
 /** A destination is a folder. `folderId` is optional in the type only so that validateBatch can refuse a binder. */
 export interface BatchDestination {
@@ -9,7 +10,8 @@ export interface BatchDestination {
 }
 
 export interface BatchInput {
-  files: { fileId: string }[];
+  /** `sha256`, when given, is used to refuse two files with the same contents (D-F1-81). */
+  files: { fileId: string; sha256?: string }[];
   mappings: { fileId: string; destinations: BatchDestination[] }[];
 }
 
@@ -30,6 +32,8 @@ export function validateBatch(batch: BatchInput): BatchResult {
 
   const fileIds = new Set(batch.files.map((f) => f.fileId));
   if (fileIds.size !== batch.files.length) return fail('The same file is listed twice.');
+  const contents = new Set(batch.files.flatMap((f) => (f.sha256 ? [f.sha256.toLowerCase()] : [])));
+  if (contents.size !== batch.files.filter((f) => f.sha256).length) return fail(BATCH_REASON.SAME_CONTENTS);
 
   const mapped = new Set<string>();
   const destinations = new Set<string>();
@@ -55,7 +59,7 @@ export function validateBatch(batch: BatchInput): BatchResult {
 
   if (mapped.size !== fileIds.size) return fail('Every file needs at least one destination.');
   if (destinations.size > LIMITS.maxDestinationsPerJob) {
-    return fail(`A distribution can have at most ${LIMITS.maxDestinationsPerJob} destinations.`);
+    return fail(BATCH_REASON.TOO_MANY_FOLDERS);
   }
   if (taskCount > LIMITS.maxTasksPerJob) {
     return fail(`A distribution can have at most ${LIMITS.maxTasksPerJob.toLocaleString('en-US')} deliveries.`);

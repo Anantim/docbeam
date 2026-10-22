@@ -1,6 +1,6 @@
 import { LIMITS } from '@docbeam/shared/browser';
 
-/** A distribution can have at most 20 destinations (blueprint, TDD "Submission checks"). */
+/** A distribution can have at most 20 folders (blueprint, TDD "Submission checks"). */
 export const MAX_DESTINATIONS = LIMITS.maxDestinationsPerJob;
 
 export interface Destination {

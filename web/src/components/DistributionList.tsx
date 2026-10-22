@@ -1,9 +1,10 @@
-import { memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, memo, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { JOB_STATUS_MEANING } from '../explain.js';
 import { statusFromCounts } from '../tracking/apply.js';
 import type { Counts, JobSummary } from '../tracking/api.js';
 import { describeDestination } from '../distribute/mapping.js';
 import { jobChip, shortId } from '../tracking/format.js';
+import { num, plural } from '../text.js';
 import { When } from './When.js';
 import { CopyLinkButton, type Notify } from './CopyLinkButton.js';
 import { JobBar } from './JobBar.js';
@@ -87,7 +88,10 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
   const chip = jobChip(status);
   const sender = job.submittedBy.userId === meId ? 'You' : job.submittedBy.name;
   const firstFile = job.fileNames[0] ?? '';
-  const firstFolders = job.destinations.slice(0, 2).map((p) => describeDestination(p).name).join(', ');
+  const firstFolders = job.destinations.slice(0, 2).map((path) => {
+    const { team, name } = describeDestination(path);
+    return { path, label: `${team} · ${name}` };
+  });
   return (
     <tr className={`${selected ? 'on' : ''} ${arrive ? 'arrive' : ''} ${fresh ? 'fresh' : ''} ${pinned ? 'pinned' : ''}`} onClick={() => onOpen(job.jobId)}>
       <td>
@@ -132,8 +136,8 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
           </Tooltip>
           {job.fileNames.length > 1 && (
             <Popover
-              label={`+${job.fileNames.length - 1}`}
-              ariaLabel={`Show ${job.fileNames.length - 1} more ${job.fileNames.length === 2 ? 'file' : 'files'} of ${shortId(job.jobId)}`}
+              label={`+${num(job.fileNames.length - 1)}`}
+              ariaLabel={`Show ${plural(job.fileNames.length - 1, 'more file', 'more files')} of ${shortId(job.jobId)}`}
               panelLabel={`More files of ${shortId(job.jobId)}`}
               items={job.fileNames.slice(1)}
             />
@@ -142,13 +146,19 @@ const Row = memo(function Row({ job, counts, meId, selected, tabStop, onOpen, no
       </td>
       <td className="dist-more dist-fill dist-dests">
         <div className="cell-line">
-          <Tooltip text={firstFolders}>
-            <span className="cell-text">{firstFolders}</span>
-          </Tooltip>
+          {/* Each of the first two folders is "team · folder" with its full path on hover, so folders that share a name are told apart (D-F1-81). */}
+          {firstFolders.map((d, i) => (
+            <Fragment key={d.path}>
+              {i > 0 && <span className="cell-sep">,</span>}
+              <Tooltip text={d.path}>
+                <span className="cell-text">{d.label}</span>
+              </Tooltip>
+            </Fragment>
+          ))}
           {job.destinations.length > 2 && (
             <Popover
-              label={`+${job.destinations.length - 2}`}
-              ariaLabel={`Show ${job.destinations.length - 2} more ${job.destinations.length === 3 ? 'folder' : 'folders'} of ${shortId(job.jobId)}`}
+              label={`+${num(job.destinations.length - 2)}`}
+              ariaLabel={`Show ${plural(job.destinations.length - 2, 'more folder', 'more folders')} of ${shortId(job.jobId)}`}
               panelLabel={`More folders of ${shortId(job.jobId)}`}
               items={job.destinations.slice(2)}
             />

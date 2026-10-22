@@ -130,18 +130,53 @@ const opened = async (page: ReturnType<typeof renderPage>) => {
   await screen.findByRole('heading', { name: '3f1c2a9e' });
 };
 
-describe('opening a distribution: subscribe first, fetch after', () => {
-  it('does not fetch until the live connection has answered, then fetches the job and its deliveries', async () => {
+const finishedDetail = () => detail({ counts: counts({ completed: 10 }), status: 'completed', completedAt: '2026-10-16T10:04:00Z', cancel: { open: false, waiting: 0 } });
+
+describe('opening a distribution: the subscribe, the detail and the deliveries go out together (D-F1-81)', () => {
+  it('asks for the distribution and its first deliveries at once, without waiting for the live connection, and reads a finished one once', async () => {
+    api.job.mockResolvedValue(finishedDetail());
     const page = renderPage();
     expect(page.order).toEqual([`watch ${JOB}`]);
     await act(async () => undefined);
-    expect(api.job).not.toHaveBeenCalled(); // the subscription is not confirmed yet
-    expect(api.tasks).not.toHaveBeenCalled();
+    expect(api.job).toHaveBeenCalledTimes(1); // the subscription is not confirmed yet, and the job is already on its way
+    expect(api.tasks).toHaveBeenCalledTimes(1); // so are its deliveries
 
     await opened(page);
     expect(page.order).toEqual([`watch ${JOB}`, 'subscribed']);
+    await act(async () => undefined);
+    // Nothing is pending or in progress, so nothing can change: the first read is final, and the table used the deliveries already asked for.
     expect(api.job).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(api.tasks).toHaveBeenCalledTimes(1));
+    expect(api.tasks).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads a running distribution again after the subscribe answer, so no update falls between the read and the subscription', async () => {
+    const page = renderPage(); // the default distribution is in progress
+    await act(async () => undefined);
+    expect(api.job).toHaveBeenCalledTimes(1);
+    await opened(page);
+    await waitFor(() => expect(api.job).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(api.tasks).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps the deliveries live for a distribution that finishes around the moment the panel opens (a push after the first read)', async () => {
+    api.job.mockResolvedValue(detail({ counts: counts({ completed: 8, in_progress: 2 }), taskCount: 10 }));
+    api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 0, tasks: [] });
+    const page = renderPage();
+    await opened(page);
+    await waitFor(() => expect(api.job).toHaveBeenCalledTimes(2));
+    await page.push({ type: 'job_update', jobId: JOB, updatedAt: '2030-01-01T00:00:00.000Z', counts: counts({ completed: 10 }) });
+    await waitFor(() => expect(filterCounts()).toEqual({ Completed: 10 })); // only Completed has deliveries now, so it is the only tab (D-F1-77)
+    await waitFor(() => expect(api.tasks.mock.calls.length).toBeGreaterThanOrEqual(3)); // the job update reloaded the deliveries
+  });
+
+  it('shows the deliveries after one round trip: the table needs no second read of the first page', async () => {
+    api.job.mockResolvedValue(finishedDetail());
+    api.tasks.mockResolvedValue({ page: 1, limit: 100, total: 1, tasks: [{ taskId: 't1', fileId: 'f1', fileName: 'Lab certification.pdf', destinationPath: 'Cardio / CARDIO-301 / IRB approvals', teamId: 'tm', status: 'completed', attemptCount: 1, failureCode: null, failureReason: null, updatedAt: '2026-10-16T10:04:00Z', fileExpired: false, fileType: 'application/pdf' }] });
+    const page = renderPage();
+    await opened(page);
+    expect(await screen.findByText('Lab certification.pdf')).toBeTruthy();
+    expect(api.tasks).toHaveBeenCalledTimes(1);
+    expect(api.job).toHaveBeenCalledTimes(1);
   });
 
   it('stops watching when the panel is closed', async () => {
@@ -152,6 +187,7 @@ describe('opening a distribution: subscribe first, fetch after', () => {
   });
 
   it('fetches again exactly once after a reconnect has subscribed again', async () => {
+    api.job.mockResolvedValue(finishedDetail());
     const page = renderPage();
     await opened(page);
     await waitFor(() => expect(api.tasks).toHaveBeenCalledTimes(1));
@@ -718,11 +754,12 @@ describe('Cancel and Retry', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel distribution' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel distribution' }));
     await waitFor(() => expect(notify).toHaveBeenCalledWith('No delivery is waiting, so there is nothing to cancel.', 'error'));
-    await waitFor(() => expect(api.job).toHaveBeenCalledTimes(2));
+    // Once on opening, once more after the subscribe answer (it was running), and once after the refusal.
+    await waitFor(() => expect(api.job).toHaveBeenCalledTimes(3));
   });
 });
 
-const summary = (jobId: string, name = 'Priya Shah', over: Partial<JobSummary> = {}): JobSummary => ({
+const summary =(jobId: string, name = 'Priya Shah', over: Partial<JobSummary> = {}): JobSummary => ({
   jobId,
   submittedBy: { userId: name === 'Priya Shah' ? 'u' : 'r', name },
   createdAt: '2026-10-16T10:00:00Z',
@@ -963,10 +1000,10 @@ describe('the list and Open by ID', () => {
     const row = within(table).getAllByRole('row')[1] as HTMLElement;
     const sent = formatWhen('2026-10-16T10:00:00Z'); // "16 Oct, 15:30" in the viewer's zone (with the year once it is another year)
     // The sender is on every row, small and muted under the ID, in every state of the list.
-    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, 'Consent form.pdf+2', 'IRB approvals, Protocol amendments+2']);
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent)).toEqual(['bbbbbbbbYou', 'Completed', sent, 'Consent form.pdf+2', 'Cardio · IRB approvals,Cardio · Protocol amendments+2']); // "team · folder" (D-F1-81)
     expect(row.querySelector('.dist-sender')?.textContent).toBe('You');
     // Each is one line with an ellipsis (the text part is cut, the "+N" is not), and the count links list the rest.
-    expect(row.querySelectorAll('.cell-text')).toHaveLength(2);
+    expect(row.querySelectorAll('.cell-text')).toHaveLength(3); // the first file, and each of the first two folders
     const more = within(row).getAllByRole('button', { name: /^Show \d+ more/ });
     expect(more.map((b) => b.textContent)).toEqual(['+2', '+2']);
     expect(more.every((b) => b.classList.contains('count-link'))).toBe(true);
@@ -1137,8 +1174,10 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     const m = mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]);
     const page = renderPage({ onOpen, mine: m });
     await opened(page);
-    const icons = screen.getAllByRole('button', { name: 'Copy link' });
+    const icons = screen.getAllByRole('button', { name: /^Copy link/ });
     expect(icons).toHaveLength(2); // the row and the panel header
+    // Each says which distribution it copies (D-F1-81), so the button of another row is not "Copy link" too; the tooltip stays "Copy link".
+    expect(icons.map((i) => i.getAttribute('aria-label'))).toEqual(['Copy link to 3f1c2a9e', 'Copy link to 3f1c2a9e']);
     for (const icon of icons) expect(tooltipOf(icon)).toBe('Copy link');
     expect(icons.every((i) => i.textContent === '')).toBe(true); // an icon, not a text button
     onOpen.mockClear();
@@ -1169,7 +1208,7 @@ describe('the copy icon after a distribution id (D-F1-18)', () => {
     const page = renderPage({ onOpen: vi.fn(), mine: mine([summary(JOB, 'Priya Shah', { taskCount: 10, counts: counts({ pending: 10 }), status: 'pending' })]) });
     await opened(page);
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
-    await user.click(screen.getAllByRole('button', { name: 'Copy link' })[0] as HTMLElement);
+    await user.click(screen.getAllByRole('button', { name: /^Copy link/ })[0] as HTMLElement);
     await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("The link couldn't be copied.", 'error'));
   });
 });
@@ -1269,7 +1308,7 @@ describe('the filter row (D-F1-21)', () => {
     renderPage({ jobId: null, mine: all, filters: { sender: 'me' } });
     await screen.findByText('aaaaaaaa');
     expect(screen.queryByText('bbbbbbbb')).toBeNull(); // the filtered list is its own
-    expect(api.jobs).toHaveBeenCalledWith({ sender: 'me' }, null, 20);
+    expect(api.jobs).toHaveBeenCalledWith({ sender: 'u' }, null, 20); // an old "me" address means the viewer's own id (D-F1-81)
   });
 
   it('says no distribution matches when filters leave nothing, and offers to clear them', async () => {
