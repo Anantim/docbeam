@@ -177,7 +177,7 @@ test('the panel is sticky and at most as tall as the screen; a team member scrol
     await raj.getByRole('button', { name: 'Status' }).click();
     await raj.getByRole('button', { name: `Open distribution ${jobId.slice(0, 8)}` }).click();
     const panel = raj.getByRole('complementary');
-    await expect(panel.locator('.panel-note .sr')).toHaveText('Showing only deliveries to Cardio'); // Raj is in Cardio only (D-F1-52, D-F1-77)
+    await expect(panel.locator('.panel-note .sr')).toHaveText('Showing deliveries to Cardio'); // Raj is in Cardio only (D-F1-52, D-F1-77)
     await expect(panel).toContainText('Sent by Priya Shah');
     await expect(raj.locator('.ttable .tscroll .trow').first()).toBeVisible();
 

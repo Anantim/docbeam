@@ -72,7 +72,7 @@ test('Status with the panel as the sender, and as a team member', async ({ page 
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Sign out' }).click();
 
-    // A team member with 3 teams: the panel's "Showing only deliveries to" part is on its own line below 640 px, as one unit.
+    // A team member with 3 teams: the panel's "Showing deliveries to" part is on its own line below 640 px, as one unit.
     await signIn(page, RAJ);
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Status' }).click();
     await page.locator('tr', { has: page.locator(`[data-job-id="${jobId}"]`) }).locator('.dist-id').click();

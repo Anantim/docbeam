@@ -535,7 +535,7 @@ body:has(.view:not([hidden]) .sendbar) .toasts { bottom: calc(var(--s-16) + var(
 /* The spaces are inside the two pieces (kept by white-space: pre): white space between flex items would disappear. */
 .panel-sep, .panel-note-label { flex: none; white-space: pre; }
 .team-chips { display: inline-flex; align-items: center; gap: var(--s-1); margin-left: var(--s-2); }
-/* Below 640 px the note ("Showing only deliveries to" and the chips) is one unit on a line of its own, under the time (D-F1-78). */
+/* Below 640 px the note ("Showing deliveries to" and the chips) is one unit on a line of its own, under the time (D-F1-78). */
 @media (max-width: 639px) {
   .panel-sub { flex-wrap: wrap; row-gap: var(--s-1); }
   .panel-sub .panel-lead { flex: 1 1 100%; }

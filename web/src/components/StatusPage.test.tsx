@@ -493,7 +493,7 @@ describe('Cancel and Retry', () => {
     await act(async () => page.release());
     await waitFor(() => expect(document.querySelector('.panel-lead')?.textContent).toMatch(/^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d$/));
     expect(document.querySelector('.panel-lead')?.textContent).not.toContain('(you)'); // someone else's distribution: no "(you)"
-    expect(screen.getByText('Showing only deliveries to Cardio')).toBeTruthy(); // what a screen reader gets
+    expect(screen.getByText('Showing deliveries to Cardio')).toBeTruthy(); // what a screen reader gets
     expect(screen.queryByRole('button', { name: /Cancel distribution|Retry failed deliveries/ })).toBeNull();
     expect(document.querySelector('.panel-divider')).toBeNull(); // no icons, so no divider
   });
@@ -526,7 +526,7 @@ describe('Cancel and Retry', () => {
       expect(document.querySelectorAll('.panel-head > .panel-top, .panel-head > .panel-sub')).toHaveLength(2); // the id row and the sent-by row, nothing else
     });
 
-    it('one team: one chip after " · Showing only deliveries to", on the same line as the time', async () => {
+    it('one team: one chip after " · Showing deliveries to", on the same line as the time', async () => {
       asMember(['Cardio']);
       const page = renderPage();
       await act(async () => page.release());
@@ -534,8 +534,8 @@ describe('Cancel and Retry', () => {
       const sub = document.querySelector('.panel-sub') as HTMLElement;
       expect(sub.querySelector('.panel-lead')?.textContent).toMatch(/^Sent by Priya Shah · 16 Oct( 2026)?, \d\d:\d\d$/);
       expect(sub.querySelector('.panel-sep')?.textContent).toBe(' · ');
-      expect(sub.querySelector('.panel-note-label')?.textContent).toBe('Showing only deliveries to');
-      expect(sentence()).toBe('Showing only deliveries to Cardio');
+      expect(sub.querySelector('.panel-note-label')?.textContent).toBe('Showing deliveries to');
+      expect(sentence()).toBe('Showing deliveries to Cardio');
     });
 
     it('3 teams: 3 chips sorted A to Z, no "+N"', async () => {
@@ -545,7 +545,7 @@ describe('Cancel and Retry', () => {
       await waitFor(() => expect(chips()).toHaveLength(3));
       expect(chips().map((c) => c.textContent)).toEqual(['Cardio', 'Neuro', 'Oncology']);
       expect(document.querySelector('.panel-sub .team-chips .count-link')).toBeNull();
-      expect(sentence()).toBe('Showing only deliveries to Cardio, Neuro and Oncology');
+      expect(sentence()).toBe('Showing deliveries to Cardio, Neuro and Oncology');
     });
 
     it('10 teams: the first 2 chips and "+8", which opens the shared popover listing all 10 in order; "+8" is a Tab stop (D-F1-78)', async () => {
@@ -560,7 +560,7 @@ describe('Cancel and Retry', () => {
       expect(more.textContent).toBe('+8');
       expect(more.classList.contains('count-link')).toBe(true); // the same link as the "+N" of the Files column
       expect(more.tabIndex).toBe(0); // focusable
-      expect(sentence()).toBe(`Showing only deliveries to ${sorted.slice(0, -1).join(', ')} and ${sorted[9]}`);
+      expect(sentence()).toBe(`Showing deliveries to ${sorted.slice(0, -1).join(', ')} and ${sorted[9]}`);
       // A list of names is the light popover, never a dark tooltip.
       await user.click(more);
       const popover = await screen.findByRole('dialog', { name: 'Teams' });

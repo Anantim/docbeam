@@ -1372,3 +1372,9 @@ Changes to the design in `docs/design/`, agreed with the person. `docs/design/` 
 
 ## D-F1-79. D-F1-77 and D-F1-78 folded into the docs; four leftovers corrected
 - **Date:** 2026-10-22. **Decided by:** the person ("go ahead"); written by the design assistant. D-F1-77 and D-F1-78 were already written into the flows and the technical design by their pull requests. Four places still described the earlier behaviour and now match the code: the team "+N" chip opens a popover, not a tooltip (D-F1-78), in `03-user-flows.md` Flow 3 step 8 and the technical design's Status line, which also notes that below 640 px the team part moves to its own line; the technical design's Distribute line no longer lists a Refused file state; the M3 colour note says Scanning is blue; and `USER-FLOW-AND-APIS.md` says a file with malware leaves the list with a note, and that a refused upload part ends the file as Failed with Retry. `STATUS.md`'s first line says dev is up and the project is final. No code and no diagram changes.
+
+## D-F1-80. The team note says "Showing deliveries to"
+
+- **Date:** 2026-10-22. **Decided by:** the person.
+- **What:** in the distribution panel the team note reads "Showing deliveries to" (and the screen-reader sentence "Showing deliveries to Cardio, Neuro and Oncology"). "only" is dropped. Chips, the 3 / 2 + "+N" rule, the popover and the layout below 640 px are unchanged.
+- **Why:** the page cannot tell whether any deliveries are hidden from this viewer, so the sentence must be true in both cases. Earlier decisions that quote the old words keep them as history.
