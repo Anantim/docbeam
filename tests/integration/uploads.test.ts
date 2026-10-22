@@ -264,7 +264,7 @@ describe('GET /files?ids=', () => {
 
     const mine = await call(DOCBEAM_URL, `/files?ids=${id},${randomUUID()}`, { token: owner.token });
     expect(mine.status).toBe(200);
-    expect(mine.body).toEqual([{ fileId: id, uploaded: false, scanStatus: 'pending' }]);
+    expect(mine.body).toEqual([{ fileId: id, uploaded: false, scanStatus: 'pending', createdAt: expect.any(String) }]); // createdAt: what the 24 hours count from (D-F1-81)
 
     const theirs = await call(DOCBEAM_URL, `/files?ids=${id}`, { token: other.token });
     expect(theirs.status).toBe(200);

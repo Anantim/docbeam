@@ -34,8 +34,9 @@ function useRoute(): [Route, (next: Route) => void, (next: Route) => void] {
   }, []);
   // Puts the address in place of the current one, with no new history entry: for an address that held filters that do not apply (D-F1-81).
   const replace = useCallback((next: Route): void => {
-    window.history.replaceState(window.history.state, '', hashFor(next));
     setRoute(next);
+    // After the browser has finished the move to the address that is being replaced, so that move cannot write the old address back.
+    setTimeout(() => window.history.replaceState(window.history.state, '', hashFor(next)), 0);
   }, []);
   return [route, go, replace];
 }

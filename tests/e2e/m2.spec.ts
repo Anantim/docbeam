@@ -81,9 +81,9 @@ test('malware test files leave the list by themselves, are named in the one "not
   const one = `eicar-${randomUUID().slice(0, 6)}.docx`; // a real DOCX with the test string inside: the bare text named .pdf is not added (D-F1-44)
   const two = `eicar-${randomUUID().slice(0, 6)}.docx`;
   await addPdfs(page, 2, 'beside-eicar');
-  const eicar = await eicarDocx();
   const docx = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  await page.getByLabel('Choose files').setInputFiles([{ name: one, mimeType: docx, buffer: eicar }, { name: two, mimeType: docx, buffer: eicar }, { name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
+  // Each file has its own contents: two with the same contents would be taken for copies (D-F1-81).
+  await page.getByLabel('Choose files').setInputFiles([{ name: one, mimeType: docx, buffer: await eicarDocx() }, { name: two, mimeType: docx, buffer: await eicarDocx() }, { name: 'setup.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') }]);
   const box = page.locator('.notice').filter({ hasText: 'not added' });
   await expect(box.getByText('3 files not added.')).toBeVisible({ timeout: 90_000 }); // setup.exe at once, the two EICAR files after the scan
   await expect(box.locator('.notice-name')).toHaveCount(3);
@@ -224,7 +224,7 @@ test('before sending, the preview shows a real multi-page PDF, a DOCX and an ima
   await clearPage(page);
 });
 
-test('a distribution can have at most 20 destinations', async ({ page }) => {
+test('a distribution can have at most 20 folders: the 21st cannot be ticked, and unticking one frees it (D-F1-81)', async ({ page }) => {
   await signIn(page, 'load.user@example.com'); // in 50 teams (the load seed)
   await page.getByLabel('Choose files').setInputFiles([{ name: `limit-${randomUUID().slice(0, 6)}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.7\n${randomUUID()}\n%%EOF\n`) }]);
   await expect(page.getByText('Ready', { exact: true })).toHaveCount(1, { timeout: 90_000 }); // the reason names the first problem
@@ -245,14 +245,25 @@ test('a distribution can have at most 20 destinations', async ({ page }) => {
     await tickFolder(n, 'Regulatory', 'RA');
     await tickFolder(n, 'Operations', 'OA');
   }
-  // The 21st can be ticked. The limit is checked at Send: Send is off and says why (D-F1-4).
-  await tickFolder(11, 'Regulatory', 'RA');
-  await expect(page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) })).toBeChecked();
-  await expect(page.locator('.send-reason')).toHaveText('A distribution can have at most 20 destinations.');
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+  // The 21st cannot be ticked: it is off, says why on hover, and a click does nothing (D-F1-81).
+  const twentyFirst = async (): Promise<ReturnType<typeof page.getByRole>> => {
+    const teamBlock = page.getByRole('button', { name: new RegExp(`^(Expand|Collapse) ${team(11)}$`) }).locator('xpath=ancestor::div[2]');
+    if ((await page.getByRole('button', { name: `Expand ${team(11)}` }).count()) > 0) await page.getByRole('button', { name: `Expand ${team(11)}` }).click();
+    if ((await teamBlock.getByRole('button', { name: 'Expand Regulatory' }).count()) > 0) await teamBlock.getByRole('button', { name: 'Expand Regulatory' }).click();
+    return page.getByRole('checkbox', { name: new RegExp(` to ${team(11)} / Regulatory / RA$`) });
+  };
+  const box = await twentyFirst();
+  await expect(box).toHaveAttribute('aria-disabled', 'true');
+  await box.hover();
+  await expect(page.getByRole('tooltip')).toHaveText('A distribution can have at most 20 folders.');
+  await box.click({ force: true }); // it is aria-disabled, so a plain click would wait to be enabled
+  await expect(box).not.toBeChecked();
+  await expect(page.locator('.send-reason')).not.toHaveText(/at most 20/); // nothing is wrong: the 20 are valid
 
-  await tickFolder(11, 'Regulatory', 'RA'); // untick it: valid again
-  await expect(page.locator('.send-reason')).not.toHaveText('A distribution can have at most 20 destinations.');
+  await tickFolder(10, 'Operations', 'OA'); // untick one of the 20: the others are free again
+  await expect(box).not.toHaveAttribute('aria-disabled', 'true');
+  await box.click();
+  await expect(box).toBeChecked();
   await clearPage(page);
 });
 

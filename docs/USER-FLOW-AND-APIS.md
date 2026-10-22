@@ -319,6 +319,17 @@ sequenceDiagram
 
 ![Adding three small files](user-flow/img/net-2-single-upload.png)
 
+### What the page checks before and after a file is added (D-F1-81)
+
+No call is made for these; each one puts the file in the "N files not added." box with its reason.
+
+- **The same file again:** a file with the same name, size and last-modified time as one in the list (or earlier in the same pick) is not added: "This file is already in the list."
+- **A renamed copy:** after the browser has worked out a file's SHA-256 and before it is uploaded, a second file with the same SHA-256 is taken out (the newer one, with its selection and folder ticks), and the box says "Same contents as <other file>, already in the list." It is never uploaded. A restored batch follows the same rule. Two files with the same name and different contents are both kept.
+- **A long name:** a name over 255 characters is not added: "The name is longer than 255 characters."
+- **Age:** each file's age counts from its row on the server (`createdAt` in `GET /files`). Checked when the page opens and about once a minute, a file older than 24 hours is taken out: "Uploaded more than 24 hours ago. Add it again."
+- **Offline:** while the browser is offline an info note shows under the header and uploads wait instead of using up their retries; when the browser is back they carry on from the parts already stored, and the live connection reconnects at once.
+- **The object key** of a new upload ends in the file's own name (`staging/{owner}/{fileId}/{safe name}`), so a PDF viewer with no title for the file shows the name. Older objects keep their keys; every service reads the key from the database.
+
 ### `POST /uploads`
 
 *When it fires:* as soon as a file has been fingerprinted, in waves of at most 20 files, at most one wave in flight, so a hundred files do not ask for a hundred links at once (ADR-004).
@@ -466,7 +477,7 @@ A team or binder that is not the caller's answers `404`, the same as one that do
 
 ### `GET /folders/search`
 
-*When it fires:* from 2 characters typed in the box, 300 ms after the last keystroke (one request per word, not per letter).
+*When it fires:* from 2 characters typed in the box, 300 ms after the last keystroke (one request per word, not per letter). The results are in path order, team then binder then folder, with numbers in natural order ("Team 2" before "Team 10"), the same order as the tree; "Show more" continues in that order (D-F1-81).
 
 ![Searching](user-flow/img/03b-search.png)
 
@@ -566,7 +577,7 @@ sequenceDiagram
 | `jobId` | the address of the Status page, the first 8 characters in the heading (computed in the browser) | 04b · 1 |
 | `taskCount` | not shown (the Status page counts the deliveries itself) | — |
 
-**What the server checks (every one is an error code the page can show):** at least 1 and at most 100 files; no file twice; every file mapped to at least one **folder** (not a binder); at most 20 destinations; at most 2,000 deliveries; every file belongs to the caller, is uploaded and **clean**, is less than 24 hours old and is not already in a distribution; every folder exists and is in a team the caller belongs to (asked of the platform, never trusted from the browser). The batch rules live in one shared function, so the page and the server agree.
+**What the server checks (every one is an error code the page can show):** at least 1 and at most 100 files; no file twice; every file mapped to at least one **folder** (not a binder); no two files with the same SHA-256 (422 `INVALID_BATCH`, "Two files in this distribution have the same contents."); at most 20 folders ("A distribution can have at most 20 folders." — on Destinations the 21st folder cannot be ticked, with that sentence as its tooltip); at most 2,000 deliveries; each per-file refusal names the file ("Protocol amendment 3.pdf was uploaded more than 24 hours ago. Add it again."); every file belongs to the caller, is uploaded and **clean**, is less than 24 hours old and is not already in a distribution; every folder exists and is in a team the caller belongs to (asked of the platform, never trusted from the browser). The batch rules live in one shared function, so the page and the server agree.
 
 **What it stores, in one transaction:** a row in `jobs` (who, when, how many deliveries, the idempotency key), the claim on the files (`files.job_id`), one row in `tasks` per file and folder (pending, with the destination path as it was then), and an `audit_events` row `job.submitted`. Straight after the recording of Send, the database held this for the new distribution:
 
@@ -657,6 +668,15 @@ sequenceDiagram
 
 ![Opening Status](user-flow/img/net-5b-list.png)
 
+### What changed in the last round (D-F1-81)
+
+- **Filters in the address that do not apply to the person are dropped** once their teams and colleagues have loaded (the list waits for them, so a slow load never drops a valid filter): a team they are not in, a sender who is not them or in their teams. The address is replaced, with no new history entry, and the list shows as if the link did not have them. A status or time the page does not know is also taken out of the address. The Team button shows only for a person in more than one team. "Sender: Me" is stored as the person's own id (an old `sender=me` still works): the person it belongs to sees "Me", a colleague sees the name, and a person who shares no team with them has it dropped.
+- **The Destinations cell** shows each of the first two folders as "<team> · <folder>", with the full path as its tooltip.
+- **One file order:** the first file in a row, the "+N" popover and the panel's deliveries all go by file name.
+- **Opening a distribution:** the live subscribe, `GET /jobs/{jobId}` and the first page of deliveries go out together. A distribution that was still running is read once more after the subscribe answers, so nothing is missed.
+- **The retry window:** for the sender, when deliveries failed and Retry can no longer help, an info note under the header says "Retry has ended (24 hours after this finished). Send the files again as a new distribution." (or, for a cancelled one, "This distribution was cancelled. …"), from the `retry` state the API already returns.
+- **Everywhere:** counts have a thousands separator; error toasts stay until closed (at most 3 toasts, the oldest goes first), success toasts fade after 4 seconds and wait while the pointer is over them; the tab title follows the page ("Status · DocBeam", "3d63d20e · Status · DocBeam"); a tooltip shows on hover and on keyboard focus only (a dialog opening closes any open tooltip); the two "Copy link" buttons are "Copy link to <id>" and the other repeated buttons carry the file or folder in their names.
+
 ### The list
 
 **`GET /jobs`** — *fires* when Status opens, when a filter changes (`?status=completed`, `?sender=<userId>`, `?sentSince=`, `?team=<teamId>`, `?scope=all|mine|team`), when the next 20 are needed (`?cursor=`, as the list is scrolled), and for Open by ID (`?idPrefix=`). *Answer, 200 (shortened):*
@@ -694,7 +714,7 @@ A filter is just another request:
 | Marker | Where it comes from |
 |---|---|
 | 1 | `GET /jobs/{jobId}` → `counts` → the status word (computed in the browser) |
-| 2 | `GET /jobs/{jobId}` → `submittedBy.name`, `createdAt`; for a team member the note names their teams (`GET /teams`) |
+| 2 | `GET /jobs/{jobId}` → `submittedBy.name`, `createdAt`; for a team member the note names the teams found in `destinations[]` (the folder paths of the deliveries they may see), with no extra call |
 | 3 | `GET /jobs/{jobId}` → `counts` (each tab); updated live by `WS task_update` → `counts` |
 | 4 | `GET /jobs/{jobId}/tasks` → `tasks[].fileName` |
 | 5 | press → `POST /files/{fileId}/downloads`, then `S3 GET` (chapter 7) |
@@ -854,7 +874,7 @@ sequenceDiagram
 | Marker | Where it comes from |
 |---|---|
 | 1 | `GET /jobs/running` → `running` (his own distributions and the ones sent to his teams) |
-| 2 | `GET /jobs/{jobId}` → `isSender` false and `submittedBy.name`; the note names Raj's teams (`GET /teams`) |
+| 2 | `GET /jobs/{jobId}` → `isSender` false and `submittedBy.name`; the note names the teams in `destinations[]` (the folder paths of the deliveries Raj may see), with no extra call |
 | 3 | `GET /jobs/{jobId}` → `counts`: only the deliveries to Raj's teams |
 | 4 | `GET /jobs/{jobId}/tasks` → only Cardio rows |
 

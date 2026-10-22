@@ -80,7 +80,7 @@ describe('upload-events: confirmation and scanning', () => {
 
     // The browser sees it through GET /files.
     const state = await call(DOCBEAM_URL, `/files?ids=${id}`, { token: user.token });
-    expect(state.body).toEqual([{ fileId: id, uploaded: false, scanStatus: 'infected' }]);
+    expect(state.body).toEqual([{ fileId: id, uploaded: false, scanStatus: 'infected', createdAt: expect.any(String) }]);
   }, 90_000);
 
   it('a repeated event for a refused file changes nothing and writes no second audit event', async () => {
@@ -106,7 +106,7 @@ describe('upload-events: confirmation and scanning', () => {
     expect(tags.TagSet).toContainEqual({ Key: 'scan-status', Value: 'clean' });
 
     const state = await call(DOCBEAM_URL, `/files?ids=${id}`, { token: user.token });
-    expect(state.body).toEqual([{ fileId: id, uploaded: true, scanStatus: 'clean' }]);
+    expect(state.body).toEqual([{ fileId: id, uploaded: true, scanStatus: 'clean', createdAt: expect.any(String) }]);
 
     await resendEvent(r.s3_key, data.length);
     await new Promise((resolve) => setTimeout(resolve, 4000));

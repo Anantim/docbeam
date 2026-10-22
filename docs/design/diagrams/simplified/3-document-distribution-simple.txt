@@ -12,7 +12,7 @@ Document Platform [icon: aws-ecs, color: green]
 
 // Upload
 User > Web Client: Pick files and map them to folders
-Web Client > Web Client: Check each file's contents match its type
+Web Client > Web Client: Check each file's contents match its type; skip a file already in the list (same name, or same contents), a name over 255 characters, and a file older than 24 hours
 Web Client > DocBeam API: Ask for upload links
 DocBeam API --> Web Client: One link per file
 Web Client > Object Store: Upload each file once

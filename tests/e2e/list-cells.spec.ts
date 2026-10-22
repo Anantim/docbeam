@@ -7,7 +7,7 @@ import { PRIYA, removeSeeded, seedJob, signIn } from './helpers.js';
 const SHOTS = process.env.SHOT_DIR;
 const folders = ['Cardio / CARDIO-301 Regulatory / IRB approvals', 'Cardio / CARDIO-301 Regulatory / Protocol amendments', 'Oncology / ONC-118 Regulatory / Ethics committee', 'Oncology / ONC-118 Site files / Delegation logs', 'Neuro / NEURO-204 Regulatory / Ethics committee'];
 
-const textOf = async (cell: Locator): Promise<string> => (await cell.innerText()).replace(/\s+/g, ' ').trim();
+const textOf = async (cell: Locator): Promise<string> => (await cell.innerText()).replace(/\s+/g, ' ').replace(/ ,/g, ',').trim();
 
 for (const width of [1440, 1280, 1024]) {
   test(`Files and Destinations show the names and "+N" at ${width} px`, async ({ page }) => {
@@ -27,19 +27,19 @@ for (const width of [1440, 1280, 1024]) {
       // 1, 2 and 100 files; 1, 2 and 5 folders: the text that is drawn.
       const a = await cells(one);
       expect(await textOf(a.files)).toBe('one-001.pdf'); // a single file: its name, no "+N"
-      expect(await textOf(a.dests)).toBe('IRB approvals');
+      expect(await textOf(a.dests)).toBe('Cardio · IRB approvals'); // "team · folder" (D-F1-81)
       const b = await cells(two);
       expect(await textOf(b.files)).toBe('two-001.pdf +1');
-      expect(await textOf(b.dests)).toBe('IRB approvals, Protocol amendments'); // two folders: both names, no "+N"
+      expect(await textOf(b.dests)).toBe('Cardio · IRB approvals, Cardio · Protocol amendments'); // two folders: both, no "+N"
       const c = await cells(many);
       expect(await textOf(c.files)).toBe('many-001.pdf +99');
-      expect(await textOf(c.dests)).toBe('IRB approvals, Protocol amendments +3');
+      expect(await textOf(c.dests)).toBe('Cardio · IRB approvals, Cardio · Protocol amendments +3');
 
       for (const id of [one, two, many]) {
         const { files, dests } = await cells(id);
         for (const cell of [files, dests]) {
           // One line; the name is wider than a few characters (not collapsed); "+N", where there is one, is whole and inside the cell.
-          const name = cell.locator('.cell-text');
+          const name = cell.locator('.cell-text').first();
           expect((await name.boundingBox())!.width, 'the name is not collapsed').toBeGreaterThan(40);
           const more = cell.locator('.count-link');
           if (await more.count()) {

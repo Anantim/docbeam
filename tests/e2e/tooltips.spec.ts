@@ -69,8 +69,12 @@ test('a tooltip comes after 300 ms of resting, at once on keyboard focus, closes
   await page.mouse.move(0, 0);
   await expect(page.getByRole('tooltip')).toHaveCount(0);
 
-  await remove.focus(); // keyboard focus: at once
-  await expect(page.getByRole('tooltip')).toHaveText(`Remove ${name}`, { timeout: 500 });
+  await remove.focus(); // focus the page moves shows no tooltip (D-F1-81)
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab'); // keyboard focus: at once
+  await expect(page.getByRole('tooltip', { name: `Remove ${name}` })).toHaveText(`Remove ${name}`, { timeout: 500 });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
   await clearPage(page);

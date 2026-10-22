@@ -17,8 +17,10 @@ test('Cancel is an icon left of Close with a divider; its name is its tooltip; w
     // Just started: All, Completed (0) and Pending; the other statuses have no tab.
     await expect(counts(page).getByRole('button')).toHaveText([/^All\s*1$/, /^Completed\s*0$/, /^Pending\s*1$/]);
     expect(await tooltipOf(page, cancel)).toBe('Cancel distribution');
-    await cancel.focus(); // keyboard focus shows it at once
-    await expect(page.getByRole('tooltip')).toHaveText('Cancel distribution');
+    await cancel.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab'); // the keyboard moves the focus there: the tooltip shows at once (focus the app moves shows none, D-F1-81)
+    await expect(page.getByRole('tooltip', { name: 'Cancel distribution' })).toHaveText('Cancel distribution');
 
     // 32 px square, left of the divider, which is left of Close, all on the first row.
     const c = await box(cancel);

@@ -69,7 +69,7 @@ test('on Status, a delivered file has live Preview and Download icon buttons', a
   const name = names[0] as string;
   for (const kind of ['Preview', 'Download']) {
     const label = `${kind} ${name}`;
-    const button = page.getByRole('button', { name: label, exact: true });
+    const button = page.getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\(in `) }); // the name says which folder (D-F1-81)
     await expect(button).toBeEnabled();
     expect(await tooltipOf(page, button)).toBe(label);
     await expect(button).toHaveCSS('cursor', 'pointer');

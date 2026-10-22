@@ -248,10 +248,11 @@ describe('POST /jobs', () => {
     // 100 files are rows only here: confirmed by hand, so the test does not upload 100 objects.
     const ids = Array.from({ length: 100 }, () => randomUUID());
     const owner = priya.id;
+    const shas = ids.map((id) => sha(Buffer.from(id))); // each file has its own contents: two with the same are refused (D-F1-81)
     await db.query(
       `INSERT INTO files (id, owner_user_id, original_name, size_bytes, content_type, checksum_sha256, s3_key, s3_checksum, uploaded_at, scan_status)
-       SELECT id, $2, 'bulk.pdf', 10, 'application/pdf', repeat('c', 64), 'staging/bulk/' || id, 'x', now(), 'clean' FROM unnest($1::uuid[]) AS id`,
-      [ids, owner],
+       SELECT f.id, $2, 'bulk.pdf', 10, 'application/pdf', f.sha, 'staging/bulk/' || f.id, 'x', now(), 'clean' FROM unnest($1::uuid[], $3::text[]) AS f(id, sha)`,
+      [ids, owner, shas],
     );
     // 20 destinations: the folders of the two Cardio binders, nested ones included (the 50-team load seed would need
     // more users).
@@ -271,7 +272,7 @@ describe('POST /jobs', () => {
       token: priya.token,
       headers: { 'idempotency-key': randomUUID() },
       json: {
-        files: ids.map((fileId) => ({ fileId, sha256: 'c'.repeat(64) })),
+        files: ids.map((fileId, i) => ({ fileId, sha256: shas[i] })),
         mappings: ids.map((fileId) => ({ fileId, destinations: chosen })),
       },
     });

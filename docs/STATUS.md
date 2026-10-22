@@ -17,17 +17,18 @@ Updated 2026-10-22, after the **final round** (D-F1-77, D-F1-78): the project is
   2. The platform is a stand-in; its ingest capacity is the client's to confirm (D-M2-22).
   3. `POST /jobs` under peak delivery load was measured at p99 452 ms on dev and 992 ms in the worst M5 run (limit 1 s, D-M5-17); the cause is a small `db.t4g.micro` database, a larger one is planned and not done.
   4. A restored file (after a reload) has no local copy, so its Preview is off; a file that was mid-upload cannot come back (D-F1-66).
-  5. A person's second try of a delivery shows live as "Retrying" only on a build with D-F1-65 (any new deploy has it; dev is down).
+  5. A person's second try of a delivery shows live as "Retrying" (D-F1-65); every build has it.
   6. Contrast, focus rings and the screen reader were checked by design and by eye, not with a tool or a screen reader.
   7. `grill-with-docs` and `grill-me` were not run (the agent cannot start them).
   8. An old pending task aimed at a binder's top level fails at the platform with 404 (D-F1-3).
-  9. `npm audit` shows 6 moderate findings, all in drizzle-kit's development chain (esbuild); `npm audit fix --force` would downgrade drizzle-kit.
-  10. The SNS alarm email was never confirmed on a bring-up (alarms were read in CloudWatch).
+  9. `npm audit` shows 6 moderate findings: esbuild inside drizzle-kit's loader and uuid inside exceljs; both need breaking upgrades and are not done. No high or critical findings.
+  10. The SNS alarm email is not confirmed by the agent on a bring-up (the person clicks the link; alarms can be read in CloudWatch).
+  12. There is no automatic accessibility check (`@axe-core/playwright` is not installed).
   11. No 20-team screenshot (unit tests cover 20 teams); the delivery timing is one run.
 - **Resolved since they were first written:** the webm-only demo (now also mp4), the dev specs "edited but not run" (run 2026-10-20), the sign-in dialog fix "not seen in a real run" (22.1 minutes with no dialog on dev), the demo that "needs re-recording" (done), the one-call browse timing "not re-timed" (done: p99 832 ms), the scheduled teardown that did not run (teardown is manual now, D-F1-16), the destination search that "only finds loaded rows" (D-F1-67), the daily Upload Events rebuild "not yet run" (it has: 2026-10-18, 19 and 20 succeeded; with dev down the deploy step skips).
 - **Repository variables (checked 2026-10-21):** `ECS_DEPLOY_ENABLED=true`, `LAMBDA_DEPLOY_ENABLED=true`, `INFRA_APPLY_ENABLED=false` (keep `false` while dev is down), `ALARM_EMAIL` set. The daily `dev-up-check` fails on days dev is up and passes when it is down (2026-10-17 to 20).
 - **Design documents:** the F1 decisions (D-F1-1 to D-F1-70) are folded into `docs/design/` (blueprint, flows, ADR-001 and ADR-016, the technical design's contracts and a new "F1: Reviewer feedback round" section) and into the Eraser diagrams under `docs/design/diagrams/` (D-F1-71). The mockup in `docs/design/ui/` is the pre-F1 prototype; the current screens are in `docs/testing/f1-evidence/after/`.
-- **Decided:** "Cancel distribution" and "Retry failed" stay in the panel body above the deliveries; the person confirmed it (D-F1-72). They now have tooltips when on, and the cancel question has no raw code.
+- **Decided:** Cancel and Retry are icons just left of Close in the panel header, with a divider (D-F1-77, which replaced the earlier decision to keep them in the panel body, D-F1-72). Each has its full name as its tooltip and accessible name, and the cancel question has no raw code.
 - **Next:** nothing is blocked. To bring dev up: `docs/RUNBOOK-first-bring-up.md`; to record the demo: `docs/DEMO-SCRIPT.md`.
 
 # History (each section is the account from the date it names)

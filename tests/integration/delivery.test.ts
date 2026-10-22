@@ -61,7 +61,9 @@ async function readyFile(): Promise<ReadyFile> {
   form.append('file', new Blob([data]), 'upload.bin');
   await fetch(post.url, { method: 'POST', body: form });
   await eventually(async () => (await call(DOCBEAM_URL, `/files?ids=${fileId}`, { token })).body[0]?.scanStatus === 'clean' || undefined, 60_000);
-  return { fileId, sha256: sha(data), key: `staging/${priyaId}/${fileId}`, data };
+  // The key is read from the row, as every service does (it ends in the file's name since D-F1-81).
+  const key = (await docbeam.query('SELECT s3_key FROM files WHERE id = $1', [fileId])).rows[0].s3_key as string;
+  return { fileId, sha256: sha(data), key, data };
 }
 
 /** A job with one task per file, inserted directly. Returns the task ids in file order. */
